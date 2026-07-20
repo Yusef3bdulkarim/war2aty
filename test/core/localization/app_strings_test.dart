@@ -1,0 +1,51 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/app_strings.dart';
+import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/localization/en_strings.dart';
+
+/// Every key, as an accessor. Both languages run through the same list, so the
+/// parity check covers the whole interface. Adding a getter to [AppStrings]
+/// without adding it here leaves it untested — keep this in sync with the
+/// interface (the compiler already forces both impls to define it).
+final List<String Function(AppStrings)> _accessors = [
+  (s) => s.appName,
+  (s) => s.actionRetry,
+  (s) => s.actionCancel,
+  (s) => s.actionOk,
+  (s) => s.actionSave,
+  (s) => s.actionShare,
+  (s) => s.actionDelete,
+  (s) => s.stateLoading,
+  (s) => s.stateEmpty,
+  (s) => s.stateErrorGeneric,
+  (s) => s.navHome,
+  (s) => s.navSaved,
+  (s) => s.navReminders,
+  (s) => s.navSettings,
+  (s) => s.languageArabic,
+  (s) => s.languageEnglish,
+];
+
+void main() {
+  const ar = ArStrings();
+  const en = EnStrings();
+
+  group('AppStrings parity', () {
+    test('every Arabic key is non-empty', () {
+      for (final get in _accessors) {
+        expect(get(ar).trim(), isNotEmpty);
+      }
+    });
+
+    test('every English key is non-empty', () {
+      for (final get in _accessors) {
+        expect(get(en).trim(), isNotEmpty);
+      }
+    });
+
+    test('Arabic and English differ (translations, not copies)', () {
+      expect(ar.appName, isNot(en.appName));
+      expect(ar.actionCancel, isNot(en.actionCancel));
+    });
+  });
+}
