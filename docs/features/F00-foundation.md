@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/project-setup` · **Milestone:** M0–M1
 - **Depends on:** — · **Feeds:** everything
-- **Progress:** 0 / 17 DONE
+- **Progress:** 5 / 17 DONE
 
 Substrate for the whole app: flavors, kernel types, theme, localization, navigation, DI, DB skeleton.
 
@@ -10,11 +10,11 @@ Substrate for the whole app: flavors, kernel types, theme, localization, navigat
 
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
-| 1 | F00-T01 | Git init + harden ignore | repo init; `main`+`develop`; secrets/`.env`/build artifacts ignored; initial commit | TODO |
-| 2 | F00-T02 | Flavors + entrypoints + env | `dev`/`prod` boot; `AppEnvironment` exposes placeholder Supabase URL/key + flavor name | TODO |
-| 3 | F00-T03 | Lints + quality-gate script | strict lints (no `print`, prefer_const); `tool/check` runs format→analyze→test, non-zero on fail | TODO |
-| 4 | F00-T04 | `Result<T,F>` | sealed Ok/Err; map/fold/when; zero deps; unit-tested | TODO |
-| 5 | F00-T05 | `AppFailure` hierarchy | sealed base + local/network/business subtypes (§47); exhaustiveness test | TODO |
+| 1 | F00-T01 | Git init + harden ignore | repo init; `main`+`develop`; secrets/`.env`/build artifacts ignored; initial commit | DONE |
+| 2 | F00-T02 | Flavors + entrypoints + env | `dev`/`prod` boot; `AppEnvironment` exposes placeholder Supabase URL/key + flavor name | DONE |
+| 3 | F00-T03 | Lints + quality-gate script | strict lints (no `print`, prefer_const); `tool/check` runs format→analyze→test, non-zero on fail | DONE |
+| 4 | F00-T04 | `Result<T,F>` | sealed Ok/Err; map/fold/when; zero deps; unit-tested | DONE |
+| 5 | F00-T05 | `AppFailure` hierarchy | sealed base + local/network/business subtypes (§47); exhaustiveness test | DONE |
 | 6 | F00-T06 | `AppLogger` (privacy-safe) | logs only allowed fields (§51); never emits doc content; unit-tested | TODO |
 | 7 | F00-T07 | Color + spacing tokens | exact Waraqti hex + spacing scale; light + high-contrast variants | TODO |
 | 8 | F00-T08 | Cairo typography + assets | Cairo 400–800 bundled; text styles; renders offline | TODO |
