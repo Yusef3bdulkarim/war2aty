@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Thin shim so `tool/check` runs the portable Dart quality gate.
+set -euo pipefail
+exec dart run tool/check.dart

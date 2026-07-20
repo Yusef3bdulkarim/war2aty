@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.war2aty"
+    namespace = "com.war2aty.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,14 +20,27 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.war2aty"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        applicationId = "com.war2aty.app"
+        // minSdk 23 is a locked project decision (secure storage / crypto).
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    flavorDimensions += "env"
+
+    productFlavors {
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            // Distinct label so dev + prod can coexist on one device.
+            manifestPlaceholders["appName"] = "ورقتي (Dev)"
+        }
+        create("prod") {
+            dimension = "env"
+            manifestPlaceholders["appName"] = "ورقتي"
+        }
     }
 
     buildTypes {
