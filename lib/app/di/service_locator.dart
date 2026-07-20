@@ -5,6 +5,8 @@ import '../../core/database/app_database.dart';
 import '../../core/env/app_environment.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
+import '../../core/localization/usecases/get_saved_locale.dart';
+import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_sink.dart';
 import '../router/app_router.dart';
@@ -37,7 +39,11 @@ void _registerDatabase() {
 void _registerLocalization() {
   getIt
     ..registerLazySingleton<LocaleStore>(() => DriftLocaleStore(getIt()))
-    ..registerFactory<LocaleCubit>(() => LocaleCubit(getIt()));
+    ..registerFactory<GetSavedLocale>(() => GetSavedLocale(getIt()))
+    ..registerFactory<SetLocale>(() => SetLocale(getIt()))
+    ..registerFactory<LocaleCubit>(
+      () => LocaleCubit(getSavedLocale: getIt(), setLocale: getIt()),
+    );
 }
 
 void _registerRouting() {

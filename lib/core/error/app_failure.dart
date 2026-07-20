@@ -133,8 +133,8 @@ final class InvalidAnalysisResponseFailure extends NetworkFailure {
   const InvalidAnalysisResponseFailure();
 }
 
-final class GroqRateLimitFailure extends NetworkFailure {
-  const GroqRateLimitFailure();
+final class AiProviderRateLimitFailure extends NetworkFailure {
+  const AiProviderRateLimitFailure();
 }
 
 // ---------------------------------------------------------------------------
@@ -152,7 +152,8 @@ final class UnsupportedDocumentFailure extends BusinessFailure {
 ///
 /// Carries the names of the fields that are missing/uncertain.
 final class PartialAnalysisFailure extends BusinessFailure {
-  const PartialAnalysisFailure(this.missingFields);
+  PartialAnalysisFailure(List<String> missingFields)
+    : missingFields = List.unmodifiable(missingFields);
 
   final List<String> missingFields;
 

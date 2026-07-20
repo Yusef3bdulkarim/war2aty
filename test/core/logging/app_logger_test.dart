@@ -93,7 +93,7 @@ void main() {
 
     test('never leaks failure payload — only the code is logged', () {
       // A data-carrying failure must still log only its stable code.
-      logger.failure(const PartialAnalysisFailure(['amount', 'invoiceNumber']));
+      logger.failure(PartialAnalysisFailure(['amount', 'invoiceNumber']));
       expect(sink.last['errorCode'], 'PARTIAL_ANALYSIS');
       expect(sink.last.values.join(), isNot(contains('amount')));
       expect(sink.last.values.join(), isNot(contains('invoiceNumber')));
@@ -124,9 +124,9 @@ void main() {
       const InvalidRequestFailure(),
       const AnalysisServiceFailure(),
       const InvalidAnalysisResponseFailure(),
-      const GroqRateLimitFailure(),
+      const AiProviderRateLimitFailure(),
       const UnsupportedDocumentFailure(),
-      const PartialAnalysisFailure(['x']),
+      PartialAnalysisFailure(['x']),
       const AmbiguousDateFailure(),
       const MissingReminderTimeFailure(),
     ];

@@ -30,7 +30,7 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   InvalidRequestFailure() => 'INVALID_REQUEST',
   AnalysisServiceFailure() => 'ANALYSIS_SERVICE',
   InvalidAnalysisResponseFailure() => 'INVALID_ANALYSIS_RESPONSE',
-  GroqRateLimitFailure() => 'GROQ_RATE_LIMIT',
+  AiProviderRateLimitFailure() => 'AI_PROVIDER_RATE_LIMIT',
   // Business
   UnsupportedDocumentFailure() => 'UNSUPPORTED_DOCUMENT',
   PartialAnalysisFailure() => 'PARTIAL_ANALYSIS',

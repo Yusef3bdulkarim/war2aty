@@ -37,7 +37,7 @@ String _describe(AppFailure failure) => switch (failure) {
   InvalidRequestFailure() => 'invalid-request',
   AnalysisServiceFailure() => 'analysis-service',
   InvalidAnalysisResponseFailure() => 'invalid-response',
-  GroqRateLimitFailure() => 'groq-rate-limit',
+  AiProviderRateLimitFailure() => 'ai-provider-rate-limit',
   // Business
   UnsupportedDocumentFailure() => 'unsupported-document',
   PartialAnalysisFailure() => 'partial-analysis',
@@ -71,11 +71,11 @@ void main() {
     const InvalidRequestFailure(),
     const AnalysisServiceFailure(),
     const InvalidAnalysisResponseFailure(),
-    const GroqRateLimitFailure(),
+    const AiProviderRateLimitFailure(),
   ];
   final businessLeaves = <AppFailure>[
     const UnsupportedDocumentFailure(),
-    const PartialAnalysisFailure(['amount']),
+    PartialAnalysisFailure(['amount']),
     const AmbiguousDateFailure(),
     const MissingReminderTimeFailure(),
   ];
@@ -139,12 +139,12 @@ void main() {
 
     test('PartialAnalysisFailure compares missingFields', () {
       expect(
-        const PartialAnalysisFailure(['amount', 'date']),
-        const PartialAnalysisFailure(['amount', 'date']),
+        PartialAnalysisFailure(['amount', 'date']),
+        PartialAnalysisFailure(['amount', 'date']),
       );
       expect(
-        const PartialAnalysisFailure(['amount']),
-        isNot(equals(const PartialAnalysisFailure(['date']))),
+        PartialAnalysisFailure(['amount']),
+        isNot(equals(PartialAnalysisFailure(['date']))),
       );
     });
   });

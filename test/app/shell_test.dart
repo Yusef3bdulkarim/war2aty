@@ -7,6 +7,8 @@ import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
+import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
+import 'package:war2aty/core/localization/usecases/set_locale.dart';
 
 import '../support/fakes.dart';
 
@@ -16,9 +18,13 @@ void main() {
 
   Future<void> pumpShell(WidgetTester tester, {String? persisted}) async {
     getIt
-      ..registerFactory<LocaleCubit>(
-        () => LocaleCubit(FakeLocaleStore(persisted)),
-      )
+      ..registerFactory<LocaleCubit>(() {
+        final store = FakeLocaleStore(persisted);
+        return LocaleCubit(
+          getSavedLocale: GetSavedLocale(store),
+          setLocale: SetLocale(store),
+        );
+      })
       ..registerLazySingleton<GoRouter>(createAppRouter);
     await tester.pumpWidget(const WaraqtiApp());
     await tester.pumpAndSettle();

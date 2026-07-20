@@ -9,7 +9,7 @@ enum Flavor { dev, prod }
 /// Constructed by the flavor entrypoint (`main_dev.dart` / `main_prod.dart`)
 /// and passed into [bootstrap]. Holds only values that are safe to ship inside
 /// the app — the Supabase *publishable* key is allowed here; the service-role
-/// key and the Groq key never are.
+/// key and the AI provider key never are.
 final class AppEnvironment {
   const AppEnvironment({
     required this.flavor,
