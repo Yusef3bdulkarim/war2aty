@@ -9,6 +9,14 @@ import 'package:war2aty/core/localization/en_strings.dart';
 /// interface (the compiler already forces both impls to define it).
 final List<String Function(AppStrings)> _accessors = [
   (s) => s.appName,
+  (s) => s.appTagline,
+  (s) => s.bootstrapErrorTitle,
+  (s) => s.bootstrapErrorMessage,
+  (s) => s.bootstrapStageSession,
+  (s) => s.bootstrapStageConfig,
+  (s) => s.bootstrapStageCleanup,
+  (s) => s.bootstrapStageReminders,
+  (s) => s.bootstrapStageUsage,
   (s) => s.actionRetry,
   (s) => s.actionCancel,
   (s) => s.actionOk,

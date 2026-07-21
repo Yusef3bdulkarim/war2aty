@@ -59,4 +59,16 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
   }
+
+  /// Reads the cached usage row for a Cairo [date], or `null`.
+  Future<UsageCacheData?> usageForDate(DateTime date) {
+    return (select(
+      usageCache,
+    )..where((t) => t.usageDate.equals(date))).getSingleOrNull();
+  }
+
+  /// Inserts or replaces the usage row for its date.
+  Future<void> upsertUsage(UsageCacheData usage) {
+    return into(usageCache).insertOnConflictUpdate(usage);
+  }
 }

@@ -8,6 +8,31 @@ final class EnStrings implements AppStrings {
   String get appName => 'What Does My Paper Say?';
 
   @override
+  String get appTagline => 'Snap the paper and see what matters.';
+
+  @override
+  String get bootstrapErrorTitle => 'We couldn\'t start';
+
+  @override
+  String get bootstrapErrorMessage =>
+      'Something went wrong while getting things ready. Please try again.';
+
+  @override
+  String get bootstrapStageSession => 'Getting things ready';
+
+  @override
+  String get bootstrapStageConfig => 'Loading settings';
+
+  @override
+  String get bootstrapStageCleanup => 'Clearing temporary files';
+
+  @override
+  String get bootstrapStageReminders => 'Checking reminders';
+
+  @override
+  String get bootstrapStageUsage => 'Updating today\'s balance';
+
+  @override
   String get actionRetry => 'Try again';
 
   @override
