@@ -7,13 +7,14 @@ import 'bootstrap_state.dart';
 ///
 /// Depends on the [InitializeApp] use case only — no repositories, no
 /// BuildContext.
-class BootstrapCubit extends Cubit<BootstrapState> {
+final class BootstrapCubit extends Cubit<BootstrapState> {
   BootstrapCubit(this._initializeApp) : super(const BootstrapInitial());
 
   final InitializeApp _initializeApp;
 
   /// Runs (or re-runs, on retry) the launch sequence.
   Future<void> start() async {
+    if (isClosed) return;
     emit(const BootstrapInProgress());
 
     final result = await _initializeApp(

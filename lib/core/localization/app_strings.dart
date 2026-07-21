@@ -14,6 +14,15 @@ abstract interface class AppStrings {
   String get bootstrapErrorTitle;
   String get bootstrapErrorMessage;
 
+  /// Launch progress, announced to assistive technology. Discrete getters
+  /// (rather than a method taking a stage) keep this interface free of any
+  /// feature-layer type.
+  String get bootstrapStageSession;
+  String get bootstrapStageConfig;
+  String get bootstrapStageCleanup;
+  String get bootstrapStageReminders;
+  String get bootstrapStageUsage;
+
   // Actions
   String get actionRetry;
   String get actionCancel;

@@ -18,6 +18,21 @@ final class EnStrings implements AppStrings {
       'Something went wrong while getting things ready. Please try again.';
 
   @override
+  String get bootstrapStageSession => 'Getting things ready';
+
+  @override
+  String get bootstrapStageConfig => 'Loading settings';
+
+  @override
+  String get bootstrapStageCleanup => 'Clearing temporary files';
+
+  @override
+  String get bootstrapStageReminders => 'Checking reminders';
+
+  @override
+  String get bootstrapStageUsage => 'Updating today\'s balance';
+
+  @override
   String get actionRetry => 'Try again';
 
   @override

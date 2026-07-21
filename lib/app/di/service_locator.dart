@@ -122,7 +122,7 @@ List<BootstrapStep> _buildLaunchSteps() {
     BootstrapStep(BootstrapStage.config, () async {
       final result = await getIt<RuntimeConfigRepository>().load();
       if (result case Ok(:final value)) {
-        getIt<RuntimeConfigStore>().current = value;
+        getIt<RuntimeConfigStore>().update(value);
       }
       return result.map<void>((_) {});
     }, critical: false),

@@ -18,6 +18,14 @@ void main() {
       );
     });
 
+    test('exactly Cairo midnight rolls over to the next day', () {
+      // 22:00 UTC == 00:00 Cairo the following day — the boundary itself.
+      expect(
+        cairoDateOf(DateTime.utc(2026, 7, 21, 22)),
+        DateTime.utc(2026, 7, 22),
+      );
+    });
+
     test('just before Cairo midnight still counts as the current day', () {
       // 21:59 UTC == 23:59 Cairo, same day.
       expect(

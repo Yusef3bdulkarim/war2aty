@@ -11,7 +11,7 @@ import 'usecases/set_locale.dart';
 /// startup; [setLanguage] switches and persists it. Direction is derived from
 /// the locale by the framework — no manual RTL/LTR handling needed. Depends on
 /// use cases only, never on the store directly.
-class LocaleCubit extends Cubit<Locale> {
+final class LocaleCubit extends Cubit<Locale> {
   LocaleCubit({
     required GetSavedLocale getSavedLocale,
     required SetLocale setLocale,

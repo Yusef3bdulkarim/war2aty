@@ -18,6 +18,21 @@ final class ArStrings implements AppStrings {
       'حصلت مشكلة وإحنا بنجهّز التطبيق. جرّب تاني.';
 
   @override
+  String get bootstrapStageSession => 'بنجهّز التطبيق';
+
+  @override
+  String get bootstrapStageConfig => 'بنحمّل الإعدادات';
+
+  @override
+  String get bootstrapStageCleanup => 'بننضّف الملفات المؤقتة';
+
+  @override
+  String get bootstrapStageReminders => 'بنراجع التذكيرات';
+
+  @override
+  String get bootstrapStageUsage => 'بنحدّث رصيد اليوم';
+
+  @override
   String get actionRetry => 'حاول تاني';
 
   @override

@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../domain/entities/bootstrap_stage.dart';
 import '../cubit/bootstrap_cubit.dart';
 import '../cubit/bootstrap_state.dart';
 import '../widgets/pulsing_dots.dart';
@@ -38,6 +39,19 @@ class _Splash extends StatelessWidget {
   const _Splash({required this.state});
 
   final BootstrapState state;
+
+  /// Localized description of the running stage, for screen readers.
+  String? _stageLabel(BuildContext context, BootstrapStage? stage) {
+    final s = context.strings;
+    return switch (stage) {
+      null => null,
+      BootstrapStage.session => s.bootstrapStageSession,
+      BootstrapStage.config => s.bootstrapStageConfig,
+      BootstrapStage.cleanup => s.bootstrapStageCleanup,
+      BootstrapStage.reminders => s.bootstrapStageReminders,
+      BootstrapStage.usage => s.bootstrapStageUsage,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +118,7 @@ class _Splash extends StatelessWidget {
                 // announced to assistive tech without altering the visuals.
                 Semantics(
                   liveRegion: true,
-                  label: stage?.name,
+                  label: _stageLabel(context, stage),
                   child: const PulsingDots(),
                 ),
               ],
