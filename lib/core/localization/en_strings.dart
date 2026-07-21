@@ -8,6 +8,16 @@ final class EnStrings implements AppStrings {
   String get appName => 'What Does My Paper Say?';
 
   @override
+  String get appTagline => 'Snap the paper and see what matters.';
+
+  @override
+  String get bootstrapErrorTitle => 'We couldn\'t start';
+
+  @override
+  String get bootstrapErrorMessage =>
+      'Something went wrong while getting things ready. Please try again.';
+
+  @override
   String get actionRetry => 'Try again';
 
   @override

@@ -8,6 +8,16 @@ final class ArStrings implements AppStrings {
   String get appName => 'ورقتي بتقول إيه؟';
 
   @override
+  String get appTagline => 'صوّر الورقة واعرف المهم فيها.';
+
+  @override
+  String get bootstrapErrorTitle => 'مقدرناش نبدأ';
+
+  @override
+  String get bootstrapErrorMessage =>
+      'حصلت مشكلة وإحنا بنجهّز التطبيق. جرّب تاني.';
+
+  @override
   String get actionRetry => 'حاول تاني';
 
   @override

@@ -24,6 +24,7 @@ abstract final class AppTheme {
       onSecondary: c.onBrand,
       surface: c.surface,
       onSurface: c.ink,
+      onSurfaceVariant: c.textSecondary,
       surfaceContainerLowest: c.bgBase,
       surfaceContainerHighest: c.surfaceAlt,
       outline: c.border,

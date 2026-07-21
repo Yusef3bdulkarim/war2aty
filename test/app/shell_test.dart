@@ -9,6 +9,8 @@ import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
+import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
+import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 
 import '../support/fakes.dart';
 
@@ -25,6 +27,10 @@ void main() {
           setLocale: SetLocale(store),
         );
       })
+      // An empty launch sequence succeeds immediately, so the shell is shown.
+      ..registerFactory<BootstrapCubit>(
+        () => BootstrapCubit(InitializeApp(const [])),
+      )
       ..registerLazySingleton<GoRouter>(createAppRouter);
     await tester.pumpWidget(const WaraqtiApp());
     await tester.pumpAndSettle();
