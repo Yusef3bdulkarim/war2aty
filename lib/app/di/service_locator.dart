@@ -5,6 +5,9 @@ import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
 import '../../core/database/app_database.dart';
+import '../../core/documents/recent_documents_repository.dart';
+import '../../core/documents/stub_recent_documents_repository.dart';
+import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
 import '../../core/identity/installation_id_provider.dart';
 import '../../core/localization/locale_cubit.dart';
@@ -14,18 +17,28 @@ import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/reminders/reminder_scheduler.dart';
+import '../../core/reminders/stub_upcoming_reminder_repository.dart';
+import '../../core/reminders/upcoming_reminder_repository.dart';
+import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_repository.dart';
+import '../../core/usage/usecases/watch_daily_usage.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
+import '../../features/home/presentation/cubit/home_cubit.dart';
+import '../../features/onboarding/data/repositories/drift_onboarding_repository.dart';
+import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
+import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
+import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
+import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -41,6 +54,8 @@ Future<void> configureDependencies(
   _registerLocalization();
   _registerIdentity();
   _registerLaunch();
+  _registerOnboarding();
+  _registerHome();
   _registerRouting();
 }
 
@@ -142,6 +157,49 @@ List<BootstrapStep> _buildLaunchSteps() {
   ];
 }
 
+void _registerOnboarding() {
+  getIt
+    ..registerLazySingleton<OnboardingRepository>(
+      () => DriftOnboardingRepository(getIt()),
+    )
+    ..registerFactory<HasSeenOnboarding>(() => HasSeenOnboarding(getIt()))
+    ..registerFactory<CompleteOnboarding>(() => CompleteOnboarding(getIt()))
+    // App-scoped, not a factory: the router's redirect reads this one instance.
+    ..registerLazySingleton<OnboardingCubit>(
+      () => OnboardingCubit(
+        hasSeenOnboarding: getIt(),
+        completeOnboarding: getIt(),
+      ),
+    );
+}
+
+void _registerHome() {
+  getIt
+    // Replaced by the Drift-backed implementation when F08 builds the
+    // `documents` table; Home does not change when that happens.
+    ..registerLazySingleton<RecentDocumentsRepository>(
+      StubRecentDocumentsRepository.new,
+    )
+    ..registerFactory<WatchDailyUsage>(() => WatchDailyUsage(getIt()))
+    // Likewise replaced when F09 builds the `reminders` table.
+    ..registerLazySingleton<UpcomingReminderRepository>(
+      StubUpcomingReminderRepository.new,
+    )
+    ..registerFactory<WatchRecentDocuments>(() => WatchRecentDocuments(getIt()))
+    ..registerFactory<WatchUpcomingReminder>(
+      () => WatchUpcomingReminder(getIt()),
+    )
+    ..registerFactory<HomeCubit>(
+      () => HomeCubit(
+        watchDailyUsage: getIt(),
+        watchRecentDocuments: getIt(),
+        watchUpcomingReminder: getIt(),
+      ),
+    );
+}
+
 void _registerRouting() {
-  getIt.registerLazySingleton<GoRouter>(createAppRouter);
+  getIt.registerLazySingleton<GoRouter>(
+    () => createAppRouter(onboardingGate: getIt()),
+  );
 }

@@ -1,4 +1,4 @@
-package com.example.war2aty
+package com.war2aty.app
 
 import io.flutter.embedding.android.FlutterActivity
 

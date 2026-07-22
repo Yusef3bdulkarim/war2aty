@@ -5,42 +5,51 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Dart",
-            "type": "dart",
+            "name": "war2aty (dev)",
             "request": "launch",
-            "program": "bin/main.dart"
+            "type": "dart",
+            "program": "lib/main_dev.dart",
+            "args": [
+                "--flavor",
+                "dev"
+            ]
         },
         {
-            "name": "Dart: Attach to Process",
+            "name": "war2aty (dev, profile)",
+            "request": "launch",
             "type": "dart",
-            "request": "attach"
+            "program": "lib/main_dev.dart",
+            "flutterMode": "profile",
+            "args": [
+                "--flavor",
+                "dev"
+            ]
         },
         {
-            "name": "Dart: Attach to Process",
+            "name": "war2aty (prod)",
+            "request": "launch",
             "type": "dart",
-            "request": "attach"
+            "program": "lib/main_prod.dart",
+            "args": [
+                "--flavor",
+                "prod"
+            ]
+        },
+        {
+            "name": "war2aty (prod, release)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main_prod.dart",
+            "flutterMode": "release",
+            "args": [
+                "--flavor",
+                "prod"
+            ]
         },
         {
             "name": "Flutter: Attach to Device",
             "type": "dart",
             "request": "attach"
-        },
-        {
-            "name": "war2aty",
-            "request": "launch",
-            "type": "dart"
-        },
-        {
-            "name": "war2aty (profile mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "war2aty (release mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
         }
     ]
 }

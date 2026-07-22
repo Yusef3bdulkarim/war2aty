@@ -22,7 +22,7 @@ android {
     defaultConfig {
         applicationId = "com.war2aty.app"
         // minSdk 23 is a locked project decision (secure storage / crypto).
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
