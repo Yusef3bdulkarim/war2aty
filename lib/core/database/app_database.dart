@@ -67,6 +67,16 @@ class AppDatabase extends _$AppDatabase {
     )..where((t) => t.usageDate.equals(date))).getSingleOrNull();
   }
 
+  /// Watches the cached usage row for a Cairo [date].
+  ///
+  /// Drift re-runs the query whenever `usage_cache` changes, so Home updates
+  /// itself after an analysis without any manual refresh.
+  Stream<UsageCacheData?> watchUsageForDate(DateTime date) {
+    return (select(
+      usageCache,
+    )..where((t) => t.usageDate.equals(date))).watchSingleOrNull();
+  }
+
   /// Inserts or replaces the usage row for its date.
   Future<void> upsertUsage(UsageCacheData usage) {
     return into(usageCache).insertOnConflictUpdate(usage);

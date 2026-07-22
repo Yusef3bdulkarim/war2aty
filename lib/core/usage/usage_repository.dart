@@ -14,4 +14,12 @@ abstract interface class UsageRepository {
   /// Reads today's cached usage without touching the network,
   /// or `Ok(null)` when nothing is cached for today.
   Future<Result<DailyUsage?, AppFailure>> cachedUsage();
+
+  /// Emits today's cached usage and every later change to it.
+  ///
+  /// `Ok(null)` means "nothing cached for today yet" — a real answer, not an
+  /// error. Failures arrive as `Err` values in the stream rather than as
+  /// stream errors, so callers handle them the same way they handle the
+  /// one-shot reads above.
+  Stream<Result<DailyUsage?, AppFailure>> watchUsage();
 }
