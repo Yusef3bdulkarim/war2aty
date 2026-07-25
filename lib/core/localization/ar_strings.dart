@@ -42,6 +42,9 @@ final class ArStrings implements AppStrings {
   String get actionOk => 'تمام';
 
   @override
+  String get actionBack => 'رجوع';
+
+  @override
   String get actionSave => 'حفظ';
 
   @override
@@ -132,6 +135,91 @@ final class ArStrings implements AppStrings {
   };
 
   @override
+  String get cameraPermissionTitle => 'اسمح باستخدام الكاميرا';
+
+  @override
+  String get cameraPermissionMessage =>
+      'محتاجين الكاميرا علشان تقدر تصوّر الورقة وتفهم محتواها.';
+
+  @override
+  String get cameraPermissionBlockedMessage =>
+      'الكاميرا مقفولة من إعدادات الموبايل. افتح الإعدادات واسمح بالكاميرا '
+      'علشان تصوّر ورقتك.';
+
+  @override
+  String get cameraPermissionAllow => 'السماح بالكاميرا';
+
+  @override
+  String get cameraPermissionOpenSettings => 'افتح الإعدادات';
+
+  @override
+  String get cameraPermissionPickInstead => 'اختار صورة بدلًا من ذلك';
+
+  @override
+  String get cameraOpening => 'بنفتح الكاميرا…';
+
+  @override
+  String get cameraViewfinderHint => 'خلي الورقة كاملة داخل الإطار.';
+
+  @override
+  String get cameraShutterLabel => 'التقاط الصورة';
+
+  @override
+  String get cameraCloseLabel => 'إغلاق';
+
+  @override
+  String get cameraCaptureErrorTitle => 'مقدرناش نفتح الكاميرا';
+
+  @override
+  String get cameraCaptureErrorMessage =>
+      'حصلت مشكلة في الكاميرا. جرّب تاني، أو ارجع واختار صورة من الموبايل.';
+
+  @override
+  String get galleryOpening => 'بنفتح الصور…';
+
+  @override
+  String get galleryErrorTitle => 'مقدرناش نفتح الصور';
+
+  @override
+  String get galleryErrorMessage =>
+      'حصلت مشكلة وإحنا بنفتح صور الموبايل. جرّب تاني.';
+
+  @override
+  String get previewTitle => 'قص الصورة';
+
+  @override
+  String get previewHint => 'اتأكد إن كل الكلام ظاهر قبل ما تكمل.';
+
+  @override
+  String get previewUseImage => 'استخدم الصورة';
+
+  @override
+  String get previewRetake => 'إعادة التصوير';
+
+  @override
+  String get previewRotateLabel => 'تدوير الصورة';
+
+  @override
+  String get previewProcessing => 'بنجهّز الصورة…';
+
+  @override
+  String get previewErrorMessage => 'مقدرناش نجهّز الصورة. جرّب تاني.';
+
+  @override
+  String get qualityAlertTitle => 'الصورة ممكن تكون أوضح';
+
+  @override
+  String get qualityAlertMessage =>
+      'صورة أوضح بتساعدنا نقرا الكلام صح. جرّب تصوّر تاني في إضاءة '
+      'أحسن، أو كمّل لو الكلام باين.';
+
+  @override
+  String get qualityAlertRetake => 'أعيد التصوير';
+
+  @override
+  String get qualityAlertContinue => 'كمّل كده';
+
+  @override
   String get homeEmptyTitle => 'ابدأ بتصوير أول ورقة.';
 
   @override
@@ -199,4 +287,50 @@ final class ArStrings implements AppStrings {
 
   @override
   String get languageEnglish => 'الإنجليزية';
+
+  // OCR processing
+  @override
+  String get ocrProcessing => 'بنقرأ الورقة...';
+  @override
+  String get ocrErrorTitle => 'حصل مشكلة';
+  @override
+  String get ocrErrorMessage => 'مقدرناش نقرأ الورقة. جرّب تاني أو اختار صورة تانية.';
+  @override
+  String get ocrNoTextTitle => 'مالقيناش كلام واضح';
+  @override
+  String get ocrNoTextMessage => 'الصورة مفيهاش كلام واضح. جرّب تصوّر الورقة تاني.';
+  @override
+  String get ocrRetake => 'صوّر تاني';
+  @override
+  String get ocrPickAnother => 'اختار صورة تانية';
+
+  // OCR extracted text
+  @override
+  String get ocrExtractedTextTitle => 'الكلام اللي لقيناه';
+  @override
+  String get ocrCopyText => 'نسخ الكلام';
+  @override
+  String get ocrTextCopied => 'تم النسخ';
+  @override
+  String get ocrContinue => 'متابعة';
+
+  // OCR candidate labels
+  @override
+  String get ocrDatesSection => 'تواريخ';
+  @override
+  String get ocrTimesSection => 'أوقات';
+  @override
+  String get ocrAmountsSection => 'مبالغ';
+  @override
+  String get ocrPhonesSection => 'أرقام تليفون';
+  @override
+  String get ocrReferencesSection => 'أرقام مرجعية';
+
+  // OCR field review
+  @override
+  String get ocrReviewTitle => 'راجع المعلومات';
+  @override
+  String get ocrReviewSubtitle => 'المعلومات دي محتاجة مراجعة — تأكد إنها صح.';
+  @override
+  String get ocrReviewDone => 'تمام';
 }

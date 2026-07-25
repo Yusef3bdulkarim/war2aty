@@ -42,6 +42,9 @@ final class EnStrings implements AppStrings {
   String get actionOk => 'OK';
 
   @override
+  String get actionBack => 'Back';
+
+  @override
   String get actionSave => 'Save';
 
   @override
@@ -134,6 +137,94 @@ final class EnStrings implements AppStrings {
   };
 
   @override
+  String get cameraPermissionTitle => 'Allow camera access';
+
+  @override
+  String get cameraPermissionMessage =>
+      'We need the camera so you can photograph the paper and understand what '
+      'it says.';
+
+  @override
+  String get cameraPermissionBlockedMessage =>
+      'The camera is turned off in your phone settings. Open settings and '
+      'allow the camera to photograph your paper.';
+
+  @override
+  String get cameraPermissionAllow => 'Allow camera';
+
+  @override
+  String get cameraPermissionOpenSettings => 'Open settings';
+
+  @override
+  String get cameraPermissionPickInstead => 'Choose a photo instead';
+
+  @override
+  String get cameraOpening => 'Opening the camera…';
+
+  @override
+  String get cameraViewfinderHint => 'Keep the whole paper inside the frame.';
+
+  @override
+  String get cameraShutterLabel => 'Take photo';
+
+  @override
+  String get cameraCloseLabel => 'Close';
+
+  @override
+  String get cameraCaptureErrorTitle => 'We could not open the camera';
+
+  @override
+  String get cameraCaptureErrorMessage =>
+      'Something went wrong with the camera. Try again, or go back and choose '
+      'a photo from your phone.';
+
+  @override
+  String get galleryOpening => 'Opening your photos…';
+
+  @override
+  String get galleryErrorTitle => 'We could not open your photos';
+
+  @override
+  String get galleryErrorMessage =>
+      'Something went wrong opening your photos. Try again.';
+
+  @override
+  String get previewTitle => 'Crop the photo';
+
+  @override
+  String get previewHint => 'Make sure all the text shows before you continue.';
+
+  @override
+  String get previewUseImage => 'Use this photo';
+
+  @override
+  String get previewRetake => 'Retake';
+
+  @override
+  String get previewRotateLabel => 'Rotate the photo';
+
+  @override
+  String get previewProcessing => 'Preparing the photo…';
+
+  @override
+  String get previewErrorMessage =>
+      'We could not prepare the photo. Try again.';
+
+  @override
+  String get qualityAlertTitle => 'The photo could be clearer';
+
+  @override
+  String get qualityAlertMessage =>
+      'A clearer photo helps us read the text correctly. Try again in better '
+      'light, or continue if the text is visible.';
+
+  @override
+  String get qualityAlertRetake => 'Retake the photo';
+
+  @override
+  String get qualityAlertContinue => 'Continue anyway';
+
+  @override
   String get homeEmptyTitle => 'Start by photographing your first paper.';
 
   @override
@@ -201,4 +292,50 @@ final class EnStrings implements AppStrings {
 
   @override
   String get languageEnglish => 'English';
+
+  // OCR processing
+  @override
+  String get ocrProcessing => 'Reading the document...';
+  @override
+  String get ocrErrorTitle => 'Something went wrong';
+  @override
+  String get ocrErrorMessage => 'Could not read the document. Try again or pick another image.';
+  @override
+  String get ocrNoTextTitle => 'No text found';
+  @override
+  String get ocrNoTextMessage => 'The image does not contain readable text. Try taking a clearer photo.';
+  @override
+  String get ocrRetake => 'Retake';
+  @override
+  String get ocrPickAnother => 'Pick another';
+
+  // OCR extracted text
+  @override
+  String get ocrExtractedTextTitle => 'Extracted text';
+  @override
+  String get ocrCopyText => 'Copy text';
+  @override
+  String get ocrTextCopied => 'Copied';
+  @override
+  String get ocrContinue => 'Continue';
+
+  // OCR candidate labels
+  @override
+  String get ocrDatesSection => 'Dates';
+  @override
+  String get ocrTimesSection => 'Times';
+  @override
+  String get ocrAmountsSection => 'Amounts';
+  @override
+  String get ocrPhonesSection => 'Phone numbers';
+  @override
+  String get ocrReferencesSection => 'Reference numbers';
+
+  // OCR field review
+  @override
+  String get ocrReviewTitle => 'Review information';
+  @override
+  String get ocrReviewSubtitle => 'These fields need verification — make sure they are correct.';
+  @override
+  String get ocrReviewDone => 'Done';
 }

@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/core/storage/analysis_session_storage.dart';
+import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 
 void main() {
   late Directory cacheRoot;
@@ -12,7 +14,10 @@ void main() {
 
   setUp(() {
     cacheRoot = Directory.systemTemp.createTempSync('war2aty_cache_');
-    storage = FileAnalysisSessionStorage(cacheDirectory: () async => cacheRoot);
+    storage = FileAnalysisSessionStorage(
+      cacheDirectory: () async => cacheRoot,
+      idGenerator: () => 'fixed-uuid',
+    );
   });
 
   tearDown(() {
@@ -80,5 +85,85 @@ void main() {
       await broken.deleteStaleSessions(),
       const Err<int, AppFailure>(FileStorageFailure()),
     );
+  });
+
+  group('createSession', () {
+    late File sourceImage;
+
+    setUp(() {
+      sourceImage = File(p.join(cacheRoot.path, 'source.jpg'))
+        ..writeAsBytesSync([10, 20, 30, 40]);
+    });
+
+    test('creates the session directory and copies the image', () async {
+      final result = await storage.createSession(
+        CapturedPhoto(sourceImage.path),
+      );
+
+      expect(result.isOk, isTrue);
+      final session = result.valueOrNull!;
+      expect(session.id, 'fixed-uuid');
+
+      final copied = File(session.imagePath);
+      expect(copied.existsSync(), isTrue);
+      expect(copied.readAsBytesSync(), [10, 20, 30, 40]);
+    });
+
+    test(
+      'places the image under analysis_sessions/{id}/processed.jpg',
+      () async {
+        final result = await storage.createSession(
+          CapturedPhoto(sourceImage.path),
+        );
+
+        final session = result.valueOrNull!;
+        final expected = p.join(
+          cacheRoot.path,
+          kAnalysisSessionsDirName,
+          'fixed-uuid',
+          'processed.jpg',
+        );
+        expect(session.imagePath, expected);
+      },
+    );
+
+    test('returns the session id from the id generator', () async {
+      final custom = FileAnalysisSessionStorage(
+        cacheDirectory: () async => cacheRoot,
+        idGenerator: () => 'custom-id-42',
+      );
+
+      final result = await custom.createSession(
+        CapturedPhoto(sourceImage.path),
+      );
+
+      expect(result.valueOrNull!.id, 'custom-id-42');
+    });
+
+    test('reports a classified failure when the source is missing', () async {
+      final result = await storage.createSession(
+        const CapturedPhoto('/nonexistent/photo.jpg'),
+      );
+
+      expect(
+        result,
+        const Err<AnalysisSession, AppFailure>(FileStorageFailure()),
+      );
+    });
+
+    test('reports a classified failure when cache is unreachable', () async {
+      final broken = FileAnalysisSessionStorage(
+        cacheDirectory: () async => throw const FileSystemException('nope'),
+      );
+
+      final result = await broken.createSession(
+        CapturedPhoto(sourceImage.path),
+      );
+
+      expect(
+        result,
+        const Err<AnalysisSession, AppFailure>(FileStorageFailure()),
+      );
+    });
   });
 }

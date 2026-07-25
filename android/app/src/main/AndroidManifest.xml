@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The user photographs a paper; the image never leaves the device. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- The app is usable without a camera (gallery fallback), so a device
+         without one must still be able to install it. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <application
         android:label="${appName}"
         android:name="${applicationName}"

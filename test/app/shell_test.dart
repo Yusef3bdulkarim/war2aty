@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -11,11 +13,18 @@ import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
+import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/capture_source.dart';
+import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
+import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
+import 'package:war2aty/features/capture/domain/usecases/pick_image_from_gallery.dart';
+import 'package:war2aty/features/capture/domain/usecases/request_camera_permission.dart';
+import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cubit.dart';
+import 'package:war2aty/features/capture/presentation/cubit/gallery_picker_cubit.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
@@ -63,6 +72,27 @@ void main() {
           watchDailyUsage: WatchDailyUsage(usage),
           watchRecentDocuments: WatchRecentDocuments(documents),
           watchUpcomingReminder: WatchUpcomingReminder(reminders),
+        ),
+      )
+      // Denied, so tapping «صوّر ورقتك» lands on the permission sheet — the
+      // state a first-time user is actually in.
+      ..registerFactory<CameraPermissionCubit>(() {
+        final permissions = FakeCameraPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
+        return CameraPermissionCubit(
+          getCameraPermission: GetCameraPermission(permissions),
+          requestCameraPermission: RequestCameraPermission(permissions),
+          openPermissionSettings: OpenPermissionSettings(permissions),
+        );
+      })
+      // The picker is held open (never completes), so navigating into the
+      // gallery route stays there instead of immediately popping on a result.
+      ..registerFactory<GalleryPickerCubit>(
+        () => GalleryPickerCubit(
+          pickImageFromGallery: PickImageFromGallery(
+            FakeImagePickerService()..gate = Completer<void>(),
+          ),
         ),
       )
       ..registerLazySingleton<GoRouter>(
@@ -121,7 +151,10 @@ void main() {
       await pumpShell(tester);
 
       await tester.tap(find.text(ar.homePickImage));
-      await tester.pumpAndSettle();
+      // The gallery route holds a spinner behind the system picker, which never
+      // settles — pump frames rather than settling.
+      await tester.pump();
+      await tester.pump();
 
       expect(
         getIt<GoRouter>().state.uri.toString(),
@@ -141,6 +174,35 @@ void main() {
       expect(navBar(), findsNothing);
     });
 
+    testWidgets('the camera asks permission before anything else', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      await tester.tap(find.text(ar.homeScanTitle));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.cameraPermissionTitle), findsOneWidget);
+    });
+
+    testWidgets('declining the camera offers the gallery instead', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      await tester.tap(find.text(ar.homeScanTitle));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.cameraPermissionPickInstead));
+      // Lands on the gallery route's spinner, which never settles.
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        getIt<GoRouter>().state.uri.toString(),
+        AppRoutes.captureWith(CaptureSource.gallery),
+      );
+    });
+
     testWidgets('leaving capture returns to Home, not out of the app', (
       tester,
     ) async {
@@ -150,7 +212,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The pushed screen must offer a way back rather than trapping the user.
-      await tester.tap(find.byType(BackButton));
+      await tester.tap(find.text(ar.actionBack));
       await tester.pumpAndSettle();
 
       expect(navBar(), findsOneWidget);
