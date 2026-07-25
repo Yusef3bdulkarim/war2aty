@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0",
+  "session_id": "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+  "status": "success",
+  "document_type": {
+    "type": "government",
+    "title": "إخطار من مصلحة الضرائب",
+    "confidence": "high"
+  },
+  "summary": {
+    "short": "إخطار بضرورة تقديم الإقرار الضريبي قبل 30 يونيو 2024.",
+    "detailed": "ده إخطار رسمي من مصلحة الضرائب المصرية بيقولك إن الإقرار الضريبي السنوي لسنة 2023 لسه ما اتقدمش. المطلوب تقدّم الإقرار وتسدد المستحق قبل 30 يونيو 2024 في مأمورية ضرائب مدينة نصر أول. لو التاريخ عدى بتتحسب غرامة تأخير حسب القانون."
+  },
+  "key_information": [
+    {
+      "label": "الجهة",
+      "value": "مصلحة الضرائب المصرية",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "المأمورية",
+      "value": "مأمورية ضرائب مدينة نصر أول",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "الرقم الضريبي",
+      "value": "324-857-991",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "رقم الإخطار",
+      "value": "2024/11542",
+      "confidence": "medium",
+      "source": "extracted"
+    },
+    {
+      "label": "السنة الضريبية",
+      "value": "2023",
+      "confidence": "high",
+      "source": "extracted"
+    }
+  ],
+  "dates": [
+    {
+      "label": "آخر موعد لتقديم الإقرار",
+      "date": "2024-06-30",
+      "time": null,
+      "role": "deadline",
+      "is_reminder_worthy": true,
+      "confidence": "high"
+    },
+    {
+      "label": "تاريخ الإخطار",
+      "date": "2024-05-12",
+      "time": null,
+      "role": "issued",
+      "is_reminder_worthy": false,
+      "confidence": "high"
+    }
+  ],
+  "amounts": [],
+  "actions_required": [
+    {
+      "description": "قدّم الإقرار الضريبي لسنة 2023 قبل 30 يونيو 2024.",
+      "basis": "explicit",
+      "priority": "high"
+    },
+    {
+      "description": "روح المأمورية ومعاك الأوراق المطلوبة كلها.",
+      "basis": "explicit",
+      "priority": "normal"
+    }
+  ],
+  "required_documents": [
+    "بطاقة الرقم القومي",
+    "البطاقة الضريبية",
+    "السجل التجاري",
+    "إيصال سداد سابق"
+  ],
+  "instructions": [
+    "تقدر تقدّم الإقرار إلكترونيًا من موقع مصلحة الضرائب.",
+    "أو توجه لمأمورية ضرائب مدينة نصر أول في مواعيد العمل الرسمية."
+  ],
+  "warnings": [
+    {
+      "text": "تأكد من صحة البيانات من الجهة الرسمية قبل أي إجراء.",
+      "type": "government"
+    },
+    {
+      "text": "التأخير عن الموعد بيترتب عليه غرامة — راجع الورقة الأصلية.",
+      "type": "legal"
+    }
+  ],
+  "missing_fields": []
+}

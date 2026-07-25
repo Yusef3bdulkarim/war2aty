@@ -15,9 +15,19 @@ final class AppEnvironment {
     required this.flavor,
     required this.supabaseUrl,
     required this.supabaseAnonKey,
+    this.appVersion = '1.0.0',
   });
 
   final Flavor flavor;
+
+  /// Semantic version sent as `app_version` so the backend can gate builds
+  /// below `minimumAppVersion` (API_CONTRACT §29/§31).
+  ///
+  /// Defaults to the `pubspec.yaml` version. It is a constant rather than the
+  /// real bundle version because nothing reads the bundle yet — F06 wires the
+  /// live value when the Edge Function client lands and the gate starts to
+  /// matter.
+  final String appVersion;
 
   /// Supabase project URL for this flavor.
   final String supabaseUrl;

@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "session_id": "3c4d5e6f-7a8b-4c9d-8e0f-2a3b4c5d6e7f",
+  "status": "success",
+  "document_type": {
+    "type": "exam",
+    "title": "نتيجة الثانوية العامة",
+    "confidence": "high"
+  },
+  "summary": {
+    "short": "نتيجة الثانوية العامة 2024 بمجموع 372.5 من 410 بنسبة 90.85%.",
+    "detailed": "دي نتيجة الثانوية العامة للعام الدراسي 2023/2024 لأحمد محمود السيد، القسم العلمي - علوم. المجموع الكلي 372.5 درجة من 410 بنسبة 90.85% والنتيجة ناجح. تنسيق المرحلة الأولى بيفتح يوم 20 يوليو 2024."
+  },
+  "key_information": [
+    {
+      "label": "اسم الطالب",
+      "value": "أحمد محمود السيد",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "رقم الجلوس",
+      "value": "184592",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "الشعبة",
+      "value": "علمي علوم",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "المجموع",
+      "value": "372.5 من 410",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "النسبة المئوية",
+      "value": "90.85%",
+      "confidence": "high",
+      "source": "inferred"
+    },
+    {
+      "label": "الحالة",
+      "value": "ناجح",
+      "confidence": "high",
+      "source": "extracted"
+    }
+  ],
+  "dates": [
+    {
+      "label": "بداية تنسيق المرحلة الأولى",
+      "date": "2024-07-20",
+      "time": null,
+      "role": "event",
+      "is_reminder_worthy": true,
+      "confidence": "medium"
+    },
+    {
+      "label": "تاريخ إعلان النتيجة",
+      "date": "2024-07-11",
+      "time": null,
+      "role": "issued",
+      "is_reminder_worthy": false,
+      "confidence": "high"
+    }
+  ],
+  "amounts": [],
+  "actions_required": [
+    {
+      "description": "سجّل رغباتك في تنسيق المرحلة الأولى من 20 يوليو 2024.",
+      "basis": "inferred",
+      "priority": "high"
+    }
+  ],
+  "required_documents": [
+    "شهادة الميلاد",
+    "بطاقة الرقم القومي لولي الأمر"
+  ],
+  "instructions": [
+    "التنسيق بيتم من موقع التنسيق الإلكتروني بالرقم السري ورقم الجلوس.",
+    "احتفظ بأصل شهادة النتيجة، هتحتاجها في التقديم."
+  ],
+  "warnings": [
+    {
+      "text": "راجع الدرجات من أصل الشهادة أو موقع الوزارة قبل أي قرار.",
+      "type": "general"
+    }
+  ],
+  "missing_fields": []
+}

@@ -83,6 +83,9 @@ flutter:
     - assets/tessdata_config.json
     - assets/tessdata/ara.traineddata
     - assets/tessdata/eng.traineddata
+    # Canned analyze-document responses for the mock datasource (F05-T08/T09).
+    # Used to build the result screen before Groq is wired up.
+    - assets/fixtures/analysis/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
