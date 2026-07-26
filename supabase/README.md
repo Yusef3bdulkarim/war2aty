@@ -51,7 +51,25 @@ supabase stop --no-backup                         # stop + wipe local data
 supabase db reset                                 # re-apply every migration
 supabase functions serve --env-file supabase/.env # hot-reload functions
 deno test --allow-env --allow-net supabase/tests  # backend tests
+deno fmt supabase/functions supabase/tests        # format
+deno lint supabase/functions supabase/tests       # lint
 ```
+
+### Tests
+
+Unit tests use injected fakes, so they need no stack and always run. The
+integration tests under `tests/integration/` talk to a live local stack and
+**skip themselves** when `SUPABASE_URL` / `SUPABASE_ANON_KEY` are absent or the
+stack is down — a bare `deno test` stays green either way. To actually run them
+(the values come from `supabase status`):
+
+```bash
+SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_ANON_KEY=<anon key> \
+  deno test --allow-net --allow-env supabase/tests
+```
+
+Expect `ok | 21 passed` with the stack up, and `ok | 17 passed | 4 ignored`
+without it. No key is committed — they are read from the environment.
 
 ## Ports
 
