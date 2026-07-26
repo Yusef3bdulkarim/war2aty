@@ -43,8 +43,9 @@ final class KeyInformation {
   @override
   int get hashCode => Object.hash(label, value, confidence, source);
 
-  // Deliberately does not print [value]: entity toStrings end up in error
-  // reports, and document contents must never be logged (privacy §7).
+  // Neither [value] nor [label] is printed: entity toStrings end up in error
+  // reports, and both are document content — the label is written by the AI
+  // about this paper, so it can name a party or a place (privacy §7).
   @override
-  String toString() => 'KeyInformation($label, $confidence, $source)';
+  String toString() => 'KeyInformation($confidence, $source)';
 }

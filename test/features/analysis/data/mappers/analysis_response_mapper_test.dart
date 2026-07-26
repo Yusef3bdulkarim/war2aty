@@ -251,11 +251,27 @@ void main() {
     });
 
     test('rejects a date that would silently roll over', () {
-      // DateTime.parse turns this into 2025-02-14 — a wrong deadline.
-      expect(
-        () => _dto(dates: [_dateItem(date: '2024-13-45')]).toDomain(),
-        throwsA(isA<AnalysisMappingException>()),
-      );
+      // DateTime.parse turns each of these into a plausible-looking wrong
+      // date rather than failing: 2025-02-14, 2023-12-15, 2023-12-31,
+      // 2023-03-01. A wrong deadline is worse than no result.
+      for (final bad in [
+        '2024-13-45',
+        '2024-00-15',
+        '2024-01-00',
+        '2023-02-29',
+      ]) {
+        expect(
+          () => _dto(dates: [_dateItem(date: bad)]).toDomain(),
+          throwsA(isA<AnalysisMappingException>()),
+          reason: bad,
+        );
+      }
+    });
+
+    test('accepts a real leap day', () {
+      final analysis = _dto(dates: [_dateItem(date: '2024-02-29')]).toDomain();
+
+      expect(analysis.dates.single.date, DateTime(2024, 2, 29));
     });
 
     test('rejects a malformed date', () {

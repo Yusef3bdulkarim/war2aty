@@ -31,7 +31,8 @@ final class AnalysisAmount {
   @override
   int get hashCode => Object.hash(label, value, currency, confidence);
 
-  // Amount omitted on purpose — never log document figures (privacy §7).
+  // Amount and label both omitted — never log document figures, and the label
+  // is AI-written text about this paper rather than a fixed name (privacy §7).
   @override
-  String toString() => 'AnalysisAmount($label, $currency, $confidence)';
+  String toString() => 'AnalysisAmount($currency, $confidence)';
 }

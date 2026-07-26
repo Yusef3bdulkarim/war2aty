@@ -49,8 +49,10 @@ final class AnalysisTime {
   @override
   int get hashCode => Object.hash(hour, minute);
 
+  // The time is read off the paper — an appointment hour is document content
+  // like any other (privacy §7). [formatted] is for display, never for logs.
   @override
-  String toString() => 'AnalysisTime($formatted)';
+  String toString() => 'AnalysisTime(hh:mm)';
 }
 
 /// A date the analysis found, with what it's for and whether it's worth a
@@ -104,9 +106,9 @@ final class AnalysisDate {
   int get hashCode =>
       Object.hash(label, date, time, role, isReminderWorthy, confidence);
 
-  // Date and time omitted on purpose — never log document contents (§7).
+  // Label, date and time all omitted: the label is AI-generated text about
+  // this document, not a fixed field name, so it is content too (§7).
   @override
   String toString() =>
-      'AnalysisDate($label, $role, reminderWorthy=$isReminderWorthy, '
-      '$confidence)';
+      'AnalysisDate($role, reminderWorthy=$isReminderWorthy, $confidence)';
 }

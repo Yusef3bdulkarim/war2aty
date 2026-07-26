@@ -43,6 +43,9 @@ AnalysisDate _date({
   return AnalysisDate(
     label: label,
     date: DateTime(2024, 4, 15),
+    // Non-null on purpose: a null time silently skipped AnalysisTime from the
+    // privacy audit below and let a leak through review twice.
+    time: const AnalysisTime(hour: 14, minute: 30),
     role: DateRole.deadline,
     isReminderWorthy: isReminderWorthy,
     confidence: confidence,
@@ -218,24 +221,32 @@ void main() {
         ],
       );
 
-      // Every part reachable from the aggregate, not just the aggregate
-      // itself: a leak in one part is a leak the moment anything logs it.
+      // Every part reachable from the aggregate, and every part reachable
+      // from those parts. Two leaks got through review by hiding one level
+      // deeper than the audit reached.
       final printed = [
         analysis.toString(),
         analysis.summary.toString(),
         analysis.keyInformation.single.toString(),
         analysis.amounts.single.toString(),
         ...analysis.dates.map((d) => d.toString()),
+        ...analysis.dates.map((d) => d.time.toString()),
         ...analysis.actions.map((a) => a.toString()),
         ...analysis.warnings.map((w) => w.toString()),
       ].join(' ');
 
+      // Values read off the paper.
       expect(printed, isNot(contains('12345678')));
       expect(printed, isNot(contains('850.5')));
       expect(printed, isNot(contains('فاتورة كهرباء')));
-      // The summary quotes the paper — it must never be printed either.
+      expect(printed, isNot(contains('14:30')), reason: 'appointment time');
+      // The summary quotes the paper.
       expect(printed, isNot(contains(_summary.short)));
       expect(printed, isNot(contains(_summary.detailed)));
+      // Labels are AI-written text about this document, not fixed field names.
+      expect(printed, isNot(contains('رقم الحساب')));
+      expect(printed, isNot(contains('الإجمالي')));
+      expect(printed, isNot(contains('آخر موعد للسداد')));
     });
   });
 
