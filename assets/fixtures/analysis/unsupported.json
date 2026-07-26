@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "session_id": "5e6f7a8b-9c0d-4e1f-8a2b-4c5d6e7f8091",
+  "status": "unsupported",
+  "document_type": {
+    "type": "other",
+    "title": "ورقة غير مفهومة",
+    "confidence": "low"
+  },
+  "summary": {
+    "short": "مش قادرين نفهم الورقة دي.",
+    "detailed": "النص اللي طلع من الصورة مش كافي أو مش واضح، فمقدرناش نحدد نوع الورقة ولا نستخرج منها معلومات. جرّب تصوّرها تاني في إضاءة أحسن، أو اقرأ النص المستخرج بنفسك."
+  },
+  "key_information": [],
+  "dates": [],
+  "amounts": [],
+  "actions_required": [],
+  "required_documents": [],
+  "instructions": [],
+  "warnings": [],
+  "missing_fields": []
+}

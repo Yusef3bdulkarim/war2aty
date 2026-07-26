@@ -21,6 +21,14 @@ abstract final class AppTypography {
     height: 1.3,
   );
 
+  /// Page heading on the full-bleed first-run pages (onboarding, privacy).
+  static const TextStyle displayMedium = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 26,
+    fontWeight: extraBold,
+    height: 1.4,
+  );
+
   static const TextStyle headlineLarge = TextStyle(
     fontFamily: fontFamily,
     fontSize: 24,
@@ -69,6 +77,54 @@ abstract final class AppTypography {
     fontSize: 14,
     fontWeight: regular,
     height: 1.6,
+  );
+
+  /// Title inside a large primary action card (Home's scan button).
+  static const TextStyle titleAction = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 21,
+    fontWeight: extraBold,
+    height: 1.3,
+  );
+
+  /// Supporting line under a [titleAction].
+  static const TextStyle labelActionSubtitle = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 13.5,
+    fontWeight: medium,
+    height: 1.4,
+  );
+
+  /// Label on a secondary, outlined action row.
+  static const TextStyle labelAction = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 16.5,
+    fontWeight: bold,
+    height: 1.4,
+  );
+
+  /// Lead paragraph under a page heading — airier than [bodyLarge].
+  static const TextStyle bodyLead = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 16,
+    fontWeight: medium,
+    height: 1.85,
+  );
+
+  /// Label inside a picture card (the onboarding category grid).
+  static const TextStyle labelCard = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 15.5,
+    fontWeight: bold,
+    height: 1.4,
+  );
+
+  /// The large full-width primary call to action.
+  static const TextStyle labelCta = TextStyle(
+    fontFamily: fontFamily,
+    fontSize: 17,
+    fontWeight: bold,
+    height: 1.4,
   );
 
   /// Button / emphasized label.

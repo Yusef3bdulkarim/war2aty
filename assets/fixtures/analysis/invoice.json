@@ -1,0 +1,118 @@
+{
+  "schema_version": "1.0",
+  "session_id": "0f1d7d1e-3b2a-4c8e-9a55-1c2f3d4e5a60",
+  "status": "success",
+  "document_type": {
+    "type": "invoice",
+    "title": "فاتورة كهرباء",
+    "confidence": "high"
+  },
+  "summary": {
+    "short": "فاتورة كهرباء بمبلغ 850.50 جنيه، آخر موعد للسداد 15 أبريل 2024.",
+    "detailed": "دي فاتورة كهرباء من شركة جنوب القاهرة لتوزيع الكهرباء عن شهر مارس 2024. الاستهلاك 320 كيلو وات، والمطلوب منك 850.50 جنيه شامل رسوم الخدمة والنظافة. لازم تسددها قبل 15 أبريل 2024، وبعد التاريخ ده بتتحسب غرامة تأخير ومن الممكن يتقطع التيار."
+  },
+  "key_information": [
+    {
+      "label": "رقم الحساب",
+      "value": "12345678",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "رقم العداد",
+      "value": "4402991",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "الشركة",
+      "value": "شركة جنوب القاهرة لتوزيع الكهرباء",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "الاستهلاك",
+      "value": "320 كيلو وات",
+      "confidence": "medium",
+      "source": "extracted"
+    }
+  ],
+  "dates": [
+    {
+      "label": "آخر موعد للسداد",
+      "date": "2024-04-15",
+      "time": null,
+      "role": "deadline",
+      "is_reminder_worthy": true,
+      "confidence": "high"
+    },
+    {
+      "label": "تاريخ إصدار الفاتورة",
+      "date": "2024-03-28",
+      "time": null,
+      "role": "issued",
+      "is_reminder_worthy": false,
+      "confidence": "high"
+    },
+    {
+      "label": "بداية فترة الاستهلاك",
+      "date": "2024-03-01",
+      "time": null,
+      "role": "period_start",
+      "is_reminder_worthy": false,
+      "confidence": "medium"
+    },
+    {
+      "label": "نهاية فترة الاستهلاك",
+      "date": "2024-03-31",
+      "time": null,
+      "role": "period_end",
+      "is_reminder_worthy": false,
+      "confidence": "medium"
+    }
+  ],
+  "amounts": [
+    {
+      "label": "إجمالي المبلغ المطلوب",
+      "value": 850.5,
+      "currency": "EGP",
+      "confidence": "high"
+    },
+    {
+      "label": "قيمة الاستهلاك",
+      "value": 795.0,
+      "currency": "EGP",
+      "confidence": "high"
+    },
+    {
+      "label": "رسوم الخدمة",
+      "value": 55.5,
+      "currency": "EGP",
+      "confidence": "medium"
+    }
+  ],
+  "actions_required": [
+    {
+      "description": "سدد مبلغ 850.50 جنيه قبل 15 أبريل 2024.",
+      "basis": "explicit",
+      "priority": "high"
+    },
+    {
+      "description": "احتفظ بإيصال السداد لحد ما تيجي فاتورة الشهر الجاي.",
+      "basis": "inferred",
+      "priority": "normal"
+    }
+  ],
+  "required_documents": [],
+  "instructions": [
+    "تقدر تسدد إلكترونيًا عن طريق فوري أو تطبيق البنك.",
+    "أو توجه لأقرب فرع لشركة الكهرباء ومعاك رقم الحساب."
+  ],
+  "warnings": [
+    {
+      "text": "راجع المبلغ ورقم الحساب من الورقة الأصلية قبل ما تسدد.",
+      "type": "financial"
+    }
+  ],
+  "missing_fields": []
+}

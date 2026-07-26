@@ -8,6 +8,8 @@ import '../core/theme/app_theme.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_state.dart';
 import '../features/bootstrap/presentation/screens/splash_screen.dart';
+import '../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../features/onboarding/presentation/cubit/onboarding_state.dart';
 import 'di/service_locator.dart';
 
 /// Root widget.
@@ -27,6 +29,11 @@ class WaraqtiApp extends StatelessWidget {
         BlocProvider<BootstrapCubit>(
           create: (_) => getIt<BootstrapCubit>()..start(),
         ),
+        // App-scoped singleton (the router reads it), so `.value` — it must
+        // outlive this subtree. `load()` is idempotent.
+        BlocProvider<OnboardingCubit>.value(
+          value: getIt<OnboardingCubit>()..load(),
+        ),
       ],
       child: BlocBuilder<LocaleCubit, Locale>(
         builder: (context, locale) {
@@ -35,7 +42,12 @@ class WaraqtiApp extends StatelessWidget {
             buildWhen: (previous, current) =>
                 (previous is BootstrapSuccess) != (current is BootstrapSuccess),
             builder: (context, bootstrapState) {
-              if (bootstrapState is BootstrapSuccess) {
+              // The router is built only once the first-run flag is known, so
+              // its redirect resolves on the very first frame — no flash of
+              // the wrong screen. Until then the splash stays up.
+              final gate = context.watch<OnboardingCubit>().state;
+              if (bootstrapState is BootstrapSuccess &&
+                  gate is! OnboardingUnknown) {
                 return MaterialApp.router(
                   onGenerateTitle: (context) => context.strings.appName,
                   debugShowCheckedModeBanner: false,

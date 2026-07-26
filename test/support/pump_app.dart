@@ -8,11 +8,14 @@ import 'package:war2aty/core/theme/app_theme.dart';
 /// for widget tests so screens see the same environment as the real app.
 /// Set [settle] to false for screens with a continuously repeating animation —
 /// `pumpAndSettle` never returns while one is running.
+/// Pass [textScaler] to check a screen under Large Text (a project
+/// requirement for every new screen).
 Future<void> pumpApp(
   WidgetTester tester,
   Widget child, {
   Locale locale = AppLocalizations.arabic,
   bool settle = true,
+  TextScaler? textScaler,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -20,7 +23,14 @@ Future<void> pumpApp(
       theme: AppTheme.light(),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: AppLocalizations.delegates,
-      home: child,
+      home: textScaler == null
+          ? child
+          : Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+                child: child,
+              ),
+            ),
     ),
   );
   if (settle) {

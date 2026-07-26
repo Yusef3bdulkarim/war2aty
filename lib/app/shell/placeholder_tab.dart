@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// A minimal empty-state placeholder for a shell tab.
+/// A minimal empty-state placeholder for a screen that does not exist yet.
 ///
-/// Real feature screens replace these in later milestones (F02+). Kept
-/// intentionally bare — it exists only so the shell boots to a complete,
-/// navigable 4-tab structure.
+/// Real feature screens replace these in later milestones (F03+). Kept
+/// intentionally bare — it exists only so the app is completely navigable:
+/// every tab opens, and every action leads somewhere with a way back.
 class PlaceholderTab extends StatelessWidget {
   const PlaceholderTab({required this.title, required this.icon, super.key});
 

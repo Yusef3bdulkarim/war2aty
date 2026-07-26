@@ -30,6 +30,7 @@ environment:
 dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
+  camera: ^0.12.0+2
   cupertino_icons: ^1.0.8
   drift: ^2.34.2
   drift_flutter: ^0.3.1
@@ -39,10 +40,14 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_secure_storage: ^10.3.1
+  flutter_tesseract_ocr: ^0.4.31
   get_it: ^9.2.1
   go_router: ^17.3.0
+  image: ^4.9.1
+  image_picker: ^1.2.3
   path: ^1.9.1
   path_provider: ^2.1.6
+  permission_handler: ^12.0.3
   uuid: ^4.6.0
 
 dev_dependencies:
@@ -74,10 +79,13 @@ flutter:
       fonts:
         - asset: assets/fonts/Cairo.ttf
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/tessdata_config.json
+    - assets/tessdata/ara.traineddata
+    - assets/tessdata/eng.traineddata
+    # Canned analyze-document responses for the mock datasource (F05-T08/T09).
+    # Used to build the result screen before Groq is wired up.
+    - assets/fixtures/analysis/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

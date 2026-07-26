@@ -9,7 +9,13 @@ enum LogStage { capture, ocr, analyze, save }
 enum LogResultStatus { success, partial, failure }
 
 /// Coarse OCR confidence band — never the raw score, never the text.
-enum ConfidenceBand { high, medium, low }
+///
+/// Distinct from the analysis feature's `ConfidenceBand`, which grades a single
+/// extracted field rather than the OCR engine's read of the whole page. The two
+/// are deliberately not unified: conflating "the scanner saw this clearly" with
+/// "the analysis is sure this value is right" is what the per-field confidence
+/// rule (§7) exists to prevent.
+enum OcrConfidenceBand { high, medium, low }
 
 /// The exact, exhaustive set of field keys allowed in a Flutter log line (§51).
 ///
@@ -51,7 +57,7 @@ final class LogEvent {
   final LogStage? stage;
   final int? durationMs;
   final int? ocrCharacterCount;
-  final ConfidenceBand? ocrConfidenceBand;
+  final OcrConfidenceBand? ocrConfidenceBand;
   final LogResultStatus? resultStatus;
 
   /// The failure that occurred; only its stable code is logged, never its data.
