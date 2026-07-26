@@ -90,6 +90,40 @@ stack starts anyway, and the warnings disappear as F06-T13 adds the endpoints.
 `no files matched pattern: supabase/seed.sql` is also expected: there is no seed
 data, only migrations (F06-T02).
 
+## Database
+
+Three tables, all service-role only (F06-T02):
+
+| Table | Purpose |
+|---|---|
+| `analysis_usage_daily` | per-user daily counters, keyed by an **Africa/Cairo** `usage_date` the function supplies |
+| `analysis_attempts` | reservation ledger keyed by `request_id`; makes the quota race-safe and retries idempotent |
+| `app_runtime_config` | backend-tunable knobs (daily limit, kill switch, min app version) |
+
+Each has RLS **enabled with zero policies** and client grants revoked, so `anon`
+and `authenticated` are denied at both layers. `service_role` gets an explicit
+grant — read/write on the two usage tables, **read-only** on the config table.
+
+`analysis_attempts` stores no document content: only `request_id`, `user_id`, a
+salted `installation_hash`, status and timing.
+
+Re-check the lockdown after any schema change:
+
+```bash
+supabase db reset
+# every table must show rls_on = t and a policy count of 0
+docker exec -i supabase_db_war2aty psql -U postgres -d postgres -c "\
+select tablename, rowsecurity from pg_tables where schemaname='public'; \
+select count(*) from pg_policies where schemaname='public';"
+```
+
+### Gotcha: `BYPASSRLS` is not a grant
+
+`service_role` has `BYPASSRLS`, which skips RLS *policies* but confers **no
+table privileges**. A table that only enables RLS and revokes client grants is
+unreachable by the Edge Functions too — `permission denied`. Every table needs
+an explicit `grant ... to service_role`.
+
 ### Gotcha: `enable_signup`
 
 `[auth] enable_signup` must stay `true`. GoTrue creates **anonymous** users
