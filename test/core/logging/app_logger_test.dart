@@ -32,7 +32,7 @@ void main() {
           stage: LogStage.ocr,
           durationMs: 42,
           ocrCharacterCount: 900,
-          ocrConfidenceBand: ConfidenceBand.high,
+          ocrConfidenceBand: OcrConfidenceBand.high,
           resultStatus: LogResultStatus.success,
           failure: OcrFailure(),
           appVersion: '1.0.0',
@@ -60,7 +60,7 @@ void main() {
       logger.event(
         const LogEvent(
           stage: LogStage.save,
-          ocrConfidenceBand: ConfidenceBand.low,
+          ocrConfidenceBand: OcrConfidenceBand.low,
           resultStatus: LogResultStatus.partial,
           durationMs: 10,
           ocrCharacterCount: 5,

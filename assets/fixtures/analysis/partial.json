@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "session_id": "4d5e6f7a-8b9c-4d0e-9f1a-3b4c5d6e7f80",
+  "status": "partial",
+  "document_type": {
+    "type": "invoice",
+    "title": "فاتورة تليفون أرضي",
+    "confidence": "medium"
+  },
+  "summary": {
+    "short": "فاتورة تليفون أرضي، بعض البيانات مش واضحة في الصورة.",
+    "detailed": "دي على الأغلب فاتورة تليفون أرضي من الشركة المصرية للاتصالات. قدرنا نقرأ رقم التليفون والمبلغ التقريبي، لكن جزء من الورقة كان مش واضح: تاريخ آخر سداد ورقم الحساب ما ظهروش كويس. راجع الورقة الأصلية أو صوّرها تاني في إضاءة أحسن."
+  },
+  "key_information": [
+    {
+      "label": "رقم التليفون",
+      "value": "0223456789",
+      "confidence": "medium",
+      "source": "extracted"
+    },
+    {
+      "label": "الشركة",
+      "value": "الشركة المصرية للاتصالات",
+      "confidence": "low",
+      "source": "inferred"
+    }
+  ],
+  "dates": [
+    {
+      "label": "آخر موعد للسداد",
+      "date": "2024-04-20",
+      "time": null,
+      "role": "deadline",
+      "is_reminder_worthy": true,
+      "confidence": "low"
+    }
+  ],
+  "amounts": [
+    {
+      "label": "المبلغ المطلوب",
+      "value": 137.0,
+      "currency": "EGP",
+      "confidence": "low"
+    }
+  ],
+  "actions_required": [
+    {
+      "description": "راجع المبلغ وتاريخ السداد من الورقة الأصلية قبل ما تدفع.",
+      "basis": "inferred",
+      "priority": "high"
+    }
+  ],
+  "required_documents": [],
+  "instructions": [
+    "صوّر الورقة تاني في مكان مضيء وبدون ظل عشان نقراها أحسن."
+  ],
+  "warnings": [
+    {
+      "text": "قراءة غير مؤكدة — المبلغ وتاريخ السداد محتاجين مراجعة من الأصل.",
+      "type": "financial"
+    }
+  ],
+  "missing_fields": [
+    "account_number",
+    "billing_period",
+    "due_amount_confirmation"
+  ]
+}

@@ -30,6 +30,12 @@ import '../../core/storage/secure_storage_service.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_repository.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
+import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
+import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
+import '../../features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
+import '../../features/analysis/data/repositories/default_analysis_repository.dart';
+import '../../features/analysis/domain/repositories/analysis_repository.dart';
+import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
@@ -104,6 +110,7 @@ Future<void> configureDependencies(
   _registerHome();
   _registerCapture();
   _registerOcr();
+  _registerAnalysis(env);
   _registerRouting();
 }
 
@@ -338,6 +345,29 @@ void _registerOcr() {
         sessionHolder: getIt(),
       ),
     );
+}
+
+void _registerAnalysis(AppEnvironment env) {
+  getIt
+    // No real transport until F06 wires the Edge Function client. Dev gets the
+    // bundled fixtures so the result screen can be built and demoed; anything
+    // else refuses outright, because showing invented amounts and deadlines to
+    // a real user would be worse than showing nothing. The repository above is
+    // unchanged when the real client replaces both.
+    ..registerLazySingleton<AnalysisRemoteDataSource>(
+      () => env.isDev
+          ? MockAnalysisRemoteDataSource()
+          : const DisabledAnalysisRemoteDataSource(),
+    )
+    ..registerLazySingleton<AnalysisRepository>(
+      () => DefaultAnalysisRepository(
+        dataSource: getIt(),
+        installationId: getIt(),
+        logger: getIt(),
+        appVersion: env.appVersion,
+      ),
+    )
+    ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()));
 }
 
 void _registerRouting() {
