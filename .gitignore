@@ -59,6 +59,11 @@ android/key.properties
 **/GoogleService-Info.plist
 supabase/.env
 supabase/.env.*
+!supabase/.env.example
+
+# Supabase local stack artifacts
+supabase/.branches/
+supabase/.temp/
 
 # Local tooling
 .claude/

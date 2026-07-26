@@ -1,0 +1,10 @@
+{
+  // Deno powers the Supabase Edge Functions only — the rest of the repo is
+  // Flutter/Dart, so scope the Deno language server to `supabase/functions`.
+  "deno.enable": true,
+  "deno.enablePaths": ["supabase/functions"],
+  "deno.lint": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  }
+}
