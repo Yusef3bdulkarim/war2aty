@@ -176,6 +176,32 @@ through the signup path, so setting it to `false` makes anonymous sign-in fail
 with `signup_disabled`. Email/SMS signup is closed separately under
 `[auth.email]` / `[auth.sms]`, which is what actually keeps registration shut.
 
+## Groq model — must support `json_schema`
+
+`GROQ_MODEL` is **not** free choice. Structured output (F06-T11) requires
+`response_format: json_schema`, and most models answer HTTP 400 for it.
+Verified against this account on 2026-07-26:
+
+| Model | `json_schema` |
+|---|---|
+| `openai/gpt-oss-120b` (in use) | ✅ |
+| `openai/gpt-oss-20b` | ✅ |
+| `llama-3.3-70b-versatile` | ❌ 400 |
+| `qwen/qwen3.6-27b`, `llama-3.1-8b-instant`, `allam-2-7b` | ❌ 400 |
+
+Without it the model returns JSON that merely *parses*: an observed reply used
+`"status": "complete"` and flat fields, none of §30. Re-check with
+`GET /openai/v1/models` before changing the model.
+
+### Rate limits shape the token budget
+
+The tier allows **8000 tokens/minute** (`x-ratelimit-limit-tokens`), and
+`max_tokens` is **reserved** against it rather than merely capping output. At
+`max_tokens: 4000` a single analysis claimed over half the minute and three
+back-to-back calls were rate-limited. It is now 2000 — about 4x the 468 tokens
+a real electricity bill produced. Raising it directly reduces how many users
+can be served per minute.
+
 ## Error contract — §31 wins over §48
 
 The two specs disagree, and **API_CONTRACT §31 is authoritative**:
