@@ -1,0 +1,9 @@
+// Flavor: prod
+//
+// INERT until wired into Xcode build configurations — see ios/FLAVORS.md.
+// These settings are the flavor-specific overrides a `*-prod` build
+// configuration should apply on top of the base Debug/Release/Profile config.
+
+FLUTTER_TARGET = lib/main_prod.dart
+PRODUCT_BUNDLE_IDENTIFIER = com.war2aty.app
+APP_DISPLAY_NAME = ورقتي
