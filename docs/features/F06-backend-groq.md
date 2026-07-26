@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-backend` · **Milestone:** M4
 - **Depends on:** F01 (session/JWT), F05 (contract) · **Feeds:** F07 (real data), Home (usage)
-- **Progress:** 7 / 14 DONE
+- **Progress:** 8 / 14 DONE
 
 Real Supabase Edge Functions run **locally via Docker** (`supabase start` / `functions serve`), real Groq provider. **Blocker checklist before start:** Docker + Supabase CLI + Deno installed; obtain a Groq API key (into Supabase secrets / `.env` only — never Flutter/git). Tests stay fixture-backed (deterministic).
 
@@ -17,7 +17,7 @@ Real Supabase Edge Functions run **locally via Docker** (`supabase start` / `fun
 | 5 | F06-T05 | Error codes + `ApiError` | codes per §48 → superseded by API_CONTRACT §31 (see README) | DONE |
 | 6 | F06-T06 | Daily-limit check | Africa/Cairo day boundary | DONE |
 | 7 | F06-T07 | Atomic slot reservation | reserve→finalize/release; `expires_at`; race-safe | DONE |
-| 8 | F06-T08 | Runtime-config service | reads `app_runtime_config` (kill-switch, limits) | TODO |
+| 8 | F06-T08 | Runtime-config service | reads `app_runtime_config` (kill-switch, limits) | DONE |
 | 9 | F06-T09 | Groq client | calls Groq with timeout | TODO |
 | 10 | F06-T10 | Prompts | system + analysis prompts per §33 | TODO |
 | 11 | F06-T11 | Groq provider + structured output | `AiAnalysisProvider`; JSON schema-constrained | TODO |

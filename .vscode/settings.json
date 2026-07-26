@@ -1,8 +1,11 @@
 {
-  // Deno powers the Supabase Edge Functions only — the rest of the repo is
-  // Flutter/Dart, so scope the Deno language server to `supabase/functions`.
+  // Deno powers the Supabase backend only — the rest of the repo is
+  // Flutter/Dart, so scope the Deno language server to the backend folders.
+  // `supabase/tests` must be listed too: without it VS Code falls back to its
+  // built-in TypeScript server there, which does not know the `Deno` global or
+  // `jsr:` / `npm:` specifiers and reports them all as errors.
   "deno.enable": true,
-  "deno.enablePaths": ["supabase/functions"],
+  "deno.enablePaths": ["supabase/functions", "supabase/tests"],
   "deno.lint": true,
   "[typescript]": {
     "editor.defaultFormatter": "denoland.vscode-deno"
