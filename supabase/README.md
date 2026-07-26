@@ -64,12 +64,39 @@ stack is down — a bare `deno test` stays green either way. To actually run the
 (the values come from `supabase status`):
 
 ```bash
-SUPABASE_URL=http://127.0.0.1:54321 SUPABASE_ANON_KEY=<anon key> \
+SUPABASE_URL=http://127.0.0.1:54321 \
+SUPABASE_ANON_KEY=<anon key> \
+SUPABASE_SERVICE_ROLE_KEY=<service_role key> \
   deno test --allow-net --allow-env supabase/tests
 ```
 
-Expect `ok | 21 passed` with the stack up, and `ok | 17 passed | 4 ignored`
-without it. No key is committed — they are read from the environment.
+The service-role key is required because the usage tables are unreachable
+without it. All three values come from `supabase status`; none is committed.
+
+## Quota lifecycle
+
+`reserve → (succeeded | failed | expired)`, enforced in SQL by
+[`create_usage_functions.sql`](migrations/20260726132921_create_usage_functions.sql).
+
+The check and the increment happen in **one locked statement**. A read-then-write
+in TypeScript cannot be made safe: three taps arriving together would each read
+`successful_count = 0`, each decide there is room, and each proceed.
+
+| Rule | Where it is enforced |
+|---|---|
+| At most `daily_limit` slots per user per Cairo day | `ON CONFLICT DO UPDATE … WHERE` takes a row lock |
+| A retry of the same `request_id` takes no second slot | `analysis_attempts` primary key |
+| A failed analysis costs the user nothing | `finalize(success = false)` releases |
+| A crashed request does not strand a slot | `expire_stale_reservations`, run before each reserve |
+| A double finalize cannot double-count | `… AND status = 'reserved'` |
+| An `unsupported` document is not counted | `countsAsSuccess` in `withReservedSlot` |
+
+`analysis_attempts.usage_date` exists so finalize releases the day the slot was
+**taken on**. Without it, an analysis reserved at 23:59:58 and finished at
+00:00:05 would release a slot on the new day and strand yesterday's.
+
+Prefer `withReservedSlot()` over calling reserve/finalize directly — it settles
+the slot on every path, including a throw.
 
 ## Ports
 
