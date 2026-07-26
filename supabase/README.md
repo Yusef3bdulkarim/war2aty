@@ -149,6 +149,28 @@ through the signup path, so setting it to `false` makes anonymous sign-in fail
 with `signup_disabled`. Email/SMS signup is closed separately under
 `[auth.email]` / `[auth.sms]`, which is what actually keeps registration shut.
 
+## Error contract — §31 wins over §48
+
+The two specs disagree, and **API_CONTRACT §31 is authoritative**:
+
+| | master plan §48 | API_CONTRACT §31 (used) |
+|---|---|---|
+| envelope | `{ success, requestId, error{…, retryable} }` | `{ error: { code, message, details? } }` |
+| names | `AI_TIMEOUT`, `INTERNAL_SERVER_ERROR`, … | `TIMEOUT`, `INTERNAL_ERROR`, … |
+
+Why: §31 is the later artifact, ships a draft-07 JSON Schema, and the Flutter
+client is **already built against it** — `analysis_error_mapper.dart` switches
+on those exact strings, so §48's names would degrade every error to a generic
+failure on the device. §31 also sets `additionalProperties: false`, which
+forbids §48's `success` / `requestId` / `retryable` outright.
+
+No §48 concept is lost; the full mapping is documented at the top of
+[`functions/_shared/errors/error-codes.ts`](functions/_shared/errors/error-codes.ts).
+Note `UNSUPPORTED_DOCUMENT` is **not** an error — it is a 200 with
+`status: "unsupported"` (§31 rule 6) and is not counted against the quota.
+
+Error codes are a machine contract: renaming one breaks shipped clients.
+
 ## Rules
 
 - **Secrets never leave `supabase/.env`** (git-ignored) or Supabase Project
