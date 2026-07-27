@@ -25,7 +25,47 @@ container. `supabase start` fails immediately if the daemon is down.
 ```bash
 cp supabase/.env.example supabase/.env   # then fill in GROQ_API_KEY + salt
 supabase start
+supabase functions serve --env-file supabase/.env   # required — see below
 ```
+
+### Gotcha: `supabase start` does not give the functions your secrets
+
+`supabase start` injects only the platform variables into `edge_runtime`
+(`SUPABASE_URL`, the two keys, `SUPABASE_DB_URL`). It does **not** read
+`supabase/.env`, so `GROQ_API_KEY` and `INSTALLATION_HASH_SALT` are absent and
+`analyze-document` fails at startup with a bare `500` and no body:
+
+```
+event loop error: Error: INSTALLATION_HASH_SALT must be set to at least 32 characters.
+```
+
+That failure is deliberate (see `installation-hash.ts`), but the fix is not the
+code — it is to serve the functions yourself:
+
+```bash
+supabase functions serve --env-file supabase/.env
+```
+
+`health` and `get-usage` work either way, because neither needs a secret. Only
+`analyze-document` does, which is exactly why the symptom looks like a broken
+endpoint rather than a missing env file. Verify with:
+
+```bash
+docker inspect supabase_edge_runtime_war2aty \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' | cut -d= -f1
+```
+
+### Gotcha: `.env` must not have a UTF-8 BOM
+
+An editor that saves `supabase/.env` as "UTF-8 with BOM" makes every CLI command
+fail before it starts:
+
+```
+failed to parse environment file: .env (unexpected character '»' in variable name)
+```
+
+Save it as plain UTF-8. On Windows, PowerShell's `>` and `Out-File` add a BOM by
+default — use `Set-Content -Encoding utf8NoBOM`, or an editor.
 
 `supabase start` prints the local credentials. The ones we use:
 
@@ -73,6 +113,64 @@ SUPABASE_SERVICE_ROLE_KEY=<service_role key> \
 The service-role key is required because the usage tables are unreachable
 without it. All three values come from `supabase status`; none is committed.
 
+The endpoint tests need `functions serve` running as well — see the gotcha
+above, or `analyze-document` answers 500 for everything.
+
+**No test calls Groq by default.** One integration test performs a real
+analysis and is gated behind an explicit opt-in, because a live call is billed,
+non-deterministic and reserved against the 8000-token minute:
+
+```bash
+RUN_LIVE_ANALYSIS=1 SUPABASE_URL=... SUPABASE_ANON_KEY=... \
+  deno test --allow-net --allow-env --filter live supabase/tests
+```
+
+It asserts shape only — field presence, enums, the quota moving by one. The
+model's wording is not a contract and must never be asserted.
+
+## The three endpoints
+
+| Endpoint | Method | Auth | Contract |
+|---|---|---|---|
+| `analyze-document` | POST | anon JWT | request §29, response §30, errors §31 |
+| `get-usage` | GET | anon JWT | §32 |
+| `health` | GET | none | §32 |
+
+Everything an endpoint does regardless of what it does — preflight, method
+check, correlation id, error serialisation, one access-log line — is in
+[`endpoint.ts`](functions/_shared/http/endpoint.ts). `Deno.serve` appears only
+in the three `index.ts` files, which hold wiring and nothing else; the sequence
+lives in `analyze-handler.ts` / `usage-handler.ts` so it can be tested with
+fakes, offline.
+
+### Why the response is rebuilt, not forwarded
+
+`analyze-response.ts` is not defensive decoration. Groq's schema subset cannot
+express `format: date`, `minLength` or the `HH:mm` pattern, and the Flutter
+mapper **throws** on a date it cannot parse or a role it does not know — for the
+*whole* body. So one date the model wrote as "next Tuesday" would destroy an
+otherwise perfect analysis on someone's phone. That date is dropped instead,
+named in `missing_fields`, and the status falls to `partial` so the review
+banner shows.
+
+### Order of checks in analyze-document
+
+Each step is cheaper than the next, and each refuses a request that must never
+reach the one after it:
+
+```
+auth → runtime config → kill switch → parse body → reserve slot → AI → validate
+```
+
+There is deliberately no daily-limit pre-check before the reservation: the
+reserve is atomic and already answers `limit_reached`, so a read-then-reserve
+would add a round-trip and a race it cannot win.
+
+A `duplicate` reservation answers `ANALYSIS_FAILED`. §31 has no duplicate code,
+results are not stored server-side, and the client maps it to a retryable
+failure — which is the honest advice. A client sending a fresh `x-request-id`
+per attempt (F06-T14) never reaches that branch.
+
 ## Quota lifecycle
 
 `reserve → (succeeded | failed | expired)`, enforced in SQL by
@@ -114,12 +212,16 @@ Change them in [`config.toml`](config.toml) if they clash locally.
 ```bash
 docker info                                       # daemon reachable
 supabase status                                   # all services running
-curl http://127.0.0.1:54321/functions/v1/health   # {"status":"ok",...} (after F06-T13)
+curl http://127.0.0.1:54321/functions/v1/health   # {"status":"ok","time":"..."}
 
 # Anonymous auth issues a JWT (this is the app's only identity):
 curl -X POST http://127.0.0.1:54321/auth/v1/signup \
      -H "apikey: <anon key>" -H "Content-Type: application/json" -d '{}'
 # → access_token whose claims include "is_anonymous": true
+
+# Today's quota for that token:
+curl http://127.0.0.1:54321/functions/v1/get-usage \
+     -H "Authorization: Bearer <access_token>" -H "apikey: <anon key>"
 ```
 
 Expected containers: `db`, `auth`, `rest`, `kong`, `edge_runtime`, `studio`,
@@ -128,11 +230,7 @@ off in `config.toml` and correctly report as stopped.
 
 ### Known warnings
 
-`supabase start` logs `failed to read file: ...functions/<name>/index.ts` for
-each function declared in `config.toml` that doesn't exist yet. Harmless — the
-stack starts anyway, and the warnings disappear as F06-T13 adds the endpoints.
-
-`no files matched pattern: supabase/seed.sql` is also expected: there is no seed
+`no files matched pattern: supabase/seed.sql` is expected: there is no seed
 data, only migrations (F06-T02).
 
 ## Database

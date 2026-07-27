@@ -670,3 +670,66 @@ client maps to `AppFailure` subtypes and Arabic copy.
 6. **`status: "unsupported"`** in a 200 response — this is NOT an error. Map to
    `UnsupportedDocumentFailure` in the domain layer; the result screen shows the
    OCR-only fallback (F07-T12/T13). This analysis is **not counted** against the daily limit.
+
+---
+
+## §32 · Supporting endpoints
+
+### `GET /functions/v1/get-usage`
+
+**Auth header:** `Authorization: Bearer <supabase-anon-jwt>` (required).
+
+Returns today's quota for the caller. The user is taken from the **verified
+token**, never from a parameter — a caller cannot read another install's quota.
+
+```jsonc
+{
+  "schema_version":  "1.0",
+  "usage_date":      "2026-07-26",              // Africa/Cairo calendar day (§27)
+  "daily_limit":     3,
+  "used_today":      1,                          // analyses actually consumed
+  "remaining_today": 2,                          // how many may be STARTED now
+  "resets_at":       "2026-07-27T00:00:00+03:00",// real Cairo offset, not fixed +02
+  "analysis_enabled": true                       // the backend kill switch
+}
+```
+
+| Field | Maps to `DailyUsage` |
+|---|---|
+| `usage_date` | `usageDate` |
+| `daily_limit` | `dailyLimit` |
+| `used_today` | `usedCount` |
+| `remaining_today` | `remainingCount` |
+| `resets_at` | `resetsAt` |
+
+`remaining_today` also subtracts **in-flight reservations**, so for the few
+seconds an analysis is running it can be lower than `daily_limit - used_today`.
+That is deliberate: it is the honest answer to "can I start one now?".
+
+Errors use the §31 envelope. Only `UNAUTHORIZED` (401) and `INTERNAL_ERROR`
+(500) are reachable.
+
+### `GET /functions/v1/health`
+
+Unauthenticated liveness probe (`verify_jwt = false`).
+
+```jsonc
+{ "status": "ok", "time": "2026-07-26T09:00:00.000Z" }
+```
+
+It reads no table and returns no config value, count or secret — it answers only
+"is the edge runtime serving?". Anything richer would make an unauthenticated
+endpoint do database work, and would make the probe fail for reasons that are
+not liveness.
+
+### Shared behaviour
+
+All three endpoints:
+
+- accept `x-request-id` (a uuid) and **echo it** on every response, success or
+  error. The same id keys `analysis_attempts`, so reusing one on a retry cannot
+  consume a second slot.
+- answer `204` to a CORS preflight, and `400 INVALID_REQUEST` to a method they
+  do not serve (§31 is a closed enum with no method code).
+- send `Cache-Control: no-store` — an analysis body describes someone's bill and
+  must never sit in a proxy or a disk cache.

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-backend` · **Milestone:** M4
 - **Depends on:** F01 (session/JWT), F05 (contract) · **Feeds:** F07 (real data), Home (usage)
-- **Progress:** 12 / 14 DONE
+- **Progress:** 13 / 14 DONE
 
 Real Supabase Edge Functions run **locally via Docker** (`supabase start` / `functions serve`), real Groq provider. **Blocker checklist before start:** Docker + Supabase CLI + Deno installed; obtain a Groq API key (into Supabase secrets / `.env` only — never Flutter/git). Tests stay fixture-backed (deterministic).
 
@@ -22,7 +22,7 @@ Real Supabase Edge Functions run **locally via Docker** (`supabase start` / `fun
 | 10 | F06-T10 | Prompts | system + analysis prompts per §33 (rule 8 `sourceBlockIds` → contract's `source`/`confidence`) | DONE |
 | 11 | F06-T11 | Groq provider + structured output | `AiAnalysisProvider`; JSON schema-constrained (needs a `json_schema`-capable model — `openai/gpt-oss-*` only) | DONE |
 | 12 | F06-T12 | Backend validation pipeline | number/date/source/business verification; invalid → `confidence: low` + `partial` (§30 has no `needsUserReview` field) | DONE |
-| 13 | F06-T13 | Endpoints + Deno tests | analyze-document/get-usage/health; unit+integration tests | TODO |
+| 13 | F06-T13 | Endpoints + Deno tests | analyze-document/get-usage/health; unit+integration tests (get-usage/health contract → API_CONTRACT §32) | DONE |
 | 14 | F06-T14 | Flutter real datasource + DI swap | Dio interceptors; dev flavor → localhost; flip mock→real | TODO |
 
 ## Exit DoD
