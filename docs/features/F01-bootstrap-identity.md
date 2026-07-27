@@ -6,6 +6,8 @@
 
 Anonymous identity, installation id, and the launch orchestration. Real Supabase parts land at M4; until then interfaces + local stubs.
 
+**M4 status:** the real implementations landed in **F06-T14** — `SupabaseAuthRepository` replaces the stub for T03/T04, and `RemoteUsageRepository` (`get-usage`) replaces it for T10. The stubs stay registered only for an unconfigured build.
+
 ## Tasks
 
 | # | ID | Title | Acceptance criteria | Status |

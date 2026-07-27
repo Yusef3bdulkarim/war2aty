@@ -80,7 +80,41 @@ default — use `Set-Content -Encoding utf8NoBOM`, or an editor.
 
 `127.0.0.1` from inside an Android emulator is the emulator itself. The dev
 flavor points at **`http://10.0.2.2:54321`**; iOS simulators use `127.0.0.1`
-directly.
+directly. `AppEnvironment.dev()` picks between them (F06-T14) — nothing to
+configure by hand.
+
+## Running the app against this stack (F06-T14)
+
+```bash
+supabase start
+supabase functions serve --env-file supabase/.env
+flutter run --flavor dev -t lib/main_dev.dart
+```
+
+The dev flavor needs no dart-defines: it resolves the local URL and the
+well-known local anon key itself. Two overrides exist:
+
+```bash
+# A physical device on the same LAN as the dev machine:
+--dart-define=SUPABASE_URL=http://192.168.1.5:54321
+
+# UI work with no Docker and no Groq key — serves the bundled fixtures:
+--dart-define=USE_MOCK_ANALYSIS=true
+```
+
+`prod` has no hosted project yet, so it takes `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` from the build. Without them it launches, reports itself
+unconfigured, and refuses analyses with the normal maintenance copy rather than
+pointing at a placeholder host.
+
+### The one gateway behaviour worth knowing
+
+Supabase enforces `verify_jwt` at the **gateway**, before the Edge Function
+runs, so a 401 for an expired token carries GoTrue's body — not a §31 envelope.
+`failureFromErrorBody` therefore takes the HTTP status as a fallback; without it
+an expired session showed the generic «الخدمة غير متاحة» instead of the session
+error. The app also refreshes and replays once on any 401, so the user normally
+never sees it.
 
 ## Everyday commands
 

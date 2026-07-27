@@ -294,11 +294,13 @@ final class ArStrings implements AppStrings {
   @override
   String get ocrErrorTitle => 'حصل مشكلة';
   @override
-  String get ocrErrorMessage => 'مقدرناش نقرأ الورقة. جرّب تاني أو اختار صورة تانية.';
+  String get ocrErrorMessage =>
+      'مقدرناش نقرأ الورقة. جرّب تاني أو اختار صورة تانية.';
   @override
   String get ocrNoTextTitle => 'مالقيناش كلام واضح';
   @override
-  String get ocrNoTextMessage => 'الصورة مفيهاش كلام واضح. جرّب تصوّر الورقة تاني.';
+  String get ocrNoTextMessage =>
+      'الصورة مفيهاش كلام واضح. جرّب تصوّر الورقة تاني.';
   @override
   String get ocrRetake => 'صوّر تاني';
   @override

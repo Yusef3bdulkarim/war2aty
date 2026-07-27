@@ -299,11 +299,13 @@ final class EnStrings implements AppStrings {
   @override
   String get ocrErrorTitle => 'Something went wrong';
   @override
-  String get ocrErrorMessage => 'Could not read the document. Try again or pick another image.';
+  String get ocrErrorMessage =>
+      'Could not read the document. Try again or pick another image.';
   @override
   String get ocrNoTextTitle => 'No text found';
   @override
-  String get ocrNoTextMessage => 'The image does not contain readable text. Try taking a clearer photo.';
+  String get ocrNoTextMessage =>
+      'The image does not contain readable text. Try taking a clearer photo.';
   @override
   String get ocrRetake => 'Retake';
   @override
@@ -335,7 +337,8 @@ final class EnStrings implements AppStrings {
   @override
   String get ocrReviewTitle => 'Review information';
   @override
-  String get ocrReviewSubtitle => 'These fields need verification — make sure they are correct.';
+  String get ocrReviewSubtitle =>
+      'These fields need verification — make sure they are correct.';
   @override
   String get ocrReviewDone => 'Done';
 }

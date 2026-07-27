@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/features/analysis/data/models/analysis_error_dto.dart';
+import 'package:war2aty/core/network/api_error_dto.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_response_dto.dart';
 
 const _fullResponse = '''
@@ -134,9 +134,9 @@ void main() {
     });
   });
 
-  group('AnalysisErrorDto.fromJson', () {
+  group('ApiErrorDto.fromJson', () {
     test('parses an error without details', () {
-      final dto = AnalysisErrorDto.fromJson(
+      final dto = ApiErrorDto.fromJson(
         _decode('{"error":{"code":"UNAUTHORIZED","message":"Invalid JWT."}}'),
       );
 
@@ -149,7 +149,7 @@ void main() {
     });
 
     test('parses reset_at from DAILY_LIMIT_REACHED details', () {
-      final dto = AnalysisErrorDto.fromJson(
+      final dto = ApiErrorDto.fromJson(
         _decode('''
         {
           "error": {
@@ -166,7 +166,7 @@ void main() {
     });
 
     test('tolerates an empty details object', () {
-      final dto = AnalysisErrorDto.fromJson(
+      final dto = ApiErrorDto.fromJson(
         _decode(
           '{"error":{"code":"TIMEOUT","message":"Timed out.","details":{}}}',
         ),

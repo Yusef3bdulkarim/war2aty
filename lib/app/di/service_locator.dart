@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
@@ -16,6 +18,7 @@ import '../../core/localization/usecases/get_saved_locale.dart';
 import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_sink.dart';
+import '../../core/network/api_client.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
 import '../../core/reminders/reminder_scheduler.dart';
@@ -27,16 +30,20 @@ import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
+import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
 import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
+import '../../features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
+import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
@@ -104,8 +111,9 @@ Future<void> configureDependencies(
   _registerCore(env);
   _registerDatabase(database);
   _registerLocalization();
-  _registerIdentity();
-  _registerLaunch();
+  _registerIdentity(env);
+  _registerNetwork(env);
+  _registerLaunch(env);
   _registerOnboarding();
   _registerHome();
   _registerCapture();
@@ -139,7 +147,7 @@ void _registerLocalization() {
     );
 }
 
-void _registerIdentity() {
+void _registerIdentity(AppEnvironment env) {
   getIt
     ..registerLazySingleton<SecureStorageService>(
       FlutterSecureStorageService.new,
@@ -147,14 +155,43 @@ void _registerIdentity() {
     ..registerLazySingleton<InstallationIdProvider>(
       () => SecureInstallationIdProvider(getIt()),
     )
-    // Stub until real Supabase Anonymous Auth lands at M4.
+    // Real Supabase Anonymous Auth (F06-T14). An unconfigured build has no
+    // Supabase client to talk to, so it keeps the offline stub — that path is
+    // reached only by a prod build missing its dart-defines, and a launch that
+    // hangs on a session would be worse than one that runs without a backend.
     ..registerLazySingleton<AuthRepository>(
-      () => StubAuthRepository(getIt(), getIt()),
+      () => env.isConfigured
+          ? SupabaseAuthRepository(Supabase.instance.client.auth)
+          : StubAuthRepository(getIt(), getIt()),
     )
     ..registerFactory<EnsureActiveSession>(() => EnsureActiveSession(getIt()));
 }
 
-void _registerLaunch() {
+/// The single HTTP client for the Edge Functions (F06-T14).
+///
+/// Registered even when the build is unconfigured — it simply has nowhere to
+/// point, and the datasources above it are swapped out instead, so nothing
+/// downstream needs a null check.
+void _registerNetwork(AppEnvironment env) {
+  getIt.registerLazySingleton<Dio>(
+    () => createApiClient(
+      environment: env,
+      logger: getIt(),
+      // Read through the repository rather than captured once: the token
+      // rotates, and a closure over a stale one would 401 forever.
+      accessToken: () async {
+        final session = await getIt<AuthRepository>().restoreSession();
+        return session.valueOrNull?.accessToken;
+      },
+      refreshSession: () async {
+        final refreshed = await getIt<AuthRepository>().refreshSession();
+        return refreshed.valueOrNull?.accessToken;
+      },
+    ),
+  );
+}
+
+void _registerLaunch(AppEnvironment env) {
   getIt
     ..registerLazySingleton<RuntimeConfigRepository>(
       () => LocalRuntimeConfigRepository(getIt()),
@@ -164,13 +201,21 @@ void _registerLaunch() {
     )
     // Replaced by the real scheduler when F09 lands.
     ..registerLazySingleton<ReminderScheduler>(NoopReminderScheduler.new)
+    ..registerLazySingleton<UsageRemoteDataSource>(
+      () => EdgeFunctionUsageRemoteDataSource(getIt()),
+    )
+    // The backend owns the quota — it is the only party that can count across
+    // re-installs and devices. The stub survives only for an unconfigured
+    // build, where there is nothing to ask.
     ..registerLazySingleton<UsageRepository>(
-      () => StubUsageRepository(
-        getIt(),
-        // Read lazily so the config loaded during launch is respected.
-        dailyLimit: () =>
-            getIt<RuntimeConfigStore>().current.dailyAnalysisLimit,
-      ),
+      () => env.isConfigured
+          ? RemoteUsageRepository(getIt(), getIt())
+          : StubUsageRepository(
+              getIt(),
+              // Read lazily so the config loaded during launch is respected.
+              dailyLimit: () =>
+                  getIt<RuntimeConfigStore>().current.dailyAnalysisLimit,
+            ),
     )
     ..registerFactory<InitializeApp>(
       () => InitializeApp(_buildLaunchSteps(), logger: getIt()),
@@ -347,17 +392,27 @@ void _registerOcr() {
     );
 }
 
+/// Forces the bundled fixtures even in a configured build.
+///
+/// Kept so UI work (F07) does not require Docker and a Groq key on the desk:
+/// `flutter run --flavor dev -t lib/main_dev.dart --dart-define=USE_MOCK_ANALYSIS=true`.
+/// It cannot affect a release build — the mock is only reachable in dev.
+const bool _useMockAnalysis = bool.fromEnvironment('USE_MOCK_ANALYSIS');
+
 void _registerAnalysis(AppEnvironment env) {
+  final useMock = env.isDev && _useMockAnalysis;
+
   getIt
-    // No real transport until F06 wires the Edge Function client. Dev gets the
-    // bundled fixtures so the result screen can be built and demoed; anything
-    // else refuses outright, because showing invented amounts and deadlines to
-    // a real user would be worse than showing nothing. The repository above is
-    // unchanged when the real client replaces both.
+    // The real Edge Function client (F06-T14). An unconfigured build refuses
+    // outright rather than falling back to fixtures: showing invented amounts
+    // and deadlines to a real user would be worse than showing nothing, which
+    // is the one thing this app must never do (§7).
     ..registerLazySingleton<AnalysisRemoteDataSource>(
-      () => env.isDev
-          ? MockAnalysisRemoteDataSource()
-          : const DisabledAnalysisRemoteDataSource(),
+      () => switch ((useMock, env.isConfigured)) {
+        (true, _) => MockAnalysisRemoteDataSource(),
+        (false, true) => EdgeFunctionAnalysisRemoteDataSource(getIt()),
+        (false, false) => const DisabledAnalysisRemoteDataSource(),
+      },
     )
     ..registerLazySingleton<AnalysisRepository>(
       () => DefaultAnalysisRepository(

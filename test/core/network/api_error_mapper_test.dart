@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
-import 'package:war2aty/features/analysis/data/mappers/analysis_error_mapper.dart';
+import 'package:war2aty/core/network/api_error_mapper.dart';
 
 Object? _body(String code, {String? details}) => jsonDecode(
   '{"error":{"code":"$code","message":"debug only"'
@@ -79,6 +79,51 @@ void main() {
               as DailyLimitReachedFailure;
 
       expect(failure.resetAtCairo, DateTime.utc(2024, 3, 15, 22));
+    });
+  });
+
+  group('status fallback for non-§31 bodies', () {
+    // The Supabase gateway enforces `verify_jwt` and rejects an expired token
+    // before the Edge Function runs, so its 401 body is GoTrue's shape, not
+    // ours. Verified against the local stack: without this an expired session
+    // showed the generic maintenance copy instead of the session error.
+    test('a gateway 401 is still UnauthorizedFailure', () {
+      expect(
+        failureFromErrorBody(const {'msg': 'invalid JWT'}, statusCode: 401),
+        isA<UnauthorizedFailure>(),
+      );
+    });
+
+    test('a non-JSON 503 is still AnalysisDisabledFailure', () {
+      expect(
+        failureFromErrorBody('<html>maintenance</html>', statusCode: 503),
+        isA<AnalysisDisabledFailure>(),
+      );
+    });
+
+    test('a 408 with no body is still a timeout', () {
+      expect(
+        failureFromErrorBody(null, statusCode: 408),
+        isA<RequestTimeoutFailure>(),
+      );
+    });
+
+    test('an ambiguous status is not guessed at', () {
+      // A bare 429 is either the daily limit or an AI rate limit, and those are
+      // different screens — the generic answer beats a wrong one.
+      expect(
+        failureFromErrorBody(null, statusCode: 429),
+        isA<AnalysisServiceFailure>(),
+      );
+    });
+
+    test('a readable §31 body always wins over the status', () {
+      expect(
+        failureFromErrorBody(const {
+          'error': {'code': 'ANALYSIS_DISABLED', 'message': 'x'},
+        }, statusCode: 401),
+        isA<AnalysisDisabledFailure>(),
+      );
     });
   });
 

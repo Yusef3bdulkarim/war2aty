@@ -1,16 +1,19 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/identity/installation_id_provider.dart';
 import '../../../../core/logging/app_logger.dart';
 import '../../../../core/logging/log_event.dart';
+import '../../../../core/network/api_error_mapper.dart';
+import '../../../../core/network/network_failure_mapper.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/analysis_request.dart';
 import '../../domain/entities/analysis_status.dart';
 import '../../domain/entities/document_analysis.dart';
 import '../../domain/repositories/analysis_repository.dart';
 import '../datasources/analysis_remote_data_source.dart';
-import '../mappers/analysis_error_mapper.dart';
 import '../models/amount_candidate_dto.dart';
 import '../models/analysis_request_dto.dart';
 import '../models/candidates_dto.dart';
@@ -75,17 +78,26 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
     final AnalysisApiResponse response;
     try {
       response = await _dataSource.analyze(dto);
+    } on DioException catch (exception) {
+      // The transport seam (§31 rule 5): "you are offline" and "this is taking
+      // too long" suggest different actions to the user, so they must not
+      // collapse into one generic error.
+      return Err(failureFromDioException(exception));
     } on TimeoutException {
       return const Err(RequestTimeoutFailure());
-    } catch (_) {
-      // No HTTP client yet, so there are no transport exception types to
-      // discriminate on. F06 refines this into NoInternet vs Timeout (§31
-      // rule 5) when the real datasource lands.
+    } on Object {
+      // Anything a datasource can still throw — a mock's asset load, a JSON
+      // decode. The caught object is dropped rather than logged: it can quote
+      // the payload that broke, and that payload is the document (§7).
       return const Err(AnalysisServiceFailure());
     }
 
     if (!response.isSuccess) {
-      return Err(failureFromErrorBody(response.body));
+      // The status is passed too: the Supabase gateway rejects an expired token
+      // before our function runs, so its 401 body is not a §31 envelope.
+      return Err(
+        failureFromErrorBody(response.body, statusCode: response.statusCode),
+      );
     }
 
     return _validator.validate(response.body).flatMap(_rejectUnsupported);

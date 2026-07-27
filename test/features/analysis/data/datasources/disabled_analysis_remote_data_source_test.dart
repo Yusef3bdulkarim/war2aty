@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/network/api_error_mapper.dart';
 import 'package:war2aty/features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
-import 'package:war2aty/features/analysis/data/mappers/analysis_error_mapper.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/candidates_dto.dart';
 
