@@ -27,18 +27,44 @@ Future<void> bootstrap(AppEnvironment env) async {
   // An unconfigured build (prod without its dart-defines) still launches: DI
   // falls back to the datasource that refuses every analysis, so the user gets
   // the normal «الخدمة غير متاحة» copy instead of a crash on a black screen.
-  if (resolved.isConfigured) {
+  final launchEnv = resolved.isConfigured
+      ? await _initializeSupabase(resolved)
+      : resolved;
+
+  await configureDependencies(launchEnv);
+  runApp(const WaraqtiApp());
+}
+
+/// Starts the Supabase client, degrading rather than dying if it cannot.
+///
+/// Everything here runs BEFORE `runApp`, so a throw or a hang leaves the native
+/// launch screen up forever — no Flutter frame, no error, nothing to retry.
+/// That is the worst failure mode the app has, and it is worth trading for a
+/// degraded launch: returning an unconfigured environment makes DI register the
+/// stub identity and the datasource that refuses analyses, so the user reaches
+/// a working app that says the service is unavailable.
+Future<AppEnvironment> _initializeSupabase(AppEnvironment env) async {
+  try {
     await Supabase.initialize(
-      url: resolved.supabaseUrl,
+      url: env.supabaseUrl,
       // `publishableKey`, not the deprecated `anonKey`. The SDK treats them
       // interchangeably; both names describe the one key §24 permits in the
       // client.
-      publishableKey: resolved.supabaseAnonKey,
+      publishableKey: env.supabaseAnonKey,
+    ).timeout(const Duration(seconds: 15));
+
+    return env;
+  } on Object {
+    // Blank credentials ARE the representation of "unconfigured" — the same
+    // state a prod build without its dart-defines launches in, so there is one
+    // degraded path rather than two.
+    return AppEnvironment(
+      flavor: env.flavor,
+      supabaseUrl: '',
+      supabaseAnonKey: '',
+      appVersion: env.appVersion,
     );
   }
-
-  await configureDependencies(resolved);
-  runApp(const WaraqtiApp());
 }
 
 /// The real bundle version, for the server-side version gate (§29 rule 2).

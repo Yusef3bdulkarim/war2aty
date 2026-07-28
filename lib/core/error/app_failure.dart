@@ -58,6 +58,17 @@ final class LocalDatabaseFailure extends LocalFailure {
   const LocalDatabaseFailure();
 }
 
+/// A launch step crashed or never finished.
+///
+/// Distinct from the failures a step *returns*: this is the orchestrator
+/// catching something a step was never supposed to do — an unregistered
+/// dependency, a client that failed to initialize. Without its own code these
+/// would be logged as whatever leaf happened to be nearest, sending the next
+/// person debugging a dead splash screen down the wrong path.
+final class LaunchFailure extends LocalFailure {
+  const LaunchFailure();
+}
+
 final class FileEncryptionFailure extends LocalFailure {
   const FileEncryptionFailure();
 }

@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- The user photographs a paper; the image never leaves the device. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Required from F06-T14: the app calls Supabase Anonymous Auth and the
+         analysis Edge Function. Only extracted TEXT is ever sent (§7). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- The app is usable without a camera (gallery fallback), so a device
          without one must still be able to install it. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
@@ -8,7 +11,8 @@
     <application
         android:label="${appName}"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"
