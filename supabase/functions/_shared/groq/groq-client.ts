@@ -19,8 +19,15 @@ import { ApiError } from "../errors/api-error.ts";
 
 const GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-/** Used when GROQ_MODEL is unset. Matches `.env.example`. */
-export const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+/**
+ * The model this service is built around, and the one `.env.example` sets.
+ *
+ * It MUST support `response_format: json_schema`: F06-T11 sends one on every
+ * call, and a model without it answers 400. This is the default for a
+ * directly-constructed client and for tests — never a fallback on the
+ * production path, which refuses to guess (see {@link groqOptionsFromEnv}).
+ */
+export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 
 export type GroqRole = "system" | "user" | "assistant";
 
@@ -71,7 +78,13 @@ export type GroqClient = (
   request: GroqCompletionRequest,
 ) => Promise<GroqCompletion>;
 
-/** Reads credentials from the environment the Edge Runtime injects. */
+/**
+ * Reads credentials from the environment the Edge Runtime injects.
+ *
+ * @throws if `GROQ_API_KEY` or `GROQ_MODEL` is missing. Both are deploy faults,
+ * and both are fatal at startup rather than per request — see below for why the
+ * model is not defaulted.
+ */
 export function groqOptionsFromEnv(timeoutSeconds: number): GroqClientOptions {
   const apiKey = Deno.env.get("GROQ_API_KEY");
 
@@ -81,11 +94,24 @@ export function groqOptionsFromEnv(timeoutSeconds: number): GroqClientOptions {
     throw new Error("GROQ_API_KEY is not set.");
   }
 
-  return {
-    apiKey,
-    model: Deno.env.get("GROQ_MODEL") ?? DEFAULT_GROQ_MODEL,
-    timeoutSeconds,
-  };
+  // Deliberately NOT defaulted. A model that cannot serve `json_schema` fails
+  // EVERY analysis with a 400 the user only ever sees as ANALYSIS_FAILED — a
+  // total outage wearing the costume of a flaky provider. Falling back would
+  // hide exactly the mistake worth shouting about, so an unset model is a
+  // startup error like the key above.
+  //
+  // Read with `.trim()` rather than `??`: an env var set to "" is a string, so
+  // `??` would wave it through and send an empty model name to Groq.
+  const model = Deno.env.get("GROQ_MODEL")?.trim();
+
+  if (!model) {
+    throw new Error(
+      "GROQ_MODEL is not set. It must name a model that supports " +
+        "`response_format: json_schema` — see supabase/.env.example.",
+    );
+  }
+
+  return { apiKey, model, timeoutSeconds };
 }
 
 /**
