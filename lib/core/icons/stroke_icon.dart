@@ -27,6 +27,9 @@ enum StrokeGlyph {
   /// A bare tick, for confirmed points in a list.
   check,
 
+  /// A tick escaping an open box — the mark on «المطلوب منك».
+  checkSquare,
+
   /// A shield outline on its own — the privacy reassurance line.
   shield,
 
@@ -44,6 +47,66 @@ enum StrokeGlyph {
   /// Mirror it for LTR; [StrokeIcon] does not do that for you, since not every
   /// glyph should flip with direction.
   chevronForward,
+
+  /// A full arrow pointing back along the line (right in RTL) — the "go back"
+  /// control on a full-screen page. Mirror it for LTR, like
+  /// [chevronForward].
+  arrowBack,
+
+  /// A four-pointed star with a small companion — the mark the design puts on
+  /// AI-written text at page scale (the analysis progress page).
+  sparkle,
+
+  /// The same four-pointed star on its own. The design drops the companion
+  /// wherever the mark sits inline beside a label, at 20px and below.
+  star,
+
+  /// An "i" in a circle — the caveat badge on a value the user should check.
+  info,
+
+  /// An exclamation in a triangle — a caution the user has to read before
+  /// acting, as opposed to [info]'s "check this value".
+  warningTriangle,
+
+  /// Three stacked lines — «أهم المعلومات» and the fields under it.
+  ///
+  /// The design draws a field-specific icon per row (a building for the
+  /// issuer, a calendar for a date, …). Nothing in the analysis says which
+  /// field a row holds, so the rows share this neutral mark rather than being
+  /// guessed at from their Arabic labels.
+  listLines,
+
+  /// Two overlapping sheets — copy this value.
+  copy,
+
+  /// A month grid — «التواريخ والمواعيد» and the dates under it.
+  calendar,
+
+  /// A struck-through pound sign — «المبالغ».
+  money,
+
+  /// A sheet with a tick beside it — «المستندات المطلوبة».
+  documentCheck,
+
+  /// A sheet with a written line — «الخطوات بالترتيب».
+  documentSteps,
+
+  /// A chevron pointing down — opens a collapsed panel. Rotate it 180° when
+  /// the panel is open, as the design does.
+  chevronDown,
+
+  /// Headphones — read this paper aloud.
+  headphones,
+
+  /// A sheet with a save slot — keep this paper in «مستنداتي».
+  save,
+
+  /// Signal arcs struck through — no internet.
+  ///
+  /// The design draws the stroke through it in the error red while the arcs
+  /// stay teal; a [StrokeIcon] paints one colour, so the whole glyph takes the
+  /// page's tint. The struck-through shape still reads as "no signal".
+  wifiOff,
 
   navHome,
   navDocuments,
@@ -100,6 +163,9 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z '
       'M9 12l2 2 4-4',
   StrokeGlyph.check: 'M20 6 9 17l-5-5',
+  StrokeGlyph.checkSquare:
+      'M9 11l3 3 8-8 '
+      'M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9',
   StrokeGlyph.shield: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
   // The lens is `<circle cx=12 cy=12.5 r=3.5/>`.
   StrokeGlyph.camera:
@@ -112,6 +178,43 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   // `<circle cx=12 cy=12 r=9/>` plus the hands.
   StrokeGlyph.clock: '${_circle(12, 12, 9)} M12 7v5l3 2',
   StrokeGlyph.chevronForward: 'M15 18l-6-6 6-6',
+  StrokeGlyph.chevronDown: 'M6 9l6 6 6-6',
+  StrokeGlyph.headphones:
+      'M3 14v-4a9 9 0 0 1 18 0v4 '
+      'M21 15a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2z '
+      'M3 15a2 2 0 0 0 2 2h1v-5H5a2 2 0 0 0-2 2z',
+  StrokeGlyph.save:
+      'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z '
+      'M17 21v-8H7v8 M7 3v5h8',
+  StrokeGlyph.wifiOff:
+      'M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 '
+      'M2 8.8a15 15 0 0 1 20 0 M2 2l20 20',
+  StrokeGlyph.arrowBack: 'M15 6l6 6-6 6 M3 12h18',
+  // `<circle cx=12 cy=12 r=9/>`, the stem, and the dot — which the design
+  // draws as a hairline `h.01` with a round cap.
+  StrokeGlyph.info: '${_circle(12, 12, 9)} M12 8v4 M12 16h.01',
+  StrokeGlyph.warningTriangle:
+      'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 '
+      '0-3.4 0z M12 9v4 M12 17h.01',
+  StrokeGlyph.listLines: 'M4 6h16 M4 12h16 M4 18h10',
+  // `<rect x=3 y=5 width=18 height=16 rx=3/>`, the header rule, and the rings.
+  StrokeGlyph.calendar:
+      '${_roundedRect(3, 5, 18, 16, 3)} M3 9h18 M8 3v4 M16 3v4',
+  StrokeGlyph.money:
+      'M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  StrokeGlyph.documentCheck:
+      'M9 11l3 3 8-8 M14 3v4a1 1 0 0 0 1 1h4 '
+      'M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z',
+  StrokeGlyph.documentSteps:
+      'M14 3v4a1 1 0 0 0 1 1h4 '
+      'M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z M9 13h4',
+  // `<rect x=9 y=9 width=12 height=12 rx=2/>` plus the sheet behind it.
+  StrokeGlyph.copy: '${_roundedRect(9, 9, 12, 12, 2)} M5 15V5a2 2 0 0 1 2-2h10',
+  // The large star, plus the small one the design sets below and beside it.
+  StrokeGlyph.sparkle:
+      'M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z '
+      'M18 13l.8 2.5L21 16l-2.2.5L18 19l-.8-2.5L15 16l2.2-.5z',
+  StrokeGlyph.star: 'M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z',
   StrokeGlyph.navHome: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5',
   StrokeGlyph.navDocuments:
       'M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1'

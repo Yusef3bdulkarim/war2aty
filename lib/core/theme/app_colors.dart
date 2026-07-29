@@ -27,10 +27,13 @@ final class AppColors {
     required this.borderStrong,
     required this.success,
     required this.successTint,
+    required this.successInk,
     required this.mint,
+    required this.mintSoft,
     required this.warning,
     required this.warningInk,
     required this.warningTint,
+    required this.warningBorder,
     required this.iconMuted,
     required this.iconSubtle,
     required this.iconInfo,
@@ -94,11 +97,25 @@ final class AppColors {
 
   final Color success;
   final Color successTint;
+
+  /// Text and icons on [successTint] — darker than [success], which is a fill
+  /// colour and does not carry enough contrast as small type.
+  final Color successInk;
   final Color mint;
+
+  /// The pale mint the design writes on top of a brand-teal surface — the
+  /// summary card's label and the audio bar's controls. [mint] itself is too
+  /// close to the teal behind it to read there.
+  final Color mintSoft;
 
   final Color warning;
   final Color warningInk;
   final Color warningTint;
+
+  /// Outline of an amber block — the warnings card and the partial-result
+  /// banner. A tinted panel needs an edge to stay a panel when the surface
+  /// behind it is warm too.
+  final Color warningBorder;
 
   /// Fourth category accent (government papers), alongside teal, amber and
   /// green. Used for icon tints and category chips.
@@ -135,10 +152,13 @@ final class AppColors {
     textCaption: Color(0xFF6B777C),
     success: Color(0xFF2E9E63),
     successTint: Color(0xFFE1F2E9),
+    successInk: Color(0xFF1E7A48),
     mint: Color(0xFF34D0B4),
+    mintSoft: Color(0xFF8FE6D4),
     warning: Color(0xFFC77B12),
     warningInk: Color(0xFF8A5A0E),
     warningTint: Color(0xFFFBEFD8),
+    warningBorder: Color(0xFFF0D8A8),
     accentBlue: Color(0xFF2C63B6),
     accentBlueTint: Color(0xFFE6EEF9),
     error: Color(0xFFC4362A),
@@ -174,10 +194,13 @@ final class AppColors {
     textCaption: Color(0xFF2E3A3F),
     success: Color(0xFF1E7A48),
     successTint: Color(0xFFDCEEE4),
+    successInk: Color(0xFF13502F),
     mint: Color(0xFF12A98C),
+    mintSoft: Color(0xFFC8F5EA),
     warning: Color(0xFF8A5A0E),
     warningInk: Color(0xFF5E3D08),
     warningTint: Color(0xFFF8E6C6),
+    warningBorder: Color(0xFFB98A3C),
     accentBlue: Color(0xFF1B4489),
     accentBlueTint: Color(0xFFD8E3F5),
     error: Color(0xFFA82217),

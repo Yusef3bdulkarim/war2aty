@@ -1,5 +1,20 @@
 import 'app_strings.dart';
 
+const List<String> _monthNames = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 /// English strings. Drafted by the agent for review (CLAUDE.md locked decision).
 final class EnStrings implements AppStrings {
   const EnStrings();
@@ -240,6 +255,14 @@ final class EnStrings implements AppStrings {
   String get timePm => 'PM';
 
   @override
+  String monthName(int month) => _monthNames[month - 1];
+
+  // English keeps the ISO code: "750 EGP" is how the figure is written here,
+  // and spelling out "Egyptian pounds" beside every amount reads as noise.
+  @override
+  String currencyName(String code) => code;
+
+  @override
   String reminderDueToday(String time) => 'Today at $time';
 
   @override
@@ -341,4 +364,133 @@ final class EnStrings implements AppStrings {
       'These fields need verification — make sure they are correct.';
   @override
   String get ocrReviewDone => 'Done';
+
+  // Analysis — while it runs
+  @override
+  String get analysisRunningTitle => 'Preparing a simple explanation';
+  @override
+  String get analysisRunningMessage =>
+      'A few seconds and we will show you the key information and what you '
+      'need to do.';
+  @override
+  String get analysisRunningStatus => 'Reading your paper';
+
+  // Analysis result
+  @override
+  String get analysisResultTitle => 'Analysis result';
+  @override
+  String get analysisResultBackLabel => 'Back';
+  @override
+  String get analysisFailedTitle => 'Something went wrong';
+  @override
+  String get analysisFailedMessage =>
+      'We could not analyse this paper right now. Please try again shortly.';
+  @override
+  String get analysisNoInternetTitle => 'An internet connection is needed';
+  @override
+  String get analysisNoInternetMessage =>
+      'We need the internet to explain this paper and sort out its details.';
+  @override
+  String get analysisLimitReachedTitle => "You have used today's analyses";
+  @override
+  String get analysisLimitReachedMessage =>
+      'You can try again tomorrow, or show the text we read and listen to it '
+      'now.';
+  @override
+  String get analysisBackToHome => 'Back to home';
+  @override
+  String get resultListen => 'Listen';
+  @override
+  String get resultSavePaper => 'Save paper';
+  @override
+  String get resultSummaryLabel => 'In short';
+  @override
+  String get resultActionRequiredTitle => 'What you need to do';
+  @override
+  String get resultActionInferred => 'Worked out from the paper';
+  @override
+  String get resultWarningsTitle => 'Important';
+  @override
+  String get resultKeyInformationTitle => 'Key information';
+  @override
+  String resultCopyValueLabel(String label) => 'Copy $label';
+  @override
+  String get resultDatesTitle => 'Dates and appointments';
+  @override
+  String get resultDateNoTime => 'The paper gives no time.';
+  @override
+  String get resultCreateReminder => 'Create a reminder';
+  @override
+  String get resultPickDateTitle => 'Which date do you want to remember?';
+  @override
+  String get resultPickDateMessage =>
+      'This paper has more than one date. Pick the one to be reminded about.';
+  @override
+  String get resultDateReminderWorthy => 'Worth a reminder';
+  @override
+  String get resultDateDisplayOnly => 'For reference only';
+  @override
+  String get resultAmountsTitle => 'Amounts';
+  @override
+  String get resultRequiredDocumentsTitle => 'What to bring';
+  @override
+  String get resultInstructionsTitle => 'Step by step';
+  @override
+  String get resultShowExplanation => 'Explain this paper in full';
+  @override
+  String get resultShowExtractedText => 'Show the text we read';
+  @override
+  String get resultExtractedTextWarning =>
+      'The text we read may contain mistakes.';
+  @override
+  String get actionCopy => 'Copy';
+  @override
+  String get resultListenToText => 'Listen';
+  @override
+  String get resultPartialBanner =>
+      'We understood part of this paper. Some details need your review.';
+  @override
+  String get analysisUnsupportedTitle => 'We cannot fully explain this paper';
+  @override
+  String get analysisUnsupportedMessage =>
+      'We can show you the text we read and read it aloud, but we cannot give '
+      'a reliable explanation for this kind of document.';
+  @override
+  String get resultListenToExtractedText => 'Listen to the text';
+  @override
+  String get analysisCaptureAnother => 'Photograph another paper';
+  @override
+  String get extractedTextOnlyTitle => 'The text we read';
+  @override
+  String get extractedTextOnlyNote =>
+      'The text we read may contain mistakes, and no explanation is available '
+      'in this mode.';
+
+  // Document kinds
+  @override
+  String get documentKindInvoice => 'Invoice';
+  @override
+  String get documentKindReceipt => 'Receipt';
+  @override
+  String get documentKindAppointment => 'Appointment';
+  @override
+  String get documentKindGovernment => 'Government';
+  @override
+  String get documentKindExam => 'Exam result';
+  @override
+  String get documentKindMedical => 'Medical report';
+  @override
+  String get documentKindLegal => 'Legal document';
+  @override
+  String get documentKindFinancial => 'Financial document';
+  @override
+  String get documentKindEducational => 'Educational';
+  @override
+  String get documentKindOther => 'Other';
+
+  // Confidence
+  @override
+  String get confidenceReview => 'Please double-check';
+  @override
+  String get confidenceUncertain => 'Uncertain reading';
 }

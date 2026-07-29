@@ -1,5 +1,22 @@
 import 'app_strings.dart';
 
+/// Gregorian month names as Egypt writes them — the calendar on a bill, a
+/// clinic slip or a government notice.
+const List<String> _monthNames = [
+  'يناير',
+  'فبراير',
+  'مارس',
+  'أبريل',
+  'مايو',
+  'يونيو',
+  'يوليو',
+  'أغسطس',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
+];
+
 /// Arabic (Egyptian) strings. Simple, everyday dialect (CLAUDE.md).
 final class ArStrings implements AppStrings {
   const ArStrings();
@@ -235,6 +252,20 @@ final class ArStrings implements AppStrings {
   String get timePm => 'مساءً';
 
   @override
+  String monthName(int month) => _monthNames[month - 1];
+
+  @override
+  String currencyName(String code) => switch (code.toUpperCase()) {
+    'EGP' => 'جنيه',
+    'USD' => 'دولار',
+    'EUR' => 'يورو',
+    'SAR' => 'ريال سعودي',
+    'AED' => 'درهم إماراتي',
+    'KWD' => 'دينار كويتي',
+    _ => code,
+  };
+
+  @override
   String reminderDueToday(String time) => 'النهارده، الساعة $time';
 
   @override
@@ -335,4 +366,131 @@ final class ArStrings implements AppStrings {
   String get ocrReviewSubtitle => 'المعلومات دي محتاجة مراجعة — تأكد إنها صح.';
   @override
   String get ocrReviewDone => 'تمام';
+
+  // Analysis — while it runs
+  @override
+  String get analysisRunningTitle => 'بنجهز لك شرح بسيط للورقة';
+  @override
+  String get analysisRunningMessage =>
+      'ثواني وهنعرض لك أهم المعلومات والمطلوب منك.';
+  @override
+  String get analysisRunningStatus => 'بنقرأ الورقة دلوقتي';
+
+  // Analysis result
+  @override
+  String get analysisResultTitle => 'نتيجة التحليل';
+  @override
+  String get analysisResultBackLabel => 'رجوع';
+  @override
+  String get analysisFailedTitle => 'حصلت مشكلة أثناء التحليل';
+  @override
+  String get analysisFailedMessage =>
+      'مقدرناش نحلل الورقة دلوقتي. جرّب تاني بعد شوية.';
+  @override
+  String get analysisNoInternetTitle => 'محتاجين اتصال بالإنترنت';
+  @override
+  String get analysisNoInternetMessage =>
+      'الإنترنت مطلوب علشان نقدر نشرح الورقة ونرتب معلوماتها.';
+  @override
+  String get analysisLimitReachedTitle => 'استخدمت تحليلات اليوم';
+  @override
+  String get analysisLimitReachedMessage =>
+      'تقدر تحاول تاني بكرة، أو تعرض النص المستخرج وتسمعه دلوقتي.';
+  @override
+  String get analysisBackToHome => 'العودة للرئيسية';
+  @override
+  String get resultListen => 'استمع';
+  @override
+  String get resultSavePaper => 'حفظ الورقة';
+  @override
+  String get resultSummaryLabel => 'الخلاصة';
+  @override
+  String get resultActionRequiredTitle => 'المطلوب منك';
+  @override
+  String get resultActionInferred => 'استنتاج من محتوى الورقة';
+  @override
+  String get resultWarningsTitle => 'تنبيه مهم';
+  @override
+  String get resultKeyInformationTitle => 'أهم المعلومات';
+  @override
+  String resultCopyValueLabel(String label) => 'نسخ $label';
+  @override
+  String get resultDatesTitle => 'التواريخ والمواعيد';
+  @override
+  String get resultDateNoTime => 'الورقة مافيهاش وقت محدد.';
+  @override
+  String get resultCreateReminder => 'إنشاء تذكير';
+  @override
+  String get resultPickDateTitle => 'اختار التاريخ اللي عايز تفتكره';
+  @override
+  String get resultPickDateMessage =>
+      'الورقة فيها أكتر من تاريخ. اختار التاريخ المناسب للتذكير.';
+  @override
+  String get resultDateReminderWorthy => 'مناسب للتذكير';
+  @override
+  String get resultDateDisplayOnly => 'للعرض فقط';
+  @override
+  String get resultAmountsTitle => 'المبالغ';
+  @override
+  String get resultRequiredDocumentsTitle => 'المستندات المطلوبة';
+  @override
+  String get resultInstructionsTitle => 'الخطوات بالترتيب';
+  @override
+  String get resultShowExplanation => 'عرض شرح الورقة بالتفصيل';
+  @override
+  String get resultShowExtractedText => 'عرض النص المستخرج';
+  @override
+  String get resultExtractedTextWarning =>
+      'النص المستخرج ممكن يحتوي على أخطاء قراءة.';
+  @override
+  String get actionCopy => 'نسخ';
+  @override
+  String get resultListenToText => 'استماع';
+  @override
+  String get resultPartialBanner =>
+      'قدرنا نفهم جزء من الورقة، لكن بعض المعلومات محتاجة مراجعتك.';
+  @override
+  String get analysisUnsupportedTitle => 'الورقة دي مش مدعومة بالكامل حاليًا';
+  @override
+  String get analysisUnsupportedMessage =>
+      'نقدر نعرض لك النص المستخرج ونقراه بصوت، لكن مانقدرش نقدم شرح موثوق '
+      'للنوع ده من المستندات.';
+  @override
+  String get resultListenToExtractedText => 'الاستماع للنص';
+  @override
+  String get analysisCaptureAnother => 'تصوير ورقة تانية';
+  @override
+  String get extractedTextOnlyTitle => 'النص المستخرج';
+  @override
+  String get extractedTextOnlyNote =>
+      'النص المستخرج ممكن يحتوي على أخطاء قراءة. الشرح الذكي مش متاح في '
+      'الوضع ده.';
+
+  // Document kinds
+  @override
+  String get documentKindInvoice => 'فاتورة';
+  @override
+  String get documentKindReceipt => 'إيصال';
+  @override
+  String get documentKindAppointment => 'موعد';
+  @override
+  String get documentKindGovernment => 'حكومي';
+  @override
+  String get documentKindExam => 'نتيجة امتحان';
+  @override
+  String get documentKindMedical => 'تقرير طبي';
+  @override
+  String get documentKindLegal => 'ورقة قانونية';
+  @override
+  String get documentKindFinancial => 'ورقة مالية';
+  @override
+  String get documentKindEducational => 'تعليمي';
+  @override
+  String get documentKindOther => 'أخرى';
+
+  // Confidence
+  @override
+  String get confidenceReview => 'راجع المعلومة';
+  @override
+  String get confidenceUncertain => 'قراءة غير مؤكدة';
 }
