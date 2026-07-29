@@ -42,6 +42,8 @@ import '../../features/analysis/data/datasources/mock_analysis_remote_data_sourc
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
+import '../../features/analysis/domain/usecases/build_analysis_result.dart';
+import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
@@ -80,6 +82,7 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
 import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
+import '../../features/ocr/domain/entities/extraction_result.dart';
 import '../../features/ocr/domain/repositories/ocr_repository.dart';
 import '../../features/ocr/domain/services/amount_extractor.dart';
 import '../../features/ocr/domain/services/date_extractor.dart';
@@ -422,7 +425,20 @@ void _registerAnalysis(AppEnvironment env) {
         appVersion: env.appVersion,
       ),
     )
-    ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()));
+    ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
+    ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
+    ..registerFactoryParam<
+      AnalysisResultCubit,
+      AnalysisSession,
+      ExtractionResult
+    >(
+      (session, extraction) => AnalysisResultCubit(
+        session: session,
+        extraction: extraction,
+        analyzeDocument: getIt(),
+        buildResult: getIt(),
+      ),
+    );
 }
 
 void _registerRouting() {

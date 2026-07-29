@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/localization/app_localizations.dart';
 import '../../core/storage/analysis_session.dart';
+import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
@@ -18,6 +20,7 @@ import '../../features/capture/presentation/screens/image_preview_screen.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/ocr/presentation/cubit/ocr_processing_cubit.dart';
+import '../../features/ocr/presentation/ocr_session_holder.dart';
 import '../../features/ocr/presentation/screens/ocr_processing_screen.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
@@ -38,6 +41,7 @@ abstract final class AppRoutes {
   static const String capture = '/capture';
   static const String preview = '/preview';
   static const String ocr = '/ocr';
+  static const String result = '/result';
 
   /// The first-run flow, which sits outside the bottom-nav shell.
   static const Set<String> firstRun = {onboarding, privacy};
@@ -110,16 +114,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
         path: AppRoutes.ocr,
         builder: (context, state) {
           final session = state.extra as AnalysisSession?;
-          if (session == null) {
-            return Builder(
-              builder: (ctx) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  ctx.go(AppRoutes.home);
-                });
-                return const SizedBox.shrink();
-              },
-            );
-          }
+          if (session == null) return const _BackToHome();
           return BlocProvider<OcrProcessingCubit>(
             create: (_) =>
                 getIt<OcrProcessingCubit>(param1: session)..process(),
@@ -129,9 +124,11 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             // `ProviderNotFoundException` and the button did nothing.
             child: Builder(
               builder: (context) => OcrProcessingScreen(
+                // Replaces this route: once the text is on its way to be
+                // analysed there is no going back to the OCR view of it.
                 onContinue: () {
                   context.read<OcrProcessingCubit>().confirm();
-                  context.go(AppRoutes.home);
+                  context.pushReplacement(AppRoutes.result);
                 },
                 onRetake: () => context.pushReplacement(
                   AppRoutes.captureWith(CaptureSource.camera),
@@ -139,6 +136,35 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                 onPickAnother: () => context.pushReplacement(
                   AppRoutes.captureWith(CaptureSource.gallery),
                 ),
+              ),
+            ),
+          );
+        },
+      ),
+      // Also outside the shell: the result belongs to the scan the user just
+      // finished, and it is left through its own back control.
+      GoRoute(
+        path: AppRoutes.result,
+        builder: (context, state) {
+          // The OCR output is picked up from the hand-off holder rather than
+          // from `extra`, which the OS drops when it kills and restores the
+          // app — and OCR text is too expensive to redo silently.
+          final handoff = getIt<OcrSessionHolder>();
+          final session = handoff.session;
+          final extraction = handoff.result;
+          if (session == null || extraction == null) {
+            return const _BackToHome();
+          }
+          return BlocProvider<AnalysisResultCubit>(
+            create: (_) =>
+                getIt<AnalysisResultCubit>(param1: session, param2: extraction)
+                  ..analyze(),
+            child: AnalysisResultScreen(
+              onClose: () => context.go(AppRoutes.home),
+              // Replaces this route: the paper that could not be explained is
+              // not somewhere to come back to.
+              onCaptureAnother: () => context.pushReplacement(
+                AppRoutes.captureWith(CaptureSource.camera),
               ),
             ),
           );
@@ -270,6 +296,24 @@ StatefulShellBranch _branch(
       ),
     ],
   );
+}
+
+/// Sends the user back to Home, one frame after this builds.
+///
+/// The scan routes carry their subject with them — a session, an OCR result —
+/// and reaching one without it means the flow was restored or deep-linked into
+/// halfway through. There is nothing to show, so the route bounces instead of
+/// rendering an empty screen.
+class _BackToHome extends StatelessWidget {
+  const _BackToHome();
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) context.go(AppRoutes.home);
+    });
+    return const SizedBox.shrink();
+  }
 }
 
 /// Adapts a Cubit's [Stream] to the [Listenable] `GoRouter` expects, so gate

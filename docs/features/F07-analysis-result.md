@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-result` · **Milestone:** M3 (start) / M5 (full)
 - **Depends on:** F05/F06 · **Feeds:** F08 (save), F09 (reminder), F10 (audio)
-- **Progress:** 13 / 14 DONE
+- **Progress:** 14 / 14 DONE
 
 The result experience — ordered sections, all statuses, and the branch point into save/reminder/audio.
 
@@ -23,7 +23,7 @@ The result experience — ordered sections, all statuses, and the branch point i
 | 11 | F07-T11 | Detailed explanation + extracted text | copy/edit; original always available | DONE |
 | 12 | F07-T12 | Partial/unsupported variants | «نتيجة جزئية» / «غير مدعومة» | DONE |
 | 13 | F07-T13 | Service-state screens | no-net/limit/failed + OCR-only fallback (not counted) | DONE |
-| 14 | F07-T14 | Action hooks | audio/reminder/save entry points | TODO |
+| 14 | F07-T14 | Action hooks | audio/reminder/save entry points | DONE |
 
 ## Exit DoD
 All 4 templates + partial/unsupported + all error states match design; uncertain values labeled (never as fact); original OCR text always accessible.
