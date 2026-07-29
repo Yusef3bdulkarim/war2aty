@@ -123,16 +123,22 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           return BlocProvider<OcrProcessingCubit>(
             create: (_) =>
                 getIt<OcrProcessingCubit>(param1: session)..process(),
-            child: OcrProcessingScreen(
-              onContinue: () {
-                context.read<OcrProcessingCubit>().confirm();
-                context.go(AppRoutes.home);
-              },
-              onRetake: () => context.pushReplacement(
-                AppRoutes.captureWith(CaptureSource.camera),
-              ),
-              onPickAnother: () => context.pushReplacement(
-                AppRoutes.captureWith(CaptureSource.gallery),
+            // The builder's own `context` sits *above* this provider, so a
+            // `read` on it cannot find the cubit. This [Builder] puts the
+            // callbacks' context below it — without one, continuing threw
+            // `ProviderNotFoundException` and the button did nothing.
+            child: Builder(
+              builder: (context) => OcrProcessingScreen(
+                onContinue: () {
+                  context.read<OcrProcessingCubit>().confirm();
+                  context.go(AppRoutes.home);
+                },
+                onRetake: () => context.pushReplacement(
+                  AppRoutes.captureWith(CaptureSource.camera),
+                ),
+                onPickAnother: () => context.pushReplacement(
+                  AppRoutes.captureWith(CaptureSource.gallery),
+                ),
               ),
             ),
           );
