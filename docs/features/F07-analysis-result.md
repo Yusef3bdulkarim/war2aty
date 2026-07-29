@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-result` · **Milestone:** M3 (start) / M5 (full)
 - **Depends on:** F05/F06 · **Feeds:** F08 (save), F09 (reminder), F10 (audio)
-- **Progress:** 3 / 14 DONE
+- **Progress:** 4 / 14 DONE
 
 The result experience — ordered sections, all statuses, and the branch point into save/reminder/audio.
 
@@ -13,7 +13,7 @@ The result experience — ordered sections, all statuses, and the branch point i
 | 1 | F07-T01 | Result scaffold + ordering | `BuildAnalysisResult`; section order per §4 | DONE |
 | 2 | F07-T02 | Header (type/title) | document type + title | DONE |
 | 3 | F07-T03 | Summary | short + detailed | DONE |
-| 4 | F07-T04 | Action-required | «المطلوب منك»; basis=inferred labeled | TODO |
+| 4 | F07-T04 | Action-required | «المطلوب منك»; basis=inferred labeled | DONE |
 | 5 | F07-T05 | Warnings | medical/government disclaimers | TODO |
 | 6 | F07-T06 | Key-information items | confidence bands; «راجع المعلومة» label | TODO |
 | 7 | F07-T07 | Dates & times | list with roles | TODO |
