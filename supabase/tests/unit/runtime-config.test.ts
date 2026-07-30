@@ -147,6 +147,65 @@ Deno.test("a fractional limit is floored", () => {
   );
 });
 
+// ── the global capacity breaker (F13-T02) ─────────────────────────────────
+
+Deno.test("no global cap key means unlimited, not zero", () => {
+  // The breaker is dark-launched: before an operator sets a number it must be
+  // completely inert. A 0 here would block every request in production.
+  assertEquals(parseRuntimeConfig(SEEDED, env()).globalDailyCallCap, null);
+  assertEquals(parseRuntimeConfig([], env()).globalDailyCallCap, null);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.globalDailyCallCap, null);
+});
+
+Deno.test("an operator can set the global cap without an app release", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: 500 }], env())
+      .globalDailyCallCap,
+    500,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: "500" }], env())
+      .globalDailyCallCap,
+    500,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: 500.9 }], env())
+      .globalDailyCallCap,
+    500,
+  );
+});
+
+Deno.test("a malformed global cap fails OPEN, the opposite of daily_limit", () => {
+  // This is the asymmetry worth pinning. daily_limit is a mandatory product
+  // rule, so a typo falls back to a real number (3). This cap is an optional
+  // spend valve, so a typo must switch it OFF rather than invent a limit
+  // nobody configured and lock out every user of the service.
+  for (const value of ["abc", null, -5, 0, 0.5, {}, [], true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "global_daily_call_cap", value }], env())
+        .globalDailyCallCap,
+      null,
+      `${JSON.stringify(value)} should mean unlimited`,
+    );
+  }
+
+  // Same input shape, opposite direction, in one place so the contrast cannot
+  // be edited away by accident.
+  assertEquals(
+    parseRuntimeConfig([{ key: "daily_limit", value: 0 }], env()).dailyLimit,
+    3,
+  );
+});
+
+Deno.test("a cap of 1 is honoured, not rounded away as falsy", () => {
+  // The tightest real setting an operator might use in an incident.
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: 1 }], env())
+      .globalDailyCallCap,
+    1,
+  );
+});
+
 Deno.test("a blank version falls back to the default", () => {
   assertEquals(
     parseRuntimeConfig([{ key: "minimum_app_version", value: "  " }], env())

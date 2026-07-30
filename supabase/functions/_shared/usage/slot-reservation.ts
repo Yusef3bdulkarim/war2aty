@@ -19,8 +19,14 @@ import type { CairoDay } from "../time/cairo-day.ts";
  * - `duplicate` — this `request_id` was already seen. A retry, not a new
  *   analysis, so no slot was taken.
  * - `limit_reached` — the daily quota is exhausted.
+ * - `global_capacity_reached` — the cross-user daily cap is exhausted. Nothing
+ *   is wrong with this caller's quota; the shared budget for the day is spent.
  */
-export type ReserveOutcome = "reserved" | "duplicate" | "limit_reached";
+export type ReserveOutcome =
+  | "reserved"
+  | "duplicate"
+  | "limit_reached"
+  | "global_capacity_reached";
 
 export interface ReservationResult {
   readonly outcome: ReserveOutcome;
@@ -50,6 +56,14 @@ export interface ReserveInput {
   readonly installationHash: string;
   readonly dailyLimit: number;
   /**
+   * Cross-user cap on calls per Cairo day; `null` switches the breaker off.
+   *
+   * Checked inside the same atomic reserve as {@link dailyLimit}, not before
+   * it — a separate global pre-check would be the read-then-reserve race this
+   * module exists to avoid.
+   */
+  readonly globalDailyCallCap: number | null;
+  /**
    * How long the slot may stay held. Should exceed the AI timeout but stay
    * short: until it lapses, a crashed request keeps a slot from the user.
    */
@@ -67,7 +81,13 @@ export interface SlotStore {
 
 export type SlotRunOutcome<T> =
   | { readonly status: "ran"; readonly value: T; readonly finalize: FinalizeResult }
-  | { readonly status: "duplicate" | "limit_reached"; readonly reservation: ReservationResult };
+  // Derived from ReserveOutcome rather than listed: a new refusal reason then
+  // forces every caller's `status` switch to handle it, instead of silently
+  // widening to a case nobody translates onto the wire.
+  | {
+    readonly status: Exclude<ReserveOutcome, "reserved">;
+    readonly reservation: ReservationResult;
+  };
 
 /**
  * Runs `work` while holding a slot, settling it whichever way `work` ends.

@@ -15,6 +15,21 @@ export interface RuntimeConfig {
   /** Kill switch. `false` → analyze-document answers 503 ANALYSIS_DISABLED. */
   readonly analysisEnabled: boolean;
   readonly dailyLimit: number;
+  /**
+   * Cross-user cap on total AI-provider calls per Cairo day (F13-T02).
+   * `null` means UNLIMITED — the breaker is off.
+   *
+   * Server-side only, and deliberately absent from the Flutter
+   * `RuntimeConfig`: it is an operational spend valve, not a product rule the
+   * app should show, predict or count against.
+   *
+   * Note the fail direction is the OPPOSITE of {@link dailyLimit}. That one is
+   * a mandatory product decision, so an unreadable value falls back to a real
+   * number. This one is an optional safety valve dark-launched with no cap
+   * configured, so anything unreadable means "off" — a typo in this row must
+   * not block every user of the service.
+   */
+  readonly globalDailyCallCap: number | null;
   readonly maxOcrCharacters: number;
   /** Clients below this are refused with 400 UNSUPPORTED_APP_VERSION. */
   readonly minimumAppVersion: string;
@@ -34,6 +49,9 @@ export interface RuntimeConfig {
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   analysisEnabled: true,
   dailyLimit: 3,
+  // Dark by default (F13-T03): no cap until an operator sets one, so today's
+  // Groq-only pipeline behaves exactly as it did before this key existed.
+  globalDailyCallCap: null,
   maxOcrCharacters: 12000,
   minimumAppVersion: "1.0.0",
   schemaVersion: "1.0",
@@ -55,6 +73,25 @@ function positiveInteger(value: unknown, fallback: number): number {
     : Number.NaN;
 
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.floor(parsed);
+}
+
+/**
+ * A cap that may be switched off, for values where "no limit" is a valid state.
+ *
+ * Everything unusable — absent, `null`, `0`, negative, fractional-below-one,
+ * `"abc"`, an object — reads as `null`/unlimited. That is the whole point:
+ * unlike {@link positiveInteger}, there is no safe number to fall back to, and
+ * inventing one would impose a limit nobody configured.
+ */
+function nullablePositiveInteger(value: unknown): number | null {
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string"
+    ? Number(value)
+    : Number.NaN;
+
+  if (!Number.isFinite(parsed) || parsed < 1) return null;
   return Math.floor(parsed);
 }
 
@@ -114,6 +151,7 @@ export function parseRuntimeConfig(
       read("daily_limit"),
       DEFAULT_RUNTIME_CONFIG.dailyLimit,
     ),
+    globalDailyCallCap: nullablePositiveInteger(read("global_daily_call_cap")),
     maxOcrCharacters: positiveInteger(
       read("max_ocr_characters"),
       DEFAULT_RUNTIME_CONFIG.maxOcrCharacters,

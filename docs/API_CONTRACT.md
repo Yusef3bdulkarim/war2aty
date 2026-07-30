@@ -243,6 +243,12 @@ device (privacy §7).
 4. **Daily limit** — check `installation_id` usage count for the current `Africa/Cairo` day. Reject with `429 DAILY_LIMIT_REACHED` and include `reset_at` (Cairo midnight ISO-8601).
 5. **Analysis disabled** — if `RuntimeConfig.analysisEnabled == false`, reject with `503 ANALYSIS_DISABLED`.
 6. **Candidate arrays** — may be empty (document with no extractable fields is valid).
+7. **Global capacity** — a second, independent cap on total calls across *all* users for the
+   current `Africa/Cairo` day. Reject with `429 GLOBAL_CAPACITY_REACHED` (no `reset_at`).
+   Checked atomically inside the same reservation as rule 4, never as a separate pre-check.
+   Unlike rule 4 this cap **fails open**: an unset or non-positive `global_daily_call_cap`
+   means unlimited, because it is an optional spend valve and a misconfigured row must not
+   block every user.
 
 ### Privacy guarantees
 
@@ -600,6 +606,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
 | 408 | `TIMEOUT` | `RequestTimeoutFailure` | — | Analysis took longer than `analysisTimeout` |
 | 429 | `DAILY_LIMIT_REACHED` | `DailyLimitReachedFailure` | `{ "reset_at": "ISO-8601" }` | Daily quota exhausted for this `installation_id` |
 | 429 | `AI_RATE_LIMITED` | `AiProviderRateLimitFailure` | — | Upstream AI provider rate-limited the request |
+| 429 | `GLOBAL_CAPACITY_REACHED` | `GlobalCapacityReachedFailure` | — | Service-wide daily call cap (`globalDailyCallCap`) exhausted across **all** users — not this caller's own quota (F13-T02) |
 | 500 | `ANALYSIS_FAILED` | `AnalysisServiceFailure` | — | AI returned unusable output or internal error |
 | 500 | `INTERNAL_ERROR` | `AnalysisServiceFailure` | — | Unexpected server error |
 | 503 | `ANALYSIS_DISABLED` | `AnalysisDisabledFailure` | — | `analysisEnabled == false` (maintenance) |
@@ -631,6 +638,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
             "TIMEOUT",
             "DAILY_LIMIT_REACHED",
             "AI_RATE_LIMITED",
+            "GLOBAL_CAPACITY_REACHED",
             "ANALYSIS_FAILED",
             "INTERNAL_ERROR",
             "ANALYSIS_DISABLED"
@@ -662,7 +670,9 @@ client maps to `AppFailure` subtypes and Arabic copy.
 1. **Parse `error.code` only** — never show `error.message` to the user. Map each code
    to an `AppFailure` subtype and let the presentation layer produce Arabic copy.
 2. **`DAILY_LIMIT_REACHED`** — parse `details.reset_at` into `DailyLimitReachedFailure.resetAtCairo`
-   to show the user when they can retry.
+   to show the user when they can retry. Do **not** treat `GLOBAL_CAPACITY_REACHED` as this
+   code: the caller's own quota is untouched, there is no `reset_at`, and the copy must read
+   as a temporary service-side limit rather than "you have used up your analyses".
 3. **Unknown codes** — treat any unrecognized `error.code` as `AnalysisServiceFailure`.
 4. **Non-JSON responses** — treat as `AnalysisServiceFailure` (server returned HTML error page, etc.).
 5. **Network errors** (no response) — map to `NoInternetFailure` or `RequestTimeoutFailure`

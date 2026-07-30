@@ -23,6 +23,7 @@ const INPUT: ReserveInput = {
   requestId: "aaaaaaaa-0000-0000-0000-000000000001",
   installationHash: "hash",
   dailyLimit: 3,
+  globalDailyCallCap: null,
   ttlSeconds: 60,
 };
 
@@ -167,6 +168,24 @@ Deno.test("a duplicate never runs the work and takes no slot", async () => {
 
   assertEquals(result.status, "duplicate");
   assertEquals(ran, false);
+  assertEquals(finalizeCalls.length, 0);
+});
+
+Deno.test("a tripped global breaker never runs the work and takes no slot", async () => {
+  const { store, finalizeCalls } = fakeStore("global_capacity_reached");
+  let ran = false;
+
+  const result = await withReservedSlot(store, INPUT, () => {
+    ran = true;
+    return Promise.resolve("analysis");
+  });
+
+  assertEquals(result.status, "global_capacity_reached");
+  // The breaker exists to stop provider spend, so this is the assertion that
+  // makes it worth having.
+  assertEquals(ran, false);
+  // Nothing was reserved, so a finalize here would settle a slot that the
+  // reserve had already rolled back.
   assertEquals(finalizeCalls.length, 0);
 });
 

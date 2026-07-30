@@ -134,6 +134,12 @@ async function errorCode(response: Response): Promise<string> {
   return (await response.json()).error.code;
 }
 
+/** Runs one request and returns the input the store was actually handed. */
+async function reserveInput(test: Harness): Promise<ReserveInput> {
+  await test.call();
+  return test.reserves[0];
+}
+
 // ── the happy path ────────────────────────────────────────────────────────
 
 Deno.test("a valid analysis returns the §30 body and consumes one slot", async () => {
@@ -263,6 +269,46 @@ Deno.test("an exhausted quota is 429 with the Cairo reset instant", async () => 
   assertEquals(body.error.details.reset_at, "2026-07-27T00:00:00+03:00");
   // Critical: the AI must not be called, or the limit costs us money anyway.
   assertEquals(test.prompts.length, 0);
+});
+
+Deno.test("the configured global cap reaches the store, unlimited by default", async () => {
+  // The store cannot enforce a cap it is never told about, and the default must
+  // stay null — a dark-launched breaker that silently starts counting would
+  // change today's behaviour.
+  assertEquals((await reserveInput(harness())).globalDailyCallCap, null);
+  assertEquals(
+    (await reserveInput(harness({ config: { globalDailyCallCap: 500 } })))
+      .globalDailyCallCap,
+    500,
+  );
+});
+
+Deno.test("a tripped global breaker is 429 GLOBAL_CAPACITY_REACHED with no AI call", async () => {
+  const test = harness({
+    reserveOutcome: "global_capacity_reached",
+    config: { globalDailyCallCap: 500 },
+  });
+  const response = await test.call();
+
+  assertEquals(response.status, 429);
+  const body = await response.json();
+  assertEquals(body.error.code, "GLOBAL_CAPACITY_REACHED");
+  // The whole point of the breaker: the provider is never called, so the
+  // refusal costs nothing.
+  assertEquals(test.prompts.length, 0);
+  // Nothing was reserved, so there is nothing to settle — a finalize here would
+  // decrement a counter this request never incremented.
+  assertEquals(test.finalizes.length, 0);
+});
+
+Deno.test("a tripped global breaker is not reported as the user's own limit", async () => {
+  // The user may have analysed nothing today. Sending DAILY_LIMIT_REACHED — or
+  // a reset_at — would tell them to wait for a quota that is not what ran out.
+  const test = harness({ reserveOutcome: "global_capacity_reached" });
+  const body = await (await test.call()).json();
+
+  assertEquals(body.error.code === "DAILY_LIMIT_REACHED", false);
+  assertEquals("details" in body.error, false);
 });
 
 Deno.test("a replayed request id is refused rather than run twice", async () => {

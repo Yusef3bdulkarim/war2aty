@@ -37,6 +37,7 @@ export const ERROR_CODES = [
   "ANALYSIS_FAILED",
   "INTERNAL_ERROR",
   "ANALYSIS_DISABLED",
+  "GLOBAL_CAPACITY_REACHED",
 ] as const;
 
 export type ErrorCode = typeof ERROR_CODES[number];
@@ -60,6 +61,11 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   ANALYSIS_FAILED: 500,
   INTERNAL_ERROR: 500,
   ANALYSIS_DISABLED: 503,
+  // 429, alongside the per-user limit: the service is up and this caller did
+  // nothing wrong — the shared daily budget is spent. Deliberately carries no
+  // `reset_at`, unlike DAILY_LIMIT_REACHED: capacity also returns whenever an
+  // operator raises the cap, so promising a specific instant would be a guess.
+  GLOBAL_CAPACITY_REACHED: 429,
 };
 
 export function httpStatusForErrorCode(code: ErrorCode): number {

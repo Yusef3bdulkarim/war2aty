@@ -102,6 +102,21 @@ export class ApiError extends Error {
     return new ApiError("AI_RATE_LIMITED", "AI provider rate limit reached.");
   }
 
+  /**
+   * The cross-user daily call cap tripped (F13-T02).
+   *
+   * Distinct from {@link dailyLimitReached}: that one is the caller's own quota
+   * and is their business to manage; this one is a service-wide safety valve
+   * they cannot influence. Collapsing the two would tell a user who has not
+   * analysed anything today that they are out of analyses.
+   */
+  static globalCapacityReached(): ApiError {
+    return new ApiError(
+      "GLOBAL_CAPACITY_REACHED",
+      "Service-wide daily analysis capacity reached.",
+    );
+  }
+
   /** The AI answered, but with output we could not use (§48 INVALID_AI_RESPONSE). */
   static analysisFailed(): ApiError {
     return new ApiError("ANALYSIS_FAILED", "Analysis produced unusable output.");

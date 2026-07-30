@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ocr-provider-migration` · **Milestone:** post-M6
 - **Depends on:** F04 (local OCR — Tesseract/extractors kept as offline fallback), F06 (backend + Groq — extended, not replaced) · **Feeds:** all future analysis quality
-- **Progress:** 1 / 19 DONE
+- **Progress:** 2 / 19 DONE
 
 Replaces Tesseract as the primary OCR engine with Azure AI Document Intelligence (Read model); keeps Tesseract as an **offline-only** fallback; adds Google Document AI as a conditional second opinion when Azure is missing/invalid/low-confidence on a critical field; Groq stays the final classify/explain step, never shown the raw image, never allowed to invent or correct dates/amounts/times/phones/reference numbers. This is a privacy-model change (the image now transits the Edge Function to reach Azure/Google) — user-facing copy and `CLAUDE.md` are updated accordingly, never naming a provider, never claiming the image doesn't reach AI. All architectural decisions below were resolved with the user in a dedicated planning session (2026-07-30) and are fixed constraints, not open questions, for implementation.
 
@@ -25,7 +25,7 @@ Replaces Tesseract as the primary OCR engine with Azure AI Document Intelligence
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F13-T01 | Branch + doc scaffold | Worktree branch `feature/ocr-provider-migration` off `develop`; this doc + README row added | DONE |
-| 2 | F13-T02 | Global spend/call-count circuit breaker | Kill-switch + atomic global counter checked before `withReservedSlot`; new mirrored `GLOBAL_CAPACITY_REACHED` failure/error code; unit tests for firing/reset | TODO |
+| 2 | F13-T02 | Global spend/call-count circuit breaker | `global_daily_call_cap` config key (null = unlimited, fails **open**) + global counter checked atomically **inside** `reserve_analysis_slot`, not as a pre-check before `withReservedSlot` — a separate global check would reintroduce the read-then-reserve race F06-T07 rejected; mirrored `GLOBAL_CAPACITY_REACHED` code → `GlobalCapacityReachedFailure`; unit + concurrent integration tests for firing, release and reset | DONE |
 | 3 | F13-T03 | Azure/Google secrets + dark kill-switch | `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`/`KEY`, Google service-account env vars, hard-fail-on-missing; new `azureOcrEnabled` flag defaults `false` | TODO |
 | 4 | F13-T04 | Azure Document Intelligence client | Hand-rolled `fetch` (no SDK): submit → poll → read → mandatory delete in `finally`; tests cover poll-timeout, non-2xx, delete-called-exactly-once | TODO |
 | 5 | F13-T05 | Port field extractors to TypeScript | Mirrors the 5 existing Dart extractors field-by-field; shared fixtures where practical; one behavior per test | TODO |

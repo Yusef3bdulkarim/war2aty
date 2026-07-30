@@ -17,8 +17,9 @@ import 'api_error_dto.dart';
 /// session error, hiding the one failure the app can silently recover from.
 ///
 /// Only unambiguous statuses are mapped. A bare 429 is not one of them — it is
-/// either the daily limit or an AI rate limit, and those are different screens,
-/// so guessing would be worse than the generic answer.
+/// the daily limit, an AI rate limit, or the service-wide capacity cap, and
+/// those are different screens, so guessing would be worse than the generic
+/// answer.
 ///
 /// [now] is injected so the [DailyLimitReachedFailure] fallback is testable.
 AppFailure failureFromErrorBody(
@@ -40,6 +41,7 @@ AppFailure failureFromErrorBody(
       _resetAt(dto, now ?? DateTime.now()),
     ),
     'AI_RATE_LIMITED' => const AiProviderRateLimitFailure(),
+    'GLOBAL_CAPACITY_REACHED' => const GlobalCapacityReachedFailure(),
     'ANALYSIS_DISABLED' => const AnalysisDisabledFailure(),
     'ANALYSIS_FAILED' || 'INTERNAL_ERROR' => const AnalysisServiceFailure(),
     // §31 rule 3: an unrecognised code is still a server-side problem.

@@ -13,8 +13,9 @@
  *   2. runtime config — one read; also the kill switch
  *   3. kill switch   — a disabled service should not care about body shape
  *   4. parse body    — free, and gates everything below on a valid contract
- *   5. reserve slot  — the quota is enforced BEFORE the AI is called, or the
- *                      limit costs us money anyway
+ *   5. reserve slot  — both quotas (the caller's own and the service-wide cap)
+ *                      are enforced BEFORE the AI is called, or a refusal
+ *                      costs us the provider call anyway
  *   6. analyse       — the only expensive step
  *   7. validate      — the model's answer is never returned as-is
  *
@@ -101,6 +102,7 @@ export function createAnalyzeHandler(
         requestId,
         installationHash,
         dailyLimit: config.dailyLimit,
+        globalDailyCallCap: config.globalDailyCallCap,
         ttlSeconds: config.aiTimeoutSeconds + RESERVATION_GRACE_SECONDS,
       },
       async () => {
@@ -143,6 +145,23 @@ export function createAnalyzeHandler(
         throw ApiError.dailyLimitReached(
           toCairoIsoString(nextCairoResetAfter(instant)),
         );
+      }
+
+      if (outcome.status === "global_capacity_reached") {
+        // Logged at the point it fires because nothing else surfaces it: the
+        // breaker tripping is a service-wide event an operator needs to see to
+        // decide whether to raise the cap, and the caller is told only that
+        // capacity is gone. Counts and ids only (§51).
+        logEvent("analyze.global_capacity_reached", {
+          request_id: requestId,
+          global_daily_call_cap: config.globalDailyCallCap,
+          // The CALLER's count, not the global one — the reserve returns
+          // per-user figures even on this branch. Named explicitly so nobody
+          // reads it as the day's global total next to the cap above; its only
+          // use is showing that the refused caller was not at their own limit.
+          caller_used_today: outcome.reservation.usedToday,
+        });
+        throw ApiError.globalCapacityReached();
       }
 
       // Another request already holds — or already settled — this id. Running
