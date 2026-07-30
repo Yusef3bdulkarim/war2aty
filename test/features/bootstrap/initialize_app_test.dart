@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -92,4 +94,94 @@ void main() {
   test('an empty sequence succeeds', () async {
     expect(await InitializeApp(const [])(), const Ok<void, AppFailure>(null));
   });
+
+  group('launch always terminates', () {
+    // Both of these produced a splash screen that spun forever, with no error
+    // and no retry — the worst failure mode the app has, because there is
+    // nothing the user can do but force-quit.
+
+    test('a step that never completes times out instead of hanging', () async {
+      final initialize = InitializeApp([
+        BootstrapStep(
+          BootstrapStage.session,
+          // A network call that never resolves. Since F06-T14 the session step
+          // really does perform one.
+          () => Completer<Result<void, AppFailure>>().future,
+          timeout: const Duration(milliseconds: 50),
+        ),
+      ]);
+
+      final result = await initialize();
+
+      expect(result, isA<Err<void, AppFailure>>());
+      expect((result as Err).failure, isA<RequestTimeoutFailure>());
+    });
+
+    test(
+      'a step that throws becomes a failure, not an escaped exception',
+      () async {
+        // `run` is a closure that resolves dependencies: an unregistered service
+        // or a client that failed to initialize throws straight out of it.
+        final initialize = InitializeApp([
+          BootstrapStep(
+            BootstrapStage.session,
+            () async =>
+                throw StateError('Supabase.instance was not initialized'),
+          ),
+        ]);
+
+        final result = await initialize();
+
+        expect((result as Err).failure, isA<LaunchFailure>());
+      },
+    );
+
+    test('a throw in a non-critical step does not abort launch', () async {
+      final ran = <BootstrapStage>[];
+      final initialize = InitializeApp([
+        BootstrapStep(
+          BootstrapStage.usage,
+          () async => throw StateError('boom'),
+          critical: false,
+        ),
+        step(BootstrapStage.reminders, ran),
+      ]);
+
+      expect(await initialize(), const Ok<void, AppFailure>(null));
+      expect(ran, [BootstrapStage.reminders]);
+    });
+
+    test('a timeout in a non-critical step does not abort launch', () async {
+      // Usage sync talks to get-usage now; a slow backend must not stop the
+      // user reaching a screen that works perfectly well from cache.
+      final ran = <BootstrapStage>[];
+      final initialize = InitializeApp([
+        BootstrapStep(
+          BootstrapStage.usage,
+          () => Completer<Result<void, AppFailure>>().future,
+          critical: false,
+          timeout: const Duration(milliseconds: 50),
+        ),
+        step(BootstrapStage.reminders, ran),
+      ]);
+
+      expect(await initialize(), const Ok<void, AppFailure>(null));
+      expect(ran, [BootstrapStage.reminders]);
+    });
+
+    test('every step is bounded unless a caller opts out explicitly', () {
+      const bounded = BootstrapStep(BootstrapStage.session, _never);
+      expect(bounded.timeout, BootstrapStep.defaultTimeout);
+
+      const unbounded = BootstrapStep(
+        BootstrapStage.session,
+        _never,
+        timeout: null,
+      );
+      expect(unbounded.timeout, isNull);
+    });
+  });
 }
+
+Future<Result<void, AppFailure>> _never() =>
+    Completer<Result<void, AppFailure>>().future;

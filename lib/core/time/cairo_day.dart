@@ -6,13 +6,20 @@
 /// ever has to enforce the reset offline.
 const Duration kCairoUtcOffset = Duration(hours: 2);
 
+/// [instant] as a wall-clock reading in Cairo.
+///
+/// The returned `DateTime` is nominally UTC but carries Cairo's date and time
+/// fields, which is what display code needs — never use it for arithmetic
+/// against real instants.
+DateTime cairoLocalOf(DateTime instant) => instant.toUtc().add(kCairoUtcOffset);
+
 /// The Africa/Cairo calendar date [instant] falls on, as a UTC-midnight
 /// `DateTime` (date-only — no time component).
 ///
 /// The daily analysis limit is counted per Cairo day, so a user in Cairo sees
 /// their quota reset at local midnight regardless of device timezone.
 DateTime cairoDateOf(DateTime instant) {
-  final cairo = instant.toUtc().add(kCairoUtcOffset);
+  final cairo = cairoLocalOf(instant);
   return DateTime.utc(cairo.year, cairo.month, cairo.day);
 }
 

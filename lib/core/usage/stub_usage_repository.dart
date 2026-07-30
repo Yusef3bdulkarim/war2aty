@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../database/app_database.dart';
 import '../error/app_failure.dart';
 import '../result/result.dart';
@@ -62,6 +64,29 @@ final class StubUsageRepository implements UsageRepository {
     } on Object {
       return const Err(LocalDatabaseFailure());
     }
+  }
+
+  /// Watches today's row.
+  ///
+  /// The Cairo day is resolved once, when the stream is subscribed to. An app
+  /// left open across midnight therefore keeps watching the previous day until
+  /// something re-subscribes — acceptable while the count only changes as a
+  /// result of the user running an analysis, which re-syncs anyway.
+  @override
+  Stream<Result<DailyUsage?, AppFailure>> watchUsage() {
+    return _db
+        .watchUsageForDate(cairoDateOf(_now()))
+        .map<Result<DailyUsage?, AppFailure>>(
+          (row) => Ok(row == null ? null : _toEntity(row)),
+        )
+        // The stream feeds a screen, so a database error becomes a value the
+        // UI can render rather than an exception that tears the stream down.
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError: (error, stackTrace, sink) =>
+                sink.add(const Err(LocalDatabaseFailure())),
+          ),
+        );
   }
 
   // Drift hands back local DateTimes; Dart's `==` treats a local and a UTC

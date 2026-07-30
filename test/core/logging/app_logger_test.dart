@@ -26,13 +26,18 @@ void main() {
 
   group('allowlist enforcement', () {
     test('a fully-populated event emits only allowlisted keys', () {
+      // Every field must appear here, so adding one to `LogEvent` without
+      // adding it to the §51 allowlist fails loudly rather than silently
+      // widening what may be logged.
       logger.event(
         const LogEvent(
           analysisSessionId: 'sess-123',
+          requestId: 'req-123',
           stage: LogStage.ocr,
           durationMs: 42,
+          httpStatus: 200,
           ocrCharacterCount: 900,
-          ocrConfidenceBand: ConfidenceBand.high,
+          ocrConfidenceBand: OcrConfidenceBand.high,
           resultStatus: LogResultStatus.success,
           failure: OcrFailure(),
           appVersion: '1.0.0',
@@ -60,7 +65,7 @@ void main() {
       logger.event(
         const LogEvent(
           stage: LogStage.save,
-          ocrConfidenceBand: ConfidenceBand.low,
+          ocrConfidenceBand: OcrConfidenceBand.low,
           resultStatus: LogResultStatus.partial,
           durationMs: 10,
           ocrCharacterCount: 5,

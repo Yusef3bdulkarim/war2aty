@@ -15,6 +15,7 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   OcrFailure() => 'OCR',
   NoTextDetectedFailure() => 'NO_TEXT_DETECTED',
   LocalDatabaseFailure() => 'LOCAL_DATABASE',
+  LaunchFailure() => 'LAUNCH',
   FileEncryptionFailure() => 'FILE_ENCRYPTION',
   FileStorageFailure() => 'FILE_STORAGE',
   NotificationPermissionFailure() => 'NOTIFICATION_PERMISSION',

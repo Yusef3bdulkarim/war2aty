@@ -26,6 +26,19 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>محتاجين الكاميرا علشان تقدر تصوّر الورقة وتفهم محتواها. الصورة مش بتخرج من الموبايل.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>محتاجين نوصل لصورك علشان تختار صورة الورقة اللي عايز تفهمها. الصورة مش بتخرج من الموبايل.</string>
+	<!-- F06-T14: the dev flavor talks to the local stack over http://127.0.0.1.
+	     App Transport Security blocks plain HTTP by default. NSAllowsLocalNetworking
+	     permits loopback and local-network hosts ONLY — arbitrary HTTP stays
+	     blocked, so a release build is still HTTPS-only. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

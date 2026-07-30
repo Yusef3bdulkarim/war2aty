@@ -9,16 +9,32 @@ enum LogStage { capture, ocr, analyze, save }
 enum LogResultStatus { success, partial, failure }
 
 /// Coarse OCR confidence band — never the raw score, never the text.
-enum ConfidenceBand { high, medium, low }
+///
+/// Distinct from the analysis feature's `ConfidenceBand`, which grades a single
+/// extracted field rather than the OCR engine's read of the whole page. The two
+/// are deliberately not unified: conflating "the scanner saw this clearly" with
+/// "the analysis is sure this value is right" is what the per-field confidence
+/// rule (§7) exists to prevent.
+enum OcrConfidenceBand { high, medium, low }
 
 /// The exact, exhaustive set of field keys allowed in a Flutter log line (§51).
 ///
 /// Anything outside this set is document content or PII and must never be
 /// logged. [LogEvent.toLogMap] produces only these keys by construction.
+/// Anything outside this set is document content or PII and must never be
+/// logged. [LogEvent.toLogMap] produces only these keys by construction.
+///
+/// `requestId` and `httpStatus` were added with the real Edge Function client
+/// (F06-T14). Both are safe by construction: the request id is a random uuid
+/// with no link to the device or the document — it is the same value the
+/// backend logs, which is the whole point of being able to line the two up —
+/// and the status is an integer from a closed set. Neither can carry content.
 const Set<String> kAllowedLogFields = {
   'analysisSessionId',
+  'requestId',
   'stage',
   'durationMs',
+  'httpStatus',
   'ocrCharacterCount',
   'ocrConfidenceBand',
   'resultStatus',
@@ -36,8 +52,10 @@ const Set<String> kAllowedLogFields = {
 final class LogEvent {
   const LogEvent({
     this.analysisSessionId,
+    this.requestId,
     this.stage,
     this.durationMs,
+    this.httpStatus,
     this.ocrCharacterCount,
     this.ocrConfidenceBand,
     this.resultStatus,
@@ -48,10 +66,17 @@ final class LogEvent {
 
   /// Generated UUID for one analysis session — an identifier, not content.
   final String? analysisSessionId;
+
+  /// The `x-request-id` sent on one HTTP attempt. Matches the backend's log
+  /// line for the same call, so a user report can be traced end to end.
+  final String? requestId;
   final LogStage? stage;
   final int? durationMs;
+
+  /// HTTP status of the response, when there was one.
+  final int? httpStatus;
   final int? ocrCharacterCount;
-  final ConfidenceBand? ocrConfidenceBand;
+  final OcrConfidenceBand? ocrConfidenceBand;
   final LogResultStatus? resultStatus;
 
   /// The failure that occurred; only its stable code is logged, never its data.
@@ -64,8 +89,10 @@ final class LogEvent {
   Map<String, Object> toLogMap() {
     return {
       'analysisSessionId': ?analysisSessionId,
+      'requestId': ?requestId,
       if (stage != null) 'stage': stage!.name,
       'durationMs': ?durationMs,
+      'httpStatus': ?httpStatus,
       'ocrCharacterCount': ?ocrCharacterCount,
       if (ocrConfidenceBand != null)
         'ocrConfidenceBand': ocrConfidenceBand!.name,

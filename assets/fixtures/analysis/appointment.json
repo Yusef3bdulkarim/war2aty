@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "session_id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+  "status": "success",
+  "document_type": {
+    "type": "appointment",
+    "title": "موعد كشف في المستشفى",
+    "confidence": "high"
+  },
+  "summary": {
+    "short": "موعد كشف باطنة يوم 22 مايو 2024 الساعة 10:30 صباحًا.",
+    "detailed": "دي ورقة حجز موعد في مستشفى الشرطة بالعجوزة، عيادة الباطنة مع د. منى عبد الرحمن. الموعد يوم الأربعاء 22 مايو 2024 الساعة 10:30 الصبح، ورقم الحجز 7788. مكتوب إنك تيجي قبل الموعد بنص ساعة ومعاك التحاليل القديمة."
+  },
+  "key_information": [
+    {
+      "label": "اسم الطبيب",
+      "value": "د. منى عبد الرحمن",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "العيادة",
+      "value": "الباطنة العامة",
+      "confidence": "high",
+      "source": "extracted"
+    },
+    {
+      "label": "المكان",
+      "value": "مستشفى الشرطة - العجوزة، الدور الثاني",
+      "confidence": "medium",
+      "source": "extracted"
+    },
+    {
+      "label": "رقم الحجز",
+      "value": "7788",
+      "confidence": "high",
+      "source": "extracted"
+    }
+  ],
+  "dates": [
+    {
+      "label": "موعد الكشف",
+      "date": "2024-05-22",
+      "time": "10:30",
+      "role": "appointment",
+      "is_reminder_worthy": true,
+      "confidence": "high"
+    },
+    {
+      "label": "تاريخ الحجز",
+      "date": "2024-05-08",
+      "time": null,
+      "role": "issued",
+      "is_reminder_worthy": false,
+      "confidence": "medium"
+    }
+  ],
+  "amounts": [
+    {
+      "label": "رسوم الكشف",
+      "value": 150.0,
+      "currency": "EGP",
+      "confidence": "medium"
+    }
+  ],
+  "actions_required": [
+    {
+      "description": "احضر يوم 22 مايو الساعة 10:00 صباحًا، قبل الموعد بنص ساعة.",
+      "basis": "explicit",
+      "priority": "high"
+    },
+    {
+      "description": "خد معاك التحاليل والأشعة القديمة.",
+      "basis": "explicit",
+      "priority": "normal"
+    }
+  ],
+  "required_documents": [
+    "بطاقة الرقم القومي",
+    "كارنيه العلاج",
+    "التحاليل السابقة"
+  ],
+  "instructions": [
+    "لو مش هتقدر تحضر، اتصل بالحجز قبل الموعد بـ 24 ساعة.",
+    "الصيام مطلوب 8 ساعات لو هيتطلب تحاليل."
+  ],
+  "warnings": [
+    {
+      "text": "هذه الورقة لا تغني عن استشارة الطبيب — راجع التعليمات معاه.",
+      "type": "medical"
+    }
+  ],
+  "missing_fields": []
+}

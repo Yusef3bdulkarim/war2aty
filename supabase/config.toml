@@ -1,0 +1,85 @@
+# War2aty — local Supabase stack (F06-T01)
+#
+# This file configures the LOCAL stack only (`supabase start`). It must never
+# contain secrets: Groq keys, service-role keys and salts live in
+# `supabase/.env` (git-ignored) locally and in Project Secrets remotely.
+
+project_id = "war2aty"
+
+[api]
+enabled = true
+port = 54321
+# Only `public` is exposed; the usage tables are reached through the service
+# role inside Edge Functions, never through PostgREST from the app (§26).
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[local_smtp]
+# No email flows exist — identity is anonymous only.
+enabled = false
+
+[storage]
+# The app never uploads images or files — the paper never leaves the phone (§6).
+enabled = false
+
+[realtime]
+enabled = false
+
+[analytics]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Anonymous Auth is the only identity the app uses — there is no login screen.
+enable_anonymous_sign_ins = true
+# Must stay true: GoTrue creates anonymous users through the signup path, so
+# `enable_signup = false` rejects them with `signup_disabled` (verified locally).
+# Email/SMS signup is disabled separately below, so this opens nothing else.
+enable_signup = true
+enable_manual_linking = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = false
+double_confirm_changes = false
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+# One worker per request: closest to the deployed behaviour and avoids state
+# leaking between analyses.
+policy = "oneshot"
+inspector_port = 8083
+
+# JWT is verified by the platform before our code runs; `require-user` (F06-T03)
+# re-checks and extracts the user id inside the function.
+[functions.analyze-document]
+verify_jwt = true
+
+[functions.get-usage]
+verify_jwt = true
+
+# Health is an unauthenticated liveness probe and returns no secrets (§23).
+[functions.health]
+verify_jwt = false
