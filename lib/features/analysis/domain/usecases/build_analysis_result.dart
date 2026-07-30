@@ -1,6 +1,6 @@
+import '../../../../core/documents/document_analysis.dart';
 import '../entities/analysis_result.dart';
 import '../entities/analysis_section.dart';
-import '../entities/document_analysis.dart';
 
 /// Turns an understood document into the ordered screen it becomes.
 ///

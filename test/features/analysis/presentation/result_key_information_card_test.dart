@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
-import 'package:war2aty/features/analysis/domain/entities/confidence_band.dart';
-import 'package:war2aty/features/analysis/domain/entities/key_information.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/result_key_information_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/value_caveat.dart';
 

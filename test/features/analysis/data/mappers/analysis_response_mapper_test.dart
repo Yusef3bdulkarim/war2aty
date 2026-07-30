@@ -1,4 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_date.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_warning.dart';
+import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
+import 'package:war2aty/core/documents/key_information.dart';
+import 'package:war2aty/core/documents/required_action.dart';
 import 'package:war2aty/features/analysis/data/mappers/analysis_response_mapper.dart';
 import 'package:war2aty/features/analysis/data/models/action_item_dto.dart';
 import 'package:war2aty/features/analysis/data/models/amount_item_dto.dart';
@@ -8,13 +15,6 @@ import 'package:war2aty/features/analysis/data/models/document_type_dto.dart';
 import 'package:war2aty/features/analysis/data/models/key_info_item_dto.dart';
 import 'package:war2aty/features/analysis/data/models/summary_dto.dart';
 import 'package:war2aty/features/analysis/data/models/warning_item_dto.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_date.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_warning.dart';
-import 'package:war2aty/features/analysis/domain/entities/confidence_band.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
-import 'package:war2aty/features/analysis/domain/entities/key_information.dart';
-import 'package:war2aty/features/analysis/domain/entities/required_action.dart';
 
 AnalysisResponseDto _dto({
   String status = 'success',

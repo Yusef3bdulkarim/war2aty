@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
@@ -8,7 +9,6 @@ import '../../../../core/localization/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/analysis_date.dart';
 import '../../domain/entities/analysis_result.dart';
 import '../../domain/entities/analysis_section.dart';
 import '../cubit/analysis_result_cubit.dart';

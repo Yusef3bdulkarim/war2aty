@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -8,7 +9,6 @@ import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
 import 'package:war2aty/features/analysis/domain/usecases/build_analysis_result.dart';

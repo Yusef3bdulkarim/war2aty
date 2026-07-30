@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/documents/required_action.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/required_action.dart';
 import 'caveat_badge.dart';
 
 // From `Waraqti.dc.html` → the result page's «المطلوب منك» card.

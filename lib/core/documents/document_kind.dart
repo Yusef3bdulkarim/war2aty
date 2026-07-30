@@ -1,4 +1,4 @@
-import '../../../../core/documents/document_category.dart';
+import 'document_category.dart';
 
 /// The kind of paper the analysis recognised — API_CONTRACT §30.1.
 ///

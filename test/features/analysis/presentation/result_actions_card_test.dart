@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/required_action.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
-import 'package:war2aty/features/analysis/domain/entities/required_action.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/caveat_badge.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/result_actions_card.dart';
 

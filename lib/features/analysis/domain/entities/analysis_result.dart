@@ -1,6 +1,6 @@
+import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/utils/list_equality.dart';
 import 'analysis_section.dart';
-import 'document_analysis.dart';
 
 /// One analysed paper, ready to be shown: the understanding itself, the text
 /// it was derived from, and which blocks the screen has to draw.

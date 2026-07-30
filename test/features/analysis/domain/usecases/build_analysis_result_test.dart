@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_summary.dart';
+import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_section.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_summary.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
 import 'package:war2aty/features/analysis/domain/usecases/build_analysis_result.dart';
 
 import '../../analysis_fixtures.dart';

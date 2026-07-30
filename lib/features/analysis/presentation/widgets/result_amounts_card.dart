@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/documents/analysis_amount.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/money/document_amount_label.dart';
@@ -7,7 +8,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/analysis_amount.dart';
 import '../confidence_label.dart';
 import 'result_section_heading.dart';
 import 'value_caveat.dart';

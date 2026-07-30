@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/document_analysis.dart';
 import '../confidence_label.dart';
 import '../document_kind_label.dart';
 import 'caveat_badge.dart';

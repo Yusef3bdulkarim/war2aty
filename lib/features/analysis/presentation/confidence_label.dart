@@ -1,5 +1,5 @@
+import '../../../core/documents/confidence_band.dart';
 import '../../../core/localization/app_strings.dart';
-import '../domain/entities/confidence_band.dart';
 
 /// The caveat to show beside a value of this [band], or `null` when the
 /// analysis is sure enough to let the value stand on its own.

@@ -1,5 +1,5 @@
+import '../../../core/documents/document_kind.dart';
 import '../../../core/localization/app_strings.dart';
-import '../domain/entities/document_kind.dart';
 
 /// What to call [kind] on screen.
 ///

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_warning.dart';
 import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_warning.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/result_warnings_card.dart';
 
 import '../../../support/pump_app.dart';

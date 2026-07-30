@@ -1,11 +1,11 @@
-import '../../../../core/documents/document_category.dart';
-import '../../../../core/utils/list_equality.dart';
+import '../utils/list_equality.dart';
 import 'analysis_amount.dart';
 import 'analysis_date.dart';
 import 'analysis_status.dart';
 import 'analysis_summary.dart';
 import 'analysis_warning.dart';
 import 'confidence_band.dart';
+import 'document_category.dart';
 import 'document_kind.dart';
 import 'key_information.dart';
 import 'required_action.dart';

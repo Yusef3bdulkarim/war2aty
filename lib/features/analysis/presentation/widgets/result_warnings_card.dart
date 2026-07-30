@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/documents/analysis_warning.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/analysis_warning.dart';
 
 // From `Waraqti.dc.html` → the result page's «تنبيه مهم» card.
 const double _cardPadding = 16;

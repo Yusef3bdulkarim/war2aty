@@ -2,15 +2,15 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_date.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_warning.dart';
+import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_analysis.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
+import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/features/analysis/data/datasources/analysis_fixture.dart';
 import 'package:war2aty/features/analysis/data/validators/analysis_response_validator.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_date.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_warning.dart';
-import 'package:war2aty/features/analysis/domain/entities/confidence_band.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
-import 'package:war2aty/features/analysis/domain/entities/key_information.dart';
 
 const _validator = AnalysisResponseValidator();
 
