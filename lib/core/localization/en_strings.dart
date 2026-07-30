@@ -299,6 +299,12 @@ final class EnStrings implements AppStrings {
   String get documentStoredWithImage => 'Result and photo';
 
   @override
+  String get documentSaved => 'Saved to your documents — without the photo';
+
+  @override
+  String get documentSaveFailed => "Couldn't save this paper. Try again.";
+
+  @override
   String get navHome => 'Home';
 
   @override

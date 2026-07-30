@@ -182,6 +182,14 @@ abstract interface class AppStrings {
   String get documentStoredResultOnly;
   String get documentStoredWithImage;
 
+  /// Confirms a save, and says where the paper went and what was kept — the
+  /// user is told the picture stayed out of it rather than left to assume.
+  String get documentSaved;
+
+  /// A save that did not go through. No detail: the user cannot act on a
+  /// database error, only try again.
+  String get documentSaveFailed;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

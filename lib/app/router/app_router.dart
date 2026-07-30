@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
@@ -26,6 +27,8 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
+import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../di/service_locator.dart';
 import '../shell/placeholder_tab.dart';
 import '../shell/scaffold_with_nav_bar.dart';
@@ -155,16 +158,31 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           if (session == null || extraction == null) {
             return const _BackToHome();
           }
-          return BlocProvider<AnalysisResultCubit>(
-            create: (_) =>
-                getIt<AnalysisResultCubit>(param1: session, param2: extraction)
-                  ..analyze(),
-            child: AnalysisResultScreen(
-              onClose: () => context.go(AppRoutes.home),
-              // Replaces this route: the paper that could not be explained is
-              // not somewhere to come back to.
-              onCaptureAnother: () => context.pushReplacement(
-                AppRoutes.captureWith(CaptureSource.camera),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<AnalysisResultCubit>(
+                create: (_) => getIt<AnalysisResultCubit>(
+                  param1: session,
+                  param2: extraction,
+                )..analyze(),
+              ),
+              BlocProvider<SaveDocumentCubit>(
+                create: (_) => getIt<SaveDocumentCubit>(),
+              ),
+            ],
+            child: SaveDocumentListener(
+              // Under both providers: the save reads what the analysis
+              // produced, and this is the only place that knows about both.
+              child: Builder(
+                builder: (context) => AnalysisResultScreen(
+                  onClose: () => context.go(AppRoutes.home),
+                  // Replaces this route: the paper that could not be explained
+                  // is not somewhere to come back to.
+                  onCaptureAnother: () => context.pushReplacement(
+                    AppRoutes.captureWith(CaptureSource.camera),
+                  ),
+                  onSave: () => _saveResult(context),
+                ),
               ),
             ),
           );
@@ -314,6 +332,23 @@ class _BackToHome extends StatelessWidget {
     });
     return const SizedBox.shrink();
   }
+}
+
+/// Hands the analysis on screen to the save action.
+///
+/// The result screen exposes a plain callback, so the two cubits are joined
+/// here rather than inside either feature: analysis produces the paper, saved
+/// papers keeps it, and neither has to import the other.
+void _saveResult(BuildContext context) {
+  final state = context.read<AnalysisResultCubit>().state;
+  // The save button only exists on a ready result; this guards the case where
+  // the state moved on between the tap and this frame.
+  if (state is! AnalysisResultReady) return;
+
+  context.read<SaveDocumentCubit>().save(
+    analysis: state.result.analysis,
+    extractedText: state.result.extractedText,
+  );
 }
 
 /// Adapts a Cubit's [Stream] to the [Listenable] `GoRouter` expects, so gate

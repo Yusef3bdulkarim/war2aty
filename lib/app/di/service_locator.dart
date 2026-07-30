@@ -7,8 +7,12 @@ import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/daos/documents_dao.dart';
+import '../../core/documents/documents_repository.dart';
+import '../../core/documents/drift_documents_repository.dart';
 import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/stub_recent_documents_repository.dart';
+import '../../core/documents/usecases/save_document.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
 import '../../core/identity/installation_id_provider.dart';
@@ -101,6 +105,7 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -122,6 +127,7 @@ Future<void> configureDependencies(
   _registerCapture();
   _registerOcr();
   _registerAnalysis(env);
+  _registerSavedPapers();
   _registerRouting();
 }
 
@@ -439,6 +445,18 @@ void _registerAnalysis(AppEnvironment env) {
         buildResult: getIt(),
       ),
     );
+}
+
+void _registerSavedPapers() {
+  getIt
+    ..registerLazySingleton<DocumentsDao>(
+      () => getIt<AppDatabase>().documentsDao,
+    )
+    ..registerLazySingleton<DocumentsRepository>(
+      () => DriftDocumentsRepository(getIt()),
+    )
+    ..registerFactory<SaveDocument>(() => SaveDocument(getIt()))
+    ..registerFactory<SaveDocumentCubit>(() => SaveDocumentCubit(getIt()));
 }
 
 void _registerRouting() {
