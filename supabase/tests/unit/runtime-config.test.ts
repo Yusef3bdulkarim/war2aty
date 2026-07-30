@@ -206,6 +206,55 @@ Deno.test("a cap of 1 is honoured, not rounded away as falsy", () => {
   );
 });
 
+// ── azureOcrEnabled — dark-launched (F13-T03) ────────────────────────────
+
+Deno.test("azureOcrEnabled is off until an operator explicitly turns it on", () => {
+  assertEquals(parseRuntimeConfig(SEEDED, env()).azureOcrEnabled, false);
+  assertEquals(parseRuntimeConfig([], env()).azureOcrEnabled, false);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.azureOcrEnabled, false);
+});
+
+Deno.test("an operator can turn azureOcrEnabled on without an app release", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "azure_ocr_enabled", value: true }], env())
+      .azureOcrEnabled,
+    true,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "azure_ocr_enabled", value: "true" }], env())
+      .azureOcrEnabled,
+    true,
+  );
+});
+
+Deno.test("azureOcrEnabled tolerates hand-edited 'on' spellings", () => {
+  for (const value of ["true", "TRUE", " on ", "yes", "1", 1, true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "azure_ocr_enabled", value }], env())
+        .azureOcrEnabled,
+      true,
+      `${JSON.stringify(value)} should enable`,
+    );
+  }
+});
+
+Deno.test("anything short of an explicit 'on' leaves azureOcrEnabled off — the opposite of the kill switch", () => {
+  // analysisEnabled fails toward "stopped" because its only reason to be
+  // touched is halting a live service. This flag is the mirror image: nothing
+  // has been approved as safe to call yet, so even the documented "off"
+  // spellings and outright garbage all land on the same disabled default.
+  for (
+    const value of ["false", "FALSE", "off", "no", "0", 0, false, { nonsense: true }, [], "maybe"]
+  ) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "azure_ocr_enabled", value }], env())
+        .azureOcrEnabled,
+      false,
+      `${JSON.stringify(value)} should stay off`,
+    );
+  }
+});
+
 Deno.test("a blank version falls back to the default", () => {
   assertEquals(
     parseRuntimeConfig([{ key: "minimum_app_version", value: "  " }], env())

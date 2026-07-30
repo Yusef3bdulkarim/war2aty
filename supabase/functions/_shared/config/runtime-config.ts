@@ -30,6 +30,15 @@ export interface RuntimeConfig {
    * not block every user of the service.
    */
   readonly globalDailyCallCap: number | null;
+  /**
+   * Whether the online Azure/Google image pipeline may run at all (F13-T03).
+   *
+   * Dark-launched: `false` until an operator explicitly flips it, so every
+   * task before the pipeline is actually wired (T04–T17) ships with it
+   * inert. Once wired, `false` means the offline Tesseract path runs
+   * unconditionally, same as today.
+   */
+  readonly azureOcrEnabled: boolean;
   readonly maxOcrCharacters: number;
   /** Clients below this are refused with 400 UNSUPPORTED_APP_VERSION. */
   readonly minimumAppVersion: string;
@@ -52,6 +61,8 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   // Dark by default (F13-T03): no cap until an operator sets one, so today's
   // Groq-only pipeline behaves exactly as it did before this key existed.
   globalDailyCallCap: null,
+  // Dark by default (F13-T03): off until an operator explicitly enables it.
+  azureOcrEnabled: false,
   maxOcrCharacters: 12000,
   minimumAppVersion: "1.0.0",
   schemaVersion: "1.0",
@@ -126,6 +137,28 @@ function killSwitch(value: unknown, keyPresent: boolean): boolean {
 }
 
 /**
+ * Reads an opt-in feature flag — the mirror image of {@link killSwitch}.
+ *
+ * A kill switch's only reason to be touched is to stop something already
+ * running, so it fails toward "stopped". A brand-new, dark-launched provider
+ * integration (F13-T03) is the opposite: nobody has approved it as safe to
+ * call yet, so an **absent** key, a genuinely uninterpretable value, AND the
+ * documented "off" spellings all mean disabled. Only an explicit
+ * `true`/`"true"`/`1`/`"on"` turns it on.
+ */
+function optInFlag(value: unknown, keyPresent: boolean): boolean {
+  if (!keyPresent) return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+
+  if (typeof value === "string") {
+    return ["true", "1", "yes", "on"].includes(value.trim().toLowerCase());
+  }
+
+  return false;
+}
+
+/**
  * Builds the config from table rows, falling back per key.
  *
  * Per-key fallback is deliberate: one malformed row must not take the service
@@ -152,6 +185,10 @@ export function parseRuntimeConfig(
       DEFAULT_RUNTIME_CONFIG.dailyLimit,
     ),
     globalDailyCallCap: nullablePositiveInteger(read("global_daily_call_cap")),
+    azureOcrEnabled: optInFlag(
+      read("azure_ocr_enabled"),
+      has("azure_ocr_enabled"),
+    ),
     maxOcrCharacters: positiveInteger(
       read("max_ocr_characters"),
       DEFAULT_RUNTIME_CONFIG.maxOcrCharacters,
