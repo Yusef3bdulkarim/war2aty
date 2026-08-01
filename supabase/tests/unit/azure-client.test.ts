@@ -61,6 +61,16 @@ function succeededResponse(content = "بيان استهلاك الكهرباء")
   );
 }
 
+function succeededResponseWithPages(content: string, pages: unknown[]): Response {
+  return new Response(
+    JSON.stringify({
+      status: "succeeded",
+      analyzeResult: { content, modelId: "prebuilt-read", pages },
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
 function runningResponse(): Response {
   return new Response(JSON.stringify({ status: "running" }), {
     status: 200,
@@ -351,6 +361,82 @@ Deno.test("a real poll timeout fires and is mapped, and still deletes", async ()
 
   assertEquals((thrown as ApiError).code, "TIMEOUT");
   assertEquals(deleteCalls, 1);
+});
+
+// ── word confidence (T06 input) ──────────────────────────────────────────
+
+Deno.test("flattens words across pages with their offsets and confidence", async () => {
+  const { impl } = fakeFetch((call) => {
+    if (call.method === "POST") return acceptedResponse();
+    if (call.method === "DELETE") return new Response(null, { status: 204 });
+    return succeededResponseWithPages("نص أول. نص ثاني.", [
+      {
+        words: [
+          { content: "نص", span: { offset: 0, length: 2 }, confidence: 0.95 },
+          { content: "أول.", span: { offset: 3, length: 4 }, confidence: 0.8 },
+        ],
+      },
+      {
+        words: [
+          { content: "نص", span: { offset: 8, length: 2 }, confidence: 0.6 },
+          { content: "ثاني.", span: { offset: 11, length: 5 }, confidence: 0.99 },
+        ],
+      },
+    ]);
+  });
+
+  const result = await client(impl)(IMAGE, "image/jpeg");
+
+  assertEquals(result.words, [
+    { content: "نص", offset: 0, length: 2, confidence: 0.95 },
+    { content: "أول.", offset: 3, length: 4, confidence: 0.8 },
+    { content: "نص", offset: 8, length: 2, confidence: 0.6 },
+    { content: "ثاني.", offset: 11, length: 5, confidence: 0.99 },
+  ]);
+});
+
+Deno.test("words is empty when the response carries no pages", async () => {
+  const { impl } = fakeFetch((call) => {
+    if (call.method === "POST") return acceptedResponse();
+    if (call.method === "DELETE") return new Response(null, { status: 204 });
+    return succeededResponse("نص");
+  });
+
+  const result = await client(impl)(IMAGE, "image/jpeg");
+
+  assertEquals(result.words, []);
+});
+
+Deno.test("a word missing a required field is dropped, not fatal to the analysis", async () => {
+  const { impl } = fakeFetch((call) => {
+    if (call.method === "POST") return acceptedResponse();
+    if (call.method === "DELETE") return new Response(null, { status: 204 });
+    return succeededResponseWithPages("نص", [
+      {
+        words: [
+          { content: "نص", span: { offset: 0, length: 2 } }, // no confidence
+        ],
+      },
+    ]);
+  });
+
+  const result = await client(impl)(IMAGE, "image/jpeg");
+
+  assertEquals(result.content, "نص");
+  assertEquals(result.words, []);
+});
+
+Deno.test("the analyze request pins stringIndexType to utf16CodeUnit", async () => {
+  const { impl, calls } = fakeFetch((call) => {
+    if (call.method === "POST") return acceptedResponse();
+    if (call.method === "DELETE") return new Response(null, { status: 204 });
+    return succeededResponse();
+  });
+
+  await client(impl)(IMAGE, "image/jpeg");
+
+  const post = calls.find((c) => c.method === "POST")!;
+  assertEquals(new URL(post.url).searchParams.get("stringIndexType"), "utf16CodeUnit");
 });
 
 Deno.test("a sub-second timeout is clamped to at least one second", async () => {

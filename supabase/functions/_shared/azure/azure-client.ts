@@ -14,6 +14,12 @@
  * its own timeout budget, so a timed-out poll still cleans up the result it
  * created.
  *
+ * The analyze request pins `stringIndexType=utf16CodeUnit`. Azure's default is
+ * `textElements` (grapheme clusters), whose offsets do not line up with
+ * JavaScript string indices — with Arabic text every word span would silently
+ * drift. Pinning it here is what lets T06 (field verification) index into
+ * `content` with plain JS string slicing.
+ *
  * PRIVACY (§7, §51): no OCR text, prompt, or key is ever logged. Error paths
  * discard the provider's response body without reading it as text.
  */
@@ -27,10 +33,27 @@ const AZURE_READ_MODEL_ID = "prebuilt-read";
 /** Budget for the delete call, independent of the analyze timeout it follows. */
 const DELETE_TIMEOUT_SECONDS = 10;
 
+/** One recognized word, with the confidence score Azure assigned it. */
+export interface AzureWord {
+  readonly content: string;
+  /** Offset into `AzureReadResult.content`, in UTF-16 code units. */
+  readonly offset: number;
+  readonly length: number;
+  /** 0..1. */
+  readonly confidence: number;
+}
+
 export interface AzureReadResult {
   /** The full extracted text, in reading order. */
   readonly content: string;
   readonly modelId: string;
+  /**
+   * Every recognized word across every page, flattened and in reading order.
+   * Empty when Azure's response carries no `pages` (still a usable result —
+   * `content` is what makes a result usable at all; see T06 for how an empty
+   * `words` is handled).
+   */
+  readonly words: readonly AzureWord[];
 }
 
 export interface AzureDocumentIntelligenceClientOptions extends AzureDocumentIntelligenceOptions {
@@ -47,9 +70,50 @@ export type AzureDocumentIntelligenceClient = (
   contentType: string,
 ) => Promise<AzureReadResult>;
 
+interface AzureWordBody {
+  content?: string;
+  confidence?: number;
+  span?: { offset?: number; length?: number };
+}
+
+interface AzurePageBody {
+  words?: AzureWordBody[];
+}
+
 interface AzureAnalyzeResultBody {
   status?: string;
-  analyzeResult?: { content?: string; modelId?: string };
+  analyzeResult?: { content?: string; modelId?: string; pages?: AzurePageBody[] };
+}
+
+/**
+ * Flattens every page's words into one reading-order list, dropping any word
+ * missing the fields verification needs. Malformed/absent `pages` yields `[]`
+ * rather than throwing — a missing confidence score is not a reason to fail
+ * an otherwise-successful analysis, only to leave that word out of `words`.
+ */
+function flattenWords(pages: AzurePageBody[] | undefined): AzureWord[] {
+  if (!pages) return [];
+
+  const words: AzureWord[] = [];
+  for (const page of pages) {
+    for (const word of page.words ?? []) {
+      if (
+        typeof word.content !== "string" ||
+        typeof word.confidence !== "number" ||
+        typeof word.span?.offset !== "number" ||
+        typeof word.span?.length !== "number"
+      ) {
+        continue;
+      }
+      words.push({
+        content: word.content,
+        offset: word.span.offset,
+        length: word.span.length,
+        confidence: word.confidence,
+      });
+    }
+  }
+  return words;
 }
 
 /** Maps a non-2xx Azure response to an `ApiError`. The response body is never read. */
@@ -83,7 +147,7 @@ export function createAzureDocumentIntelligenceClient(
 
   const analyzeUrl =
     `${endpoint}/documentintelligence/documentModels/${AZURE_READ_MODEL_ID}:analyze` +
-    `?api-version=${AZURE_API_VERSION}`;
+    `?api-version=${AZURE_API_VERSION}&stringIndexType=utf16CodeUnit`;
 
   return async (image: Uint8Array, contentType: string): Promise<AzureReadResult> => {
     const budget = AbortSignal.timeout(
@@ -182,7 +246,11 @@ async function pollUntilDone(
         // A well-formed "succeeded" carrying no text is still unusable.
         throw ApiError.analysisFailed();
       }
-      return { content, modelId: body.analyzeResult?.modelId ?? AZURE_READ_MODEL_ID };
+      return {
+        content,
+        modelId: body.analyzeResult?.modelId ?? AZURE_READ_MODEL_ID,
+        words: flattenWords(body.analyzeResult?.pages),
+      };
     }
 
     if (body.status === "failed") {
