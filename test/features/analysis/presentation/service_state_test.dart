@@ -9,9 +9,11 @@ import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
+import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/domain/usecases/build_analysis_result.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
@@ -62,8 +64,9 @@ void main() {
     repository = _FakeRepository();
     cubit = AnalysisResultCubit(
       session: _session,
-      extraction: _extraction,
+      source: const OcrAnalysisSource(_extraction),
       analyzeDocument: AnalyzeDocument(repository),
+      analyzeImage: AnalyzeImage(repository),
       buildResult: const BuildAnalysisResult(),
     );
   });

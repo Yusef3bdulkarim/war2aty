@@ -7,12 +7,15 @@ import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_section.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
+import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/domain/usecases/build_analysis_result.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_state.dart';
+import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
@@ -28,6 +31,8 @@ const _extraction = ExtractionResult(
   detectedLanguages: ['ar'],
 );
 
+const _photo = CapturedPhoto('/tmp/corrected.jpg');
+
 /// Records what it was asked, answers what it was told to.
 final class FakeAnalysisRepository implements AnalysisRepository {
   FakeAnalysisRepository({this.answer});
@@ -39,6 +44,7 @@ final class FakeAnalysisRepository implements AnalysisRepository {
   Completer<void>? gate;
 
   final List<AnalysisRequest> requests = [];
+  final List<AnalysisImageRequest> imageRequests = [];
 
   @override
   Future<Result<DocumentAnalysis, AppFailure>> analyze(
@@ -53,6 +59,7 @@ final class FakeAnalysisRepository implements AnalysisRepository {
   Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
     AnalysisImageRequest request,
   ) async {
+    imageRequests.add(request);
     await gate?.future;
     return answer ?? Ok(invoiceAnalysis());
   }
@@ -63,12 +70,14 @@ void main() {
 
   setUp(() => repository = FakeAnalysisRepository());
 
-  AnalysisResultCubit buildCubit() => AnalysisResultCubit(
-    session: _session,
-    extraction: _extraction,
-    analyzeDocument: AnalyzeDocument(repository),
-    buildResult: const BuildAnalysisResult(),
-  );
+  AnalysisResultCubit buildCubit({AnalysisSource? source}) =>
+      AnalysisResultCubit(
+        session: _session,
+        source: source ?? const OcrAnalysisSource(_extraction),
+        analyzeDocument: AnalyzeDocument(repository),
+        analyzeImage: AnalyzeImage(repository),
+        buildResult: const BuildAnalysisResult(),
+      );
 
   group('AnalysisResultCubit', () {
     test('starts analyzing', () {
@@ -151,6 +160,41 @@ void main() {
       expect(emitted.whereType<AnalysisResultReady>(), isEmpty);
       expect(cubit.state, const AnalysisResultAnalyzing());
       await subscription.cancel();
+    });
+  });
+
+  group('AnalysisResultCubit with ImageAnalysisSource (F13 online route)', () {
+    test('sends the session id and the photo — never local OCR text', () async {
+      final cubit = buildCubit(source: const ImageAnalysisSource(_photo));
+      await cubit.analyze();
+
+      expect(repository.requests, isEmpty);
+      expect(repository.imageRequests, hasLength(1));
+      final request = repository.imageRequests.single;
+      expect(request.sessionId, _session.id);
+      expect(request.photo, _photo);
+    });
+
+    test(
+      'emits the ordered result on success, with no extracted text',
+      () async {
+        final cubit = buildCubit(source: const ImageAnalysisSource(_photo));
+        await cubit.analyze();
+
+        final state = cubit.state;
+        expect(state, isA<AnalysisResultReady>());
+        final result = (state as AnalysisResultReady).result;
+        expect(result.sections.first, AnalysisSection.header);
+        expect(result.extractedText, isEmpty);
+      },
+    );
+
+    test('carries the failure through, with an empty extracted text', () async {
+      repository.answer = const Err(NoInternetFailure());
+      final cubit = buildCubit(source: const ImageAnalysisSource(_photo));
+      await cubit.analyze();
+
+      expect(cubit.state, const AnalysisResultFailed(NoInternetFailure(), ''));
     });
   });
 }

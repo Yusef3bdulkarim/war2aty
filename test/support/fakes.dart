@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
+import 'package:war2aty/core/connectivity/connectivity_service.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/recent_document.dart';
@@ -26,6 +27,7 @@ import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.da
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
+import 'package:war2aty/features/capture/domain/services/perspective_corrector.dart';
 import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
 
@@ -295,6 +297,48 @@ final class FakeImageRotator implements ImageRotator {
     if (fails) return const Err(ImageProcessingFailure());
     // A no-op rotation returns the original, mirroring the real rotator.
     return Ok(quarterTurns % 4 == 0 ? photo : output);
+  }
+}
+
+/// Scriptable [ConnectivityService] — no platform channel.
+///
+/// Defaults to online. Set [fails] to model a plugin-channel error, which
+/// [DecideAnalysisRoute] treats as offline rather than letting it escape.
+final class FakeConnectivityService implements ConnectivityService {
+  FakeConnectivityService({this.connected = true, this.fails = false});
+
+  bool connected;
+  bool fails;
+
+  @override
+  Future<bool> hasConnectivity() async {
+    if (fails) throw StateError('platform channel unavailable');
+    return connected;
+  }
+}
+
+/// Scriptable [PerspectiveCorrector] — no `doclens` plugin.
+///
+/// Defaults to handing the photo back untouched, as if no document-like quad
+/// was found. Set [output] to model a successful crop, or [fails] for the
+/// typed-failure path.
+final class FakePerspectiveCorrector implements PerspectiveCorrector {
+  FakePerspectiveCorrector({this.output, this.fails = false});
+
+  /// The corrected photo to return. `null` means "hand the input back
+  /// unchanged", mirroring the real corrector's no-quad-detected case.
+  CapturedPhoto? output;
+  bool fails;
+
+  int correctCount = 0;
+  CapturedPhoto? lastPhoto;
+
+  @override
+  Future<Result<CapturedPhoto, AppFailure>> correct(CapturedPhoto photo) async {
+    correctCount++;
+    lastPhoto = photo;
+    if (fails) return const Err(ImageProcessingFailure());
+    return Ok(output ?? photo);
   }
 }
 

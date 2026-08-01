@@ -3,13 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
+import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
+import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/capture/presentation/screens/image_preview_screen.dart';
+import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
@@ -23,6 +27,10 @@ Future<_Result> _pumpPreview(
   FakeImageRotator? rotator,
   FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
+  FakeConnectivityService? connectivity,
+  FakePerspectiveCorrector? perspectiveCorrector,
+  ImageAnalysisSessionHolder? onlineHandoff,
+  OcrSessionHolder? ocrHandoff,
   TextScaler? textScaler,
 }) async {
   final result = _Result();
@@ -30,9 +38,17 @@ Future<_Result> _pumpPreview(
     source: const CapturedPhoto(_imagePath),
     rotate: RotateImage(rotator ?? FakeImageRotator()),
     assessQuality: AssessImageQuality(quality ?? FakeImageQualityService()),
+    decideRoute: DecideAnalysisRoute(
+      connectivity ?? FakeConnectivityService(connected: false),
+    ),
+    correctPerspective: CorrectPerspective(
+      perspectiveCorrector ?? FakePerspectiveCorrector(),
+    ),
     createSession: CreateAnalysisSession(
       storage ?? FakeAnalysisSessionStorage(),
     ),
+    onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
+    ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
     cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
   );
   addTearDown(cubit.close);
@@ -45,6 +61,9 @@ Future<_Result> _pumpPreview(
         imagePath: _imagePath,
         onSessionCreated: (session) {
           result.session = session;
+        },
+        onOnlineReady: (session) {
+          result.onlineSession = session;
         },
         onRetake: () => result.retook = true,
       ),
@@ -106,6 +125,24 @@ void main() {
       expect(storage.createCount, 1);
     });
 
+    testWidgets(
+      'use-image on the online route skips straight to onOnlineReady, '
+      'never onSessionCreated',
+      (tester) async {
+        final result = await _pumpPreview(
+          tester,
+          connectivity: FakeConnectivityService(),
+        );
+
+        await tester.tap(find.text(_strings.previewUseImage));
+        await tester.pump();
+        await tester.pump();
+
+        expect(result.onlineSession, isNotNull);
+        expect(result.session, isNull);
+      },
+    );
+
     testWidgets('retake backs out of the flow', (tester) async {
       final result = await _pumpPreview(tester);
 
@@ -153,5 +190,6 @@ void main() {
 /// What the screen handed back to its host.
 final class _Result {
   AnalysisSession? session;
+  AnalysisSession? onlineSession;
   bool retook = false;
 }

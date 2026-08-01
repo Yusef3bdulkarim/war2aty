@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/localization/app_localizations.dart';
 import '../../core/storage/analysis_session.dart';
+import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
@@ -105,6 +107,10 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               imagePath: path,
               onSessionCreated: (session) =>
                   context.pushReplacement(AppRoutes.ocr, extra: session),
+              // OCR is skipped entirely on this route (F13 locked decision
+              // #1) — straight to the result screen, which reads the
+              // corrected photo back out of `ImageAnalysisSessionHolder`.
+              onOnlineReady: (_) => context.pushReplacement(AppRoutes.result),
               onRetake: context.pop,
             ),
           );
@@ -146,18 +152,38 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
       GoRoute(
         path: AppRoutes.result,
         builder: (context, state) {
-          // The OCR output is picked up from the hand-off holder rather than
-          // from `extra`, which the OS drops when it kills and restores the
-          // app — and OCR text is too expensive to redo silently.
-          final handoff = getIt<OcrSessionHolder>();
-          final session = handoff.session;
-          final extraction = handoff.result;
-          if (session == null || extraction == null) {
+          // Picked up from a hand-off holder rather than from `extra`, which
+          // the OS drops when it kills and restores the app — and redoing
+          // either OCR or a full Azure/Google/Groq round trip silently would
+          // be expensive. `ImagePreviewCubit.proceed` clears both holders
+          // before populating the one for the route it actually took, so at
+          // most one of these is ever non-empty; the offline check runs
+          // first purely because it has to run first, not to break a tie.
+          final ocrHandoff = getIt<OcrSessionHolder>();
+          final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
+
+          final AnalysisSession? session;
+          final AnalysisSource? source;
+          final ocrExtraction = ocrHandoff.result;
+          if (ocrHandoff.session != null && ocrExtraction != null) {
+            session = ocrHandoff.session;
+            source = OcrAnalysisSource(ocrExtraction);
+          } else {
+            final onlinePhoto = onlineHandoff.photo;
+            if (onlineHandoff.session != null && onlinePhoto != null) {
+              session = onlineHandoff.session;
+              source = ImageAnalysisSource(onlinePhoto);
+            } else {
+              session = null;
+              source = null;
+            }
+          }
+          if (session == null || source == null) {
             return const _BackToHome();
           }
           return BlocProvider<AnalysisResultCubit>(
             create: (_) =>
-                getIt<AnalysisResultCubit>(param1: session, param2: extraction)
+                getIt<AnalysisResultCubit>(param1: session, param2: source)
                   ..analyze(),
             child: AnalysisResultScreen(
               onClose: () => context.go(AppRoutes.home),

@@ -2,26 +2,44 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/connectivity/analysis_route.dart';
+import '../../../analysis/presentation/image_analysis_session_holder.dart';
+import '../../../ocr/presentation/ocr_session_holder.dart';
 import '../../domain/entities/captured_photo.dart';
 import '../../domain/usecases/assess_image_quality.dart';
 import '../../domain/usecases/cleanup_capture_files.dart';
+import '../../domain/usecases/correct_perspective.dart';
 import '../../domain/usecases/create_analysis_session.dart';
+import '../../domain/usecases/decide_analysis_route.dart';
 import '../../domain/usecases/rotate_image.dart';
 import 'image_preview_state.dart';
 
 /// Drives the crop/rotate preview: track the chosen rotation, then on confirm
 /// bake it into an upright file and assess its quality for OCR.
+///
+/// [proceed] is also where the F13 pipeline split happens: once the session
+/// is created, [decideRoute] picks offline (unchanged — hands off to F04's
+/// OCR screen) or online (perspective-correct, then hand off straight to the
+/// analysis result screen, skipping OCR entirely).
 final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   ImagePreviewCubit({
     required CapturedPhoto source,
     required RotateImage rotate,
     required AssessImageQuality assessQuality,
+    required DecideAnalysisRoute decideRoute,
+    required CorrectPerspective correctPerspective,
     required CreateAnalysisSession createSession,
+    required ImageAnalysisSessionHolder onlineHandoff,
+    required OcrSessionHolder ocrHandoff,
     required CleanupCaptureFiles cleanupFiles,
   }) : _source = source,
        _rotate = rotate,
        _assessQuality = assessQuality,
+       _decideRoute = decideRoute,
+       _correctPerspective = correctPerspective,
        _createSession = createSession,
+       _onlineHandoff = onlineHandoff,
+       _ocrHandoff = ocrHandoff,
        _cleanupFiles = cleanupFiles,
        super(const ImagePreviewReady(0));
 
@@ -29,7 +47,11 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   final CapturedPhoto _source;
   final RotateImage _rotate;
   final AssessImageQuality _assessQuality;
+  final DecideAnalysisRoute _decideRoute;
+  final CorrectPerspective _correctPerspective;
   final CreateAnalysisSession _createSession;
+  final ImageAnalysisSessionHolder _onlineHandoff;
+  final OcrSessionHolder _ocrHandoff;
   final CleanupCaptureFiles _cleanupFiles;
 
   /// Path of the rotated file produced by [confirm], when the rotation differs
@@ -79,7 +101,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     );
   }
 
-  /// Creates the analysis session after the quality decision is resolved.
+  /// Creates the analysis session after the quality decision is resolved,
+  /// then routes to the offline or online pipeline (F13 locked decision #1).
   ///
   /// Only valid from [ImagePreviewConfirmed]; a no-op in any other state.
   Future<void> proceed() async {
@@ -88,15 +111,42 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
 
     emit(const ImagePreviewCreatingSession());
 
-    final result = await _createSession(current.photo);
+    // A previous run's hand-off may still be sitting in either holder if it
+    // was never consumed — clear both so the result route can't pick up
+    // stale data from an earlier session once this run populates its own.
+    _ocrHandoff.clear();
+    _onlineHandoff.clear();
+
+    final sessionResult = await _createSession(current.photo);
     if (isClosed) return;
 
-    emit(
-      result.fold(
-        ImagePreviewSessionCreated.new,
-        (_) => const ImagePreviewFailed(0),
-      ),
-    );
+    final session = sessionResult.valueOrNull;
+    if (session == null) {
+      emit(const ImagePreviewFailed(0));
+      return;
+    }
+
+    final route = await _decideRoute();
+    if (isClosed) return;
+
+    if (route == AnalysisRoute.offline) {
+      emit(ImagePreviewSessionCreated(session));
+      return;
+    }
+
+    // Online: OCR never runs on this route (F13 locked decision #2 — a
+    // failure here fails outright rather than dropping back to offline).
+    final correctedResult = await _correctPerspective(current.photo);
+    if (isClosed) return;
+
+    final corrected = correctedResult.valueOrNull;
+    if (corrected == null) {
+      emit(const ImagePreviewFailed(0));
+      return;
+    }
+
+    _onlineHandoff.set(session, corrected);
+    emit(ImagePreviewOnlineReady(session));
   }
 
   @override

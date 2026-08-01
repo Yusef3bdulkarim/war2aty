@@ -1,13 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
+import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
+import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_state.dart';
+import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
+import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
+import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 
 import '../../support/fakes.dart';
 
@@ -25,15 +31,27 @@ ImagePreviewCubit cubitFor(
   FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
   FakeCaptureFileCleanup? cleanup,
+  FakeConnectivityService? connectivity,
+  FakePerspectiveCorrector? perspectiveCorrector,
+  ImageAnalysisSessionHolder? onlineHandoff,
+  OcrSessionHolder? ocrHandoff,
 }) {
   final q = quality ?? FakeImageQualityService();
   final s = storage ?? FakeAnalysisSessionStorage();
   final c = cleanup ?? FakeCaptureFileCleanup();
+  // Offline by default: every existing (pre-F13) test exercises that route
+  // without knowing connectivity exists.
+  final conn = connectivity ?? FakeConnectivityService(connected: false);
+  final corrector = perspectiveCorrector ?? FakePerspectiveCorrector();
   return ImagePreviewCubit(
     source: _source,
     rotate: RotateImage(rotator),
     assessQuality: AssessImageQuality(q),
+    decideRoute: DecideAnalysisRoute(conn),
+    correctPerspective: CorrectPerspective(corrector),
     createSession: CreateAnalysisSession(s),
+    onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
+    ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
     cleanupFiles: CleanupCaptureFiles(c),
   );
 }
@@ -263,6 +281,134 @@ void main() {
         ),
       );
     });
+  });
+
+  group('ImagePreviewCubit.proceed — online route (F13)', () {
+    test('perspective-corrects the confirmed photo and hands it off, '
+        'skipping OCR entirely', () async {
+      const corrected = CapturedPhoto('/tmp/corrected.jpg');
+      final storage = FakeAnalysisSessionStorage(sessionId: 'sess-online');
+      final corrector = FakePerspectiveCorrector(output: corrected);
+      final handoff = ImageAnalysisSessionHolder();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        storage: storage,
+        connectivity: FakeConnectivityService(),
+        perspectiveCorrector: corrector,
+        onlineHandoff: handoff,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.confirm();
+      await cubit.proceed();
+
+      expect(corrector.correctCount, 1);
+      expect(corrector.lastPhoto, _source);
+      expect(
+        cubit.state,
+        const ImagePreviewOnlineReady(
+          AnalysisSession(
+            id: 'sess-online',
+            imagePath: '/cache/analysis_sessions/sess-online/processed.jpg',
+          ),
+        ),
+      );
+      expect(
+        handoff.session,
+        const AnalysisSession(
+          id: 'sess-online',
+          imagePath: '/cache/analysis_sessions/sess-online/processed.jpg',
+        ),
+      );
+      expect(handoff.photo, corrected);
+    });
+
+    test('no detected quad hands the original photo off unchanged', () async {
+      final handoff = ImageAnalysisSessionHolder();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        connectivity: FakeConnectivityService(),
+        perspectiveCorrector: FakePerspectiveCorrector(),
+        onlineHandoff: handoff,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.confirm();
+      await cubit.proceed();
+
+      expect(cubit.state, isA<ImagePreviewOnlineReady>());
+      expect(handoff.photo, _source);
+    });
+
+    test('a failed perspective correction fails outright — never falls back '
+        'to the offline route', () async {
+      final handoff = ImageAnalysisSessionHolder();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        connectivity: FakeConnectivityService(),
+        perspectiveCorrector: FakePerspectiveCorrector(fails: true),
+        onlineHandoff: handoff,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.confirm();
+      await cubit.proceed();
+
+      expect(cubit.state, const ImagePreviewFailed(0));
+      expect(handoff.session, isNull);
+      expect(handoff.photo, isNull);
+    });
+  });
+
+  group('ImagePreviewCubit.proceed — stale hand-off clearing', () {
+    const staleExtraction = ExtractionResult(
+      text: NormalizedOcrText(originalText: 'قديم', cleanedText: 'قديم'),
+    );
+
+    test(
+      'routing online clears a stale offline hand-off from a previous run',
+      () async {
+        final ocrHandoff = OcrSessionHolder()
+          ..set(
+            const AnalysisSession(id: 'old', imagePath: '/tmp/old.jpg'),
+            staleExtraction,
+          );
+        final cubit = cubitFor(
+          FakeImageRotator(),
+          connectivity: FakeConnectivityService(),
+          ocrHandoff: ocrHandoff,
+        );
+        addTearDown(cubit.close);
+
+        await cubit.confirm();
+        await cubit.proceed();
+
+        expect(ocrHandoff.session, isNull);
+        expect(ocrHandoff.result, isNull);
+      },
+    );
+
+    test(
+      'routing offline clears a stale online hand-off from a previous run',
+      () async {
+        final onlineHandoff = ImageAnalysisSessionHolder()
+          ..set(
+            const AnalysisSession(id: 'old', imagePath: '/tmp/old.jpg'),
+            const CapturedPhoto('/tmp/old-corrected.jpg'),
+          );
+        final cubit = cubitFor(
+          FakeImageRotator(),
+          onlineHandoff: onlineHandoff,
+        );
+        addTearDown(cubit.close);
+
+        await cubit.confirm();
+        await cubit.proceed();
+
+        expect(onlineHandoff.session, isNull);
+        expect(onlineHandoff.photo, isNull);
+      },
+    );
   });
 
   group('ImagePreviewCubit temp-file cleanup', () {
