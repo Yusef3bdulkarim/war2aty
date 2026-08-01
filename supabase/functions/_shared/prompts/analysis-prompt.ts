@@ -20,9 +20,9 @@
  * never invent a fix for an unconfirmed reading, and never treat "confirmed"
  * as license to sound more certain than the text itself supports.
  *
- * `null`/omitted (every offline request, and any online one before T11 wires
- * verification through) leaves the section out entirely rather than implying
- * either "confirmed" or "unconfirmed" for candidates nothing has checked.
+ * `null`/omitted (every offline request — the online path always supplies one,
+ * F13-T11) leaves the section out entirely rather than implying either
+ * "confirmed" or "unconfirmed" for candidates nothing has checked.
  *
  * PRIVACY: everything here is the user's document. Never log the returned
  * messages, in whole or in part (§51).

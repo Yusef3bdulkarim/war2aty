@@ -13,10 +13,15 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { createAnalyzeHandler } from "../../functions/_shared/analyze/analyze-handler.ts";
+import type { ImageAnalysisPipeline } from "../../functions/_shared/analyze/image-analysis-pipeline.ts";
 import type { AiAnalysisProvider } from "../../functions/_shared/groq/groq-provider.ts";
-import type { AnalysisPromptInput } from "../../functions/_shared/prompts/analysis-prompt.ts";
+import type {
+  AnalysisPromptInput,
+  ExtractedCandidates,
+} from "../../functions/_shared/prompts/analysis-prompt.ts";
 import type { AuthenticatedUser } from "../../functions/_shared/auth/require-user.ts";
 import type { RuntimeConfig } from "../../functions/_shared/config/runtime-config.ts";
+import type { CrossProviderVerification } from "../../functions/_shared/verification/cross-provider-validator.ts";
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import { createEndpoint } from "../../functions/_shared/http/endpoint.ts";
 import type {
@@ -35,6 +40,7 @@ import {
   SESSION_ID,
   testConfig,
   USER_ID,
+  validImageRequestBody,
   validRequestBody,
 } from "../fixtures/analyze-fixtures.ts";
 
@@ -49,6 +55,8 @@ interface Harness {
   readonly finalizes: { requestId: string; success: boolean; errorCode?: string }[];
   readonly prompts: AnalysisPromptInput[];
   readonly analyserTimeouts: number[];
+  readonly imagePipelineCalls: { data: Uint8Array; mimeType: string }[];
+  readonly imagePipelineTimeouts: number[];
 }
 
 interface HarnessOptions {
@@ -56,6 +64,7 @@ interface HarnessOptions {
   readonly reserveOutcome?: ReserveOutcome;
   readonly analyse?: (input: AnalysisPromptInput) => Promise<ModelAnalysis>;
   readonly loadConfig?: () => Promise<RuntimeConfig>;
+  readonly imagePipeline?: ImageAnalysisPipeline;
 }
 
 function harness(options: HarnessOptions = {}): Harness {
@@ -63,6 +72,8 @@ function harness(options: HarnessOptions = {}): Harness {
   const finalizes: { requestId: string; success: boolean; errorCode?: string }[] = [];
   const prompts: AnalysisPromptInput[] = [];
   const analyserTimeouts: number[] = [];
+  const imagePipelineCalls: { data: Uint8Array; mimeType: string }[] = [];
+  const imagePipelineTimeouts: number[] = [];
 
   const config = testConfig(options.config);
 
@@ -90,6 +101,13 @@ function harness(options: HarnessOptions = {}): Harness {
     return options.analyse ? options.analyse(input) : Promise.resolve(modelAnalysis());
   };
 
+  // Never called for a text-shaped request — see "the text-only branch never
+  // touches the image pipeline" below, which is exactly what this default
+  // proves by throwing if that assumption is ever violated.
+  const defaultImagePipeline: ImageAnalysisPipeline = () =>
+    Promise.reject(new Error("no image pipeline configured for this test"));
+  const imagePipeline = options.imagePipeline ?? defaultImagePipeline;
+
   const handler = createEndpoint({
     name: "analyze-document",
     method: "POST",
@@ -103,6 +121,13 @@ function harness(options: HarnessOptions = {}): Harness {
       createAnalyser: (timeoutSeconds) => {
         analyserTimeouts.push(timeoutSeconds);
         return analyse;
+      },
+      createImagePipeline: (timeoutSeconds) => {
+        imagePipelineTimeouts.push(timeoutSeconds);
+        return (input) => {
+          imagePipelineCalls.push(input);
+          return imagePipeline(input);
+        };
       },
       hashInstallation: (id) => Promise.resolve(`hashed:${id.slice(0, 4)}`),
       now: () => NOW,
@@ -127,6 +152,8 @@ function harness(options: HarnessOptions = {}): Harness {
     finalizes,
     prompts,
     analyserTimeouts,
+    imagePipelineCalls,
+    imagePipelineTimeouts,
   };
 }
 
@@ -455,4 +482,120 @@ Deno.test("a date already in the past never drives a reminder", async () => {
 
   const body = await (await test.call()).json();
   assertEquals(body.dates[0].is_reminder_worthy, false);
+});
+
+// ── the image shape (F13-T11) ─────────────────────────────────────────────
+
+const IMAGE_CANDIDATES: ExtractedCandidates = {
+  dates: [{ raw_text: "2026-08-15", normalized_date: "2026-08-15", is_ambiguous: false }],
+  times: [],
+  amounts: [{ raw_text: "850.50 جنيه", value: 850.5, currency: "EGP", is_ambiguous: false }],
+  phones: [{ raw_text: "01012345678", normalized_number: "+201012345678", is_ambiguous: false }],
+  references: [{ raw_text: "رقم الحساب 12345678", value: "12345678", is_ambiguous: true }],
+};
+
+const IMAGE_VERIFICATION: CrossProviderVerification = {
+  dates: [{ status: "verified", needsUserReview: false }],
+  times: [],
+  amounts: [{ status: "verified", needsUserReview: false }],
+  // Left unconfirmed on purpose, so the response-building test below has a
+  // real needsUserReview: true to assert against.
+  phones: [{ status: "unverified", needsUserReview: true }],
+  references: [{ status: "verified", needsUserReview: false }],
+  needsUserReview: true,
+};
+
+function successfulImagePipeline(): ImageAnalysisPipeline {
+  return () =>
+    Promise.resolve({
+      ocrText: OCR_TEXT,
+      candidates: IMAGE_CANDIDATES,
+      verification: IMAGE_VERIFICATION,
+    });
+}
+
+Deno.test("an image request is refused as INVALID_REQUEST while azureOcrEnabled is dark, and never reaches the pipeline", async () => {
+  const test = harness({ config: { azureOcrEnabled: false } });
+  const response = await test.call(validImageRequestBody());
+
+  assertEquals(response.status, 400);
+  assertEquals(await errorCode(response), "INVALID_REQUEST");
+  assertEquals(test.imagePipelineCalls.length, 0);
+  // No slot taken either — a dark route must cost the refused caller nothing.
+  assertEquals(test.reserves.length, 0);
+});
+
+Deno.test("the kill switch blocks an image request the same way it blocks a text one", async () => {
+  const test = harness({ config: { analysisEnabled: false, azureOcrEnabled: true } });
+  const response = await test.call(validImageRequestBody());
+
+  assertEquals(response.status, 503);
+  assertEquals(await errorCode(response), "ANALYSIS_DISABLED");
+  assertEquals(test.imagePipelineCalls.length, 0);
+});
+
+Deno.test("azureOcrEnabled on routes an image request through the pipeline into the Groq prompt", async () => {
+  const test = harness({
+    config: { azureOcrEnabled: true },
+    imagePipeline: successfulImagePipeline(),
+  });
+  const response = await test.call(validImageRequestBody());
+
+  assertEquals(response.status, 200);
+  assertEquals(test.imagePipelineCalls.length, 1);
+  assertEquals(test.prompts[0].ocrText, OCR_TEXT);
+  assertEquals(test.prompts[0].detectedLanguages, []);
+  assertEquals(test.prompts[0].candidates.dates.length, 1);
+  assertEquals(test.prompts[0].verification, IMAGE_VERIFICATION);
+});
+
+Deno.test("the text-only branch never touches the image pipeline", async () => {
+  // The harness's default image pipeline rejects — if a text request ever
+  // reached it, this test would fail on that rejection instead of passing.
+  const test = harness();
+  const response = await test.call();
+
+  assertEquals(response.status, 200);
+  assertEquals(test.imagePipelineCalls.length, 0);
+  assertEquals(test.imagePipelineTimeouts.length, 0);
+});
+
+Deno.test("an exhausted quota on an image request never calls the pipeline", async () => {
+  const test = harness({
+    config: { azureOcrEnabled: true },
+    reserveOutcome: "limit_reached",
+    imagePipeline: successfulImagePipeline(),
+  });
+  const response = await test.call(validImageRequestBody());
+
+  assertEquals(response.status, 429);
+  assertEquals(test.imagePipelineCalls.length, 0);
+});
+
+Deno.test("a failed online read releases the slot and never falls back to a text analysis", async () => {
+  // Locked decision #2: a failed-while-online call fails outright — it must
+  // not be retried as if it were the offline/Tesseract path.
+  const test = harness({
+    config: { azureOcrEnabled: true },
+    imagePipeline: () => Promise.reject(ApiError.timeout()),
+  });
+  const response = await test.call(validImageRequestBody());
+
+  assertEquals(response.status, 408);
+  assertEquals(await errorCode(response), "TIMEOUT");
+  assertEquals(test.finalizes[0].success, false);
+  // Groq is never reached once the online read itself fails.
+  assertEquals(test.prompts.length, 0);
+});
+
+Deno.test("the response carries phones/references once the pipeline supplies verification", async () => {
+  const test = harness({
+    config: { azureOcrEnabled: true },
+    imagePipeline: successfulImagePipeline(),
+  });
+  const body = await (await test.call(validImageRequestBody())).json();
+
+  assertEquals(body.phones.length, 1);
+  assertEquals(body.phones[0].needsUserReview, true);
+  assertEquals(body.references.length, 1);
 });

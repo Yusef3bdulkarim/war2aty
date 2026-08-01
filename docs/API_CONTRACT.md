@@ -13,9 +13,9 @@ read by Azure/Google Document AI). Every request, either shape, still declares
 `UNSUPPORTED_SCHEMA`. See `docs/features/F13-ocr-provider-migration.md`
 locked decisions #1 and #7.
 
-The image-intake shape is documented here as a contract (§29b) ahead of being
-reachable: `analyze-document` does not yet route it anywhere (F13-T11 wires
-that, behind `azureOcrEnabled`).
+The image-intake shape is routed (F13-T11), gated behind `azureOcrEnabled`
+(dark by default — see `docs/features/F13-ocr-provider-migration.md`
+task T19 for when it is flipped on).
 
 ---
 
@@ -287,10 +287,9 @@ that, behind `azureOcrEnabled`).
 
 ---
 
-## §29b · Analysis Request — Image-intake shape (JSON Schema v2, F13-T09)
+## §29b · Analysis Request — Image-intake shape (JSON Schema v2, F13-T09/T11)
 
-Not yet reachable — see the note at the top of this document. Documented now so
-the contract is fixed before F13-T11 wires the route.
+Routed behind `RuntimeConfig.azureOcrEnabled` (dark by default).
 
 ### Request body
 
@@ -359,8 +358,9 @@ the contract is fixed before F13-T11 wires the route.
 3. **`image.mime_type`** — must be `image/jpeg` or `image/png`; anything else is `400 INVALID_REQUEST`.
 4. **`image.data`** — must be well-formed base64; a decoded size over `RuntimeConfig.maxImageBytes`
    is `400 INVALID_REQUEST`, rejected before the bytes are ever handed to Azure.
-5. **Gate** — reachable only once F13-T11 wires the route, itself gated behind
-   `RuntimeConfig.azureOcrEnabled`. Until then no endpoint parses this shape in production.
+5. **Gate** — `RuntimeConfig.azureOcrEnabled`. Off (the default), a request carrying
+   `input_type: "image"` is refused `400 INVALID_REQUEST` before it is parsed at all —
+   indistinguishable from a shape this deployment does not accept.
 
 ### Privacy guarantees
 

@@ -1,5 +1,5 @@
 /**
- * F06-T13 · The analyze-document handler.
+ * F06-T13 / F13-T11 · The analyze-document handler.
  *
  * The one place the pieces built by T03–T12 are put in order. It owns no rules
  * of its own — every decision below belongs to a module that can be tested on
@@ -16,12 +16,23 @@
  *   5. reserve slot  — both quotas (the caller's own and the service-wide cap)
  *                      are enforced BEFORE the AI is called, or a refusal
  *                      costs us the provider call anyway
- *   6. analyse       — the only expensive step
+ *   6. analyse       — the only expensive step (Azure/Google for an image
+ *                      request, T11; Groq for both shapes)
  *   7. validate      — the model's answer is never returned as-is
  *
  * There is deliberately no daily-limit pre-check before the reservation. The
  * reserve is atomic and already answers `limit_reached`; a read-then-reserve
  * would add a round-trip and a race it cannot win (F06-T07).
+ *
+ * ── Two request shapes, one sequence (F13-T11) ────────────────────────────
+ * `input_type` picks the shape before anything else is parsed. The `"image"`
+ * shape is dark-launched behind `RuntimeConfig.azureOcrEnabled` (locked
+ * decision #1): off, it is refused exactly as it always was before this task
+ * — `INVALID_REQUEST`, indistinguishable from a shape this deployment does
+ * not parse. On, the image is read by `image-analysis-pipeline.ts` (T04–T08)
+ * INSIDE the reserved slot, same as the Groq call — it is a paid provider
+ * call and must not run before the quota check. The `"text"` shape's own
+ * sequence is untouched: same parser, same fields, same order.
  *
  * PRIVACY: nothing derived from the document is logged. Every log line here
  * carries envelope fields, statuses and counts only (§51).
@@ -33,12 +44,17 @@ import type { RuntimeConfig } from "../config/runtime-config.ts";
 import type { EndpointHandler } from "../http/endpoint.ts";
 import { jsonResponse } from "../http/response.ts";
 import type { AiAnalysisProvider } from "../groq/groq-provider.ts";
+import type { ImageAnalysisPipeline } from "./image-analysis-pipeline.ts";
 import { logEvent } from "../observability/log.ts";
 import { cairoDayOf, nextCairoResetAfter, toCairoIsoString } from "../time/cairo-day.ts";
 import type { SlotStore } from "../usage/slot-reservation.ts";
 import { withReservedSlot } from "../usage/slot-reservation.ts";
 import { validateAnalysis } from "../validators/validation-pipeline.ts";
-import { parseAnalyzeRequest } from "./analyze-request.ts";
+import {
+  type AnalyzeImageRequest,
+  parseAnalyzeImageRequest,
+  parseAnalyzeRequest,
+} from "./analyze-request.ts";
 import { buildAnalysisResponse, type BuiltAnalysisResponse } from "./analyze-response.ts";
 
 export interface AnalyzeDependencies {
@@ -50,6 +66,14 @@ export interface AnalyzeDependencies {
    * operator can change without a redeploy.
    */
   readonly createAnalyser: (timeoutSeconds: number) => AiAnalysisProvider;
+  /**
+   * Same reasoning as {@link createAnalyser}: Azure/Google credentials are a
+   * deploy fact and a missing one must fail loudly. Only ever invoked for an
+   * image-shaped request (F13-T11) — text-shaped traffic, still the
+   * overwhelming majority while `azureOcrEnabled` stays dark, never
+   * constructs this and so never requires Azure/Google to be configured.
+   */
+  readonly createImagePipeline: (timeoutSeconds: number) => ImageAnalysisPipeline;
   readonly hashInstallation: (installationId: string) => Promise<string>;
   /** Injected so Cairo-day boundaries are testable. */
   readonly now: () => Date;
@@ -65,10 +89,51 @@ export interface AnalyzeDependencies {
  */
 const RESERVATION_GRACE_SECONDS = 10;
 
+/** `input_type`, read without trusting the body is even an object yet. */
+function requestedInputType(body: unknown): unknown {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) return undefined;
+  return (body as Record<string, unknown>).input_type;
+}
+
+/**
+ * Runs the online pipeline and reshapes its result into the same
+ * `{ ocrText, detectedLanguages, candidates, verification }` fields the text
+ * shape already carries, so the sequence below never has to know which shape
+ * produced them.
+ *
+ * `detectedLanguages` is always `[]`: Azure's Read model result carries no
+ * language tags (unlike the on-device OCR engine), and an empty list reads to
+ * the prompt builder as "unknown" — the same fallback it already had.
+ */
+async function readImage(
+  pipeline: ImageAnalysisPipeline,
+  request: AnalyzeImageRequest,
+) {
+  const result = await pipeline({
+    data: request.image.data,
+    mimeType: request.image.mimeType,
+  });
+
+  return {
+    ocrText: result.ocrText,
+    detectedLanguages: [] as readonly string[],
+    candidates: result.candidates,
+    verification: result.verification,
+  };
+}
+
 export function createAnalyzeHandler(
   dependencies: AnalyzeDependencies,
 ): EndpointHandler {
-  const { verifyToken, loadConfig, slots, createAnalyser, hashInstallation, now } = dependencies;
+  const {
+    verifyToken,
+    loadConfig,
+    slots,
+    createAnalyser,
+    createImagePipeline,
+    hashInstallation,
+    now,
+  } = dependencies;
 
   return async ({ request, requestId, requestIdSource }): Promise<Response> => {
     const auth = await requireUser(request, verifyToken);
@@ -86,12 +151,25 @@ export function createAnalyzeHandler(
       throw ApiError.invalidRequest();
     }
 
-    const parsed = parseAnalyzeRequest(rawBody, config);
+    // §29 v2 dispatch. Off, the image shape is refused exactly as it always
+    // was before this task — the parser below already throws INVALID_REQUEST
+    // for anything but `input_type: "text"`, and that is precisely the
+    // behaviour a dark `azureOcrEnabled` must preserve.
+    const isImageRequest = requestedInputType(rawBody) === "image";
+    if (isImageRequest && !config.azureOcrEnabled) throw ApiError.invalidRequest();
+
+    const parsed = isImageRequest
+      ? parseAnalyzeImageRequest(rawBody, config)
+      : parseAnalyzeRequest(rawBody, config);
 
     const instant = now();
-    // Built before the reservation: a missing GROQ_API_KEY is a deploy fault,
-    // and it must not burn a slot to discover it.
+    // Built before the reservation: a missing GROQ_API_KEY (or, for an image
+    // request, Azure/Google credential) is a deploy fault, and it must not
+    // burn a slot to discover it.
     const analyse = createAnalyser(config.aiTimeoutSeconds);
+    const imagePipeline = parsed.inputType === "image"
+      ? createImagePipeline(config.aiTimeoutSeconds)
+      : null;
     const installationHash = await hashInstallation(parsed.installationId);
 
     const outcome = await withReservedSlot<BuiltAnalysisResponse>(
@@ -106,17 +184,25 @@ export function createAnalyzeHandler(
         ttlSeconds: config.aiTimeoutSeconds + RESERVATION_GRACE_SECONDS,
       },
       async () => {
-        const model = await analyse({
-          ocrText: parsed.ocrText,
-          detectedLanguages: parsed.detectedLanguages,
-          candidates: parsed.candidates,
-        });
+        // The online image read (Azure, and a conditional Google second
+        // opinion) is exactly as expensive as the Groq call below, and for
+        // the same reason must run only after the slot is held.
+        const { ocrText, detectedLanguages, candidates, verification } =
+          parsed.inputType === "image" ? await readImage(imagePipeline!, parsed) : {
+            ocrText: parsed.ocrText,
+            detectedLanguages: parsed.detectedLanguages,
+            candidates: parsed.candidates,
+            verification: null,
+          };
+
+        const model = await analyse({ ocrText, detectedLanguages, candidates, verification });
 
         const validated = validateAnalysis({
           analysis: model,
-          ocrText: parsed.ocrText,
-          candidates: parsed.candidates,
+          ocrText,
+          candidates,
           now: instant,
+          crossProviderVerification: verification,
         });
 
         logEvent("analyze.validated", {
@@ -134,7 +220,8 @@ export function createAnalyzeHandler(
           analysis: validated.analysis,
           sessionId: parsed.sessionId,
           schemaVersion: config.schemaVersion,
-          candidates: parsed.candidates,
+          candidates,
+          verification,
         });
       },
       // §31 rule 6: `unsupported` is a 200 that costs the user nothing.
@@ -190,7 +277,10 @@ export function createAnalyzeHandler(
       counted: outcome.finalize.outcome === "succeeded",
       used_today: outcome.finalize.usedToday,
       daily_limit: config.dailyLimit,
-      dropped_candidates: parsed.droppedCandidates,
+      // Only the text shape's client-supplied candidates can be malformed and
+      // dropped (§29); the image shape's candidates are this server's own
+      // extractor output, so there is nothing to count here.
+      dropped_candidates: parsed.inputType === "text" ? parsed.droppedCandidates : 0,
       dropped_fields: report.dropped.join(",") || null,
       dropped_items: report.droppedItems,
     });

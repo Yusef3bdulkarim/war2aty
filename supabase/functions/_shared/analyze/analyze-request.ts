@@ -14,11 +14,8 @@
  * optional — so a text body can never smuggle image bytes and an image body
  * can never smuggle `ocr_text`/`candidates`.
  *
- * `parseAnalyzeImageRequest` is not called from `analyze-handler.ts` yet — the
- * route that dispatches on `input_type` and actually calls Azure is F13-T11.
- * Until then this function only proves the image shape is a real, testable
- * contract, the same staging F13-T06's field-verification.ts used ahead of its
- * own route.
+ * `parseAnalyzeImageRequest` is called from `analyze-handler.ts` (F13-T11),
+ * gated behind `RuntimeConfig.azureOcrEnabled`.
  *
  * ── Why unknown properties are rejected ──────────────────────────────────
  * Each shape's schema sets `additionalProperties: false`. For the TEXT shape
@@ -67,7 +64,7 @@ export interface AnalyzeRequest {
   readonly droppedCandidates: number;
 }
 
-/** The decoded image-intake shape (§29 v2). Not yet routed — see F13-T11. */
+/** The decoded image-intake shape (§29 v2), routed by `analyze-handler.ts` (F13-T11). */
 export interface AnalyzeImageRequest {
   readonly inputType: "image";
   readonly sessionId: string;
@@ -369,8 +366,7 @@ export function parseAnalyzeRequest(
   };
 }
 
-// ── image-intake path (§29 v2, F13-T09) ────────────────────────────────────
-// Not yet reachable from `analyze-handler.ts` — see the header comment.
+// ── image-intake path (§29 v2, F13-T09/T11) ────────────────────────────────
 
 /**
  * Decodes and bounds-checks a base64 image payload.

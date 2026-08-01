@@ -25,8 +25,9 @@
  * ── `rawValue` and the new `phones`/`references` arrays (§30 v2, locked
  * decision #6) ────────────────────────────────────────────────────────────
  * `dates[].rawValue`/`amounts[].rawValue` are looked up from the SAME
- * candidates the request carried (or, once F13-T11 wires the online path,
- * from Azure/Google's) by matching normalized value — never invented, and
+ * candidates the request carried — the client's on-device extractors on the
+ * text shape, or Azure/Google's via `image-analysis-pipeline.ts` on the image
+ * shape (F13-T11) — by matching normalized value — never invented, and
  * `null` whenever the model's value has no literal match in the document (an
  * inferred date, say). This only annotates a value Groq already asserted; it
  * cannot make an unconfirmed one appear.
@@ -34,11 +35,11 @@
  * `phones`/`references` are NOT read from `analysis` at all — Groq has no
  * concept of either until F13-T10 extends its schema. They come straight from
  * `candidates`, gated behind an explicit `verification` input: with no
- * verification (every caller today, and the offline/Tesseract path even once
- * F13-T11 lands), both arrays stay empty rather than surface a raw regex hit
- * nothing has confirmed. `needsUserReview` (unlike `verificationStatus`,
- * locked decision #6) is fair to put on the wire — it is the one bit the
- * client actually branches its UI on.
+ * verification (the offline/Tesseract path, which never produces one), both
+ * arrays stay empty rather than surface a raw regex hit nothing has
+ * confirmed. `needsUserReview` (unlike `verificationStatus`, locked decision
+ * #6) is fair to put on the wire — it is the one bit the client actually
+ * branches its UI on.
  *
  * PRIVACY: the report counts and names fields. It never carries a value.
  */
@@ -253,10 +254,9 @@ export function buildAnalysisResponse(input: {
   readonly candidates?: ExtractedCandidates;
   /**
    * Cross-provider verification for THIS analysis's candidates (F13-T08),
-   * index-aligned with `candidates`. `null`/omitted — every caller today,
-   * and the offline/Tesseract path even once F13-T11 wires the online one —
-   * means `phones`/`references` come back empty rather than surface a raw
-   * regex hit nothing has confirmed.
+   * index-aligned with `candidates`. `null`/omitted — the offline/Tesseract
+   * path, which never produces one — means `phones`/`references` come back
+   * empty rather than surface a raw regex hit nothing has confirmed.
    */
   readonly verification?: CrossProviderVerification | null;
 }): BuiltAnalysisResponse {
