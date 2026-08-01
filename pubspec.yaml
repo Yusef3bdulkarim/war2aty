@@ -31,6 +31,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   camera: ^0.12.0+2
+  connectivity_plus: ^7.3.1
   cupertino_icons: ^1.0.8
   dio: ^5.11.0
   doclens: ^0.0.8
