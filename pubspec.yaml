@@ -33,6 +33,7 @@ dependencies:
   camera: ^0.12.0+2
   cupertino_icons: ^1.0.8
   dio: ^5.11.0
+  doclens: ^0.0.8
   drift: ^2.34.2
   drift_flutter: ^0.3.1
   flutter:
