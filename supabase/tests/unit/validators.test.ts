@@ -146,6 +146,102 @@ Deno.test("an amount found only in the candidates is accepted", () => {
   assertEquals(result.amounts[0].confidence, "high");
 });
 
+// ── T08 peer input: cross-provider verdicts can only add downgrades ───────
+
+Deno.test("an amount both on the page and flagged by the cross-provider validator is still downgraded", () => {
+  const candidates: ExtractedCandidates = {
+    ...NO_CANDIDATES,
+    amounts: [{ raw_text: "850.50 جنيه", value: 850.5, currency: "EGP", is_ambiguous: true }],
+  };
+
+  const { analysis: result } = validateAnalysis({
+    analysis: analysis({
+      amounts: [{ label: "الإجمالي", value: 850.5, currency: "جنيه", confidence: "high" }],
+    }),
+    ocrText: BILL_TEXT,
+    candidates,
+    now: NOW,
+    crossProviderVerification: {
+      dates: [],
+      times: [],
+      amounts: [{ status: "conflicting", needsUserReview: true }],
+      phones: [],
+      references: [],
+      needsUserReview: true,
+    },
+  });
+
+  assertEquals(result.amounts[0].confidence, "low");
+  assertEquals(result.status, "partial");
+});
+
+Deno.test("a date both on the page and flagged by the cross-provider validator is still downgraded", () => {
+  const candidates: ExtractedCandidates = {
+    ...NO_CANDIDATES,
+    dates: [{ raw_text: "2026/09/15", normalized_date: "2026-09-15", is_ambiguous: true }],
+  };
+
+  const { analysis: result } = validateAnalysis({
+    analysis: analysis({
+      dates: [{
+        label: "آخر موعد للسداد",
+        date: "2026-09-15",
+        time: null,
+        role: "deadline",
+        is_reminder_worthy: true,
+        confidence: "high",
+      }],
+    }),
+    ocrText: BILL_TEXT,
+    candidates,
+    now: NOW,
+    crossProviderVerification: {
+      dates: [{ status: "unverified", needsUserReview: true }],
+      times: [],
+      amounts: [],
+      phones: [],
+      references: [],
+      needsUserReview: true,
+    },
+  });
+
+  assertEquals(result.dates[0].confidence, "low");
+  assertEquals(result.status, "partial");
+});
+
+Deno.test("omitting the cross-provider verdict behaves exactly like before T08", () => {
+  const { analysis: result } = run(
+    analysis({
+      amounts: [{ label: "الإجمالي", value: 850.5, currency: "جنيه", confidence: "high" }],
+    }),
+  );
+
+  assertEquals(result.amounts[0].confidence, "high");
+  assertEquals(result.status, "success");
+});
+
+Deno.test("a cross-provider verdict that flags nothing changes nothing", () => {
+  const { analysis: result } = validateAnalysis({
+    analysis: analysis({
+      amounts: [{ label: "الإجمالي", value: 850.5, currency: "جنيه", confidence: "high" }],
+    }),
+    ocrText: BILL_TEXT,
+    candidates: NO_CANDIDATES,
+    now: NOW,
+    crossProviderVerification: {
+      dates: [],
+      times: [],
+      amounts: [],
+      phones: [],
+      references: [],
+      needsUserReview: false,
+    },
+  });
+
+  assertEquals(result.amounts[0].confidence, "high");
+  assertEquals(result.status, "success");
+});
+
 // ── key information / source claims ───────────────────────────────────────
 
 Deno.test("an extracted account number present on the page is kept", () => {

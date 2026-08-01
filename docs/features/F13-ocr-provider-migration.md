@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ocr-provider-migration` · **Milestone:** post-M6
 - **Depends on:** F04 (local OCR — Tesseract/extractors kept as offline fallback), F06 (backend + Groq — extended, not replaced) · **Feeds:** all future analysis quality
-- **Progress:** 7 / 19 DONE
+- **Progress:** 8 / 19 DONE
 
 Replaces Tesseract as the primary OCR engine with Azure AI Document Intelligence (Read model); keeps Tesseract as an **offline-only** fallback; adds Google Document AI as a conditional second opinion when Azure is missing/invalid/low-confidence on a critical field; Groq stays the final classify/explain step, never shown the raw image, never allowed to invent or correct dates/amounts/times/phones/reference numbers. This is a privacy-model change (the image now transits the Edge Function to reach Azure/Google) — user-facing copy and `CLAUDE.md` are updated accordingly, never naming a provider, never claiming the image doesn't reach AI. All architectural decisions below were resolved with the user in a dedicated planning session (2026-07-30) and are fixed constraints, not open questions, for implementation.
 
@@ -31,7 +31,7 @@ Replaces Tesseract as the primary OCR engine with Azure AI Document Intelligence
 | 5 | F13-T05 | Port field extractors to TypeScript | Mirrors the 5 existing Dart extractors field-by-field; shared fixtures where practical; one behavior per test | DONE |
 | 6 | F13-T06 | Per-field validation/confidence (Azure-only) | Computes `verificationStatus` (verified/unverified/conflicting, backend-only) + confidence; tests for all three statuses | DONE |
 | 7 | F13-T07 | Google Document AI client | Service-account JWT auth; synchronous `process` API only, whole-document resend; test asserts batch/GCS endpoint never referenced | DONE |
-| 8 | F13-T08 | Cross-provider validator | Decides when to call Google, merges Azure+Google, produces `needsUserReview`; wired as a peer input into existing `validateAnalysis()` | TODO |
+| 8 | F13-T08 | Cross-provider validator | Decides when to call Google, merges Azure+Google, produces `needsUserReview`; wired as a peer input into existing `validateAnalysis()` | DONE |
 | 9 | F13-T09 | Request/response contract v2 | New image-intake path; allow-list + privacy doc-comment consciously rewritten; `rawValue` added to date/amount responses; new typed `phones[]`/`references[]`; `ANALYSIS_SCHEMA_VERSION` bumped | TODO |
 | 10 | F13-T10 | Groq prompt/schema extension | Groq receives per-field confidence/`needsUserReview` (never the image), instructed to hedge without inventing/correcting values | TODO |
 | 11 | F13-T11 | `analyze-document` image-route wiring | Branches on request shape; image path gated behind `azureOcrEnabled` + `analysisEnabled`; text-only branch proven byte-for-byte unaffected | TODO |
