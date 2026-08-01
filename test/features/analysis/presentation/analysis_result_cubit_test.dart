@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_section.dart';
 import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
@@ -44,6 +45,14 @@ final class FakeAnalysisRepository implements AnalysisRepository {
     AnalysisRequest request,
   ) async {
     requests.add(request);
+    await gate?.future;
+    return answer ?? Ok(invoiceAnalysis());
+  }
+
+  @override
+  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
+    AnalysisImageRequest request,
+  ) async {
     await gate?.future;
     return answer ?? Ok(invoiceAnalysis());
   }

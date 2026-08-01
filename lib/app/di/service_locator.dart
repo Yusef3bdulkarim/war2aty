@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
+import '../../core/connectivity/connectivity_plus_service.dart';
+import '../../core/connectivity/connectivity_service.dart';
 import '../../core/database/app_database.dart';
 import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/stub_recent_documents_repository.dart';
@@ -42,6 +44,7 @@ import '../../features/analysis/data/datasources/mock_analysis_remote_data_sourc
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
+import '../../features/analysis/domain/usecases/analyze_image.dart';
 import '../../features/analysis/domain/usecases/build_analysis_result.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
@@ -67,6 +70,7 @@ import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
+import '../../features/capture/domain/usecases/decide_analysis_route.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
 import '../../features/capture/domain/usecases/initialize_camera.dart';
@@ -303,6 +307,8 @@ void _registerHome() {
 
 void _registerCapture() {
   getIt
+    ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
+    ..registerFactory<DecideAnalysisRoute>(() => DecideAnalysisRoute(getIt()))
     ..registerLazySingleton<PermissionService>(PermissionHandlerService.new)
     ..registerLazySingleton<CameraPermissionRepository>(
       () => SystemCameraPermissionRepository(getIt()),
@@ -426,6 +432,9 @@ void _registerAnalysis(AppEnvironment env) {
       ),
     )
     ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
+    // Online-route counterpart (F13-T14); wired into the capture flow by
+    // F13-T15.
+    ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
     ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
     ..registerFactoryParam<
       AnalysisResultCubit,

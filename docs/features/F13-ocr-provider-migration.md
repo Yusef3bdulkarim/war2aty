@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ocr-provider-migration` · **Milestone:** post-M6
 - **Depends on:** F04 (local OCR — Tesseract/extractors kept as offline fallback), F06 (backend + Groq — extended, not replaced) · **Feeds:** all future analysis quality
-- **Progress:** 12 / 19 DONE
+- **Progress:** 14 / 19 DONE
 
 Replaces Tesseract as the primary OCR engine with Azure AI Document Intelligence (Read model); keeps Tesseract as an **offline-only** fallback; adds Google Document AI as a conditional second opinion when Azure is missing/invalid/low-confidence on a critical field; Groq stays the final classify/explain step, never shown the raw image, never allowed to invent or correct dates/amounts/times/phones/reference numbers. This is a privacy-model change (the image now transits the Edge Function to reach Azure/Google) — user-facing copy and `CLAUDE.md` are updated accordingly, never naming a provider, never claiming the image doesn't reach AI. All architectural decisions below were resolved with the user in a dedicated planning session (2026-07-30) and are fixed constraints, not open questions, for implementation.
 
@@ -36,8 +36,8 @@ Replaces Tesseract as the primary OCR engine with Azure AI Document Intelligence
 | 10 | F13-T10 | Groq prompt/schema extension | Groq receives per-field confidence/`needsUserReview` (never the image), instructed to hedge without inventing/correcting values | DONE |
 | 11 | F13-T11 | `analyze-document` image-route wiring | Branches on request shape; image path gated behind `azureOcrEnabled` + `analysisEnabled`; text-only branch proven byte-for-byte unaffected | DONE |
 | 12 | F13-T12 | `PerspectiveCorrector` interface + `doclens` adapter | Interface + impl using only `detectInImage()`/crop, never `doclens`'s camera UI; swappable via fake in tests | DONE |
-| 13 | F13-T13 | Connectivity-aware routing decision | Proactive-only check (no network call) returns an `AnalysisRoute` enum; DI registered; tests cover both branches | TODO |
-| 14 | F13-T14 | Online image-analysis domain/data layer | New image-carrying request entity, `AnalysisRepository.analyzeImage()`, new datasource (Dio multipart or documented base64) | TODO |
+| 13 | F13-T13 | Connectivity-aware routing decision | Proactive-only check (no network call) returns an `AnalysisRoute` enum; DI registered; tests cover both branches | DONE |
+| 14 | F13-T14 | Online image-analysis domain/data layer | New image-carrying request entity, `AnalysisRepository.analyzeImage()`, new datasource (Dio multipart or documented base64) | DONE |
 | 15 | F13-T15 | Capture-flow routing wiring | Offline → unchanged `OcrProcessingCubit`; online → `PerspectiveCorrector` then new use case, skipping OCR entirely; existing capture UI untouched | TODO |
 | 16 | F13-T16 | No-silent-fallback guarantee | Once online is chosen, any failure maps to retry-only, never invokes `OcrEngine`/Tesseract; tests assert Tesseract never constructed on a failed-online run | TODO |
 | 17 | F13-T17 | `rawValue` wire-through + confidence-parity test | `rawValue` added to date/amount entities; new phone/reference entities; `verificationStatus` proven absent from every Flutter-facing type | TODO |

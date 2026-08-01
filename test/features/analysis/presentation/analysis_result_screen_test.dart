@@ -8,6 +8,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
 import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
@@ -46,6 +47,15 @@ final class _FakeRepository implements AnalysisRepository {
   @override
   Future<Result<DocumentAnalysis, AppFailure>> analyze(
     AnalysisRequest request,
+  ) async {
+    calls++;
+    await gate?.future;
+    return answer ?? Ok(invoiceAnalysis());
+  }
+
+  @override
+  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
+    AnalysisImageRequest request,
   ) async {
     calls++;
     await gate?.future;

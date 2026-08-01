@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show FileSystemException;
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -8,11 +10,14 @@ import 'package:war2aty/core/logging/app_logger.dart';
 import 'package:war2aty/core/logging/log_event.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/analysis/data/datasources/analysis_remote_data_source.dart';
+import 'package:war2aty/features/analysis/data/models/analysis_image_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/repositories/default_analysis_repository.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
 import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
+import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/ocr/domain/entities/amount_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/date_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
@@ -34,9 +39,21 @@ final class _FakeDataSource implements AnalysisRemoteDataSource {
   /// The request the repository actually built.
   AnalysisRequestDto? sent;
 
+  /// The image request the repository actually built.
+  AnalysisImageRequestDto? sentImage;
+
   @override
   Future<AnalysisApiResponse> analyze(AnalysisRequestDto request) async {
     sent = request;
+    if (error != null) throw error!;
+    return response!;
+  }
+
+  @override
+  Future<AnalysisApiResponse> analyzeImage(
+    AnalysisImageRequestDto request,
+  ) async {
+    sentImage = request;
     if (error != null) throw error!;
     return response!;
   }
@@ -90,6 +107,11 @@ const _request = AnalysisRequest(
   detectedLanguages: ['ar', 'en'],
 );
 
+const _imageRequest = AnalysisImageRequest(
+  sessionId: 'session-1',
+  photo: CapturedPhoto('/tmp/warped.jpg'),
+);
+
 ({
   DefaultAnalysisRepository repository,
   _FakeDataSource dataSource,
@@ -99,6 +121,7 @@ _build({
   AnalysisApiResponse? response,
   Object? error,
   Result<String, AppFailure> identity = const Ok('install-42'),
+  ImageBytesReader? readImageBytes,
 }) {
   final dataSource = _FakeDataSource(response: response, error: error);
   final sink = FakeLogSink();
@@ -109,6 +132,8 @@ _build({
       installationId: _FakeInstallationId(identity),
       logger: StructuredAppLogger(sink),
       appVersion: '1.2.3',
+      readImageBytes:
+          readImageBytes ?? (path) async => Uint8List.fromList([1, 2, 3]),
     ),
     dataSource: dataSource,
     sink: sink,
@@ -330,6 +355,148 @@ void main() {
         harness.sink.writes.single.keys,
         everyElement(isIn(kAllowedLogFields)),
       );
+    });
+  });
+
+  group('analyzeImage — request building', () {
+    test('fills the envelope and the image shape', () async {
+      final harness = _build(
+        response: _ok(_successBody()),
+        readImageBytes: (path) async => Uint8List.fromList([1, 2, 3]),
+      );
+
+      await harness.repository.analyzeImage(_imageRequest);
+
+      final sent = harness.dataSource.sentImage!;
+      expect(sent.schemaVersion, kAnalysisRequestSchemaVersion);
+      expect(sent.sessionId, 'session-1');
+      expect(sent.installationId, 'install-42');
+      expect(sent.appVersion, '1.2.3');
+      expect(sent.imageBase64, base64Encode([1, 2, 3]));
+      expect(sent.mimeType, 'image/jpeg');
+    });
+
+    test('reads bytes from the photo path it was given', () async {
+      String? readPath;
+      final harness = _build(
+        response: _ok(_successBody()),
+        readImageBytes: (path) async {
+          readPath = path;
+          return Uint8List.fromList([1]);
+        },
+      );
+
+      await harness.repository.analyzeImage(_imageRequest);
+
+      expect(readPath, '/tmp/warped.jpg');
+    });
+
+    test('picks image/png for a .png photo', () async {
+      final harness = _build(response: _ok(_successBody()));
+
+      await harness.repository.analyzeImage(
+        const AnalysisImageRequest(
+          sessionId: 'session-1',
+          photo: CapturedPhoto('/tmp/warped.png'),
+        ),
+      );
+
+      expect(harness.dataSource.sentImage!.mimeType, 'image/png');
+    });
+
+    test('never puts the ocr-text shape in the payload', () async {
+      final harness = _build(response: _ok(_successBody()));
+
+      await harness.repository.analyzeImage(_imageRequest);
+
+      expect(
+        harness.dataSource.sentImage!.toJson().keys,
+        unorderedEquals([
+          'schema_version',
+          'session_id',
+          'installation_id',
+          'app_version',
+          'input_type',
+          'image',
+        ]),
+      );
+      expect(harness.dataSource.sentImage!.toJson()['input_type'], 'image');
+    });
+  });
+
+  group('analyzeImage — outcomes', () {
+    test('returns the mapped analysis on success', () async {
+      final harness = _build(response: _ok(_successBody()));
+
+      final result = await harness.repository.analyzeImage(_imageRequest);
+
+      expect(result.valueOrNull?.kind, DocumentKind.invoice);
+    });
+
+    test('maps an error response through the shared §31 mapper', () async {
+      final harness = _build(
+        response: AnalysisApiResponse(
+          statusCode: 503,
+          body: _errorBody('ANALYSIS_DISABLED'),
+        ),
+      );
+
+      final result = await harness.repository.analyzeImage(_imageRequest);
+
+      expect(result.failureOrNull, isA<AnalysisDisabledFailure>());
+    });
+
+    test('maps a transport error the same way as the text route', () async {
+      final harness = _build(error: StateError('socket died'));
+
+      final result = await harness.repository.analyzeImage(_imageRequest);
+
+      expect(result.failureOrNull, isA<AnalysisServiceFailure>());
+    });
+
+    test(
+      'turns an unreadable file into a local failure without calling the service',
+      () async {
+        final harness = _build(
+          response: _ok(_successBody()),
+          readImageBytes: (path) => throw const FileSystemException('nope'),
+        );
+
+        final result = await harness.repository.analyzeImage(_imageRequest);
+
+        expect(result.failureOrNull, isA<ImageProcessingFailure>());
+        expect(harness.dataSource.sentImage, isNull);
+      },
+    );
+
+    test(
+      'propagates an identity failure without calling the service',
+      () async {
+        final harness = _build(
+          response: _ok(_successBody()),
+          identity: const Err(FileStorageFailure()),
+        );
+
+        final result = await harness.repository.analyzeImage(_imageRequest);
+
+        expect(result.failureOrNull, isA<FileStorageFailure>());
+        expect(harness.dataSource.sentImage, isNull);
+      },
+    );
+
+    test('logs a failure scoped to the session', () async {
+      final harness = _build(
+        response: AnalysisApiResponse(
+          statusCode: 401,
+          body: _errorBody('UNAUTHORIZED'),
+        ),
+      );
+
+      await harness.repository.analyzeImage(_imageRequest);
+
+      expect(harness.sink.writes, hasLength(1));
+      expect(harness.sink.writes.single['errorCode'], 'UNAUTHORIZED');
+      expect(harness.sink.writes.single['analysisSessionId'], 'session-1');
     });
   });
 }
