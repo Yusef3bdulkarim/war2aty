@@ -12,19 +12,28 @@ import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import { buildAnalysisResponse } from "../../functions/_shared/analyze/analyze-response.ts";
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import { modelAnalysis, SESSION_ID } from "../fixtures/analyze-fixtures.ts";
+import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
+import type { CrossProviderVerification } from "../../functions/_shared/verification/cross-provider-validator.ts";
 
-function build(overrides: Parameters<typeof modelAnalysis>[0] = {}) {
+function build(
+  overrides: Parameters<typeof modelAnalysis>[0] = {},
+  extra: {
+    candidates?: ExtractedCandidates;
+    verification?: CrossProviderVerification | null;
+  } = {},
+) {
   return buildAnalysisResponse({
     analysis: modelAnalysis(overrides),
     sessionId: SESSION_ID,
-    schemaVersion: "1.0",
+    schemaVersion: "2.0",
+    ...extra,
   });
 }
 
 Deno.test("a clean analysis passes through with the envelope filled in", () => {
   const { body, report } = build();
 
-  assertEquals(body.schema_version, "1.0");
+  assertEquals(body.schema_version, "2.0");
   assertEquals(body.session_id, SESSION_ID);
   assertEquals(body.status, "success");
   assertEquals(body.document_type.type, "invoice");
@@ -278,4 +287,115 @@ Deno.test("missing_fields is deduplicated across the model's list and ours", () 
   });
 
   assertEquals(body.missing_fields, ["amounts", "dates"]);
+});
+
+// ── rawValue (§30 v2, F13-T09) ─────────────────────────────────────────────
+
+const CANDIDATES_WITH_MATCHES: ExtractedCandidates = {
+  dates: [
+    { raw_text: "15/8/2026", normalized_date: "2026-08-15", is_ambiguous: false },
+  ],
+  times: [],
+  amounts: [
+    { raw_text: "850.50 جنيه", value: 850.5, currency: "EGP", is_ambiguous: false },
+  ],
+  phones: [],
+  references: [],
+};
+
+Deno.test("rawValue is the candidate's literal text when one matches", () => {
+  const { body } = build({}, { candidates: CANDIDATES_WITH_MATCHES });
+
+  assertEquals(body.dates[0].rawValue, "15/8/2026");
+  assertEquals(body.amounts[0].rawValue, "850.50 جنيه");
+});
+
+Deno.test("rawValue is null without a matching candidate — never invented", () => {
+  const { body } = build();
+
+  assertEquals(body.dates[0].rawValue, null);
+  assertEquals(body.amounts[0].rawValue, null);
+});
+
+Deno.test("rawValue is null when the candidate's normalized value differs", () => {
+  const mismatched: ExtractedCandidates = {
+    ...CANDIDATES_WITH_MATCHES,
+    dates: [
+      { raw_text: "some other date", normalized_date: "2026-01-01", is_ambiguous: false },
+    ],
+  };
+  const { body } = build({}, { candidates: mismatched });
+
+  assertEquals(body.dates[0].rawValue, null);
+});
+
+// ── phones / references (§30 v2, F13-T09) ──────────────────────────────────
+
+const CANDIDATES_WITH_PHONE_AND_REFERENCE: ExtractedCandidates = {
+  dates: [],
+  times: [],
+  amounts: [],
+  phones: [
+    { raw_text: "0100-123-4567", normalized_number: "01001234567", is_ambiguous: false },
+  ],
+  references: [
+    { raw_text: "رقم الفاتورة 12345678", value: "12345678", is_ambiguous: true },
+  ],
+};
+
+Deno.test("phones and references stay empty without verification, even with candidates", () => {
+  // No cross-provider verification ran (today's only caller, and the
+  // offline path even once F13-T11 lands) — a raw regex hit must never
+  // surface as if something had confirmed it.
+  const { body } = build({}, { candidates: CANDIDATES_WITH_PHONE_AND_REFERENCE });
+
+  assertEquals(body.phones, []);
+  assertEquals(body.references, []);
+});
+
+Deno.test("phones and references populate once verification is provided", () => {
+  const verification: CrossProviderVerification = {
+    dates: [],
+    times: [],
+    amounts: [],
+    phones: [{ status: "verified", needsUserReview: false }],
+    references: [{ status: "unverified", needsUserReview: true }],
+    needsUserReview: true,
+  };
+
+  const { body } = build(
+    {},
+    { candidates: CANDIDATES_WITH_PHONE_AND_REFERENCE, verification },
+  );
+
+  assertEquals(body.phones, [
+    { rawValue: "0100-123-4567", value: "01001234567", needsUserReview: false },
+  ]);
+  assertEquals(body.references, [
+    { rawValue: "رقم الفاتورة 12345678", value: "12345678", needsUserReview: true },
+  ]);
+});
+
+Deno.test("verificationStatus never appears on a phone or reference item", () => {
+  // Locked decision #6: verificationStatus stays backend-only even though
+  // needsUserReview is fair to put on the wire.
+  const verification: CrossProviderVerification = {
+    dates: [],
+    times: [],
+    amounts: [],
+    phones: [{ status: "verified", needsUserReview: false }],
+    references: [{ status: "conflicting", needsUserReview: true }],
+    needsUserReview: true,
+  };
+
+  const { body } = build(
+    {},
+    { candidates: CANDIDATES_WITH_PHONE_AND_REFERENCE, verification },
+  );
+
+  assertEquals(Object.keys(body.phones[0]).sort(), ["needsUserReview", "rawValue", "value"]);
+  assertEquals(
+    Object.keys(body.references[0]).sort(),
+    ["needsUserReview", "rawValue", "value"],
+  );
 });

@@ -134,6 +134,7 @@ export function createAnalyzeHandler(
           analysis: validated.analysis,
           sessionId: parsed.sessionId,
           schemaVersion: config.schemaVersion,
+          candidates: parsed.candidates,
         });
       },
       // §31 rule 6: `unsupported` is a 200 that costs the user nothing.

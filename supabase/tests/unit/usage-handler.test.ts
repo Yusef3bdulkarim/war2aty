@@ -61,7 +61,7 @@ Deno.test("a fresh day reports the full allowance", async () => {
 
   assertEquals(response.status, 200);
   assertEquals(await response.json(), {
-    schema_version: "1.0",
+    schema_version: "2.0",
     usage_date: "2026-07-26",
     daily_limit: 3,
     used_today: 0,

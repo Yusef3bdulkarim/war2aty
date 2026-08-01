@@ -148,7 +148,7 @@ Deno.test("a valid analysis returns the §30 body and consumes one slot", async 
 
   assertEquals(response.status, 200);
   const body = await response.json();
-  assertEquals(body.schema_version, "1.0");
+  assertEquals(body.schema_version, "2.0");
   assertEquals(body.session_id, SESSION_ID);
   assertEquals(body.status, "success");
   assertEquals(body.document_type.type, "invoice");

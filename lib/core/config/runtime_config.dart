@@ -24,7 +24,8 @@ final class RuntimeConfig {
     // far smaller than this.
     maxOcrCharacters: 12000,
     analysisTimeout: Duration(seconds: 30),
-    schemaVersion: '1.0',
+    // F13-T09: bumped for the analyze-document request/response contract v2.
+    schemaVersion: '2.0',
     minimumAppVersion: '1.0.0',
   );
 

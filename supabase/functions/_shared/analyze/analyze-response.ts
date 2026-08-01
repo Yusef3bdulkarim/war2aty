@@ -1,5 +1,5 @@
 /**
- * F06-T13 · Building the analyze-document response (§30).
+ * F06-T13 / F13-T09 · Building the analyze-document response (§30).
  *
  * The last thing between the model and the device, and the only place that
  * enforces the constraints §30 has but Groq's schema subset cannot express:
@@ -22,12 +22,36 @@
  * the same cautious default it would pick, so the body still satisfies §30's
  * closed enums.
  *
+ * ── `rawValue` and the new `phones`/`references` arrays (§30 v2, locked
+ * decision #6) ────────────────────────────────────────────────────────────
+ * `dates[].rawValue`/`amounts[].rawValue` are looked up from the SAME
+ * candidates the request carried (or, once F13-T11 wires the online path,
+ * from Azure/Google's) by matching normalized value — never invented, and
+ * `null` whenever the model's value has no literal match in the document (an
+ * inferred date, say). This only annotates a value Groq already asserted; it
+ * cannot make an unconfirmed one appear.
+ *
+ * `phones`/`references` are NOT read from `analysis` at all — Groq has no
+ * concept of either until F13-T10 extends its schema. They come straight from
+ * `candidates`, gated behind an explicit `verification` input: with no
+ * verification (every caller today, and the offline/Tesseract path even once
+ * F13-T11 lands), both arrays stay empty rather than surface a raw regex hit
+ * nothing has confirmed. `needsUserReview` (unlike `verificationStatus`,
+ * locked decision #6) is fair to put on the wire — it is the one bit the
+ * client actually branches its UI on.
+ *
  * PRIVACY: the report counts and names fields. It never carries a value.
  */
 
 import type { AnalysisStatus, Confidence, ModelAnalysis } from "../schemas/groq-output.schema.ts";
 import { ApiError } from "../errors/api-error.ts";
 import { isWellFormedDate, isWellFormedTime } from "../validators/date-validator.ts";
+import type {
+  AmountCandidate,
+  DateCandidate,
+  ExtractedCandidates,
+} from "../prompts/analysis-prompt.ts";
+import type { CrossProviderVerification } from "../verification/cross-provider-validator.ts";
 
 // ── the §30 wire shape ────────────────────────────────────────────────────
 
@@ -56,6 +80,9 @@ export interface ResponseDate {
   readonly role: string;
   readonly is_reminder_worthy: boolean;
   readonly confidence: Confidence;
+  /** The literal text this date was read from, or `null` when nothing on the
+   * page matched (an inferred date). Never invented (§30 v2). */
+  readonly rawValue: string | null;
 }
 
 export interface ResponseAmount {
@@ -63,6 +90,8 @@ export interface ResponseAmount {
   readonly value: number;
   readonly currency: string;
   readonly confidence: Confidence;
+  /** As {@link ResponseDate.rawValue}, matched against `candidates.amounts`. */
+  readonly rawValue: string | null;
 }
 
 export interface ResponseAction {
@@ -74,6 +103,20 @@ export interface ResponseAction {
 export interface ResponseWarning {
   readonly text: string;
   readonly type: "medical" | "legal" | "government" | "financial" | "general";
+}
+
+/** New in §30 v2 (locked decision #6). See the header comment for when these populate. */
+export interface ResponsePhone {
+  readonly rawValue: string;
+  readonly value: string;
+  readonly needsUserReview: boolean;
+}
+
+/** New in §30 v2 (locked decision #6). See the header comment for when these populate. */
+export interface ResponseReference {
+  readonly rawValue: string;
+  readonly value: string;
+  readonly needsUserReview: boolean;
 }
 
 export interface AnalysisResponseBody {
@@ -90,6 +133,8 @@ export interface AnalysisResponseBody {
   readonly instructions: string[];
   readonly warnings: ResponseWarning[];
   readonly missing_fields: string[];
+  readonly phones: ResponsePhone[];
+  readonly references: ResponseReference[];
 }
 
 /** What had to be discarded to satisfy §30. Field names and counts only. */
@@ -163,6 +208,29 @@ function shorten(value: string, limit: number): string {
   return `${base}…`;
 }
 
+const EMPTY_CANDIDATES: ExtractedCandidates = {
+  dates: [],
+  times: [],
+  amounts: [],
+  phones: [],
+  references: [],
+};
+
+/**
+ * The candidate whose normalized value matches the model's, or `null`.
+ *
+ * First match wins — good enough here: this only decorates a value Groq
+ * already asserted with the literal text it was printed as, never decides
+ * whether the value itself is trustworthy.
+ */
+function rawValueForDate(candidates: readonly DateCandidate[], date: string): string | null {
+  return candidates.find((c) => c.normalized_date === date)?.raw_text ?? null;
+}
+
+function rawValueForAmount(candidates: readonly AmountCandidate[], value: number): string | null {
+  return candidates.find((c) => c.value === value)?.raw_text ?? null;
+}
+
 /**
  * Turns a validated analysis into the §30 body.
  *
@@ -176,8 +244,24 @@ export function buildAnalysisResponse(input: {
   readonly analysis: ModelAnalysis;
   readonly sessionId: string;
   readonly schemaVersion: string;
+  /**
+   * The candidates this analysis was built from — used only to look up
+   * `rawValue` for dates/amounts (§30 v2). Optional so every caller that
+   * predates F13-T09 keeps compiling unchanged; omitting it simply means
+   * every `rawValue` comes back `null`.
+   */
+  readonly candidates?: ExtractedCandidates;
+  /**
+   * Cross-provider verification for THIS analysis's candidates (F13-T08),
+   * index-aligned with `candidates`. `null`/omitted — every caller today,
+   * and the offline/Tesseract path even once F13-T11 wires the online one —
+   * means `phones`/`references` come back empty rather than surface a raw
+   * regex hit nothing has confirmed.
+   */
+  readonly verification?: CrossProviderVerification | null;
 }): BuiltAnalysisResponse {
-  const { analysis, sessionId, schemaVersion } = input;
+  const { analysis, sessionId, schemaVersion, verification = null } = input;
+  const candidates = input.candidates ?? EMPTY_CANDIDATES;
 
   const dropped: string[] = [];
   let droppedItems = 0;
@@ -243,6 +327,7 @@ export function buildAnalysisResponse(input: {
       // not end up scheduling a notification in F09.
       is_reminder_worthy: item.is_reminder_worthy === true,
       confidence: confidence(item.confidence),
+      rawValue: rawValueForDate(candidates.dates, item.date),
     });
   }
   note("dates", analysis.dates.length - dates.length);
@@ -261,6 +346,7 @@ export function buildAnalysisResponse(input: {
       value: item.value,
       currency,
       confidence: confidence(item.confidence),
+      rawValue: rawValueForAmount(candidates.amounts, item.value),
     });
   }
   note("amounts", analysis.amounts.length - amounts.length);
@@ -314,6 +400,24 @@ export function buildAnalysisResponse(input: {
     ? "partial"
     : analysis.status;
 
+  // Only populated once something has actually looked at these candidates
+  // (F13-T08's cross-provider verification) — see the header comment.
+  const phones: ResponsePhone[] = verification
+    ? candidates.phones.map((c, i) => ({
+      rawValue: c.raw_text,
+      value: c.normalized_number,
+      needsUserReview: verification.phones[i]?.needsUserReview ?? true,
+    }))
+    : [];
+
+  const references: ResponseReference[] = verification
+    ? candidates.references.map((c, i) => ({
+      rawValue: c.raw_text,
+      value: c.value,
+      needsUserReview: verification.references[i]?.needsUserReview ?? true,
+    }))
+    : [];
+
   return {
     body: {
       schema_version: schemaVersion,
@@ -329,6 +433,8 @@ export function buildAnalysisResponse(input: {
       instructions,
       warnings,
       missing_fields: missingFields,
+      phones,
+      references,
     },
     report: {
       dropped,

@@ -171,6 +171,7 @@ void main() {
           'session_id',
           'installation_id',
           'app_version',
+          'input_type',
           'ocr_text',
           'detected_languages',
           'candidates',

@@ -24,7 +24,11 @@ import '../models/time_candidate_dto.dart';
 import '../validators/analysis_response_validator.dart';
 
 /// Request contract version this build speaks (API_CONTRACT §29).
-const String kAnalysisRequestSchemaVersion = '1.0';
+///
+/// F13-T09 bumped this to 2.0 (input_type discriminant, rawValue,
+/// phones/references). Must move in lockstep with the backend's
+/// RuntimeConfig.schemaVersion default — see the migration that flips it.
+const String kAnalysisRequestSchemaVersion = '2.0';
 
 /// The one [AnalysisRepository] implementation.
 ///

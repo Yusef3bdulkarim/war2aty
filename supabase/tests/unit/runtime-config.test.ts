@@ -23,7 +23,9 @@ const SEEDED: RuntimeConfigRow[] = [
   { key: "analysis_enabled", value: true },
   { key: "max_ocr_characters", value: 12000 },
   { key: "minimum_app_version", value: "1.0.0" },
-  { key: "schema_version", value: "1.0" },
+  // F13-T09 bumped this; the migration that seeded "1.0" is followed by one
+  // that updates it to "2.0" (20260801120000_bump_schema_version_v2.sql).
+  { key: "schema_version", value: "2.0" },
   { key: "maintenance_message", value: null },
 ];
 
@@ -36,7 +38,7 @@ Deno.test("the seeded rows parse to the documented defaults", () => {
   assertEquals(config.dailyLimit, 3);
   assertEquals(config.maxOcrCharacters, 12000);
   assertEquals(config.minimumAppVersion, "1.0.0");
-  assertEquals(config.schemaVersion, "1.0");
+  assertEquals(config.schemaVersion, "2.0");
   assertEquals(config.maintenanceMessage, null);
 });
 

@@ -40,6 +40,15 @@ export interface RuntimeConfig {
    */
   readonly azureOcrEnabled: boolean;
   readonly maxOcrCharacters: number;
+  /**
+   * Upper bound on a decoded `image.data` payload, in bytes (F13-T09).
+   *
+   * Only enforced on the image-intake request shape — the text shape has no
+   * image field to bound. Sized around a compressed phone-camera photo after
+   * the existing capture-quality gate (F04), with headroom; a base64 body
+   * this large is still cheap to reject before it is ever handed to Azure.
+   */
+  readonly maxImageBytes: number;
   /** Clients below this are refused with 400 UNSUPPORTED_APP_VERSION. */
   readonly minimumAppVersion: string;
   /** Contract version the server speaks; requests must match. */
@@ -64,8 +73,13 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   // Dark by default (F13-T03): off until an operator explicitly enables it.
   azureOcrEnabled: false,
   maxOcrCharacters: 12000,
+  // ~8MB decoded — comfortably above a compressed capture-quality-gated photo,
+  // small enough that an oversized body is still cheap to reject on parse.
+  maxImageBytes: 8_000_000,
   minimumAppVersion: "1.0.0",
-  schemaVersion: "1.0",
+  // F13-T09: bumped for the image-intake request shape, `rawValue` on
+  // dates/amounts, and the new phones[]/references[] response arrays.
+  schemaVersion: "2.0",
   maintenanceMessage: null,
   aiTimeoutSeconds: 25,
 });
@@ -192,6 +206,10 @@ export function parseRuntimeConfig(
     maxOcrCharacters: positiveInteger(
       read("max_ocr_characters"),
       DEFAULT_RUNTIME_CONFIG.maxOcrCharacters,
+    ),
+    maxImageBytes: positiveInteger(
+      read("max_image_bytes"),
+      DEFAULT_RUNTIME_CONFIG.maxImageBytes,
     ),
     minimumAppVersion: nonEmptyString(
       read("minimum_app_version"),

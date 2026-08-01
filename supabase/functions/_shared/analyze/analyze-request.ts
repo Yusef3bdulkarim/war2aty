@@ -1,17 +1,32 @@
 /**
- * F06-T13 · Parsing and validating the analyze-document request (§29).
+ * F06-T13 / F13-T09 · Parsing and validating the analyze-document request (§29).
  *
  * Nothing downstream sees the raw body. By the time this returns, every field
  * has been proven to be the type and shape the prompt builder, the quota tables
  * and the validation pipeline assume — so none of them has to re-check.
  *
+ * ── Two request shapes, one envelope (§29 v2) ────────────────────────────
+ * A discriminated `input_type` now picks the shape: `"text"` is today's
+ * Tesseract → on-device extractors → OCR text + candidate hints, parsed here
+ * by `parseAnalyzeRequest`. `"image"` is the online Azure/Google pipeline
+ * (locked decision #1), parsed by `parseAnalyzeImageRequest` below. Each shape
+ * has its OWN closed allow-list — not one shared list with everything
+ * optional — so a text body can never smuggle image bytes and an image body
+ * can never smuggle `ocr_text`/`candidates`.
+ *
+ * `parseAnalyzeImageRequest` is not called from `analyze-handler.ts` yet — the
+ * route that dispatches on `input_type` and actually calls Azure is F13-T11.
+ * Until then this function only proves the image shape is a real, testable
+ * contract, the same staging F13-T06's field-verification.ts used ahead of its
+ * own route.
+ *
  * ── Why unknown properties are rejected ──────────────────────────────────
- * §29's schema sets `additionalProperties: false`, and here that is a privacy
- * tripwire rather than pedantry. The one thing this service must never accept
- * is image data (§7). If a future client build ever attached a thumbnail, an
- * EXIF blob or a base64 field "just for debugging", a permissive parser would
- * take it and log lines would eventually carry it. Refusing the request makes
- * that mistake impossible to ship quietly.
+ * Each shape's schema sets `additionalProperties: false`. For the TEXT shape
+ * this is still a privacy tripwire, just a narrower one than it used to be:
+ * §7's privacy model changed the day the image path was designed — a
+ * photograph now legitimately reaches this Edge Function, but only over the
+ * image shape, gated behind `azureOcrEnabled`. A text-shaped request must
+ * still never carry an `image` key, exactly as strictly as before.
  *
  * ── Why malformed candidates are dropped, not rejected ───────────────────
  * Candidates are HINTS produced by on-device regexes (§29). A single odd entry
@@ -20,8 +35,8 @@
  * structure around them — the object and its five arrays — is still required,
  * because a missing array is a client bug, not a bad match.
  *
- * PRIVACY: no value parsed here is ever logged or attached to an error. Every
- * rejection is a fixed `ApiError` factory message.
+ * PRIVACY: no OCR text and no image byte parsed here is ever logged or
+ * attached to an error. Every rejection is a fixed `ApiError` factory message.
  */
 
 import type { RuntimeConfig } from "../config/runtime-config.ts";
@@ -38,6 +53,7 @@ import type {
 } from "../prompts/analysis-prompt.ts";
 
 export interface AnalyzeRequest {
+  readonly inputType: "text";
   readonly sessionId: string;
   readonly installationId: string;
   readonly appVersion: string;
@@ -51,15 +67,43 @@ export interface AnalyzeRequest {
   readonly droppedCandidates: number;
 }
 
-const TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
+/** The decoded image-intake shape (§29 v2). Not yet routed — see F13-T11. */
+export interface AnalyzeImageRequest {
+  readonly inputType: "image";
+  readonly sessionId: string;
+  readonly installationId: string;
+  readonly appVersion: string;
+  readonly image: {
+    /** Decoded bytes — the caller never sees the base64 string again. */
+    readonly data: Uint8Array;
+    readonly mimeType: string;
+  };
+}
+
+const TEXT_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
   "schema_version",
   "session_id",
   "installation_id",
   "app_version",
+  "input_type",
   "ocr_text",
   "detected_languages",
   "candidates",
 ]);
+
+const IMAGE_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
+  "schema_version",
+  "session_id",
+  "installation_id",
+  "app_version",
+  "input_type",
+  "image",
+]);
+
+/** Photo formats the capture flow (F04) and `doclens` crop (F13-T12) may produce. */
+const IMAGE_MIME_TYPES: ReadonlySet<string> = new Set(["image/jpeg", "image/png"]);
+
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
 const CANDIDATE_KINDS = [
   "dates",
@@ -267,7 +311,7 @@ export function parseAnalyzeRequest(
   if (!isRecord(body)) throw ApiError.invalidRequest();
 
   for (const key of Object.keys(body)) {
-    if (!TOP_LEVEL_KEYS.has(key)) throw ApiError.invalidRequest();
+    if (!TEXT_TOP_LEVEL_KEYS.has(key)) throw ApiError.invalidRequest();
   }
 
   // Version first: if the client is speaking a different contract, nothing
@@ -275,6 +319,12 @@ export function parseAnalyzeRequest(
   const schemaVersion = body.schema_version;
   if (typeof schemaVersion !== "string") throw ApiError.invalidRequest();
   if (schemaVersion !== config.schemaVersion) throw ApiError.unsupportedSchema();
+
+  // §29 v2: the discriminant must actually say "text" — a body that is
+  // shaped like this one but carries `input_type: "image"` (or omits it) is
+  // not this contract, not a v1 client either (v1 had no such field at all
+  // and would already have failed the schema_version check above).
+  if (body.input_type !== "text") throw ApiError.invalidRequest();
 
   // A version that does not match the pattern is a malformed field, not an old
   // app — §29's own schema draws the line there, and telling someone to update
@@ -308,6 +358,7 @@ export function parseAnalyzeRequest(
   const { candidates, dropped } = parseCandidates(body.candidates);
 
   return {
+    inputType: "text",
     sessionId: sessionId.toLowerCase(),
     installationId: installationId.toLowerCase(),
     appVersion,
@@ -315,5 +366,106 @@ export function parseAnalyzeRequest(
     detectedLanguages,
     candidates,
     droppedCandidates: dropped,
+  };
+}
+
+// ── image-intake path (§29 v2, F13-T09) ────────────────────────────────────
+// Not yet reachable from `analyze-handler.ts` — see the header comment.
+
+/**
+ * Decodes and bounds-checks a base64 image payload.
+ *
+ * Rejects on shape before spending a decode on it: an empty string, one whose
+ * length is not a multiple of 4, or one containing anything outside the
+ * base64 alphabet can never be valid, and the length check catches a grossly
+ * oversized body before `atob` allocates for it.
+ */
+function decodeImageBase64(data: string, maxBytes: number): Uint8Array {
+  if (data.length === 0 || data.length % 4 !== 0 || !BASE64_PATTERN.test(data)) {
+    throw ApiError.invalidRequest();
+  }
+
+  // Base64 expands bytes by 4/3; reject before decoding rather than after.
+  const approximateBytes = (data.length / 4) * 3;
+  if (approximateBytes > maxBytes + 4) throw ApiError.invalidRequest();
+
+  let binary: string;
+  try {
+    binary = atob(data);
+  } catch {
+    throw ApiError.invalidRequest();
+  }
+
+  if (binary.length === 0 || binary.length > maxBytes) throw ApiError.invalidRequest();
+
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/**
+ * Validates a decoded image-intake body against the contract and the live
+ * config. Mirrors {@link parseAnalyzeRequest}'s envelope checks exactly —
+ * only `ocr_text`/`detected_languages`/`candidates` are replaced by `image`.
+ *
+ * @param body Whatever `JSON.parse` produced — not assumed to be an object.
+ * @throws ApiError INVALID_REQUEST / UNSUPPORTED_SCHEMA / UNSUPPORTED_APP_VERSION
+ */
+export function parseAnalyzeImageRequest(
+  body: unknown,
+  config: RuntimeConfig,
+): AnalyzeImageRequest {
+  if (!isRecord(body)) throw ApiError.invalidRequest();
+
+  for (const key of Object.keys(body)) {
+    if (!IMAGE_TOP_LEVEL_KEYS.has(key)) throw ApiError.invalidRequest();
+  }
+
+  const schemaVersion = body.schema_version;
+  if (typeof schemaVersion !== "string") throw ApiError.invalidRequest();
+  if (schemaVersion !== config.schemaVersion) throw ApiError.unsupportedSchema();
+
+  if (body.input_type !== "image") throw ApiError.invalidRequest();
+
+  const appVersion = body.app_version;
+  if (typeof appVersion !== "string" || !APP_VERSION_PATTERN.test(appVersion)) {
+    throw ApiError.invalidRequest();
+  }
+  if (!isAppVersionSupported(appVersion, config.minimumAppVersion)) {
+    throw ApiError.unsupportedAppVersion();
+  }
+
+  const sessionId = body.session_id;
+  if (typeof sessionId !== "string" || !isUuid(sessionId)) {
+    throw ApiError.invalidRequest();
+  }
+
+  const installationId = body.installation_id;
+  if (typeof installationId !== "string" || !isUuid(installationId)) {
+    throw ApiError.invalidRequest();
+  }
+
+  const image = body.image;
+  if (!isRecord(image)) throw ApiError.invalidRequest();
+  for (const key of Object.keys(image)) {
+    if (key !== "data" && key !== "mime_type") throw ApiError.invalidRequest();
+  }
+
+  const mimeType = image.mime_type;
+  if (typeof mimeType !== "string" || !IMAGE_MIME_TYPES.has(mimeType)) {
+    throw ApiError.invalidRequest();
+  }
+
+  const data = image.data;
+  if (typeof data !== "string") throw ApiError.invalidRequest();
+
+  const bytes = decodeImageBase64(data, config.maxImageBytes);
+
+  return {
+    inputType: "image",
+    sessionId: sessionId.toLowerCase(),
+    installationId: installationId.toLowerCase(),
+    appVersion,
+    image: { data: bytes, mimeType },
   };
 }
