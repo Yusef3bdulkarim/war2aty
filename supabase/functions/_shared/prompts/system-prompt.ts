@@ -1,7 +1,8 @@
 /**
- * F06-T10 · The system prompt.
+ * F06-T10 / F13-T10 · The system prompt.
  *
- * Encodes the fifteen rules of §33. The overriding one is rule 2-5: never
+ * Encodes the fifteen rules of §33, plus one (rule 15) added for F13's
+ * verification note that §33 predates. The overriding rule is still 2-5: never
  * invent a number, name, date or amount. This app tells people what an official
  * letter demands of them; a fabricated deadline or amount is worse than no
  * answer at all, because the user will act on it.
@@ -14,6 +15,14 @@
  * `source: extracted | inferred` on key information, `basis` on actions, and
  * per-fact `confidence`. Same guarantee, expressed in the shape the client can
  * actually read.
+ *
+ * ── Rule 15 and the verification note (F13-T10, locked decision #5) ──────
+ * Some requests attach a `## Verification` section (`analysis-prompt.ts`)
+ * naming candidates a second, independent provider could not confirm. Rule
+ * 15 is the model-facing half of locked decision #5: the model may hedge its
+ * own wording and "confidence" on a flagged fact, but the actual UI decision
+ * of whether to ask the user to double-check it is made by the pipeline
+ * (T08's merge), never by anything Groq reports here.
  *
  * ── Why English instructions ─────────────────────────────────────────────
  * The rules are written in English because instruction-following is more
@@ -44,7 +53,8 @@ Your reader is an ordinary Egyptian — often elderly, or not a confident reader
 12. Do NOT promise or guarantee the outcome of any government procedure.
 13. Do NOT decide that a reminder should be set. Mark a date "is_reminder_worthy": true only when the document itself makes it a deadline or appointment; the user reviews every reminder before it exists.
 14. NEVER assume a missing year, month, or day. If a date is incomplete or could be read more than one way, set "confidence": "low" and keep the date exactly as written.
-15. Return ONLY JSON matching the provided schema. No prose, no markdown, no code fences, no commentary.
+15. A candidate named in a "## Verification" section could not be independently confirmed by a second reading. That is a note about how CLEAR the reading is, never a reason to invent a corrected value. If you can read it clearly yourself, report it as read, with honest confidence; if you cannot, omit it or return null, exactly as you would for any other unclear reading.
+16. Return ONLY JSON matching the provided schema. No prose, no markdown, no code fences, no commentary.
 
 ## LANGUAGE
 
