@@ -2,6 +2,8 @@ import '../../../../core/documents/document_category.dart';
 import '../../../../core/utils/list_equality.dart';
 import 'analysis_amount.dart';
 import 'analysis_date.dart';
+import 'analysis_phone.dart';
+import 'analysis_reference.dart';
 import 'analysis_status.dart';
 import 'analysis_summary.dart';
 import 'analysis_warning.dart';
@@ -29,6 +31,8 @@ final class DocumentAnalysis {
     this.keyInformation = const [],
     this.dates = const [],
     this.amounts = const [],
+    this.phones = const [],
+    this.references = const [],
     this.actions = const [],
     this.requiredDocuments = const [],
     this.instructions = const [],
@@ -56,6 +60,15 @@ final class DocumentAnalysis {
   final List<KeyInformation> keyInformation;
   final List<AnalysisDate> dates;
   final List<AnalysisAmount> amounts;
+
+  /// New in API_CONTRACT §30 v2 (F13-T17). Empty unless cross-provider
+  /// verification ran server-side.
+  final List<AnalysisPhone> phones;
+
+  /// New in API_CONTRACT §30 v2 (F13-T17). Empty unless cross-provider
+  /// verification ran server-side.
+  final List<AnalysisReference> references;
+
   final List<RequiredAction> actions;
 
   /// Papers the user has to bring along, e.g. «بطاقة الرقم القومي».
@@ -81,7 +94,12 @@ final class DocumentAnalysis {
   List<AnalysisDate> get reminderCandidates =>
       dates.where((d) => d.isReminderWorthy).toList(growable: false);
 
-  /// Whether any field anywhere in the result is below [ConfidenceBand.high].
+  /// Whether any field anywhere in the result is below [ConfidenceBand.high],
+  /// or any phone/reference is flagged [AnalysisPhone.needsUserReview] /
+  /// [AnalysisReference.needsUserReview] — the parity between the two is
+  /// deliberate (F13-T17): `needsUserReview` is phones/references' one and
+  /// only trust signal, playing the same role [ConfidenceBand] plays for
+  /// dates and amounts (locked decision #5).
   ///
   /// Drives the document-level "راجع المعلومة" hint; individual fields still
   /// show their own band.
@@ -89,7 +107,9 @@ final class DocumentAnalysis {
       kindConfidence != ConfidenceBand.high ||
       keyInformation.any((i) => i.confidence != ConfidenceBand.high) ||
       dates.any((d) => d.confidence != ConfidenceBand.high) ||
-      amounts.any((a) => a.confidence != ConfidenceBand.high);
+      amounts.any((a) => a.confidence != ConfidenceBand.high) ||
+      phones.any((p) => p.needsUserReview) ||
+      references.any((r) => r.needsUserReview);
 
   @override
   bool operator ==(Object other) =>
@@ -104,6 +124,8 @@ final class DocumentAnalysis {
           listEquals(other.keyInformation, keyInformation) &&
           listEquals(other.dates, dates) &&
           listEquals(other.amounts, amounts) &&
+          listEquals(other.phones, phones) &&
+          listEquals(other.references, references) &&
           listEquals(other.actions, actions) &&
           listEquals(other.requiredDocuments, requiredDocuments) &&
           listEquals(other.instructions, instructions) &&
@@ -121,6 +143,8 @@ final class DocumentAnalysis {
     Object.hashAll(keyInformation),
     Object.hashAll(dates),
     Object.hashAll(amounts),
+    Object.hashAll(phones),
+    Object.hashAll(references),
     Object.hashAll(actions),
     Object.hashAll(requiredDocuments),
     Object.hashAll(instructions),
@@ -133,5 +157,6 @@ final class DocumentAnalysis {
   @override
   String toString() =>
       'DocumentAnalysis($kind, $status, ${keyInformation.length} info, '
-      '${dates.length} dates, ${amounts.length} amounts)';
+      '${dates.length} dates, ${amounts.length} amounts, '
+      '${phones.length} phones, ${references.length} references)';
 }

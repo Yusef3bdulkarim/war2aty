@@ -1,5 +1,7 @@
 import '../../domain/entities/analysis_amount.dart';
 import '../../domain/entities/analysis_date.dart';
+import '../../domain/entities/analysis_phone.dart';
+import '../../domain/entities/analysis_reference.dart';
 import '../../domain/entities/analysis_status.dart';
 import '../../domain/entities/analysis_summary.dart';
 import '../../domain/entities/analysis_warning.dart';
@@ -74,6 +76,7 @@ extension AnalysisResponseMapper on AnalysisResponseDto {
                 (throw AnalysisMappingException('dates[$index].role')),
             isReminderWorthy: item.isReminderWorthy,
             confidence: _confidence(item.confidence),
+            rawValue: item.rawValue,
           ),
       ],
       amounts: [
@@ -83,6 +86,23 @@ extension AnalysisResponseMapper on AnalysisResponseDto {
             value: item.value,
             currency: item.currency,
             confidence: _confidence(item.confidence),
+            rawValue: item.rawValue,
+          ),
+      ],
+      phones: [
+        for (final item in phones)
+          AnalysisPhone(
+            rawValue: item.rawValue,
+            value: item.value,
+            needsUserReview: item.needsUserReview,
+          ),
+      ],
+      references: [
+        for (final item in references)
+          AnalysisReference(
+            rawValue: item.rawValue,
+            value: item.value,
+            needsUserReview: item.needsUserReview,
           ),
       ],
       actions: [

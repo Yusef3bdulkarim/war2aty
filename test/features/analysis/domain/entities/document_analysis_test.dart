@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_amount.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_date.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_phone.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_reference.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_summary.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_warning.dart';
@@ -19,6 +21,8 @@ DocumentAnalysis _analysis({
   List<KeyInformation> keyInformation = const [],
   List<AnalysisDate> dates = const [],
   List<AnalysisAmount> amounts = const [],
+  List<AnalysisPhone> phones = const [],
+  List<AnalysisReference> references = const [],
   List<String> missingFields = const [],
 }) {
   return DocumentAnalysis(
@@ -31,6 +35,8 @@ DocumentAnalysis _analysis({
     keyInformation: keyInformation,
     dates: dates,
     amounts: amounts,
+    phones: phones,
+    references: references,
     missingFields: missingFields,
   );
 }
@@ -178,6 +184,61 @@ void main() {
       );
     });
 
+    // F13-T17: needsUserReview is phones/references' only trust signal, and
+    // it must move hasUncertainFields the same way a sub-high ConfidenceBand
+    // does for dates/amounts — confidence parity.
+    test('hasUncertainFields catches a phone flagged for review', () {
+      final analysis = _analysis(
+        phones: const [
+          AnalysisPhone(
+            rawValue: '0100-123-4567',
+            value: '01001234567',
+            needsUserReview: true,
+          ),
+        ],
+      );
+
+      expect(analysis.hasUncertainFields, isTrue);
+    });
+
+    test('hasUncertainFields catches a reference flagged for review', () {
+      final analysis = _analysis(
+        references: const [
+          AnalysisReference(
+            rawValue: 'رقم الفاتورة 12345678',
+            value: '12345678',
+            needsUserReview: true,
+          ),
+        ],
+      );
+
+      expect(analysis.hasUncertainFields, isTrue);
+    });
+
+    test(
+      'hasUncertainFields stays false when no phone/reference needs review',
+      () {
+        final analysis = _analysis(
+          phones: const [
+            AnalysisPhone(
+              rawValue: '0100-123-4567',
+              value: '01001234567',
+              needsUserReview: false,
+            ),
+          ],
+          references: const [
+            AnalysisReference(
+              rawValue: 'رقم الفاتورة 12345678',
+              value: '12345678',
+              needsUserReview: false,
+            ),
+          ],
+        );
+
+        expect(analysis.hasUncertainFields, isFalse);
+      },
+    );
+
     test('is equal by value, including its lists', () {
       final a = _analysis(
         dates: [_date(isReminderWorthy: true)],
@@ -217,6 +278,21 @@ void main() {
             value: 850.5,
             currency: 'EGP',
             confidence: ConfidenceBand.high,
+            rawValue: '850.50 جنيه',
+          ),
+        ],
+        phones: const [
+          AnalysisPhone(
+            rawValue: '0100-123-4567',
+            value: '01001234567',
+            needsUserReview: true,
+          ),
+        ],
+        references: const [
+          AnalysisReference(
+            rawValue: 'رقم الفاتورة 12345678',
+            value: '12345678',
+            needsUserReview: true,
           ),
         ],
       );
@@ -229,6 +305,8 @@ void main() {
         analysis.summary.toString(),
         analysis.keyInformation.single.toString(),
         analysis.amounts.single.toString(),
+        analysis.phones.single.toString(),
+        analysis.references.single.toString(),
         ...analysis.dates.map((d) => d.toString()),
         ...analysis.dates.map((d) => d.time.toString()),
         ...analysis.actions.map((a) => a.toString()),
@@ -238,8 +316,24 @@ void main() {
       // Values read off the paper.
       expect(printed, isNot(contains('12345678')));
       expect(printed, isNot(contains('850.5')));
+      expect(
+        printed,
+        isNot(contains('850.50 جنيه')),
+        reason: 'amount rawValue',
+      );
       expect(printed, isNot(contains('فاتورة كهرباء')));
       expect(printed, isNot(contains('14:30')), reason: 'appointment time');
+      expect(
+        printed,
+        isNot(contains('0100-123-4567')),
+        reason: 'phone rawValue',
+      );
+      expect(printed, isNot(contains('01001234567')), reason: 'phone value');
+      expect(
+        printed,
+        isNot(contains('رقم الفاتورة 12345678')),
+        reason: 'reference rawValue',
+      );
       // The summary quotes the paper.
       expect(printed, isNot(contains(_summary.short)));
       expect(printed, isNot(contains(_summary.detailed)));
@@ -247,6 +341,138 @@ void main() {
       expect(printed, isNot(contains('رقم الحساب')));
       expect(printed, isNot(contains('الإجمالي')));
       expect(printed, isNot(contains('آخر موعد للسداد')));
+    });
+  });
+
+  group('AnalysisDate/AnalysisAmount rawValue', () {
+    test('AnalysisDate is equal by value, including rawValue', () {
+      AnalysisDate withRawValue(String? rawValue) => AnalysisDate(
+        label: 'آخر موعد للسداد',
+        date: DateTime(2024, 4, 15),
+        role: DateRole.deadline,
+        isReminderWorthy: true,
+        confidence: ConfidenceBand.high,
+        rawValue: rawValue,
+      );
+
+      final a = withRawValue('15/4/2024');
+      final b = withRawValue('15/4/2024');
+      final c = withRawValue('different text');
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('AnalysisAmount is equal by value, including rawValue', () {
+      const a = AnalysisAmount(
+        label: 'الإجمالي',
+        value: 850.5,
+        currency: 'EGP',
+        confidence: ConfidenceBand.high,
+        rawValue: '850.50 جنيه',
+      );
+      const b = AnalysisAmount(
+        label: 'الإجمالي',
+        value: 850.5,
+        currency: 'EGP',
+        confidence: ConfidenceBand.high,
+        rawValue: '850.50 جنيه',
+      );
+      const c = AnalysisAmount(
+        label: 'الإجمالي',
+        value: 850.5,
+        currency: 'EGP',
+        confidence: ConfidenceBand.high,
+        rawValue: 'different text',
+      );
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('rawValue defaults to null when inferred rather than read', () {
+      expect(_date(isReminderWorthy: true).rawValue, isNull);
+      expect(
+        const AnalysisAmount(
+          label: 'الإجمالي',
+          value: 1,
+          currency: 'EGP',
+          confidence: ConfidenceBand.high,
+        ).rawValue,
+        isNull,
+      );
+    });
+  });
+
+  group('AnalysisPhone', () {
+    test('is equal by value', () {
+      const a = AnalysisPhone(
+        rawValue: '0100-123-4567',
+        value: '01001234567',
+        needsUserReview: false,
+      );
+      const b = AnalysisPhone(
+        rawValue: '0100-123-4567',
+        value: '01001234567',
+        needsUserReview: false,
+      );
+      const c = AnalysisPhone(
+        rawValue: '0100-123-4567',
+        value: '01001234567',
+        needsUserReview: true,
+      );
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('never puts rawValue or value in toString', () {
+      const phone = AnalysisPhone(
+        rawValue: '0100-123-4567',
+        value: '01001234567',
+        needsUserReview: true,
+      );
+
+      expect(phone.toString(), isNot(contains('0100-123-4567')));
+      expect(phone.toString(), isNot(contains('01001234567')));
+    });
+  });
+
+  group('AnalysisReference', () {
+    test('is equal by value', () {
+      const a = AnalysisReference(
+        rawValue: 'رقم الفاتورة 12345678',
+        value: '12345678',
+        needsUserReview: false,
+      );
+      const b = AnalysisReference(
+        rawValue: 'رقم الفاتورة 12345678',
+        value: '12345678',
+        needsUserReview: false,
+      );
+      const c = AnalysisReference(
+        rawValue: 'رقم الفاتورة 12345678',
+        value: '12345678',
+        needsUserReview: true,
+      );
+
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      expect(a, isNot(equals(c)));
+    });
+
+    test('never puts rawValue or value in toString', () {
+      const reference = AnalysisReference(
+        rawValue: 'رقم الفاتورة 12345678',
+        value: '12345678',
+        needsUserReview: true,
+      );
+
+      expect(reference.toString(), isNot(contains('رقم الفاتورة 12345678')));
+      expect(reference.toString(), isNot(contains('12345678')));
     });
   });
 
