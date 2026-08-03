@@ -328,6 +328,19 @@ final class ArStrings implements AppStrings {
       'بنحفظ الملخص والتفاصيل وصورة الورقة مشفّرة على جهازك.';
 
   @override
+  @override
+  String get documentsEmptyTitle => 'لسه ماحفظتش أي مستند';
+
+  @override
+  String get documentsEmptySubtitle => 'لما تحفظ نتيجة أي ورقة هتظهر هنا.';
+
+  @override
+  String get documentsEmptyCta => 'صوّر أول ورقة';
+
+  @override
+  String get documentsListErrorTitle => 'مقدرناش نجيب مستنداتك دلوقتي.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override

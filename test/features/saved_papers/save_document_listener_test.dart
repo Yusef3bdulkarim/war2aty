@@ -7,6 +7,7 @@ import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/documents_repository.dart';
+import 'package:war2aty/core/documents/recent_document.dart';
 import 'package:war2aty/core/documents/usecases/save_document.dart';
 import 'package:war2aty/core/documents/usecases/save_document_with_image.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -114,6 +115,10 @@ void main() {
 
 final class _FakeRepository implements DocumentsRepository {
   Result<String, AppFailure> outcome = const Ok('doc-1');
+
+  @override
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments() =>
+      const Stream.empty();
 
   @override
   Future<Result<String, AppFailure>> saveResultOnly({

@@ -1,6 +1,7 @@
 import '../error/app_failure.dart';
 import '../result/result.dart';
 import 'document_analysis.dart';
+import 'recent_document.dart';
 
 /// Keeps analysed papers on the device.
 ///
@@ -9,6 +10,12 @@ import 'document_analysis.dart';
 /// documents list (F08) reads all of them. Nothing here ever reaches the
 /// network — a saved paper stays on the phone (CLAUDE.md §7).
 abstract interface class DocumentsRepository {
+  /// Watches saved documents, newest first (F08-T05).
+  ///
+  /// Failures arrive as `Err` values rather than as stream errors, so a
+  /// transient problem cannot tear the stream down.
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments();
+
   /// Saves [analysis] and the text it was read from, and nothing else.
   ///
   /// This is the privacy default: no picture is written, so a saved document

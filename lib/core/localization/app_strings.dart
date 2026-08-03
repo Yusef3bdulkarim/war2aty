@@ -202,6 +202,20 @@ abstract interface class AppStrings {
   String get saveModeWithImageTitle;
   String get saveModeWithImageSubtitle;
 
+  // Documents list (F08-T05) — «مستنداتي». The screen heading reuses
+  // [navDocuments] itself: the design gives the tab and the page it opens
+  // the exact same Arabic word.
+  /// Shown when nothing has been saved yet.
+  String get documentsEmptyTitle;
+  String get documentsEmptySubtitle;
+
+  /// The way out of the empty state — mirrors the scan action elsewhere.
+  String get documentsEmptyCta;
+
+  /// The list could not be read. No detail: nothing here is actionable
+  /// beyond trying again later, and the stream keeps listening on its own.
+  String get documentsListErrorTitle;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

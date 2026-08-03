@@ -325,6 +325,21 @@ final class EnStrings implements AppStrings {
       'We save the summary, details and an encrypted copy of the photo on your device.';
 
   @override
+  @override
+  String get documentsEmptyTitle => "You haven't saved any documents yet";
+
+  @override
+  String get documentsEmptySubtitle =>
+      "A paper's result shows up here once you save it.";
+
+  @override
+  String get documentsEmptyCta => 'Photograph your first paper';
+
+  @override
+  String get documentsListErrorTitle =>
+      "Couldn't load your documents right now.";
+
+  @override
   String get navHome => 'Home';
 
   @override

@@ -546,9 +546,41 @@ final class FakeDocumentImageStore implements DocumentImageStore {
   Future<void> delete(String documentId) async => deletedIds.add(documentId);
 }
 
-/// In-memory [DocumentsRepository] the test drives by hand — the write methods
-/// record what they were called with, for tests that exercise save flows.
+/// In-memory [DocumentsRepository] the test drives by hand — the read side
+/// (`watchDocuments`) works like [FakeRecentDocumentsRepository]; the two
+/// write methods just record what they were called with, for tests that
+/// exercise both sides of the interface.
 final class FakeDocumentsRepository implements DocumentsRepository {
+  FakeDocumentsRepository({List<RecentDocument>? seed}) {
+    if (seed != null) emit(seed);
+  }
+
+  final _controller =
+      StreamController<Result<List<RecentDocument>, AppFailure>>.broadcast();
+  Result<List<RecentDocument>, AppFailure> _latest = const Ok([]);
+
+  /// See [FakeUsageRepository.listenCount].
+  int listenCount = 0;
+
+  void emit(List<RecentDocument> documents) {
+    _latest = Ok(documents);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  void emitFailure([AppFailure failure = const LocalDatabaseFailure()]) {
+    _latest = Err(failure);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  Future<void> dispose() => _controller.close();
+
+  @override
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments() async* {
+    listenCount++;
+    yield _latest;
+    yield* _controller.stream;
+  }
+
   Result<String, AppFailure> saveOutcome = const Ok('doc-1');
 
   @override

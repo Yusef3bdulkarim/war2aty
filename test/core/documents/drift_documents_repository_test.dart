@@ -175,6 +175,70 @@ void main() {
       expect(images.deletedIds, ['doc-1']);
     });
   });
+
+  group('watchDocuments', () {
+    test('emits an empty list when nothing has been saved', () async {
+      expect(
+        await repository.watchDocuments().first,
+        const Ok<List<RecentDocument>, AppFailure>([]),
+      );
+    });
+
+    test('emits a row as soon as it is written', () async {
+      await repository.saveResultOnly(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+      );
+
+      final result = await repository.watchDocuments().first;
+      final docs = (result as Ok<List<RecentDocument>, AppFailure>).value;
+      expect(docs, hasLength(1));
+    });
+
+    test('keeps emitting as new rows are written', () async {
+      var next = 0;
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-${next++}',
+        clock: () => DateTime(2026, 7, 29),
+      );
+
+      final states = <Object>[];
+      final sub = repo.watchDocuments().listen(states.add);
+      await pumpEventQueue();
+
+      await repo.saveResultOnly(analysis: _analysis(), extractedText: 'أ');
+      await pumpEventQueue();
+
+      await sub.cancel();
+
+      // Initial empty list + list after the write.
+      expect(states, hasLength(2));
+      final second =
+          (states[1] as Ok<List<RecentDocument>, AppFailure>).value;
+      expect(second, hasLength(1));
+    });
+  });
+
+  group('watchRecent', () {
+    test('limits the list to the requested count', () async {
+      var next = 0;
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-${next++}',
+        clock: () => DateTime(2026, 7, 29),
+      );
+
+      for (var i = 0; i < 5; i++) {
+        await repo.saveResultOnly(analysis: _analysis(), extractedText: '$i');
+      }
+
+      final result = await repo.watchRecent(limit: 2).first;
+      expect((result as Ok<List<RecentDocument>, AppFailure>).value, hasLength(2));
+    });
+  });
 }
 
 /// A DAO whose write always fails, so the repository's error boundary can be

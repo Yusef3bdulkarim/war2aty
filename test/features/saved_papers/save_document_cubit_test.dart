@@ -138,6 +138,10 @@ final class _FakeRepository implements DocumentsRepository {
   String? lastImagePath;
 
   @override
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments() =>
+      const Stream.empty();
+
+  @override
   Future<Result<String, AppFailure>> saveResultOnly({
     required DocumentAnalysis analysis,
     required String extractedText,

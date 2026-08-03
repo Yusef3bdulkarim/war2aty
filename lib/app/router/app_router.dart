@@ -28,7 +28,9 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
+import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
 import '../di/service_locator.dart';
@@ -215,10 +217,20 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               ),
             ],
           ),
-          _branch(
-            AppRoutes.saved,
-            (c) => c.strings.navDocuments,
-            Icons.bookmark,
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.saved,
+                builder: (context, state) => BlocProvider<DocumentsListCubit>(
+                  create: (_) => getIt<DocumentsListCubit>()..start(),
+                  child: DocumentsListScreen(
+                    onScan: () => context.push(
+                      AppRoutes.captureWith(CaptureSource.camera),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           _branch(
             AppRoutes.reminders,
