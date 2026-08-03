@@ -117,8 +117,9 @@ final class _FakeRepository implements DocumentsRepository {
   Result<String, AppFailure> outcome = const Ok('doc-1');
 
   @override
-  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments() =>
-      const Stream.empty();
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
+    String? titleQuery,
+  }) => const Stream.empty();
 
   @override
   Future<Result<String, AppFailure>> saveResultOnly({

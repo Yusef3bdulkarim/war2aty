@@ -9,7 +9,8 @@ import '../../../../core/error/app_failure.dart';
 /// type belongs to the `home` feature, and cross-feature imports are not
 /// allowed (CLAUDE.md §B1) even for two states that happen to look alike
 /// today — the list screen's is bounded by nothing while Home's is bounded to
-/// a handful, and F08-T07 will add a category filter that Home's never needs.
+/// a handful, and F08-T06 grows this one with a search term (F08-T07 will add
+/// a category filter) that Home's never needs.
 sealed class DocumentsListState {
   const DocumentsListState();
 
@@ -25,22 +26,31 @@ final class DocumentsListLoading extends DocumentsListState {
   const DocumentsListLoading();
 }
 
-/// Every saved document, newest first, or an empty list when nothing is saved
-/// yet — both are answers, not failures.
+/// Every saved document matching [query], newest first, or an empty list
+/// when nothing is saved yet or nothing matched — both are answers, not
+/// failures.
 final class DocumentsListAvailable extends DocumentsListState {
-  const DocumentsListAvailable(this.documents);
+  const DocumentsListAvailable(this.documents, {this.query = ''});
 
   final List<RecentDocument> documents;
 
+  /// The title filter currently applied (F08-T06). Blank means unfiltered.
+  final String query;
+
   bool get isEmpty => documents.isEmpty;
+
+  /// Whether [isEmpty] means "nothing matched [query]" rather than "nothing
+  /// has ever been saved" — the two need different copy on screen.
+  bool get isSearching => query.trim().isNotEmpty;
 
   @override
   bool operator ==(Object other) =>
       other is DocumentsListAvailable &&
+      other.query == query &&
       listEquals(other.documents, documents);
 
   @override
-  int get hashCode => Object.hashAll(documents);
+  int get hashCode => Object.hash(query, Object.hashAll(documents));
 }
 
 /// The list could not be read. Unlike Home's recent strip, this screen has

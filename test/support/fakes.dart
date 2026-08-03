@@ -574,9 +574,18 @@ final class FakeDocumentsRepository implements DocumentsRepository {
 
   Future<void> dispose() => _controller.close();
 
+  /// The title filter the cubit last asked for (F08-T06). This fake never
+  /// filters by it — that matching logic is the DAO's, and is covered by
+  /// `documents_dao_test.dart` — it only records what it was asked for so a
+  /// cubit test can assert the request without re-implementing the match.
+  String? requestedTitleQuery;
+
   @override
-  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments() async* {
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
+    String? titleQuery,
+  }) async* {
     listenCount++;
+    requestedTitleQuery = titleQuery;
     yield _latest;
     yield* _controller.stream;
   }

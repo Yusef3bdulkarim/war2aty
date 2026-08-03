@@ -96,4 +96,83 @@ void main() {
 
     expect(cubit.isClosed, isTrue);
   });
+
+  group('search', () {
+    test('asks the repository for the typed title', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+
+      cubit.search('كهرباء');
+      await pumpEventQueue();
+
+      expect(repository.requestedTitleQuery, 'كهرباء');
+    });
+
+    test('carries the active query on the resulting state', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+
+      cubit.search('كهرباء');
+      await pumpEventQueue();
+
+      expect(cubit.state, const DocumentsListAvailable([], query: 'كهرباء'));
+    });
+
+    test('repeating the same query does not open a new subscription', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+      cubit.search('كهرباء');
+      await pumpEventQueue();
+      final before = repository.listenCount;
+
+      cubit.search('كهرباء');
+      await pumpEventQueue();
+
+      expect(repository.listenCount, before);
+    });
+
+    test('clearing the query asks the repository with a blank filter', () async {
+      repository.emit([documentWith(id: 'a')]);
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+      cubit.search('لا يوجد تطابق');
+      await pumpEventQueue();
+
+      cubit.search('');
+      await pumpEventQueue();
+
+      expect(repository.requestedTitleQuery, '');
+      expect(cubit.state, DocumentsListAvailable([documentWith(id: 'a')]));
+    });
+
+    test('a later search cancels the earlier subscription', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+
+      cubit.search('أ');
+      await pumpEventQueue();
+      cubit.search('أب');
+      await pumpEventQueue();
+
+      // Only the latest query's emission should still reach the state; an
+      // emission from the abandoned subscription would overwrite it.
+      repository.emit([documentWith(id: 'stale')]);
+      await pumpEventQueue();
+
+      expect(
+        cubit.state,
+        DocumentsListAvailable([documentWith(id: 'stale')], query: 'أب'),
+      );
+    });
+  });
 }

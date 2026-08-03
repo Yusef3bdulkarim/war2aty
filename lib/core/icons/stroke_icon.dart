@@ -108,6 +108,10 @@ enum StrokeGlyph {
   /// page's tint. The struck-through shape still reads as "no signal".
   wifiOff,
 
+  /// A magnifying glass — filters the «مستنداتي» list as the user types
+  /// (F08-T06).
+  search,
+
   navHome,
   navDocuments,
   navReminders,
@@ -190,6 +194,8 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 '
       'M2 8.8a15 15 0 0 1 20 0 M2 2l20 20',
   StrokeGlyph.arrowBack: 'M15 6l6 6-6 6 M3 12h18',
+  // `<circle cx=11 cy=11 r=7/>` plus the handle.
+  StrokeGlyph.search: '${_circle(11, 11, 7)} M21 21l-4-4',
   // `<circle cx=12 cy=12 r=9/>`, the stem, and the dot — which the design
   // draws as a hairline `h.01` with a round cap.
   StrokeGlyph.info: '${_circle(12, 12, 9)} M12 8v4 M12 16h.01',

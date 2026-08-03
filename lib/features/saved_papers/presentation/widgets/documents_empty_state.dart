@@ -29,14 +29,27 @@ const Color _linedPaperBorder = Color(0xFFDED9CE);
 const Color _lineDark = Color(0xFFD3CDBF);
 const Color _lineLight = Color(0xFFDED9CE);
 
-/// Shown on the «مستنداتي» screen when nothing has been saved yet
-/// (F08-T05) — the design's `noDocs` state.
+/// Shown on the «مستنداتي» screen when there is nothing to list — either
+/// nothing has ever been saved (F08-T05), or a search matched nothing
+/// (F08-T06). No dedicated design exists for the search case, so it reuses
+/// this illustration with different copy and without the scan CTA, which
+/// would not help a search that is off.
 class DocumentsEmptyState extends StatelessWidget {
-  const DocumentsEmptyState({required this.onScan, super.key});
+  /// Nothing has been saved yet — the design's `noDocs` state.
+  const DocumentsEmptyState({required this.onScan, super.key})
+    : _isSearch = false;
+
+  /// A search matched nothing, while the library itself is not empty.
+  const DocumentsEmptyState.noResults({super.key})
+    : onScan = null,
+      _isSearch = true;
 
   /// Where the primary action leads — the capture flow already exists, so
   /// this is always wired, unlike a document row's still-unbuilt destination.
-  final VoidCallback onScan;
+  /// `null` for [DocumentsEmptyState.noResults], which shows no action.
+  final VoidCallback? onScan;
+
+  final bool _isSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +68,7 @@ class DocumentsEmptyState extends StatelessWidget {
           const _EmptyArt(),
           const SizedBox(height: _titleGap),
           Text(
-            s.documentsEmptyTitle,
+            _isSearch ? s.documentsSearchNoResultsTitle : s.documentsEmptyTitle,
             textAlign: TextAlign.center,
             style: AppTypography.titleMedium.copyWith(
               fontSize: 18,
@@ -65,30 +78,34 @@ class DocumentsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            s.documentsEmptySubtitle,
+            _isSearch
+                ? s.documentsSearchNoResultsSubtitle
+                : s.documentsEmptySubtitle,
             textAlign: TextAlign.center,
             style: AppTypography.bodyMedium.copyWith(
               color: colors.textCaption,
               fontWeight: AppTypography.medium,
             ),
           ),
-          const SizedBox(height: _subtitleGap),
-          FilledButton(
-            onPressed: onScan,
-            style: FilledButton.styleFrom(
-              backgroundColor: colors.brandPrimary,
-              foregroundColor: colors.onBrand,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xxl,
-                vertical: 14,
+          if (!_isSearch) ...[
+            const SizedBox(height: _subtitleGap),
+            FilledButton(
+              onPressed: onScan,
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.brandPrimary,
+                foregroundColor: colors.onBrand,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xxl,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.md),
+                ),
+                textStyle: AppTypography.labelLarge,
               ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadii.md),
-              ),
-              textStyle: AppTypography.labelLarge,
+              child: Text(s.documentsEmptyCta),
             ),
-            child: Text(s.documentsEmptyCta),
-          ),
+          ],
         ],
       ),
     );

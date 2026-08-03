@@ -195,6 +195,27 @@ void main() {
       expect(docs, hasLength(1));
     });
 
+    test('filters by title when titleQuery is given', () async {
+      var next = 0;
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-${next++}',
+        clock: () => DateTime(2026, 7, 29),
+      );
+
+      await repo.saveResultOnly(
+        analysis: _analysis(),
+        extractedText: 'كهرباء',
+      );
+
+      final result = await repo.watchDocuments(titleQuery: 'كهرباء').first;
+      expect((result as Ok<List<RecentDocument>, AppFailure>).value, hasLength(1));
+
+      final noMatch = await repo.watchDocuments(titleQuery: 'قطة').first;
+      expect((noMatch as Ok<List<RecentDocument>, AppFailure>).value, isEmpty);
+    });
+
     test('keeps emitting as new rows are written', () async {
       var next = 0;
       final repo = DriftDocumentsRepository(

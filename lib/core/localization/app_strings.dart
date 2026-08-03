@@ -216,6 +216,14 @@ abstract interface class AppStrings {
   /// beyond trying again later, and the stream keeps listening on its own.
   String get documentsListErrorTitle;
 
+  // Documents search (F08-T06) — filters the list above by title.
+  /// Placeholder inside the empty search field.
+  String get documentsSearchHint;
+
+  /// Shown when a search matches nothing, in place of [documentsEmptyTitle].
+  String get documentsSearchNoResultsTitle;
+  String get documentsSearchNoResultsSubtitle;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

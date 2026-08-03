@@ -341,6 +341,16 @@ final class ArStrings implements AppStrings {
   String get documentsListErrorTitle => 'مقدرناش نجيب مستنداتك دلوقتي.';
 
   @override
+  String get documentsSearchHint => 'ابحث باسم المستند';
+
+  @override
+  String get documentsSearchNoResultsTitle => 'مفيش نتايج لبحثك';
+
+  @override
+  String get documentsSearchNoResultsSubtitle =>
+      'جرّب اسم تاني أو راجع الإملاء.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override

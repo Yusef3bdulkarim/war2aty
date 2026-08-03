@@ -38,6 +38,7 @@ final class AppColors {
     required this.iconSubtle,
     required this.iconInfo,
     required this.textCaption,
+    required this.textPlaceholder,
     required this.accentBlue,
     required this.accentBlueTint,
     required this.error,
@@ -95,6 +96,10 @@ final class AppColors {
   /// Caption / reassurance copy sitting under a control.
   final Color textCaption;
 
+  /// Placeholder copy inside an empty input — one step lighter than
+  /// [textMuted], which the design uses for the input's own icon.
+  final Color textPlaceholder;
+
   final Color success;
   final Color successTint;
 
@@ -150,6 +155,7 @@ final class AppColors {
     iconSubtle: Color(0xFF7A868B),
     iconInfo: Color(0xFF5A7A80),
     textCaption: Color(0xFF6B777C),
+    textPlaceholder: Color(0xFF98A2A7),
     success: Color(0xFF2E9E63),
     successTint: Color(0xFFE1F2E9),
     successInk: Color(0xFF1E7A48),
@@ -192,6 +198,10 @@ final class AppColors {
     iconSubtle: Color(0xFF3A474C),
     iconInfo: Color(0xFF2E4A50),
     textCaption: Color(0xFF2E3A3F),
+    // Kept as dark as [textMuted] here rather than one step lighter, unlike
+    // the light variant — high contrast has no room to spare on a color
+    // whose whole job is to be legible against white.
+    textPlaceholder: Color(0xFF465257),
     success: Color(0xFF1E7A48),
     successTint: Color(0xFFDCEEE4),
     successInk: Color(0xFF13502F),

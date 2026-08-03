@@ -12,9 +12,15 @@ import 'recent_document.dart';
 abstract interface class DocumentsRepository {
   /// Watches saved documents, newest first (F08-T05).
   ///
-  /// Failures arrive as `Err` values rather than as stream errors, so a
+  /// [titleQuery], when given, narrows the stream to titles containing it —
+  /// matched case-insensitively by the database (F08-T06). An empty list
+  /// means "nothing saved" or "nothing matched", the same convention
+  /// [RecentDocumentsRepository.watchRecent] uses for an empty library;
+  /// failures arrive as `Err` values rather than as stream errors, so a
   /// transient problem cannot tear the stream down.
-  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments();
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
+    String? titleQuery,
+  });
 
   /// Saves [analysis] and the text it was read from, and nothing else.
   ///

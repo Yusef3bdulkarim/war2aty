@@ -41,8 +41,9 @@ final class DriftDocumentsRepository
   final DateTime Function() _now;
 
   @override
-  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments() =>
-      _watchRows(_dao.watchDocuments());
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
+    String? titleQuery,
+  }) => _watchRows(_dao.watchDocuments(titleQuery: titleQuery));
 
   @override
   Stream<Result<List<RecentDocument>, AppFailure>> watchRecent({

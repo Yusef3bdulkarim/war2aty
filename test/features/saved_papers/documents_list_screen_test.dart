@@ -107,6 +107,52 @@ void main() {
       expect(find.text(en.documentsEmptyTitle), findsOneWidget);
     });
 
+    testWidgets('shows no search field when nothing has ever been saved', (
+      tester,
+    ) async {
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.byType(TextField), findsNothing);
+    });
+
+    testWidgets('shows a search field once the library has a document', (
+      tester,
+    ) async {
+      repository.emit([documentWith(title: 'فاتورة كهرباء')]);
+
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('asks the cubit to search as the user types', (tester) async {
+      repository.emit([documentWith(title: 'فاتورة كهرباء')]);
+      await pumpApp(tester, screenUnderTest());
+
+      await tester.enterText(find.byType(TextField), 'كهرباء');
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedTitleQuery, 'كهرباء');
+    });
+
+    testWidgets('shows a no-results state when the search matches nothing', (
+      tester,
+    ) async {
+      repository.emit([documentWith(title: 'فاتورة كهرباء')]);
+      await pumpApp(tester, screenUnderTest());
+
+      await tester.enterText(find.byType(TextField), 'قطة');
+      repository.emit([]);
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.documentsSearchNoResultsTitle), findsOneWidget);
+      // Scanning does not fix a search that matched nothing.
+      expect(find.text(ar.documentsEmptyCta), findsNothing);
+      // The search field itself must survive — the user still needs it to
+      // fix or clear the query.
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
     testWidgets('survives large text without overflowing', (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;

@@ -340,6 +340,16 @@ final class EnStrings implements AppStrings {
       "Couldn't load your documents right now.";
 
   @override
+  String get documentsSearchHint => 'Search by document name';
+
+  @override
+  String get documentsSearchNoResultsTitle => 'No matches for your search';
+
+  @override
+  String get documentsSearchNoResultsSubtitle =>
+      'Try a different word or check the spelling.';
+
+  @override
   String get navHome => 'Home';
 
   @override

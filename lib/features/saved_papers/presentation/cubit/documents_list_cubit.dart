@@ -16,15 +16,31 @@ final class DocumentsListCubit extends Cubit<DocumentsListState> {
   final WatchDocuments _watchDocuments;
 
   StreamSubscription<void>? _subscription;
+  String _query = '';
 
   /// Starts watching the library. Safe to call more than once.
   void start() {
     if (_subscription != null) return;
-    _subscription = _watchDocuments().listen((result) {
+    _subscribe();
+  }
+
+  /// Narrows the library to titles containing [query] (F08-T06). Passing an
+  /// empty or blank string clears the filter. A no-op if [query] is already
+  /// the active filter, so retyping the same text does not restart the
+  /// stream.
+  void search(String query) {
+    if (query == _query) return;
+    _query = query;
+    _subscribe();
+  }
+
+  void _subscribe() {
+    _subscription?.cancel();
+    _subscription = _watchDocuments(titleQuery: _query).listen((result) {
       if (isClosed) return;
       emit(
         result.when(
-          ok: DocumentsListAvailable.new,
+          ok: (documents) => DocumentsListAvailable(documents, query: _query),
           err: DocumentsListUnavailable.new,
         ),
       );
