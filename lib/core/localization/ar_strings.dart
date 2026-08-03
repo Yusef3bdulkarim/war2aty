@@ -305,7 +305,8 @@ final class ArStrings implements AppStrings {
   String get documentSaved => 'تم حفظ النتيجة في مستنداتي — من غير صورة الورقة';
 
   @override
-  String get documentSavedWithImage => 'تم حفظ النتيجة وصورة الورقة في مستنداتي';
+  String get documentSavedWithImage =>
+      'تم حفظ النتيجة وصورة الورقة في مستنداتي';
 
   @override
   String get documentSaveFailed => 'مقدرناش نحفظ الورقة. جرّب تاني.';

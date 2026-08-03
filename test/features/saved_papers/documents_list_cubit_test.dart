@@ -137,21 +137,24 @@ void main() {
       expect(repository.listenCount, before);
     });
 
-    test('clearing the query asks the repository with a blank filter', () async {
-      repository.emit([documentWith(id: 'a')]);
-      final cubit = buildCubit();
-      addTearDown(cubit.close);
-      cubit.start();
-      await pumpEventQueue();
-      cubit.search('لا يوجد تطابق');
-      await pumpEventQueue();
+    test(
+      'clearing the query asks the repository with a blank filter',
+      () async {
+        repository.emit([documentWith(id: 'a')]);
+        final cubit = buildCubit();
+        addTearDown(cubit.close);
+        cubit.start();
+        await pumpEventQueue();
+        cubit.search('لا يوجد تطابق');
+        await pumpEventQueue();
 
-      cubit.search('');
-      await pumpEventQueue();
+        cubit.search('');
+        await pumpEventQueue();
 
-      expect(repository.requestedTitleQuery, '');
-      expect(cubit.state, DocumentsListAvailable([documentWith(id: 'a')]));
-    });
+        expect(repository.requestedTitleQuery, '');
+        expect(cubit.state, DocumentsListAvailable([documentWith(id: 'a')]));
+      },
+    );
 
     test('a later search cancels the earlier subscription', () async {
       final cubit = buildCubit();

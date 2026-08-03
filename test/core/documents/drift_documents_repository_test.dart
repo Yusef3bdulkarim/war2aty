@@ -178,10 +178,9 @@ void main() {
 
   group('watchDocuments', () {
     test('emits an empty list when nothing has been saved', () async {
-      expect(
-        await repository.watchDocuments().first,
-        const Ok<List<RecentDocument>, AppFailure>([]),
-      );
+      final result = await repository.watchDocuments().first;
+
+      expect((result as Ok<List<RecentDocument>, AppFailure>).value, isEmpty);
     });
 
     test('emits a row as soon as it is written', () async {
@@ -204,13 +203,13 @@ void main() {
         clock: () => DateTime(2026, 7, 29),
       );
 
-      await repo.saveResultOnly(
-        analysis: _analysis(),
-        extractedText: 'كهرباء',
-      );
+      await repo.saveResultOnly(analysis: _analysis(), extractedText: 'كهرباء');
 
       final result = await repo.watchDocuments(titleQuery: 'كهرباء').first;
-      expect((result as Ok<List<RecentDocument>, AppFailure>).value, hasLength(1));
+      expect(
+        (result as Ok<List<RecentDocument>, AppFailure>).value,
+        hasLength(1),
+      );
 
       final noMatch = await repo.watchDocuments(titleQuery: 'قطة').first;
       expect((noMatch as Ok<List<RecentDocument>, AppFailure>).value, isEmpty);
@@ -236,9 +235,28 @@ void main() {
 
       // Initial empty list + list after the write.
       expect(states, hasLength(2));
-      final second =
-          (states[1] as Ok<List<RecentDocument>, AppFailure>).value;
+      final second = (states[1] as Ok<List<RecentDocument>, AppFailure>).value;
       expect(second, hasLength(1));
+    });
+
+    test('reads every saved document, not just the newest few', () async {
+      var next = 0;
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-${next++}',
+        clock: () => DateTime(2026, 7, 29),
+      );
+      for (var i = 0; i < 5; i++) {
+        await repo.saveResultOnly(analysis: _analysis(), extractedText: 'أ');
+      }
+
+      final result = await repo.watchDocuments().first;
+
+      expect(
+        (result as Ok<List<RecentDocument>, AppFailure>).value,
+        hasLength(5),
+      );
     });
   });
 
@@ -257,7 +275,30 @@ void main() {
       }
 
       final result = await repo.watchRecent(limit: 2).first;
-      expect((result as Ok<List<RecentDocument>, AppFailure>).value, hasLength(2));
+      expect(
+        (result as Ok<List<RecentDocument>, AppFailure>).value,
+        hasLength(2),
+      );
+    });
+
+    test('defaults to Home\'s usual three', () async {
+      var next = 0;
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-${next++}',
+        clock: () => DateTime(2026, 7, 29),
+      );
+      for (var i = 0; i < 5; i++) {
+        await repo.saveResultOnly(analysis: _analysis(), extractedText: 'أ');
+      }
+
+      final result = await repo.watchRecent().first;
+
+      expect(
+        (result as Ok<List<RecentDocument>, AppFailure>).value,
+        hasLength(3),
+      );
     });
   });
 }
