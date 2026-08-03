@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/documents/recent_document.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
@@ -29,6 +30,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
+import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
 import '../di/service_locator.dart';
 import '../shell/placeholder_tab.dart';
 import '../shell/scaffold_with_nav_bar.dart';
@@ -181,7 +183,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   onCaptureAnother: () => context.pushReplacement(
                     AppRoutes.captureWith(CaptureSource.camera),
                   ),
-                  onSave: () => _saveResult(context),
+                  onSave: () => unawaited(_saveResult(context, session)),
                 ),
               ),
             ),
@@ -339,15 +341,22 @@ class _BackToHome extends StatelessWidget {
 /// The result screen exposes a plain callback, so the two cubits are joined
 /// here rather than inside either feature: analysis produces the paper, saved
 /// papers keeps it, and neither has to import the other.
-void _saveResult(BuildContext context) {
+///
+/// Asks which mode to save in first (F08-T04) — the picture is only ever kept
+/// because the sheet's own confirm button was pressed, never as a default.
+Future<void> _saveResult(BuildContext context, AnalysisSession session) async {
   final state = context.read<AnalysisResultCubit>().state;
   // The save button only exists on a ready result; this guards the case where
   // the state moved on between the tap and this frame.
   if (state is! AnalysisResultReady) return;
 
-  context.read<SaveDocumentCubit>().save(
+  final mode = await showSaveModeSheet(context);
+  if (mode == null || !context.mounted) return;
+
+  await context.read<SaveDocumentCubit>().save(
     analysis: state.result.analysis,
     extractedText: state.result.extractedText,
+    imagePath: mode == DocumentStorageMode.withImage ? session.imagePath : null,
   );
 }
 

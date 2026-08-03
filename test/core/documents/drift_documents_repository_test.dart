@@ -19,13 +19,16 @@ import '../../support/fakes.dart';
 void main() {
   late AppDatabase db;
   late DocumentsDao dao;
+  late FakeDocumentImageStore images;
   late DriftDocumentsRepository repository;
 
   setUp(() {
     db = memoryDatabase();
     dao = db.documentsDao;
+    images = FakeDocumentImageStore();
     repository = DriftDocumentsRepository(
       dao,
+      images,
       idGenerator: () => 'doc-1',
       clock: () => DateTime(2026, 7, 29),
     );
@@ -83,6 +86,7 @@ void main() {
     var next = 0;
     final repo = DriftDocumentsRepository(
       dao,
+      images,
       idGenerator: () => 'doc-${next++}',
       clock: () => DateTime(2026, 7, 29),
     );
@@ -96,6 +100,7 @@ void main() {
   test('turns a database error into a LocalDatabaseFailure', () async {
     final failing = DriftDocumentsRepository(
       _ThrowingDao(db),
+      images,
       idGenerator: () => 'doc-1',
       clock: () => DateTime(2026, 7, 29),
     );
@@ -106,6 +111,69 @@ void main() {
     );
 
     expect(outcome, const Err<String, AppFailure>(LocalDatabaseFailure()));
+  });
+
+  group('saveWithImage', () {
+    test('returns the id and encrypts the picture for it', () async {
+      final outcome = await repository.saveWithImage(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+        imagePath: '/cache/analysis_sessions/s1/processed.jpg',
+      );
+
+      expect(outcome, const Ok<String, AppFailure>('doc-1'));
+      expect(
+        images.stored['doc-1'],
+        '/cache/analysis_sessions/s1/processed.jpg',
+      );
+    });
+
+    test('writes the row with the encrypted path and withImage mode', () async {
+      await repository.saveWithImage(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+        imagePath: '/cache/analysis_sessions/s1/processed.jpg',
+      );
+
+      final bundle = await dao.documentById('doc-1');
+
+      expect(bundle!.document.storageMode, DocumentStorageMode.withImage);
+      expect(
+        bundle.document.encryptedImagePath,
+        '/private/documents/doc-1/original.enc',
+      );
+    });
+
+    test('writes nothing when encryption fails', () async {
+      images.fails = true;
+
+      final outcome = await repository.saveWithImage(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+        imagePath: '/cache/analysis_sessions/s1/processed.jpg',
+      );
+
+      expect(outcome, const Err<String, AppFailure>(FileEncryptionFailure()));
+      expect(await dao.documentById('doc-1'), isNull);
+    });
+
+    test('deletes the encrypted picture if the row write fails', () async {
+      final failing = DriftDocumentsRepository(
+        _ThrowingDao(db),
+        images,
+        idGenerator: () => 'doc-1',
+        clock: () => DateTime(2026, 7, 29),
+      );
+
+      final outcome = await failing.saveWithImage(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+        imagePath: '/cache/analysis_sessions/s1/processed.jpg',
+      );
+
+      expect(outcome, const Err<String, AppFailure>(LocalDatabaseFailure()));
+      expect(images.deletedIds, ['doc-1']);
+    });
   });
 }
 

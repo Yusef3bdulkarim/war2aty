@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/recent_document.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../cubit/save_document_cubit.dart';
 import '../cubit/save_document_state.dart';
@@ -28,7 +29,10 @@ class SaveDocumentListener extends StatelessWidget {
       listener: (context, state) {
         final strings = context.strings;
         final message = switch (state) {
-          SaveDocumentSaved() => strings.documentSaved,
+          SaveDocumentSaved(:final storageMode) =>
+            storageMode == DocumentStorageMode.withImage
+                ? strings.documentSavedWithImage
+                : strings.documentSaved,
           // The failure is not spelled out: the user cannot act on a database
           // error, and its text is English server/driver copy either way.
           _ => strings.documentSaveFailed,

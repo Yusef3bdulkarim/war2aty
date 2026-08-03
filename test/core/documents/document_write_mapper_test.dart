@@ -60,6 +60,23 @@ void main() {
       expect(row.encryptedImagePath.present, isFalse);
     });
 
+    test('carries the encrypted image path and mode when given (F08-T04)', () {
+      final row = documentWriteOf(
+        id: 'doc-1',
+        analysis: _analysis(),
+        extractedText: 'نص',
+        savedAt: savedAt,
+        storageMode: DocumentStorageMode.withImage,
+        encryptedImagePath: '/private/documents/doc-1/original.enc',
+      ).document;
+
+      expect(row.storageMode.value, DocumentStorageMode.withImage);
+      expect(
+        row.encryptedImagePath.value,
+        '/private/documents/doc-1/original.enc',
+      );
+    });
+
     test('keeps the session it came from', () {
       expect(write().document.sessionId.value, 'session-1');
     });

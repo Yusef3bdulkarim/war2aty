@@ -11,11 +11,14 @@ import '../../core/crypto/document_encryption_key_store.dart';
 import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/documents_dao.dart';
+import '../../core/documents/document_image_store.dart';
 import '../../core/documents/documents_repository.dart';
 import '../../core/documents/drift_documents_repository.dart';
+import '../../core/documents/file_document_image_store.dart';
 import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/stub_recent_documents_repository.dart';
 import '../../core/documents/usecases/save_document.dart';
+import '../../core/documents/usecases/save_document_with_image.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
 import '../../core/identity/installation_id_provider.dart';
@@ -459,11 +462,19 @@ void _registerSavedPapers() {
       () => DocumentEncryptionKeyStore(getIt()),
     )
     ..registerLazySingleton<FileEncryptor>(() => AesGcmFileEncryptor(getIt()))
+    ..registerLazySingleton<DocumentImageStore>(
+      () => FileDocumentImageStore(getIt()),
+    )
     ..registerLazySingleton<DocumentsRepository>(
-      () => DriftDocumentsRepository(getIt()),
+      () => DriftDocumentsRepository(getIt(), getIt()),
     )
     ..registerFactory<SaveDocument>(() => SaveDocument(getIt()))
-    ..registerFactory<SaveDocumentCubit>(() => SaveDocumentCubit(getIt()));
+    ..registerFactory<SaveDocumentWithImage>(
+      () => SaveDocumentWithImage(getIt()),
+    )
+    ..registerFactory<SaveDocumentCubit>(
+      () => SaveDocumentCubit(getIt(), getIt()),
+    );
 }
 
 void _registerRouting() {

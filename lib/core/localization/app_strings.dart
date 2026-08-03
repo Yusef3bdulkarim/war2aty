@@ -186,9 +186,21 @@ abstract interface class AppStrings {
   /// user is told the picture stayed out of it rather than left to assume.
   String get documentSaved;
 
+  /// Confirms a save that kept the picture too (F08-T04) — its own copy
+  /// rather than a shared one, so the user is told which happened.
+  String get documentSavedWithImage;
+
   /// A save that did not go through. No detail: the user cannot act on a
   /// database error, only try again.
   String get documentSaveFailed;
+
+  // Save-mode sheet (F08-T04) — the explicit choice between keeping the
+  // result only and keeping the page picture too.
+  String get saveModeSectionLabel;
+  String get saveModeResultOnlyTitle;
+  String get saveModeResultOnlySubtitle;
+  String get saveModeWithImageTitle;
+  String get saveModeWithImageSubtitle;
 
   // Bottom navigation
   String get navHome;

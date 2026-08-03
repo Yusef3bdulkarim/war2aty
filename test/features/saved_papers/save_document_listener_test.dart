@@ -8,6 +8,7 @@ import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/documents_repository.dart';
 import 'package:war2aty/core/documents/usecases/save_document.dart';
+import 'package:war2aty/core/documents/usecases/save_document_with_image.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -24,7 +25,10 @@ void main() {
 
   setUp(() {
     repository = _FakeRepository();
-    cubit = SaveDocumentCubit(SaveDocument(repository));
+    cubit = SaveDocumentCubit(
+      SaveDocument(repository),
+      SaveDocumentWithImage(repository),
+    );
   });
   tearDown(() => cubit.close());
 
@@ -66,6 +70,19 @@ void main() {
     expect(find.text(const ArStrings().documentSaveFailed), findsOneWidget);
   });
 
+  testWidgets('confirms a save that kept the photo too', (tester) async {
+    await pumpListener(tester);
+
+    await cubit.save(
+      analysis: _analysis(),
+      extractedText: 'نص',
+      imagePath: '/cache/analysis_sessions/s1/processed.jpg',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(const ArStrings().documentSavedWithImage), findsOneWidget);
+  });
+
   testWidgets('speaks English under the English locale', (tester) async {
     await pumpListener(tester, locale: AppLocalizations.english);
 
@@ -102,6 +119,13 @@ final class _FakeRepository implements DocumentsRepository {
   Future<Result<String, AppFailure>> saveResultOnly({
     required DocumentAnalysis analysis,
     required String extractedText,
+  }) async => outcome;
+
+  @override
+  Future<Result<String, AppFailure>> saveWithImage({
+    required DocumentAnalysis analysis,
+    required String extractedText,
+    required String imagePath,
   }) async => outcome;
 }
 

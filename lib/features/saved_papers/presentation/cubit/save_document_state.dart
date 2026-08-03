@@ -1,3 +1,4 @@
+import '../../../../core/documents/recent_document.dart';
 import '../../../../core/error/app_failure.dart';
 
 /// States of the «حفظ الورقة» action on the result screen.
@@ -16,19 +17,24 @@ final class SaveDocumentSaving extends SaveDocumentState {
   const SaveDocumentSaving();
 }
 
-/// The paper is on the device. [documentId] is what F09 links a reminder to.
+/// The paper is on the device. [documentId] is what F09 links a reminder to;
+/// [storageMode] says whether the picture went with it, so the listener can
+/// confirm the right thing (privacy §7 — the user is never left guessing).
 final class SaveDocumentSaved extends SaveDocumentState {
-  const SaveDocumentSaved(this.documentId);
+  const SaveDocumentSaved(this.documentId, this.storageMode);
 
   final String documentId;
+  final DocumentStorageMode storageMode;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is SaveDocumentSaved && other.documentId == documentId;
+      other is SaveDocumentSaved &&
+          other.documentId == documentId &&
+          other.storageMode == storageMode;
 
   @override
-  int get hashCode => documentId.hashCode;
+  int get hashCode => Object.hash(documentId, storageMode);
 }
 
 /// The write failed. [failure] is carried rather than a message so the screen

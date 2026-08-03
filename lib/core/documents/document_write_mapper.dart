@@ -13,15 +13,17 @@ import 'recent_document.dart';
 /// them back. Positions are left to the DAO, which numbers each list by the
 /// order it arrives in.
 ///
-/// Result-only by default: [storageMode] is [DocumentStorageMode.resultOnly]
-/// and `encryptedImagePath` is never set here. Keeping the picture is a
-/// separate, explicit step (F08-T04) — the privacy default cannot be reached
-/// by forgetting to pass something.
+/// Result-only by default: [storageMode] defaults to
+/// [DocumentStorageMode.resultOnly] and [encryptedImagePath] is `null`.
+/// Keeping the picture (F08-T04) means passing both explicitly — the privacy
+/// default cannot be reached by forgetting to pass something.
 DocumentWrite documentWriteOf({
   required String id,
   required DocumentAnalysis analysis,
   required String extractedText,
   required DateTime savedAt,
+  DocumentStorageMode storageMode = DocumentStorageMode.resultOnly,
+  String? encryptedImagePath,
 }) {
   return DocumentWrite(
     document: DocumentsCompanion.insert(
@@ -34,7 +36,10 @@ DocumentWrite documentWriteOf({
       summaryShort: analysis.summary.short,
       summaryDetailed: analysis.summary.detailed,
       extractedText: extractedText,
-      storageMode: DocumentStorageMode.resultOnly,
+      storageMode: storageMode,
+      encryptedImagePath: encryptedImagePath == null
+          ? const Value.absent()
+          : Value(encryptedImagePath),
       sessionId: analysis.sessionId,
       savedAt: savedAt,
       updatedAt: savedAt,

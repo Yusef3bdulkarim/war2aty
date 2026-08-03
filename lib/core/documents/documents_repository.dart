@@ -20,4 +20,18 @@ abstract interface class DocumentsRepository {
     required DocumentAnalysis analysis,
     required String extractedText,
   });
+
+  /// Saves [analysis], the text it was read from, and the page picture at
+  /// [imagePath] — the explicit opt-in (F08-T04).
+  ///
+  /// The picture is encrypted before it touches the private directory, and
+  /// the plaintext at [imagePath] is gone once this returns [Ok]. Nothing is
+  /// written at all if the encryption step fails.
+  ///
+  /// Returns the new document's id on success.
+  Future<Result<String, AppFailure>> saveWithImage({
+    required DocumentAnalysis analysis,
+    required String extractedText,
+    required String imagePath,
+  });
 }

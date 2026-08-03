@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:war2aty/core/database/app_database.dart';
+import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/document_category.dart';
+import 'package:war2aty/core/documents/document_image_store.dart';
+import 'package:war2aty/core/documents/documents_repository.dart';
 import 'package:war2aty/core/documents/recent_document.dart';
 import 'package:war2aty/core/documents/recent_documents_repository.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -514,4 +517,50 @@ final class FakeAnalysisSessionStorage implements AnalysisSessionStorage {
       ),
     );
   }
+}
+
+/// Scriptable [DocumentImageStore] — no filesystem, records what it was asked
+/// to encrypt and delete.
+final class FakeDocumentImageStore implements DocumentImageStore {
+  FakeDocumentImageStore({this.fails = false});
+
+  bool fails;
+
+  /// `documentId -> sourcePath` for every call to [encryptAndStore].
+  final Map<String, String> stored = {};
+
+  /// Every id passed to [delete], in order.
+  final List<String> deletedIds = [];
+
+  @override
+  Future<Result<String, AppFailure>> encryptAndStore({
+    required String documentId,
+    required String sourcePath,
+  }) async {
+    if (fails) return const Err(FileEncryptionFailure());
+    stored[documentId] = sourcePath;
+    return Ok('/private/documents/$documentId/original.enc');
+  }
+
+  @override
+  Future<void> delete(String documentId) async => deletedIds.add(documentId);
+}
+
+/// In-memory [DocumentsRepository] the test drives by hand — the write methods
+/// record what they were called with, for tests that exercise save flows.
+final class FakeDocumentsRepository implements DocumentsRepository {
+  Result<String, AppFailure> saveOutcome = const Ok('doc-1');
+
+  @override
+  Future<Result<String, AppFailure>> saveResultOnly({
+    required DocumentAnalysis analysis,
+    required String extractedText,
+  }) async => saveOutcome;
+
+  @override
+  Future<Result<String, AppFailure>> saveWithImage({
+    required DocumentAnalysis analysis,
+    required String extractedText,
+    required String imagePath,
+  }) async => saveOutcome;
 }
