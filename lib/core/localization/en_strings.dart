@@ -351,6 +351,24 @@ final class EnStrings implements AppStrings {
       'Try a different word or check the spelling.';
 
   @override
+  String get documentsFilterAll => 'All';
+
+  @override
+  String get documentsFilterAppointment => 'Appointments';
+
+  @override
+  String get documentsFilterInvoice => 'Bills';
+
+  @override
+  String get documentsFilterGovernment => 'Government';
+
+  @override
+  String get documentsFilterEducation => 'Education';
+
+  @override
+  String get documentsFilterOther => 'Other';
+
+  @override
   String get navHome => 'Home';
 
   @override

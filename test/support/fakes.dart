@@ -580,12 +580,18 @@ final class FakeDocumentsRepository implements DocumentsRepository {
   /// cubit test can assert the request without re-implementing the match.
   String? requestedTitleQuery;
 
+  /// The category filter the cubit last asked for (F08-T07). Same
+  /// record-only contract as [requestedTitleQuery].
+  DocumentCategory? requestedCategory;
+
   @override
   Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
     String? titleQuery,
+    DocumentCategory? category,
   }) async* {
     listenCount++;
     requestedTitleQuery = titleQuery;
+    requestedCategory = category;
     yield _latest;
     yield* _controller.stream;
   }

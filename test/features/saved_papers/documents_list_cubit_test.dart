@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/usecases/watch_documents.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/features/saved_papers/presentation/cubit/documents_list_cubit.dart';
@@ -176,6 +177,84 @@ void main() {
         cubit.state,
         DocumentsListAvailable([documentWith(id: 'stale')], query: 'أب'),
       );
+    });
+  });
+
+  group('filterByCategory (F08-T07)', () {
+    test('asks the repository for the tapped category', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+
+      cubit.filterByCategory(DocumentCategory.appointment);
+      await pumpEventQueue();
+
+      expect(repository.requestedCategory, DocumentCategory.appointment);
+    });
+
+    test('carries the active category on the resulting state', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+
+      cubit.filterByCategory(DocumentCategory.invoice);
+      await pumpEventQueue();
+
+      expect(
+        cubit.state,
+        const DocumentsListAvailable([], category: DocumentCategory.invoice),
+      );
+    });
+
+    test(
+      'tapping the same chip twice does not open a new subscription',
+      () async {
+        final cubit = buildCubit();
+        addTearDown(cubit.close);
+        cubit.start();
+        await pumpEventQueue();
+        cubit.filterByCategory(DocumentCategory.invoice);
+        await pumpEventQueue();
+        final before = repository.listenCount;
+
+        cubit.filterByCategory(DocumentCategory.invoice);
+        await pumpEventQueue();
+
+        expect(repository.listenCount, before);
+      },
+    );
+
+    test('selecting «الكل» again clears the category filter', () async {
+      repository.emit([documentWith(id: 'a')]);
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+      cubit.filterByCategory(DocumentCategory.appointment);
+      await pumpEventQueue();
+
+      cubit.filterByCategory(null);
+      await pumpEventQueue();
+
+      expect(repository.requestedCategory, isNull);
+      expect(cubit.state, DocumentsListAvailable([documentWith(id: 'a')]));
+    });
+
+    test('combines with an active search query', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+      cubit.start();
+      await pumpEventQueue();
+      cubit.search('كهرباء');
+      await pumpEventQueue();
+
+      cubit.filterByCategory(DocumentCategory.invoice);
+      await pumpEventQueue();
+
+      expect(repository.requestedTitleQuery, 'كهرباء');
+      expect(repository.requestedCategory, DocumentCategory.invoice);
     });
   });
 }

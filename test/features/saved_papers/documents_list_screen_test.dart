@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/usecases/watch_documents.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -152,6 +153,52 @@ void main() {
       // fix or clear the query.
       expect(find.byType(TextField), findsOneWidget);
     });
+
+    testWidgets('shows no category chips when nothing has ever been saved', (
+      tester,
+    ) async {
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.text(ar.documentsFilterAll), findsNothing);
+    });
+
+    testWidgets('shows category chips once the library has a document', (
+      tester,
+    ) async {
+      repository.emit([documentWith(title: 'فاتورة كهرباء')]);
+
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.text(ar.documentsFilterAll), findsOneWidget);
+      expect(find.text(ar.documentsFilterAppointment), findsOneWidget);
+    });
+
+    testWidgets('asks the cubit to filter as a chip is tapped', (tester) async {
+      repository.emit([documentWith(title: 'فاتورة كهرباء')]);
+      await pumpApp(tester, screenUnderTest());
+
+      await tester.tap(find.text(ar.documentsFilterInvoice));
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedCategory, DocumentCategory.invoice);
+    });
+
+    testWidgets(
+      'shows a no-results state when a category filter matches nothing',
+      (tester) async {
+        repository.emit([documentWith(title: 'فاتورة كهرباء')]);
+        await pumpApp(tester, screenUnderTest());
+
+        await tester.tap(find.text(ar.documentsFilterAppointment));
+        repository.emit([]);
+        await tester.pumpAndSettle();
+
+        expect(find.text(ar.documentsSearchNoResultsTitle), findsOneWidget);
+        // The chip row itself must survive — the user still needs it to
+        // switch back to another category.
+        expect(find.text(ar.documentsFilterAll), findsOneWidget);
+      },
+    );
 
     testWidgets('survives large text without overflowing', (tester) async {
       tester.view.physicalSize = const Size(390, 844);

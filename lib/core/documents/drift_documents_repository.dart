@@ -8,6 +8,7 @@ import '../error/app_failure.dart';
 import '../identity/installation_id_provider.dart';
 import '../result/result.dart';
 import 'document_analysis.dart';
+import 'document_category.dart';
 import 'document_image_store.dart';
 import 'document_read_mapper.dart';
 import 'document_write_mapper.dart';
@@ -43,7 +44,10 @@ final class DriftDocumentsRepository
   @override
   Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
     String? titleQuery,
-  }) => _watchRows(_dao.watchDocuments(titleQuery: titleQuery));
+    DocumentCategory? category,
+  }) => _watchRows(
+    _dao.watchDocuments(titleQuery: titleQuery, category: category),
+  );
 
   @override
   Stream<Result<List<RecentDocument>, AppFailure>> watchRecent({

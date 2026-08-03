@@ -224,6 +224,16 @@ abstract interface class AppStrings {
   String get documentsSearchNoResultsTitle;
   String get documentsSearchNoResultsSubtitle;
 
+  // Documents category filters (F08-T07) — the chip row above the list.
+  // Plural, unlike the singular [documentCategoryInvoice] and its siblings
+  // above, which label one document's badge rather than a whole filter.
+  String get documentsFilterAll;
+  String get documentsFilterAppointment;
+  String get documentsFilterInvoice;
+  String get documentsFilterGovernment;
+  String get documentsFilterEducation;
+  String get documentsFilterOther;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

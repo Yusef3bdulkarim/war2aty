@@ -215,6 +215,29 @@ void main() {
       expect((noMatch as Ok<List<RecentDocument>, AppFailure>).value, isEmpty);
     });
 
+    test('filters by category when category is given (F08-T07)', () async {
+      var next = 0;
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-${next++}',
+        clock: () => DateTime(2026, 7, 29),
+      );
+
+      await repo.saveResultOnly(analysis: _analysis(), extractedText: 'كهرباء');
+      await repo.saveResultOnly(
+        analysis: _analysis(kind: DocumentKind.appointment),
+        extractedText: 'كشف',
+      );
+
+      final result = await repo
+          .watchDocuments(category: DocumentCategory.appointment)
+          .first;
+      final docs = (result as Ok<List<RecentDocument>, AppFailure>).value;
+      expect(docs, hasLength(1));
+      expect(docs.single.category, DocumentCategory.appointment);
+    });
+
     test('keeps emitting as new rows are written', () async {
       var next = 0;
       final repo = DriftDocumentsRepository(
@@ -313,20 +336,24 @@ final class _ThrowingDao extends DocumentsDao {
       Future<void>.error(StateError('disk is on fire'));
 }
 
-DocumentAnalysis _analysis() => const DocumentAnalysis(
-  sessionId: 'session-1',
-  status: AnalysisStatus.success,
-  kind: DocumentKind.invoice,
-  title: 'فاتورة كهرباء',
-  kindConfidence: ConfidenceBand.high,
-  summary: AnalysisSummary(short: 'سددها', detailed: 'فاتورة شهر يوليو.'),
-  keyInformation: [
-    KeyInformation(
-      label: 'رقم الحساب',
-      value: '12345',
-      confidence: ConfidenceBand.high,
-      source: InfoSource.extracted,
-    ),
-  ],
-  instructions: ['ادفع'],
-);
+DocumentAnalysis _analysis({DocumentKind kind = DocumentKind.invoice}) =>
+    DocumentAnalysis(
+      sessionId: 'session-1',
+      status: AnalysisStatus.success,
+      kind: kind,
+      title: 'فاتورة كهرباء',
+      kindConfidence: ConfidenceBand.high,
+      summary: const AnalysisSummary(
+        short: 'سددها',
+        detailed: 'فاتورة شهر يوليو.',
+      ),
+      keyInformation: const [
+        KeyInformation(
+          label: 'رقم الحساب',
+          value: '12345',
+          confidence: ConfidenceBand.high,
+          source: InfoSource.extracted,
+        ),
+      ],
+      instructions: ['ادفع'],
+    );

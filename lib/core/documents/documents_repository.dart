@@ -1,6 +1,7 @@
 import '../error/app_failure.dart';
 import '../result/result.dart';
 import 'document_analysis.dart';
+import 'document_category.dart';
 import 'recent_document.dart';
 
 /// Keeps analysed papers on the device.
@@ -13,13 +14,15 @@ abstract interface class DocumentsRepository {
   /// Watches saved documents, newest first (F08-T05).
   ///
   /// [titleQuery], when given, narrows the stream to titles containing it —
-  /// matched case-insensitively by the database (F08-T06). An empty list
-  /// means "nothing saved" or "nothing matched", the same convention
-  /// [RecentDocumentsRepository.watchRecent] uses for an empty library;
-  /// failures arrive as `Err` values rather than as stream errors, so a
-  /// transient problem cannot tear the stream down.
+  /// matched case-insensitively by the database (F08-T06). [category], when
+  /// given, narrows it to that one filter chip (F08-T07). The two combine.
+  /// An empty list means "nothing saved" or "nothing matched", the same
+  /// convention [RecentDocumentsRepository.watchRecent] uses for an empty
+  /// library; failures arrive as `Err` values rather than as stream errors,
+  /// so a transient problem cannot tear the stream down.
   Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
     String? titleQuery,
+    DocumentCategory? category,
   });
 
   /// Saves [analysis] and the text it was read from, and nothing else.

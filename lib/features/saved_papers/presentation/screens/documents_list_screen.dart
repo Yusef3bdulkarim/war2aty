@@ -9,6 +9,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../cubit/documents_list_cubit.dart';
 import '../cubit/documents_list_state.dart';
 import '../widgets/document_list_item.dart';
+import '../widgets/documents_category_filter_chips.dart';
 import '../widgets/documents_empty_state.dart';
 import '../widgets/documents_search_field.dart';
 
@@ -19,17 +20,16 @@ import '../widgets/documents_search_field.dart';
 const double _pageTop = 64 - 52;
 const double _pageSide = 20;
 const double _pageBottom = 108;
-const double _headerBottomGap = 16;
+const double _searchBottomGap = 14;
+const double _filtersBottomGap = 18;
 const double _rowGap = 12;
 
 /// The «مستنداتي» screen: every saved paper, reactively (F08-T05), narrowed
-/// by title as the user types (F08-T06).
+/// by title as the user types (F08-T06) and by a category chip (F08-T07).
 ///
 /// The heading stays on screen through every state — only the body below it
 /// swaps between loading, the list, the empty state and a failed read —
 /// mirroring how Home keeps its greeting up while its own sections load.
-///
-/// Category filters (F08-T07) are not built yet.
 class DocumentsListScreen extends StatelessWidget {
   const DocumentsListScreen({this.onScan, super.key});
 
@@ -67,12 +67,13 @@ class DocumentsListScreen extends StatelessWidget {
 
 /// Everything below the heading.
 ///
-/// The search field is rendered here, once — outside the part that swaps
-/// between the list and the empty state — rather than inside [_Body]. A
-/// keystroke that changes the match count would otherwise swap [_Body]'s
-/// whole subtree (`ListView` ↔ `SingleChildScrollView`) out from under
-/// [DocumentsSearchField], tearing down its `State` along with the
-/// [TextEditingController] and focus it owns (F08-T06).
+/// The search field and the category chips are rendered here, once — outside
+/// the part that swaps between the list and the empty state — rather than
+/// inside [_Body]. A keystroke or a chip tap that changes the match count
+/// would otherwise swap [_Body]'s whole subtree (`ListView` ↔
+/// `SingleChildScrollView`) out from under [DocumentsSearchField], tearing
+/// down its `State` along with the [TextEditingController] and focus it owns
+/// (F08-T06).
 class _Content extends StatelessWidget {
   const _Content({required this.state, this.onScan});
 
@@ -81,34 +82,50 @@ class _Content extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The design only shows the field once there is something to search
-    // (`hasDocs`); an active query still counts even if it currently matches
-    // nothing, so the field stays up to be changed or cleared.
-    final showSearch = switch (state) {
-      DocumentsListAvailable(:final documents, :final query) =>
-        documents.isNotEmpty || query.trim().isNotEmpty,
+    // The design only shows the search field and the filter chips once there
+    // is something to filter (`hasDocs`); an active query or category still
+    // counts even if it currently matches nothing, so both stay up to be
+    // changed or cleared (F08-T06, F08-T07).
+    final showFilters = switch (state) {
+      DocumentsListAvailable(:final documents, :final query, :final category) =>
+        documents.isNotEmpty || query.trim().isNotEmpty || category != null,
       _ => false,
     };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showSearch) ...[
+        if (showFilters) ...[
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: _pageSide),
             child: DocumentsSearchField(),
           ),
-          const SizedBox(height: _headerBottomGap),
+          const SizedBox(height: _searchBottomGap),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _pageSide),
+            child: DocumentsCategoryFilterChips(
+              selected: switch (state) {
+                DocumentsListAvailable(:final category) => category,
+                _ => null,
+              },
+            ),
+          ),
+          const SizedBox(height: _filtersBottomGap),
         ],
         Expanded(
           child: switch (state) {
             DocumentsListLoading() => const _Loading(),
             DocumentsListUnavailable() => const _LoadFailed(),
-            DocumentsListAvailable(:final documents, :final query) => _Body(
-              documents: documents,
-              isSearching: query.trim().isNotEmpty,
-              onScan: onScan,
-            ),
+            DocumentsListAvailable(
+              :final documents,
+              :final query,
+              :final category,
+            ) =>
+              _Body(
+                documents: documents,
+                isFiltered: query.trim().isNotEmpty || category != null,
+                onScan: onScan,
+              ),
           },
         ),
       ],
@@ -117,17 +134,14 @@ class _Content extends StatelessWidget {
 }
 
 class _Body extends StatelessWidget {
-  const _Body({
-    required this.documents,
-    required this.isSearching,
-    this.onScan,
-  });
+  const _Body({required this.documents, required this.isFiltered, this.onScan});
 
   final List<RecentDocument> documents;
 
-  /// Whether an active query, not an empty library, is why [documents] might
-  /// be empty (F08-T06) — the two need different empty-state copy.
-  final bool isSearching;
+  /// Whether an active query or category, not an empty library, is why
+  /// [documents] might be empty (F08-T06, F08-T07) — the two need different
+  /// empty-state copy.
+  final bool isFiltered;
 
   final VoidCallback? onScan;
 
@@ -141,7 +155,7 @@ class _Body extends StatelessWidget {
           _pageSide,
           _pageBottom,
         ),
-        child: isSearching
+        child: isFiltered
             ? const DocumentsEmptyState.noResults()
             : DocumentsEmptyState(onScan: onScan ?? () {}),
       );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/document_category.dart';
 import '../../../../core/documents/usecases/watch_documents.dart';
 import 'documents_list_state.dart';
 
@@ -17,6 +18,7 @@ final class DocumentsListCubit extends Cubit<DocumentsListState> {
 
   StreamSubscription<void>? _subscription;
   String _query = '';
+  DocumentCategory? _category;
 
   /// Starts watching the library. Safe to call more than once.
   void start() {
@@ -34,17 +36,32 @@ final class DocumentsListCubit extends Cubit<DocumentsListState> {
     _subscribe();
   }
 
+  /// Narrows the library to one category chip (F08-T07). Passing `null`
+  /// selects «الكل» and clears the filter. A no-op if [category] is already
+  /// the active one, so tapping the same chip twice does not restart the
+  /// stream.
+  void filterByCategory(DocumentCategory? category) {
+    if (category == _category) return;
+    _category = category;
+    _subscribe();
+  }
+
   void _subscribe() {
     _subscription?.cancel();
-    _subscription = _watchDocuments(titleQuery: _query).listen((result) {
-      if (isClosed) return;
-      emit(
-        result.when(
-          ok: (documents) => DocumentsListAvailable(documents, query: _query),
-          err: DocumentsListUnavailable.new,
-        ),
-      );
-    });
+    _subscription = _watchDocuments(titleQuery: _query, category: _category)
+        .listen((result) {
+          if (isClosed) return;
+          emit(
+            result.when(
+              ok: (documents) => DocumentsListAvailable(
+                documents,
+                query: _query,
+                category: _category,
+              ),
+              err: DocumentsListUnavailable.new,
+            ),
+          );
+        });
   }
 
   @override

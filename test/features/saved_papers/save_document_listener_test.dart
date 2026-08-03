@@ -5,6 +5,7 @@ import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/analysis_summary.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
+import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/documents_repository.dart';
 import 'package:war2aty/core/documents/recent_document.dart';
@@ -119,6 +120,7 @@ final class _FakeRepository implements DocumentsRepository {
   @override
   Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
     String? titleQuery,
+    DocumentCategory? category,
   }) => const Stream.empty();
 
   @override

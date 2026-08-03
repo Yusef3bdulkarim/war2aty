@@ -352,6 +352,24 @@ final class ArStrings implements AppStrings {
       'جرّب اسم تاني أو راجع الإملاء.';
 
   @override
+  String get documentsFilterAll => 'الكل';
+
+  @override
+  String get documentsFilterAppointment => 'المواعيد';
+
+  @override
+  String get documentsFilterInvoice => 'الفواتير';
+
+  @override
+  String get documentsFilterGovernment => 'الحكومية';
+
+  @override
+  String get documentsFilterEducation => 'التعليمية';
+
+  @override
+  String get documentsFilterOther => 'أخرى';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override
