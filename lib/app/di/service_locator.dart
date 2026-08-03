@@ -6,6 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
+import '../../core/crypto/aes_gcm_file_encryptor.dart';
+import '../../core/crypto/document_encryption_key_store.dart';
+import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/documents_dao.dart';
 import '../../core/documents/documents_repository.dart';
@@ -452,6 +455,10 @@ void _registerSavedPapers() {
     ..registerLazySingleton<DocumentsDao>(
       () => getIt<AppDatabase>().documentsDao,
     )
+    ..registerLazySingleton<DocumentEncryptionKeyStore>(
+      () => DocumentEncryptionKeyStore(getIt()),
+    )
+    ..registerLazySingleton<FileEncryptor>(() => AesGcmFileEncryptor(getIt()))
     ..registerLazySingleton<DocumentsRepository>(
       () => DriftDocumentsRepository(getIt()),
     )
