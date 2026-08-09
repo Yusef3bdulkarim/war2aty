@@ -2,9 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/documents/analysis_date.dart';
 import 'package:war2aty/core/documents/analysis_section.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
+import 'package:war2aty/core/documents/usecases/delete_document.dart';
 import 'package:war2aty/core/documents/usecases/set_document_note.dart';
+import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -24,6 +27,8 @@ void main() {
         WatchDocument(repository),
         const BuildAnalysisResult(),
         SetDocumentNote(repository),
+        UpdateDocument(repository),
+        DeleteDocument(repository),
         documentId: documentId,
       );
 
@@ -227,6 +232,90 @@ void main() {
       final ok = await cubit.deleteNote();
 
       expect(ok, isFalse);
+    });
+  });
+
+  group('update (F08-T10)', () {
+    test('updateTitle writes the trimmed text', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      final ok = await cubit.updateTitle('  فاتورة مياه  ');
+
+      expect(ok, isTrue);
+      expect(repository.lastTitleSet, 'فاتورة مياه');
+    });
+
+    test('updateTitle rejects an empty string', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      final ok = await cubit.updateTitle('   ');
+
+      expect(ok, isFalse);
+      expect(repository.lastTitleSet, isNull);
+    });
+
+    test('updateTitle reports failure', () async {
+      repository.updateOutcome = const Err(LocalDatabaseFailure());
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      final ok = await cubit.updateTitle('فاتورة مياه');
+
+      expect(ok, isFalse);
+    });
+
+    test('updateCategory writes the chosen category', () async {
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      final ok = await cubit.updateCategory(DocumentCategory.government);
+
+      expect(ok, isTrue);
+      expect(repository.lastCategorySet, DocumentCategory.government);
+    });
+
+    test('updateCategory reports failure', () async {
+      repository.updateOutcome = const Err(LocalDatabaseFailure());
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      final ok = await cubit.updateCategory(DocumentCategory.education);
+
+      expect(ok, isFalse);
+    });
+  });
+
+  group('delete (F08-T11)', () {
+    test('deleteDocument calls the repository with the cubit\'s id', () async {
+      final cubit = buildCubit(documentId: 'doc-5');
+      addTearDown(cubit.close);
+
+      final ok = await cubit.deleteDocument();
+
+      expect(ok, isTrue);
+      expect(repository.lastDeletedId, 'doc-5');
+    });
+
+    test('deleteDocument reports failure', () async {
+      repository.deleteOutcome = const Err(LocalDatabaseFailure());
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      final ok = await cubit.deleteDocument();
+
+      expect(ok, isFalse);
+    });
+
+    test('deleteDocument returns false after close', () async {
+      final cubit = buildCubit();
+      await cubit.close();
+
+      final ok = await cubit.deleteDocument();
+
+      expect(ok, isFalse);
+      expect(repository.lastDeletedId, isNull);
     });
   });
 }

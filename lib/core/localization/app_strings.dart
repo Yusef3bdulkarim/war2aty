@@ -280,6 +280,50 @@ abstract interface class AppStrings {
   String get documentNoteDeleted;
   String get documentNoteError;
 
+  // Document update (F08-T10) — title and category editing.
+  /// Overflow menu item that opens the title editor.
+  String get documentEditTitle;
+
+  /// Overflow menu item that opens the category picker.
+  String get documentEditCategory;
+
+  /// Title of the rename sheet.
+  String get documentEditTitleHeading;
+
+  /// Hint inside the title text field.
+  String get documentEditTitleHint;
+
+  /// Confirms the new title in the editor.
+  String get documentEditTitleSave;
+
+  /// Title of the category picker sheet.
+  String get documentEditCategoryHeading;
+
+  /// Snackbar feedback after a successful title update.
+  String get documentTitleUpdated;
+
+  /// Snackbar feedback after a successful category update.
+  String get documentCategoryUpdated;
+
+  /// Snackbar feedback when an update fails.
+  String get documentUpdateError;
+
+  // Document delete (F08-T11) — permanent removal from the device.
+  /// Overflow menu item that starts the delete flow.
+  String get documentDeleteAction;
+
+  /// Confirmation dialog title.
+  String get documentDeleteConfirmTitle;
+
+  /// Confirmation dialog body — warns the action is irreversible.
+  String get documentDeleteConfirmMessage;
+
+  /// Snackbar feedback after a successful delete.
+  String get documentDeleted;
+
+  /// Snackbar feedback when the delete fails.
+  String get documentDeleteError;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

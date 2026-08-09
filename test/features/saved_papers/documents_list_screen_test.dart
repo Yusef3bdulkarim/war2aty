@@ -30,9 +30,7 @@ void main() {
   );
 
   group('DocumentsListScreen', () {
-    testWidgets('shows a spinner before the database answers', (
-      tester,
-    ) async {
+    testWidgets('shows a spinner before the database answers', (tester) async {
       await pumpApp(tester, screenUnderTest(), settle: false);
 
       // The heading text lives in the nav shell tab, not this screen.

@@ -415,6 +415,38 @@ final class EnStrings implements AppStrings {
   String get documentNoteError => "Couldn't save the note. Try again.";
 
   @override
+  String get documentEditTitle => 'Edit title';
+  @override
+  String get documentEditCategory => 'Edit category';
+  @override
+  String get documentEditTitleHeading => 'Edit title';
+  @override
+  String get documentEditTitleHint => 'Enter a new title for the document.';
+  @override
+  String get documentEditTitleSave => 'Save title';
+  @override
+  String get documentEditCategoryHeading => 'Edit category';
+  @override
+  String get documentTitleUpdated => 'Title updated.';
+  @override
+  String get documentCategoryUpdated => 'Category updated.';
+  @override
+  String get documentUpdateError => "Couldn't update the document. Try again.";
+
+  // Document delete (F08-T11)
+  @override
+  String get documentDeleteAction => 'Delete document';
+  @override
+  String get documentDeleteConfirmTitle => 'Delete document?';
+  @override
+  String get documentDeleteConfirmMessage =>
+      "Once deleted, the document can't be recovered.";
+  @override
+  String get documentDeleted => 'Document deleted.';
+  @override
+  String get documentDeleteError => "Couldn't delete the document. Try again.";
+
+  @override
   String get navHome => 'Home';
 
   @override

@@ -704,6 +704,40 @@ final class FakeDocumentsRepository implements DocumentsRepository {
     required String imagePath,
   }) async => saveOutcome;
 
+  /// Outcome of [updateDocument]. Default success; set to an [Err] to test
+  /// failures (F08-T10).
+  Result<void, AppFailure> updateOutcome = const Ok(null);
+
+  /// The title [updateDocument] was last called with.
+  String? lastTitleSet;
+
+  /// The category [updateDocument] was last called with.
+  DocumentCategory? lastCategorySet;
+
+  @override
+  Future<Result<void, AppFailure>> updateDocument(
+    String id, {
+    String? title,
+    DocumentCategory? category,
+  }) async {
+    lastTitleSet = title;
+    lastCategorySet = category;
+    return updateOutcome;
+  }
+
+  /// Outcome of [deleteDocument]. Default success; set to an [Err] to test
+  /// failures (F08-T11).
+  Result<void, AppFailure> deleteOutcome = const Ok(null);
+
+  /// The id [deleteDocument] was last called with.
+  String? lastDeletedId;
+
+  @override
+  Future<Result<void, AppFailure>> deleteDocument(String id) async {
+    lastDeletedId = id;
+    return deleteOutcome;
+  }
+
   /// Outcome of [setNote]. Default success; set to an [Err] to test failures.
   Result<void, AppFailure> setNoteOutcome = const Ok(null);
 

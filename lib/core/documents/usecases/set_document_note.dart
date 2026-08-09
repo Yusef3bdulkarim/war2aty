@@ -11,8 +11,6 @@ final class SetDocumentNote {
 
   final DocumentsRepository _repository;
 
-  Future<Result<void, AppFailure>> call(
-    String documentId,
-    String? note,
-  ) => _repository.setNote(documentId, note);
+  Future<Result<void, AppFailure>> call(String documentId, String? note) =>
+      _repository.setNote(documentId, note);
 }

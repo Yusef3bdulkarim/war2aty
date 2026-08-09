@@ -17,9 +17,11 @@ import '../../core/documents/drift_documents_repository.dart';
 import '../../core/documents/file_document_image_store.dart';
 import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/usecases/build_analysis_result.dart';
+import '../../core/documents/usecases/delete_document.dart';
 import '../../core/documents/usecases/save_document.dart';
 import '../../core/documents/usecases/save_document_with_image.dart';
 import '../../core/documents/usecases/set_document_note.dart';
+import '../../core/documents/usecases/update_document.dart';
 import '../../core/documents/usecases/watch_document.dart';
 import '../../core/documents/usecases/watch_documents.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
@@ -490,10 +492,14 @@ void _registerSavedPapers() {
     ..registerFactory<DocumentsListCubit>(() => DocumentsListCubit(getIt()))
     ..registerFactory<WatchDocument>(() => WatchDocument(getIt()))
     ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
+    ..registerFactory<UpdateDocument>(() => UpdateDocument(getIt()))
+    ..registerFactory<DeleteDocument>(() => DeleteDocument(getIt()))
     // Parameterised by the document id — one cubit instance per opened
     // details screen, the same shape [ImagePreviewCubit]'s registration uses.
     ..registerFactoryParam<DocumentDetailsCubit, String, void>(
       (documentId, _) => DocumentDetailsCubit(
+        getIt(),
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

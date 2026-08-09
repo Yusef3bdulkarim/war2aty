@@ -34,6 +34,16 @@ abstract interface class DocumentsRepository {
   /// error it reports.
   Stream<Result<SavedDocument?, AppFailure>> watchDocument(String id);
 
+  /// Updates the fields the user can edit on a saved document (F08-T10).
+  ///
+  /// Either field may be omitted, in which case it keeps its current value.
+  /// The underlying row's `updatedAt` is always touched.
+  Future<Result<void, AppFailure>> updateDocument(
+    String id, {
+    String? title,
+    DocumentCategory? category,
+  });
+
   /// Adds, replaces, or removes the user's note on a saved document (F08-T09).
   ///
   /// A `null` [note] deletes it. The note is the user's own words; the privacy
@@ -65,4 +75,11 @@ abstract interface class DocumentsRepository {
     required String extractedText,
     required String imagePath,
   });
+
+  /// Deletes a saved document and its encrypted image, if any (F08-T11).
+  ///
+  /// The database cascade removes every child row; the image store removes
+  /// the encrypted file. Once F09 lands, a linked reminder should be
+  /// cancelled here as well — for now there is nothing to cancel.
+  Future<Result<void, AppFailure>> deleteDocument(String id);
 }

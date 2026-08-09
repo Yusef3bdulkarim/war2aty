@@ -417,6 +417,38 @@ final class ArStrings implements AppStrings {
   String get documentNoteError => 'مقدرناش نحفظ الملاحظة. جرّب تاني.';
 
   @override
+  String get documentEditTitle => 'تعديل العنوان';
+  @override
+  String get documentEditCategory => 'تعديل التصنيف';
+  @override
+  String get documentEditTitleHeading => 'تعديل العنوان';
+  @override
+  String get documentEditTitleHint => 'اكتب عنوان جديد للمستند.';
+  @override
+  String get documentEditTitleSave => 'حفظ العنوان';
+  @override
+  String get documentEditCategoryHeading => 'تعديل التصنيف';
+  @override
+  String get documentTitleUpdated => 'تم تعديل العنوان.';
+  @override
+  String get documentCategoryUpdated => 'تم تعديل التصنيف.';
+  @override
+  String get documentUpdateError => 'مقدرناش نعدّل المستند. جرّب تاني.';
+
+  // Document delete (F08-T11)
+  @override
+  String get documentDeleteAction => 'حذف المستند';
+  @override
+  String get documentDeleteConfirmTitle => 'حذف المستند؟';
+  @override
+  String get documentDeleteConfirmMessage =>
+      'لو حذفت المستند مش هتقدر ترجعه تاني.';
+  @override
+  String get documentDeleted => 'تم حذف المستند.';
+  @override
+  String get documentDeleteError => 'مقدرناش نحذف المستند. جرّب تاني.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override

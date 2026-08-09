@@ -5,7 +5,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_typography.dart';
 
-// From `Waraqti.dc.html` → save sheet (reuses the same sheet chrome).
+// From `Waraqti.dc.html` → save sheet (reuses the same sheet chrome as
+// note_editor_sheet.dart).
 const double _sheetRadius = 26;
 const double _sheetPaddingTop = 12;
 const double _sheetPaddingH = 22;
@@ -21,48 +22,48 @@ const double _fieldPaddingH = 15;
 const double _fieldPaddingV = 14;
 const double _fieldFontSize = 15;
 const double _fieldHeight = 1.7;
-const double _fieldMinLines = 3;
 const double _fieldGapBelow = 18;
 const double _buttonHeight = 54;
 const double _buttonRadius = 15;
 const double _buttonFontSize = 17;
 
-/// Opens a sheet that lets the user write or edit a note (F08-T09).
+/// Opens a sheet that lets the user rename a document (F08-T10).
 ///
-/// Returns the confirmed text, or `null` if the user dismissed it.
-/// [initial] pre-fills the field when editing an existing note.
-Future<String?> showNoteEditorSheet(BuildContext context, {String? initial}) =>
-    showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: AppColors.light.card,
-      isScrollControlled: true,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor,
-      ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
-      ),
-      builder: (_) => NoteEditorSheet(initial: initial),
-    );
+/// Returns the confirmed title, or `null` if the user dismissed it.
+/// [current] pre-fills the field with the existing title.
+Future<String?> showTitleEditorSheet(
+  BuildContext context, {
+  required String current,
+}) => showModalBottomSheet<String>(
+  context: context,
+  backgroundColor: AppColors.light.card,
+  isScrollControlled: true,
+  constraints: BoxConstraints(
+    maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor,
+  ),
+  shape: const RoundedRectangleBorder(
+    borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
+  ),
+  builder: (_) => _TitleEditorSheet(current: current),
+);
 
-/// The body of the note editor sheet.
-class NoteEditorSheet extends StatefulWidget {
-  const NoteEditorSheet({this.initial, super.key});
+class _TitleEditorSheet extends StatefulWidget {
+  const _TitleEditorSheet({required this.current});
 
-  final String? initial;
+  final String current;
 
   @override
-  State<NoteEditorSheet> createState() => _NoteEditorSheetState();
+  State<_TitleEditorSheet> createState() => _TitleEditorSheetState();
 }
 
-class _NoteEditorSheetState extends State<NoteEditorSheet> {
+class _TitleEditorSheetState extends State<_TitleEditorSheet> {
   late final TextEditingController _controller;
   bool _hasText = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initial);
+    _controller = TextEditingController(text: widget.current);
     _hasText = _controller.text.trim().isNotEmpty;
     _controller.addListener(_onChanged);
   }
@@ -82,12 +83,10 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
   Widget build(BuildContext context) {
     const colors = AppColors.light;
     final strings = context.strings;
-    final isEditing = widget.initial != null;
 
     return SafeArea(
       top: false,
       child: Padding(
-        // Push the sheet above the keyboard so the field stays visible.
         padding: EdgeInsets.only(
           bottom: MediaQuery.viewInsetsOf(context).bottom,
         ),
@@ -116,9 +115,7 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
               Semantics(
                 header: true,
                 child: Text(
-                  isEditing
-                      ? strings.documentNoteEdit
-                      : strings.documentNoteAdd,
+                  strings.documentEditTitleHeading,
                   style: AppTypography.titleLarge.copyWith(
                     fontSize: _titleFontSize,
                     fontWeight: AppTypography.extraBold,
@@ -130,16 +127,15 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
               TextField(
                 controller: _controller,
                 autofocus: true,
-                minLines: _fieldMinLines.toInt(),
-                maxLines: null,
-                textInputAction: TextInputAction.newline,
+                textInputAction: TextInputAction.done,
+                onSubmitted: _hasText ? (_) => _submit() : null,
                 style: AppTypography.bodyMedium.copyWith(
                   fontSize: _fieldFontSize,
                   height: _fieldHeight,
                   color: colors.textBody,
                 ),
                 decoration: InputDecoration(
-                  hintText: strings.documentNoteHint,
+                  hintText: strings.documentEditTitleHint,
                   hintStyle: AppTypography.bodyMedium.copyWith(
                     fontSize: _fieldFontSize,
                     height: _fieldHeight,
@@ -161,9 +157,7 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
               SizedBox(
                 height: _buttonHeight,
                 child: FilledButton(
-                  onPressed: _hasText
-                      ? () => Navigator.of(context).pop(_controller.text.trim())
-                      : null,
+                  onPressed: _hasText ? _submit : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: colors.brandPrimary,
                     foregroundColor: colors.onBrand,
@@ -177,7 +171,7 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
                       fontWeight: AppTypography.bold,
                     ),
                   ),
-                  child: Text(strings.documentNoteSave),
+                  child: Text(strings.documentEditTitleSave),
                 ),
               ),
             ],
@@ -186,4 +180,6 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
       ),
     );
   }
+
+  void _submit() => Navigator.of(context).pop(_controller.text.trim());
 }

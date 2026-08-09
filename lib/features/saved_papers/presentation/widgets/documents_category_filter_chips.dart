@@ -92,7 +92,7 @@ class _Chip extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: _paddingH,
-              vertical: _paddingV,
+              // vertical: _paddingV,
             ),
             child: Center(
               child: Text(

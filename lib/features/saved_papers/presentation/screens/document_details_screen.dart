@@ -23,8 +23,10 @@ import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
 import '../cubit/document_details_cubit.dart';
 import '../cubit/document_details_state.dart';
+import '../widgets/category_picker_sheet.dart';
 import '../widgets/document_note_card.dart';
 import '../widgets/note_editor_sheet.dart';
+import '../widgets/title_editor_sheet.dart';
 
 // From `Waraqti.dc.html` → `docDetails`, which shares the result page's own
 // layout constants (`resultScreenLabel`) — see `analysis_result_screen.dart`.
@@ -162,7 +164,7 @@ class _DetailsBody extends StatelessWidget {
 
     return Column(
       children: [
-        _TopBar(onClose: onClose),
+        _TopBar(document: document, onClose: onClose),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
@@ -178,8 +180,7 @@ class _DetailsBody extends StatelessWidget {
                 // fully understood one, whatever it managed to fill in — the
                 // same rule the result screen follows for the same status.
                 if (document.analysis.isPartial) const PartialResultBanner(),
-                for (final section in sections)
-                  _section(section, strings),
+                for (final section in sections) _section(section, strings),
                 // «ملاحظتي» lives between the analysis sections and the
                 // explanation/extracted-text panels — the same position the
                 // design draws it in, after the paper's own content and
@@ -266,8 +267,8 @@ class _NoteSection extends StatelessWidget {
     return DocumentNoteCard(
       note: document.note,
       onAdd: () => _openEditor(context, cubit, strings),
-      onEdit: () => _openEditor(context, cubit, strings,
-          initial: document.note),
+      onEdit: () =>
+          _openEditor(context, cubit, strings, initial: document.note),
       onDelete: () => _confirmDelete(context, cubit, strings),
     );
   }
@@ -328,14 +329,12 @@ class _NoteSection extends StatelessWidget {
   }
 }
 
-/// The page's own bar: a way back, and the page's name.
-///
-/// The design also draws an overflow button on the trailing side, for rename
-/// and delete (F08-T10, F08-T11). Nothing lives behind it yet, so the space
-/// is held open rather than filled with a menu that does nothing.
+/// The page's own bar: a way back, the page's name, and an overflow menu for
+/// rename and category change (F08-T10).
 class _TopBar extends StatelessWidget {
-  const _TopBar({this.onClose});
+  const _TopBar({required this.document, this.onClose});
 
+  final SavedDocument document;
   final VoidCallback? onClose;
 
   @override
@@ -393,12 +392,147 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: _topBarGap),
-              // Balances the back button so the title stays centred.
-              const SizedBox.square(dimension: _topBarButton),
+              _OverflowMenu(document: document, onClose: onClose),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// The three-dot menu that holds rename and category change (F08-T10).
+///
+/// Each action opens a bottom sheet, writes through the cubit, and shows a
+/// snackbar — the same feedback pattern the note section uses (F08-T09).
+enum _OverflowAction { editTitle, editCategory, delete }
+
+class _OverflowMenu extends StatelessWidget {
+  const _OverflowMenu({required this.document, this.onClose});
+
+  final SavedDocument document;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = AppColors.light;
+    final strings = context.strings;
+
+    return SizedBox.square(
+      dimension: _topBarButton,
+      child: PopupMenuButton<_OverflowAction>(
+        padding: EdgeInsets.zero,
+        icon: Icon(Icons.more_vert, color: colors.ink),
+        onSelected: (action) => _handle(context, action, strings),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: _OverflowAction.editTitle,
+            child: Text(strings.documentEditTitle),
+          ),
+          PopupMenuItem(
+            value: _OverflowAction.editCategory,
+            child: Text(strings.documentEditCategory),
+          ),
+          PopupMenuItem(
+            value: _OverflowAction.delete,
+            child: Text(
+              strings.documentDeleteAction,
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handle(
+    BuildContext context,
+    _OverflowAction action,
+    AppStrings strings,
+  ) {
+    switch (action) {
+      case _OverflowAction.editTitle:
+        _editTitle(context, strings);
+      case _OverflowAction.editCategory:
+        _editCategory(context, strings);
+      case _OverflowAction.delete:
+        _confirmDelete(context, strings);
+    }
+  }
+
+  Future<void> _editTitle(BuildContext context, AppStrings strings) async {
+    final cubit = context.read<DocumentDetailsCubit>();
+    final title = await showTitleEditorSheet(
+      context,
+      current: document.analysis.title,
+    );
+    if (title == null || !context.mounted) return;
+
+    final ok = await cubit.updateTitle(title);
+    if (!context.mounted) return;
+    _showFeedback(
+      context,
+      ok ? strings.documentTitleUpdated : strings.documentUpdateError,
+    );
+  }
+
+  Future<void> _editCategory(BuildContext context, AppStrings strings) async {
+    final cubit = context.read<DocumentDetailsCubit>();
+    final category = await showCategoryPickerSheet(
+      context,
+      current: document.analysis.category,
+    );
+    if (category == null || !context.mounted) return;
+
+    final ok = await cubit.updateCategory(category);
+    if (!context.mounted) return;
+    _showFeedback(
+      context,
+      ok ? strings.documentCategoryUpdated : strings.documentUpdateError,
+    );
+  }
+
+  /// Confirms, then permanently removes the document (F08-T11). On success
+  /// the screen navigates back — the watcher would eventually show "not found",
+  /// but popping immediately is what the user expects.
+  Future<void> _confirmDelete(BuildContext context, AppStrings strings) async {
+    final cubit = context.read<DocumentDetailsCubit>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(strings.documentDeleteConfirmTitle),
+        content: Text(strings.documentDeleteConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(strings.actionCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              strings.actionDelete,
+              style: TextStyle(color: AppColors.light.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final ok = await cubit.deleteDocument();
+    if (!context.mounted) return;
+
+    if (ok) {
+      _showFeedback(context, strings.documentDeleted);
+      onClose?.call();
+    } else {
+      _showFeedback(context, strings.documentDeleteError);
+    }
+  }
+
+  void _showFeedback(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }

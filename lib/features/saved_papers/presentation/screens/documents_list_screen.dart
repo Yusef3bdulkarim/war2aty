@@ -98,7 +98,7 @@ class _Content extends StatelessWidget {
     };
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(_pageSide, _pageTop, _pageSide, 0),
+      padding: const EdgeInsets.only(top: _pageTop),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

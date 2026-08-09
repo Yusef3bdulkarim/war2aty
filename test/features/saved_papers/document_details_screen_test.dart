@@ -3,11 +3,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
+import 'package:war2aty/core/documents/usecases/delete_document.dart';
 import 'package:war2aty/core/documents/usecases/set_document_note.dart';
+import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/widgets/result_header_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
 import 'package:war2aty/features/saved_papers/presentation/cubit/document_details_cubit.dart';
@@ -29,6 +33,8 @@ void main() {
       WatchDocument(repository),
       const BuildAnalysisResult(),
       SetDocumentNote(repository),
+      UpdateDocument(repository),
+      DeleteDocument(repository),
       documentId: 'doc-1',
     );
   });
@@ -186,9 +192,7 @@ void main() {
     testWidgets('opens the editor pre-filled when edit is tapped', (
       tester,
     ) async {
-      repository.emitDocument(
-        savedDocumentWith(note: 'ملاحظة قديمة'),
-      );
+      repository.emitDocument(savedDocumentWith(note: 'ملاحظة قديمة'));
       cubit.start();
 
       await pumpScreen(tester);
@@ -196,10 +200,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The existing note text should be pre-filled in the field.
-      expect(
-        find.widgetWithText(TextField, 'ملاحظة قديمة'),
-        findsOneWidget,
-      );
+      expect(find.widgetWithText(TextField, 'ملاحظة قديمة'), findsOneWidget);
     });
 
     testWidgets('shows delete confirmation dialog', (tester) async {
@@ -210,14 +211,87 @@ void main() {
       await tester.tap(find.text(ar.documentNoteDelete));
       await tester.pumpAndSettle();
 
-      expect(
-        find.text(ar.documentNoteDeleteConfirmTitle),
-        findsOneWidget,
-      );
-      expect(
-        find.text(ar.documentNoteDeleteConfirmMessage),
-        findsOneWidget,
-      );
+      expect(find.text(ar.documentNoteDeleteConfirmTitle), findsOneWidget);
+      expect(find.text(ar.documentNoteDeleteConfirmMessage), findsOneWidget);
+    });
+
+    // Delete document (F08-T11).
+    testWidgets('overflow menu shows the delete action', (tester) async {
+      repository.emitDocument(savedDocumentWith());
+      cubit.start();
+
+      await pumpScreen(tester);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.documentDeleteAction), findsOneWidget);
+    });
+
+    testWidgets('delete action shows a confirmation dialog', (tester) async {
+      repository.emitDocument(savedDocumentWith());
+      cubit.start();
+
+      await pumpScreen(tester);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.documentDeleteAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.documentDeleteConfirmTitle), findsOneWidget);
+      expect(find.text(ar.documentDeleteConfirmMessage), findsOneWidget);
+    });
+
+    testWidgets('cancelling the delete dialog does nothing', (tester) async {
+      repository.emitDocument(savedDocumentWith());
+      cubit.start();
+
+      await pumpScreen(tester);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.documentDeleteAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.actionCancel));
+      await tester.pumpAndSettle();
+
+      expect(repository.lastDeletedId, isNull);
+    });
+
+    testWidgets('confirming delete calls the cubit and fires onClose', (
+      tester,
+    ) async {
+      repository.emitDocument(savedDocumentWith());
+      cubit.start();
+      var closed = 0;
+
+      await pumpScreen(tester, onClose: () => closed++);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.documentDeleteAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.actionDelete));
+      await tester.pumpAndSettle();
+
+      expect(repository.lastDeletedId, 'doc-1');
+      expect(closed, 1);
+      expect(find.text(ar.documentDeleted), findsOneWidget);
+    });
+
+    testWidgets('shows error feedback when delete fails', (tester) async {
+      repository.deleteOutcome = const Err(LocalDatabaseFailure());
+      repository.emitDocument(savedDocumentWith());
+      cubit.start();
+      var closed = 0;
+
+      await pumpScreen(tester, onClose: () => closed++);
+      await tester.tap(find.byIcon(Icons.more_vert));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.documentDeleteAction));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.actionDelete));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.documentDeleteError), findsOneWidget);
+      expect(closed, 0, reason: 'should not navigate away on failure');
     });
   });
 }

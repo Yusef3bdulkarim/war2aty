@@ -174,7 +174,18 @@ final class _FakeRepository implements DocumentsRepository {
   }
 
   @override
+  Future<Result<void, AppFailure>> updateDocument(
+    String id, {
+    String? title,
+    DocumentCategory? category,
+  }) async => const Ok(null);
+
+  @override
   Future<Result<void, AppFailure>> setNote(String id, String? note) async =>
+      const Ok(null);
+
+  @override
+  Future<Result<void, AppFailure>> deleteDocument(String id) async =>
       const Ok(null);
 }
 

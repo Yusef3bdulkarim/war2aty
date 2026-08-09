@@ -89,6 +89,25 @@ final class DriftDocumentsRepository
   }
 
   @override
+  Future<Result<void, AppFailure>> updateDocument(
+    String id, {
+    String? title,
+    DocumentCategory? category,
+  }) async {
+    try {
+      await _dao.updateDocument(
+        id,
+        title: title,
+        category: category,
+        updatedAt: _now(),
+      );
+      return const Ok(null);
+    } on Object {
+      return const Err(LocalDatabaseFailure());
+    }
+  }
+
+  @override
   Future<Result<void, AppFailure>> setNote(String id, String? note) async {
     try {
       await _dao.setNote(id, note, updatedAt: _now());
@@ -141,6 +160,21 @@ final class DriftDocumentsRepository
       ),
       err: (failure) async => Err(failure),
     );
+  }
+
+  @override
+  Future<Result<void, AppFailure>> deleteDocument(String id) async {
+    try {
+      // The encrypted image lives on disk, outside the database cascade — the
+      // store no-ops when there is nothing to remove, so calling it
+      // unconditionally is safe and avoids a read-then-delete race.
+      await _images.delete(id);
+      await _dao.deleteDocument(id);
+      // TODO(F09): cancel a linked local notification here once reminders land.
+      return const Ok(null);
+    } on Object {
+      return const Err(LocalDatabaseFailure());
+    }
   }
 
   Future<Result<String, AppFailure>> _writeRow({
