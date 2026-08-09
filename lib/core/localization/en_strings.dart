@@ -641,4 +641,44 @@ final class EnStrings implements AppStrings {
   String get confidenceReview => 'Please double-check';
   @override
   String get confidenceUncertain => 'Uncertain reading';
+
+  // Reminder form (F09-T02)
+  @override
+  String get reminderFormTitleLabel => 'Reminder title';
+  @override
+  String get reminderFromDocumentInfoHeading => 'From the document';
+  @override
+  String get reminderEventDateLabel => 'Event date';
+  @override
+  String get reminderEventTimeLabel => 'Event time';
+  @override
+  String get reminderEventTimeMissing => 'Not on the document';
+  @override
+  String get reminderAlertsSectionLabel => 'Alert times';
+  @override
+  String get reminderAddAnotherAlert => 'Add another alert';
+  @override
+  String get reminderRemoveAlertLabel => 'Remove this alert';
+  @override
+  String get reminderNoteLabel => 'Note';
+  @override
+  String get reminderNoteHint => 'Add anything you need to remember.';
+  @override
+  String get reminderLinkedDocumentSectionLabel => 'Link a saved document';
+  @override
+  String get reminderLinkedDocumentValueLabel => 'Linked to';
+  @override
+  String get reminderSaveAction => 'Save reminder';
+  @override
+  String get reminderAlertOffsetThreeDays => '3 days before';
+  @override
+  String get reminderAlertOffsetOneDay => '1 day before';
+  @override
+  String get reminderAlertOffsetTwoHours => '2 hours before';
+  @override
+  String get reminderAlertOffsetAtEventTime => 'At the event time';
+  @override
+  String get reminderAlertOffsetCustom => 'Custom time';
+  @override
+  String get reminderAlertPickerTitle => 'Choose an alert time';
 }

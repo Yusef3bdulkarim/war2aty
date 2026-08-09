@@ -509,4 +509,50 @@ abstract interface class AppStrings {
   /// document as a whole.
   String get confidenceReview;
   String get confidenceUncertain;
+
+  // Reminder form (F09-T02) — shared by "create from a document date"
+  // (F09-T03) and "add manually" (F09-T04).
+  String get reminderFormTitleLabel;
+
+  /// Heads the read-only card showing what the paper said — only present
+  /// when the reminder was created from a document's date.
+  String get reminderFromDocumentInfoHeading;
+
+  String get reminderEventDateLabel;
+  String get reminderEventTimeLabel;
+
+  /// Said in place of a time the paper never gave (F09-T06) — never a
+  /// guessed hour.
+  String get reminderEventTimeMissing;
+
+  String get reminderAlertsSectionLabel;
+  String get reminderAddAnotherAlert;
+
+  /// Read by assistive technology on the small "×" next to an alert —
+  /// [reminderAddAnotherAlert] says what adding one does, this says what
+  /// removing one does.
+  String get reminderRemoveAlertLabel;
+
+  String get reminderNoteLabel;
+  String get reminderNoteHint;
+
+  String get reminderLinkedDocumentSectionLabel;
+  String get reminderLinkedDocumentValueLabel;
+
+  String get reminderSaveAction;
+
+  /// Quick offsets the alert picker offers when the event has a known time
+  /// (F09-T05) — a reminder is never scheduled without the user choosing one
+  /// of these or [reminderAlertOffsetCustom].
+  String get reminderAlertOffsetThreeDays;
+  String get reminderAlertOffsetOneDay;
+  String get reminderAlertOffsetTwoHours;
+  String get reminderAlertOffsetAtEventTime;
+
+  /// Picks an exact date and time by hand — the only option offered at all
+  /// when the paper gave no event time (F09-T06), since there is nothing to
+  /// offset from.
+  String get reminderAlertOffsetCustom;
+
+  String get reminderAlertPickerTitle;
 }

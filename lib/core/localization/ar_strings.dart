@@ -640,4 +640,44 @@ final class ArStrings implements AppStrings {
   String get confidenceReview => 'راجع المعلومة';
   @override
   String get confidenceUncertain => 'قراءة غير مؤكدة';
+
+  // Reminder form (F09-T02)
+  @override
+  String get reminderFormTitleLabel => 'عنوان التذكير';
+  @override
+  String get reminderFromDocumentInfoHeading => 'معلومات من الورقة';
+  @override
+  String get reminderEventDateLabel => 'تاريخ الحدث';
+  @override
+  String get reminderEventTimeLabel => 'وقت الحدث';
+  @override
+  String get reminderEventTimeMissing => 'غير موجود في الورقة';
+  @override
+  String get reminderAlertsSectionLabel => 'مواعيد التنبيه';
+  @override
+  String get reminderAddAnotherAlert => 'إضافة تنبيه تاني';
+  @override
+  String get reminderRemoveAlertLabel => 'احذف هذا التنبيه';
+  @override
+  String get reminderNoteLabel => 'ملاحظة';
+  @override
+  String get reminderNoteHint => 'ضيف أي تفاصيل محتاج تفتكرها.';
+  @override
+  String get reminderLinkedDocumentSectionLabel => 'ربط بمستند محفوظ';
+  @override
+  String get reminderLinkedDocumentValueLabel => 'مرتبط بـ';
+  @override
+  String get reminderSaveAction => 'حفظ التذكير';
+  @override
+  String get reminderAlertOffsetThreeDays => 'قبل الموعد بـ3 أيام';
+  @override
+  String get reminderAlertOffsetOneDay => 'قبل الموعد بيوم';
+  @override
+  String get reminderAlertOffsetTwoHours => 'قبل الموعد بساعتين';
+  @override
+  String get reminderAlertOffsetAtEventTime => 'في نفس الموعد';
+  @override
+  String get reminderAlertOffsetCustom => 'وقت مخصص';
+  @override
+  String get reminderAlertPickerTitle => 'اختار موعد التنبيه';
 }
