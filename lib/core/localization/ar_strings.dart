@@ -680,4 +680,12 @@ final class ArStrings implements AppStrings {
   String get reminderAlertOffsetCustom => 'وقت مخصص';
   @override
   String get reminderAlertPickerTitle => 'اختار موعد التنبيه';
+  @override
+  String get reminderCreateScreenTitle => 'إنشاء تذكير';
+  @override
+  String get reminderAddAction => 'إضافة تذكير';
+  @override
+  String get reminderSuccessTitle => 'تم إنشاء التذكير بنجاح.';
+  @override
+  String get reminderSuccessViewAction => 'عرض التذكير';
 }

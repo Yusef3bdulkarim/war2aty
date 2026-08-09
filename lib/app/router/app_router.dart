@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/documents/analysis_date.dart';
 import '../../core/documents/recent_document.dart';
 import '../../core/localization/app_localizations.dart';
+import '../../core/reminders/reminder.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
@@ -28,9 +30,15 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
+import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
+import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
+import '../../features/reminders/presentation/screens/reminder_form_screen.dart';
+import '../../features/reminders/presentation/screens/reminder_success_screen.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/document_details_state.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/save_document_state.dart';
 import '../../features/saved_papers/presentation/screens/document_details_screen.dart';
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
@@ -52,6 +60,9 @@ abstract final class AppRoutes {
   static const String ocr = '/ocr';
   static const String result = '/result';
   static const String documentDetails = '/documents';
+  static const String reminderCreate = '/reminders/create';
+  static const String reminderManual = '/reminders/manual';
+  static const String reminderSuccess = '/reminders/success';
 
   /// The first-run flow, which sits outside the bottom-nav shell.
   static const Set<String> firstRun = {onboarding, privacy};
@@ -192,6 +203,8 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                     AppRoutes.captureWith(CaptureSource.camera),
                   ),
                   onSave: () => unawaited(_saveResult(context, session)),
+                  onCreateReminder: (date) =>
+                      _startReminderFromDate(context, date),
                 ),
               ),
             ),
@@ -209,7 +222,48 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
 
           return BlocProvider<DocumentDetailsCubit>(
             create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
-            child: DocumentDetailsScreen(onClose: context.pop),
+            child: DocumentDetailsScreen(
+              onClose: context.pop,
+              onCreateReminder: (date) =>
+                  _startReminderFromDocumentDate(context, date),
+            ),
+          );
+        },
+      ),
+      // The reminder flows (F09): their own back control, opened from the
+      // result/details screens above or, once F09-T04/T11 land, from the
+      // reminders tab.
+      GoRoute(
+        path: AppRoutes.reminderCreate,
+        builder: (context, state) {
+          final args = state.extra;
+          if (args is! ReminderFromDocumentArgs) return const _BackToHome();
+
+          return BlocProvider<ReminderFormCubit>(
+            create: (_) => getIt<ReminderFormCubit>(param1: args),
+            child: ReminderFormScreen(
+              screenTitle: context.strings.reminderCreateScreenTitle,
+              onClose: context.pop,
+              onSaved: (reminder) => context.pushReplacement(
+                AppRoutes.reminderSuccess,
+                extra: reminder,
+              ),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.reminderSuccess,
+        builder: (context, state) {
+          final reminder = state.extra;
+          if (reminder is! Reminder) return const _BackToHome();
+
+          return ReminderSuccessScreen(
+            reminder: reminder,
+            // Both destinations land wherever F09-T11/T12 build them; for
+            // now the success screen's own buttons just leave the flow.
+            onViewReminder: () => context.go(AppRoutes.home),
+            onClose: () => context.go(AppRoutes.home),
           );
         },
       ),
@@ -394,6 +448,62 @@ Future<void> _saveResult(BuildContext context, AnalysisSession session) async {
     imagePath: mode == DocumentStorageMode.withImage ? session.imagePath : null,
   );
 }
+
+/// Starts the create-from-document reminder form (F09-T03) for [date], from
+/// the fresh result screen.
+///
+/// Opportunistically links to the document if it has already been saved
+/// earlier in this same session ([SaveDocumentCubit.state]) — a reminder
+/// does not require the paper to be saved, but if it already was, there is
+/// no reason to leave the two unconnected.
+void _startReminderFromDate(BuildContext context, AnalysisDate date) {
+  final resultState = context.read<AnalysisResultCubit>().state;
+  if (resultState is! AnalysisResultReady) return;
+
+  final saveState = context.read<SaveDocumentCubit>().state;
+  final documentId = saveState is SaveDocumentSaved
+      ? saveState.documentId
+      : null;
+  final title = resultState.result.analysis.title;
+
+  context.push(
+    AppRoutes.reminderCreate,
+    extra: ReminderFromDocumentArgs(
+      documentId: documentId,
+      documentTitle: documentId == null ? null : title,
+      title: title,
+      eventDate: date.date,
+      eventMinuteOfDay: _minuteOfDayOf(date.time),
+    ),
+  );
+}
+
+/// Starts the create-from-document reminder form (F09-T03) for [date], from
+/// an already-saved document's details screen — always linked, since the
+/// document this reads from is right there.
+void _startReminderFromDocumentDate(BuildContext context, AnalysisDate date) {
+  final state = context.read<DocumentDetailsCubit>().state;
+  if (state is! DocumentDetailsAvailable) return;
+
+  final document = state.document;
+  context.push(
+    AppRoutes.reminderCreate,
+    extra: ReminderFromDocumentArgs(
+      documentId: document.id,
+      documentTitle: document.analysis.title,
+      title: document.analysis.title,
+      eventDate: date.date,
+      eventMinuteOfDay: _minuteOfDayOf(date.time),
+    ),
+  );
+}
+
+/// [AnalysisTime] as minutes since midnight, the shape a reminder's event
+/// time is stored in — the reverse of `document_write_mapper.dart`'s own
+/// copy of the same conversion, kept private here since routing is the only
+/// place a date crosses from one shape to the other.
+int? _minuteOfDayOf(AnalysisTime? time) =>
+    time == null ? null : time.hour * 60 + time.minute;
 
 /// Adapts a Cubit's [Stream] to the [Listenable] `GoRouter` expects, so gate
 /// changes re-run the redirect.

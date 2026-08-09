@@ -45,3 +45,15 @@ DateTime cairoInstant(
   int hour = 0,
   int minute = 0,
 ]) => DateTime.utc(year, month, day, hour, minute).subtract(kCairoUtcOffset);
+
+/// [cairoInstant], from a calendar day plus minutes-since-midnight — the
+/// shape `Reminders.eventDate`/`eventMinuteOfDay` are stored in. Shared by
+/// `Reminder.eventInstant` and the reminder form's own copy of the same
+/// combination, so a reminder's event instant is computed exactly one way.
+DateTime cairoInstantOf(DateTime date, int minuteOfDay) => cairoInstant(
+  date.year,
+  date.month,
+  date.day,
+  minuteOfDay ~/ 60,
+  minuteOfDay % 60,
+);

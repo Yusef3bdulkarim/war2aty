@@ -11,6 +11,7 @@ import '../../core/crypto/document_encryption_key_store.dart';
 import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/documents_dao.dart';
+import '../../core/database/daos/reminders_dao.dart';
 import '../../core/documents/document_image_store.dart';
 import '../../core/documents/documents_repository.dart';
 import '../../core/documents/drift_documents_repository.dart';
@@ -36,9 +37,13 @@ import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
+import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/reminder_scheduler.dart';
+import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
+import '../../core/reminders/usecases/create_manual_reminder.dart';
+import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
 import '../../core/storage/analysis_session.dart';
@@ -115,6 +120,8 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
+import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
@@ -140,6 +147,7 @@ Future<void> configureDependencies(
   _registerOcr();
   _registerAnalysis(env);
   _registerSavedPapers();
+  _registerReminders();
   _registerRouting();
 }
 
@@ -505,6 +513,43 @@ void _registerSavedPapers() {
         getIt(),
         documentId: documentId,
       ),
+    );
+}
+
+void _registerReminders() {
+  getIt
+    ..registerLazySingleton<RemindersDao>(
+      () => getIt<AppDatabase>().remindersDao,
+    )
+    ..registerLazySingleton<DriftRemindersRepository>(
+      () => DriftRemindersRepository(getIt()),
+    )
+    ..registerLazySingleton<RemindersRepository>(
+      getIt.call<DriftRemindersRepository>,
+    )
+    ..registerFactory<CreateReminderFromDocumentDate>(
+      () => CreateReminderFromDocumentDate(getIt()),
+    )
+    ..registerFactory<CreateManualReminder>(() => CreateManualReminder(getIt()))
+    // From a document's date (F09-T03): one cubit per opened form, seeded
+    // with what the router already knows (the chosen date, and the document
+    // it came from, if any).
+    ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
+      (args, _) => ReminderFormCubit.fromDocument(
+        createFromDocumentDate: getIt(),
+        createManual: getIt(),
+        args: args,
+      ),
+    )
+    // Manual (F09-T04): a distinct registration under the same type, since
+    // it starts from nothing rather than from router args — `instanceName`
+    // is how get_it tells the two apart.
+    ..registerFactory<ReminderFormCubit>(
+      () => ReminderFormCubit.manual(
+        createFromDocumentDate: getIt(),
+        createManual: getIt(),
+      ),
+      instanceName: manualReminderFormInstanceName,
     );
 }
 

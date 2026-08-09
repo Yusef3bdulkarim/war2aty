@@ -555,4 +555,15 @@ abstract interface class AppStrings {
   String get reminderAlertOffsetCustom;
 
   String get reminderAlertPickerTitle;
+
+  // Reminder create-from-document (F09-T03) and manual (F09-T04) screen
+  // titles, and the success screen after either saves.
+  String get reminderCreateScreenTitle;
+
+  /// Also the manual screen's own title — the design gives the header
+  /// button and the screen it opens the exact same words.
+  String get reminderAddAction;
+
+  String get reminderSuccessTitle;
+  String get reminderSuccessViewAction;
 }

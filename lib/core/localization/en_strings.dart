@@ -681,4 +681,12 @@ final class EnStrings implements AppStrings {
   String get reminderAlertOffsetCustom => 'Custom time';
   @override
   String get reminderAlertPickerTitle => 'Choose an alert time';
+  @override
+  String get reminderCreateScreenTitle => 'Create reminder';
+  @override
+  String get reminderAddAction => 'Add reminder';
+  @override
+  String get reminderSuccessTitle => 'Reminder created.';
+  @override
+  String get reminderSuccessViewAction => 'View reminder';
 }

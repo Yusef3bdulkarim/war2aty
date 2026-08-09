@@ -70,13 +70,7 @@ final class Reminder {
   DateTime? get eventInstant {
     final minute = eventMinuteOfDay;
     if (minute == null) return null;
-    return cairoInstant(
-      eventDate.year,
-      eventDate.month,
-      eventDate.day,
-      minute ~/ 60,
-      minute % 60,
-    );
+    return cairoInstantOf(eventDate, minute);
   }
 
   /// The soonest alert still expected to fire, or `null` once every alert has

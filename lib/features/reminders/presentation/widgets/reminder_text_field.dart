@@ -27,6 +27,7 @@ class ReminderTextField extends StatelessWidget {
     this.minLines = 1,
     this.maxLines = 1,
     this.required = false,
+    this.onChanged,
     super.key,
   });
 
@@ -39,6 +40,11 @@ class ReminderTextField extends StatelessWidget {
   /// Marks the label with the design's red asterisk — the manual form's
   /// title and date/time are required, the note never is.
   final bool required;
+
+  /// Pushes every keystroke to the form cubit, which is the source of truth
+  /// for [ReminderFormEditing.canSave] — the controller alone only drives
+  /// this widget's own rendering.
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +76,7 @@ class ReminderTextField extends StatelessWidget {
           const SizedBox(height: _labelGapBelow),
           TextField(
             controller: controller,
+            onChanged: onChanged,
             minLines: minLines,
             maxLines: maxLines,
             textInputAction: maxLines == 1
