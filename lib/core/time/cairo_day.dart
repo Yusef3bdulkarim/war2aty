@@ -30,3 +30,18 @@ DateTime nextCairoResetAfter(DateTime instant) {
     instant,
   ).add(const Duration(days: 1)).subtract(kCairoUtcOffset);
 }
+
+/// The reverse of [cairoLocalOf]: the real UTC instant at which the Cairo
+/// wall clock reads [year]-[month]-[day] [hour]:[minute].
+///
+/// Reminders (F09) store *when a person means*, said in Cairo time — "24
+/// August, 10 in the morning" — and have to turn that into an instant the OS
+/// scheduler can fire on. This is the one place that conversion happens, so
+/// every alert time is computed the same way.
+DateTime cairoInstant(
+  int year,
+  int month,
+  int day, [
+  int hour = 0,
+  int minute = 0,
+]) => DateTime.utc(year, month, day, hour, minute).subtract(kCairoUtcOffset);
