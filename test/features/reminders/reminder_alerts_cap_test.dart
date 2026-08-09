@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
 import 'package:war2aty/core/reminders/alert_time_offset.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
@@ -22,11 +24,21 @@ void main() {
   late FakeRemindersRepository repository;
   late CreateReminderFromDocumentDate createFromDocumentDate;
   late CreateManualReminder createManual;
+  late GetNotificationPermission getNotificationPermission;
+  late RequestNotificationPermission requestNotificationPermission;
 
   setUp(() {
     repository = FakeRemindersRepository();
     createFromDocumentDate = CreateReminderFromDocumentDate(repository);
     createManual = CreateManualReminder(repository);
+    final notificationPermissionRepository =
+        FakeNotificationPermissionRepository();
+    getNotificationPermission = GetNotificationPermission(
+      notificationPermissionRepository,
+    );
+    requestNotificationPermission = RequestNotificationPermission(
+      notificationPermissionRepository,
+    );
   });
 
   final eventInstant = DateTime.utc(2026, 8, 25, 8); // 10:00 Cairo.
@@ -34,6 +46,8 @@ void main() {
   ReminderFormCubit buildCubit() => ReminderFormCubit.fromDocument(
     createFromDocumentDate: createFromDocumentDate,
     createManual: createManual,
+    getNotificationPermission: getNotificationPermission,
+    requestNotificationPermission: requestNotificationPermission,
     args: ReminderFromDocumentArgs(
       title: 'دفع فاتورة الكهرباء',
       eventDate: DateTime(2026, 8, 25),

@@ -35,8 +35,12 @@ import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
+import '../../core/permissions/notification_permission_repository.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
+import '../../core/permissions/system_notification_permission_repository.dart';
+import '../../core/permissions/usecases/get_notification_permission.dart';
+import '../../core/permissions/usecases/request_notification_permission.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/reminders/reminders_repository.dart';
@@ -531,6 +535,17 @@ void _registerReminders() {
       () => CreateReminderFromDocumentDate(getIt()),
     )
     ..registerFactory<CreateManualReminder>(() => CreateManualReminder(getIt()))
+    // F09-T09. Reuses the `PermissionService` singleton `_registerCapture`
+    // already set up — one plugin boundary for every runtime permission.
+    ..registerLazySingleton<NotificationPermissionRepository>(
+      () => SystemNotificationPermissionRepository(getIt()),
+    )
+    ..registerFactory<GetNotificationPermission>(
+      () => GetNotificationPermission(getIt()),
+    )
+    ..registerFactory<RequestNotificationPermission>(
+      () => RequestNotificationPermission(getIt()),
+    )
     // From a document's date (F09-T03): one cubit per opened form, seeded
     // with what the router already knows (the chosen date, and the document
     // it came from, if any).
@@ -538,6 +553,8 @@ void _registerReminders() {
       (args, _) => ReminderFormCubit.fromDocument(
         createFromDocumentDate: getIt(),
         createManual: getIt(),
+        getNotificationPermission: getIt(),
+        requestNotificationPermission: getIt(),
         args: args,
       ),
     )
@@ -548,6 +565,8 @@ void _registerReminders() {
       () => ReminderFormCubit.manual(
         createFromDocumentDate: getIt(),
         createManual: getIt(),
+        getNotificationPermission: getIt(),
+        requestNotificationPermission: getIt(),
       ),
       instanceName: manualReminderFormInstanceName,
     );

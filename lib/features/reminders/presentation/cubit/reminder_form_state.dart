@@ -129,6 +129,27 @@ final class ReminderFormEditing extends ReminderFormState {
   );
 }
 
+/// The form is ready to save, but notifications are not yet granted
+/// (F09-T09) — the screen shows the permission sheet, then calls back into
+/// [ReminderFormCubit.allowNotificationsAndSave] or
+/// [ReminderFormCubit.saveWithoutNotifications] with [editing] unchanged.
+/// Either way the reminder is written; only whether the OS asks first
+/// differs.
+final class ReminderFormNeedsNotificationPermission extends ReminderFormState {
+  const ReminderFormNeedsNotificationPermission(this.editing);
+
+  final ReminderFormEditing editing;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ReminderFormNeedsNotificationPermission &&
+          other.editing == editing;
+
+  @override
+  int get hashCode => editing.hashCode;
+}
+
 /// The reminder was written. [reminder] is what the success screen (F09-T03)
 /// and the details screen it opens into (F09-T12) show.
 final class ReminderFormSaved extends ReminderFormState {

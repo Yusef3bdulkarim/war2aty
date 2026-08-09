@@ -4,6 +4,10 @@
     <!-- Required from F06-T14: the app calls Supabase Anonymous Auth and the
          analysis Edge Function. Only extracted TEXT is ever sent (§7). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+ (API 33) requires this as a runtime permission before any
+         notification can show — requested once, right before the first
+         reminder that needs one is saved (F09-T09), never during onboarding. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- The app is usable without a camera (gallery fallback), so a device
          without one must still be able to install it. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>

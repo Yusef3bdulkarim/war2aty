@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
@@ -18,11 +20,21 @@ void main() {
   late FakeRemindersRepository repository;
   late CreateReminderFromDocumentDate createFromDocumentDate;
   late CreateManualReminder createManual;
+  late GetNotificationPermission getNotificationPermission;
+  late RequestNotificationPermission requestNotificationPermission;
 
   setUp(() {
     repository = FakeRemindersRepository();
     createFromDocumentDate = CreateReminderFromDocumentDate(repository);
     createManual = CreateManualReminder(repository);
+    final notificationPermissionRepository =
+        FakeNotificationPermissionRepository();
+    getNotificationPermission = GetNotificationPermission(
+      notificationPermissionRepository,
+    );
+    requestNotificationPermission = RequestNotificationPermission(
+      notificationPermissionRepository,
+    );
   });
 
   Future<void> pumpScreen(
@@ -48,6 +60,8 @@ void main() {
     final cubit = ReminderFormCubit.fromDocument(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
       args: ReminderFromDocumentArgs(
         title: 'دفع فاتورة الكهرباء',
         eventDate: DateTime(2026, 8, 25),
@@ -66,6 +80,8 @@ void main() {
     final cubit = ReminderFormCubit.fromDocument(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
       args: ReminderFromDocumentArgs(
         documentId: 'doc-1',
         documentTitle: 'فاتورة كهرباء شهر أغسطس',
@@ -87,6 +103,8 @@ void main() {
     final cubit = ReminderFormCubit.manual(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
     );
     addTearDown(cubit.close);
 
@@ -104,6 +122,8 @@ void main() {
       final cubit = ReminderFormCubit.manual(
         createFromDocumentDate: createFromDocumentDate,
         createManual: createManual,
+        getNotificationPermission: getNotificationPermission,
+        requestNotificationPermission: requestNotificationPermission,
       );
       addTearDown(cubit.close);
 
@@ -120,6 +140,8 @@ void main() {
       final cubit = ReminderFormCubit.manual(
         createFromDocumentDate: createFromDocumentDate,
         createManual: createManual,
+        getNotificationPermission: getNotificationPermission,
+        requestNotificationPermission: requestNotificationPermission,
       );
       addTearDown(cubit.close);
 
@@ -144,6 +166,8 @@ void main() {
     final cubit = ReminderFormCubit.fromDocument(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
       args: ReminderFromDocumentArgs(
         title: 'دفع فاتورة الكهرباء',
         eventDate: DateTime(2026, 8, 25),
@@ -164,6 +188,8 @@ void main() {
     final cubit = ReminderFormCubit.manual(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
     );
     addTearDown(cubit.close);
 

@@ -1,8 +1,11 @@
 /// Runtime permissions the app asks the user for.
-///
-/// Only what the app actually requests today. F09 adds `notifications` here
-/// when reminders need it — the rest of this file does not change.
-enum AppPermission { camera }
+enum AppPermission {
+  camera,
+
+  /// Asked once, right before the first reminder is saved (F09-T09) — never
+  /// during onboarding.
+  notifications,
+}
 
 /// Where a permission currently stands, collapsed to the three cases the UI
 /// has to behave differently for.

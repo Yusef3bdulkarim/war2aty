@@ -704,4 +704,13 @@ final class ArStrings implements AppStrings {
   String get reminderTimeLabel => 'الوقت';
   @override
   String get reminderTimePickHint => 'اختار الوقت';
+  @override
+  String get reminderNotifPermTitle => 'اسمح بالتنبيهات';
+  @override
+  String get reminderNotifPermMessage =>
+      'علشان نفتكرك بالموعد في الوقت اللي اخترته.';
+  @override
+  String get reminderNotifPermAllow => 'السماح بالتنبيهات';
+  @override
+  String get reminderNotifPermSaveWithout => 'حفظ بدون تنبيه';
 }

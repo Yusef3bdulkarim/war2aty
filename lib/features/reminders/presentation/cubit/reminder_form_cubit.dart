@@ -1,5 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/permissions/permission_service.dart';
+import '../../../../core/permissions/usecases/get_notification_permission.dart';
+import '../../../../core/permissions/usecases/request_notification_permission.dart';
 import '../../../../core/reminders/alert_time_offset.dart';
 import '../../../../core/reminders/usecases/create_manual_reminder.dart';
 import '../../../../core/reminders/usecases/create_reminder_from_document_date.dart';
@@ -29,9 +32,13 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
   ReminderFormCubit.fromDocument({
     required CreateReminderFromDocumentDate createFromDocumentDate,
     required CreateManualReminder createManual,
+    required GetNotificationPermission getNotificationPermission,
+    required RequestNotificationPermission requestNotificationPermission,
     required ReminderFromDocumentArgs args,
   }) : _createFromDocumentDate = createFromDocumentDate,
        _createManual = createManual,
+       _getNotificationPermission = getNotificationPermission,
+       _requestNotificationPermission = requestNotificationPermission,
        super(
          ReminderFormEditing(
            title: args.title,
@@ -49,12 +56,18 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
   ReminderFormCubit.manual({
     required CreateReminderFromDocumentDate createFromDocumentDate,
     required CreateManualReminder createManual,
+    required GetNotificationPermission getNotificationPermission,
+    required RequestNotificationPermission requestNotificationPermission,
   }) : _createFromDocumentDate = createFromDocumentDate,
        _createManual = createManual,
+       _getNotificationPermission = getNotificationPermission,
+       _requestNotificationPermission = requestNotificationPermission,
        super(const ReminderFormEditing(title: '', isManual: true));
 
   final CreateReminderFromDocumentDate _createFromDocumentDate;
   final CreateManualReminder _createManual;
+  final GetNotificationPermission _getNotificationPermission;
+  final RequestNotificationPermission _requestNotificationPermission;
 
   void setTitle(String title) => _edit((s) => s.copyWith(title: title));
 
@@ -80,26 +93,71 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
   void removeAlertAt(int index) =>
       _edit((s) => s.copyWith(alerts: [...s.alerts]..removeAt(index)));
 
+  /// Starts the save. Notifications granted already: writes straight
+  /// through. Not yet: stops at [ReminderFormNeedsNotificationPermission]
+  /// instead, for the screen to show the permission sheet (F09-T09) — the
+  /// write itself happens once the user answers it, via
+  /// [allowNotificationsAndSave] or [saveWithoutNotifications].
   Future<void> save() async {
     final current = state;
     if (current is! ReminderFormEditing || !current.canSave) return;
-    emit(current.copyWith(isSaving: true));
 
-    final alertTimes = [for (final alert in current.alerts) alert.time];
-    final outcome = current.isManual
+    final permission = await _getNotificationPermission();
+    if (isClosed) return;
+
+    if (permission.valueOrNull == PermissionOutcome.granted) {
+      await _persist(current);
+    } else {
+      emit(ReminderFormNeedsNotificationPermission(current));
+    }
+  }
+
+  /// The permission sheet's «السماح بالتنبيهات» — asks the OS, then writes
+  /// the reminder regardless of the answer (F09-T09): declining only means
+  /// no OS notification ever fires for it, not that saving fails.
+  Future<void> allowNotificationsAndSave() async {
+    final current = state;
+    if (current is! ReminderFormNeedsNotificationPermission) return;
+    await _requestNotificationPermission();
+    if (isClosed) return;
+    await _persist(current.editing);
+  }
+
+  /// The permission sheet's «حفظ بدون تنبيه» — writes the reminder without
+  /// asking for notifications at all.
+  Future<void> saveWithoutNotifications() async {
+    final current = state;
+    if (current is! ReminderFormNeedsNotificationPermission) return;
+    await _persist(current.editing);
+  }
+
+  /// The permission sheet was dismissed without a choice — back to editing,
+  /// nothing written.
+  void cancelNotificationPermissionPrompt() {
+    final current = state;
+    if (current is ReminderFormNeedsNotificationPermission) {
+      emit(current.editing);
+    }
+  }
+
+  Future<void> _persist(ReminderFormEditing editing) async {
+    emit(editing.copyWith(isSaving: true));
+
+    final alertTimes = [for (final alert in editing.alerts) alert.time];
+    final outcome = editing.isManual
         ? await _createManual(
-            title: current.title.trim(),
-            description: _normalized(current.description),
-            eventDate: current.eventDate!,
-            eventMinuteOfDay: current.eventMinuteOfDay,
+            title: editing.title.trim(),
+            description: _normalized(editing.description),
+            eventDate: editing.eventDate!,
+            eventMinuteOfDay: editing.eventMinuteOfDay,
             alertTimes: alertTimes,
           )
         : await _createFromDocumentDate(
-            documentId: current.documentId,
-            title: current.title.trim(),
-            description: _normalized(current.description),
-            eventDate: current.eventDate!,
-            eventMinuteOfDay: current.eventMinuteOfDay,
+            documentId: editing.documentId,
+            title: editing.title.trim(),
+            description: _normalized(editing.description),
+            eventDate: editing.eventDate!,
+            eventMinuteOfDay: editing.eventMinuteOfDay,
             alertTimes: alertTimes,
           );
     if (isClosed) return;
@@ -108,7 +166,7 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
       outcome.when(
         ok: ReminderFormSaved.new,
         err: (failure) =>
-            ReminderFormSaveFailed(current.copyWith(isSaving: false), failure),
+            ReminderFormSaveFailed(editing.copyWith(isSaving: false), failure),
       ),
     );
   }

@@ -705,4 +705,13 @@ final class EnStrings implements AppStrings {
   String get reminderTimeLabel => 'Time';
   @override
   String get reminderTimePickHint => 'Choose a time';
+  @override
+  String get reminderNotifPermTitle => 'Allow notifications';
+  @override
+  String get reminderNotifPermMessage =>
+      'So we can remind you at the time you chose.';
+  @override
+  String get reminderNotifPermAllow => 'Allow notifications';
+  @override
+  String get reminderNotifPermSaveWithout => 'Save without a notification';
 }

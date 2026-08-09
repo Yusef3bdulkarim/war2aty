@@ -22,6 +22,7 @@ import 'package:war2aty/core/documents/saved_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/locale_store.dart';
 import 'package:war2aty/core/logging/log_sink.dart';
+import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/reminder_alert.dart';
@@ -184,6 +185,35 @@ final class FakeCameraPermissionRepository
   Future<Result<bool, AppFailure>> openSettings() async {
     openSettingsCount++;
     return fails ? const Err(CameraPermissionFailure()) : const Ok(true);
+  }
+}
+
+/// In-memory [NotificationPermissionRepository] (F09-T09), the same shape as
+/// [FakeCameraPermissionRepository].
+final class FakeNotificationPermissionRepository
+    implements NotificationPermissionRepository {
+  FakeNotificationPermissionRepository({
+    this.status = PermissionOutcome.granted,
+    PermissionOutcome? afterRequest,
+    this.fails = false,
+  }) : afterRequest = afterRequest ?? status;
+
+  PermissionOutcome status;
+  PermissionOutcome afterRequest;
+  final bool fails;
+
+  int requestCount = 0;
+
+  @override
+  Future<Result<PermissionOutcome, AppFailure>> currentStatus() async =>
+      fails ? const Err(NotificationPermissionFailure()) : Ok(status);
+
+  @override
+  Future<Result<PermissionOutcome, AppFailure>> request() async {
+    requestCount++;
+    if (fails) return const Err(NotificationPermissionFailure());
+    status = afterRequest;
+    return Ok(status);
   }
 }
 

@@ -10,6 +10,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/time/cairo_day.dart';
 import '../cubit/reminder_form_cubit.dart';
 import '../cubit/reminder_form_state.dart';
+import '../widgets/notification_permission_sheet.dart';
 import '../widgets/reminder_alert_list_section.dart';
 import '../widgets/reminder_date_time_pickers.dart';
 import '../widgets/reminder_event_info_card.dart';
@@ -84,14 +85,30 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
     const colors = AppColors.light;
 
     return BlocConsumer<ReminderFormCubit, ReminderFormState>(
-      listenWhen: (_, state) => state is ReminderFormSaved,
+      listenWhen: (_, state) =>
+          state is ReminderFormSaved ||
+          state is ReminderFormNeedsNotificationPermission,
       listener: (context, state) {
-        if (state is ReminderFormSaved) widget.onSaved?.call(state.reminder);
+        if (state is ReminderFormSaved) {
+          widget.onSaved?.call(state.reminder);
+        } else if (state is ReminderFormNeedsNotificationPermission) {
+          final cubit = context.read<ReminderFormCubit>();
+          showNotificationPermissionSheet(
+            context,
+            onAllow: cubit.allowNotificationsAndSave,
+            onSaveWithout: cubit.saveWithoutNotifications,
+          ).then((_) {
+            // Dismissed by tapping the scrim rather than either button —
+            // back to editing instead of leaving the cubit stuck waiting.
+            if (!cubit.isClosed) cubit.cancelNotificationPermissionPrompt();
+          });
+        }
       },
       builder: (context, state) {
         final editing = switch (state) {
           ReminderFormEditing() => state,
           ReminderFormSaveFailed(:final editing) => editing,
+          ReminderFormNeedsNotificationPermission(:final editing) => editing,
           // The listener above navigates away the same frame; nothing here
           // is shown long enough to matter.
           ReminderFormSaved() => null,

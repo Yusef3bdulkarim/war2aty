@@ -22,6 +22,7 @@ final class PermissionHandlerService implements PermissionService {
 
   ph.Permission _plugin(AppPermission permission) => switch (permission) {
     AppPermission.camera => ph.Permission.camera,
+    AppPermission.notifications => ph.Permission.notification,
   };
 
   /// Folds the plugin's status into the three cases the app acts on.

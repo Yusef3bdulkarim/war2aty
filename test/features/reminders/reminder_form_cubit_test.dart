@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
 import 'package:war2aty/core/reminders/alert_time_offset.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
@@ -16,11 +18,21 @@ void main() {
   late FakeRemindersRepository repository;
   late CreateReminderFromDocumentDate createFromDocumentDate;
   late CreateManualReminder createManual;
+  late FakeNotificationPermissionRepository notificationPermissionRepository;
+  late GetNotificationPermission getNotificationPermission;
+  late RequestNotificationPermission requestNotificationPermission;
 
   setUp(() {
     repository = FakeRemindersRepository();
     createFromDocumentDate = CreateReminderFromDocumentDate(repository);
     createManual = CreateManualReminder(repository);
+    notificationPermissionRepository = FakeNotificationPermissionRepository();
+    getNotificationPermission = GetNotificationPermission(
+      notificationPermissionRepository,
+    );
+    requestNotificationPermission = RequestNotificationPermission(
+      notificationPermissionRepository,
+    );
   });
 
   group('fromDocument', () {
@@ -31,6 +43,8 @@ void main() {
     }) => ReminderFormCubit.fromDocument(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
       args: ReminderFromDocumentArgs(
         documentId: documentId,
         documentTitle: documentTitle,
@@ -126,6 +140,8 @@ void main() {
     ReminderFormCubit build() => ReminderFormCubit.manual(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
     );
 
     test('starts empty', () {
@@ -230,6 +246,8 @@ void main() {
     final cubit = ReminderFormCubit.manual(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
     );
     addTearDown(cubit.close);
     cubit
@@ -248,6 +266,8 @@ void main() {
     final cubit = ReminderFormCubit.manual(
       createFromDocumentDate: createFromDocumentDate,
       createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
     );
     addTearDown(cubit.close);
     cubit

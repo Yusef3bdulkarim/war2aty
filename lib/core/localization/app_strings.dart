@@ -584,4 +584,11 @@ abstract interface class AppStrings {
   String get reminderDatePickHint;
   String get reminderTimeLabel;
   String get reminderTimePickHint;
+
+  // Notification permission sheet (F09-T09) — shown once, right before the
+  // first reminder that would need an OS notification is saved.
+  String get reminderNotifPermTitle;
+  String get reminderNotifPermMessage;
+  String get reminderNotifPermAllow;
+  String get reminderNotifPermSaveWithout;
 }
