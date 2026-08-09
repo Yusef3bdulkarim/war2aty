@@ -1,13 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/features/analysis/data/datasources/analysis_fixture.dart';
 import 'package:war2aty/features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/candidates_dto.dart';
 import 'package:war2aty/features/analysis/data/validators/analysis_response_validator.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
 
 /// Reads the real fixture files, standing in for `rootBundle`.
 Future<String> _loadFromDisk(String key) async => File(key).readAsString();

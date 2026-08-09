@@ -1,47 +1,23 @@
-import '../../domain/entities/analysis_amount.dart';
-import '../../domain/entities/analysis_date.dart';
-import '../../domain/entities/analysis_status.dart';
-import '../../domain/entities/analysis_summary.dart';
-import '../../domain/entities/analysis_warning.dart';
-import '../../domain/entities/confidence_band.dart';
-import '../../domain/entities/document_analysis.dart';
-import '../../domain/entities/document_kind.dart';
-import '../../domain/entities/key_information.dart';
-import '../../domain/entities/required_action.dart';
+import '../../../../core/documents/analysis_amount.dart';
+import '../../../../core/documents/analysis_date.dart';
+import '../../../../core/documents/analysis_status.dart';
+import '../../../../core/documents/analysis_summary.dart';
+import '../../../../core/documents/analysis_warning.dart';
+import '../../../../core/documents/confidence_band.dart';
+import '../../../../core/documents/document_analysis.dart';
+import '../../../../core/documents/document_kind.dart';
+import '../../../../core/documents/key_information.dart';
+import '../../../../core/documents/required_action.dart';
 import '../models/analysis_response_dto.dart';
 
-/// Raised when a wire value can't be expressed as a domain value.
-///
-/// Carries the offending **field name only** — never the value, which is
-/// document content (privacy §7). The repository catches it and returns
-/// `InvalidAnalysisResponseFailure`; nothing above the data layer sees it.
 final class AnalysisMappingException implements Exception {
   const AnalysisMappingException(this.field);
-
-  /// Dotted path of the field that couldn't be mapped, e.g. `dates[0].role`.
   final String field;
 
   @override
   String toString() => 'AnalysisMappingException($field)';
 }
 
-/// DTO → domain for the analyze-document success body.
-///
-/// ## Unknown wire values
-///
-/// The Edge Function constrains the model to the schema, so an unrecognised
-/// value is a contract violation rather than something the user did. Two
-/// responses are possible, and which one applies is deliberate per field:
-///
-/// * **Fall back** where the contract defines a catch-all (`document_type`,
-///   `warnings[].type`), or where one value is strictly more cautious than the
-///   others — an unknown confidence becomes [ConfidenceBand.low] and an unknown
-///   `source`/`basis` becomes "inferred", so the UI flags the field for review
-///   instead of presenting it as fact.
-/// * **Throw** where guessing would put words in the document's mouth:
-///   `status` drives the whole screen, and `dates[].role` is the only thing
-///   that marks a date as a deadline — silently downgrading one to a generic
-///   event could cost the user a payment.
 extension AnalysisResponseMapper on AnalysisResponseDto {
   DocumentAnalysis toDomain() {
     return DocumentAnalysis(

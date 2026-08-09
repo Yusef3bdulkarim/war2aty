@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/documents/recent_document.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
@@ -26,6 +28,13 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
+import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/saved_papers/presentation/screens/document_details_screen.dart';
+import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
+import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
+import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
 import '../di/service_locator.dart';
 import '../shell/placeholder_tab.dart';
 import '../shell/scaffold_with_nav_bar.dart';
@@ -42,9 +51,13 @@ abstract final class AppRoutes {
   static const String preview = '/preview';
   static const String ocr = '/ocr';
   static const String result = '/result';
+  static const String documentDetails = '/documents';
 
   /// The first-run flow, which sits outside the bottom-nav shell.
   static const Set<String> firstRun = {onboarding, privacy};
+
+  /// One saved document's details (F08-T08), by its id.
+  static String documentDetailsWith(String id) => '$documentDetails/$id';
 
   /// The capture route for [source].
   ///
@@ -155,18 +168,48 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           if (session == null || extraction == null) {
             return const _BackToHome();
           }
-          return BlocProvider<AnalysisResultCubit>(
-            create: (_) =>
-                getIt<AnalysisResultCubit>(param1: session, param2: extraction)
-                  ..analyze(),
-            child: AnalysisResultScreen(
-              onClose: () => context.go(AppRoutes.home),
-              // Replaces this route: the paper that could not be explained is
-              // not somewhere to come back to.
-              onCaptureAnother: () => context.pushReplacement(
-                AppRoutes.captureWith(CaptureSource.camera),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<AnalysisResultCubit>(
+                create: (_) => getIt<AnalysisResultCubit>(
+                  param1: session,
+                  param2: extraction,
+                )..analyze(),
+              ),
+              BlocProvider<SaveDocumentCubit>(
+                create: (_) => getIt<SaveDocumentCubit>(),
+              ),
+            ],
+            child: SaveDocumentListener(
+              // Under both providers: the save reads what the analysis
+              // produced, and this is the only place that knows about both.
+              child: Builder(
+                builder: (context) => AnalysisResultScreen(
+                  onClose: () => context.go(AppRoutes.home),
+                  // Replaces this route: the paper that could not be explained
+                  // is not somewhere to come back to.
+                  onCaptureAnother: () => context.pushReplacement(
+                    AppRoutes.captureWith(CaptureSource.camera),
+                  ),
+                  onSave: () => unawaited(_saveResult(context, session)),
+                ),
               ),
             ),
+          );
+        },
+      ),
+      // Also outside the shell, like the result route it shares a layout
+      // with: opened from a row in the list, and left through its own back
+      // control rather than the bottom nav.
+      GoRoute(
+        path: '${AppRoutes.documentDetails}/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null) return const _BackToHome();
+
+          return BlocProvider<DocumentDetailsCubit>(
+            create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
+            child: DocumentDetailsScreen(onClose: context.pop),
           );
         },
       ),
@@ -195,10 +238,22 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               ),
             ],
           ),
-          _branch(
-            AppRoutes.saved,
-            (c) => c.strings.navDocuments,
-            Icons.bookmark,
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.saved,
+                builder: (context, state) => BlocProvider<DocumentsListCubit>(
+                  create: (_) => getIt<DocumentsListCubit>()..start(),
+                  child: DocumentsListScreen(
+                    onScan: () => context.push(
+                      AppRoutes.captureWith(CaptureSource.camera),
+                    ),
+                    onOpenDocument: (id) =>
+                        context.push(AppRoutes.documentDetailsWith(id)),
+                  ),
+                ),
+              ),
+            ],
           ),
           _branch(
             AppRoutes.reminders,
@@ -314,6 +369,30 @@ class _BackToHome extends StatelessWidget {
     });
     return const SizedBox.shrink();
   }
+}
+
+/// Hands the analysis on screen to the save action.
+///
+/// The result screen exposes a plain callback, so the two cubits are joined
+/// here rather than inside either feature: analysis produces the paper, saved
+/// papers keeps it, and neither has to import the other.
+///
+/// Asks which mode to save in first (F08-T04) — the picture is only ever kept
+/// because the sheet's own confirm button was pressed, never as a default.
+Future<void> _saveResult(BuildContext context, AnalysisSession session) async {
+  final state = context.read<AnalysisResultCubit>().state;
+  // The save button only exists on a ready result; this guards the case where
+  // the state moved on between the tap and this frame.
+  if (state is! AnalysisResultReady) return;
+
+  final mode = await showSaveModeSheet(context);
+  if (mode == null || !context.mounted) return;
+
+  await context.read<SaveDocumentCubit>().save(
+    analysis: state.result.analysis,
+    extractedText: state.result.extractedText,
+    imagePath: mode == DocumentStorageMode.withImage ? session.imagePath : null,
+  );
 }
 
 /// Adapts a Cubit's [Stream] to the [Listenable] `GoRouter` expects, so gate

@@ -8,6 +8,15 @@ import '../localization/app_strings.dart';
 String formatDocumentDate(AppStrings s, DateTime date) =>
     '${date.day} ${s.monthName(date.month)} ${date.year}';
 
+/// A date with the year left off — `18 أغسطس` / `18 August`.
+///
+/// For a date that only has to place itself within "recently", not identify
+/// a specific year: the documents list card shows when a paper was *saved*
+/// (F08-T05), which is always close enough to today that the year is
+/// implied.
+String formatDayMonth(AppStrings s, DateTime date) =>
+    '${date.day} ${s.monthName(date.month)}';
+
 /// A wall-clock reading such as `10:00 صباحًا` / `10:00 PM`.
 ///
 /// Hand-rolled rather than pulled from `intl`: the app needs one format, in

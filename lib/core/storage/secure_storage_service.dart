@@ -6,6 +6,12 @@ abstract final class SecureStorageKeys {
 
   /// Serialized anonymous session (contains a JWT — must stay encrypted).
   static const String session = 'session';
+
+  /// Base64-encoded AES-256 key that encrypts saved documents' images
+  /// (F08-T03). Generated on first use; losing it makes every encrypted
+  /// picture unreadable, which is why it lives here and not beside the files
+  /// it protects.
+  static const String documentEncryptionKey = 'document_encryption_key';
 }
 
 /// A thin, testable wrapper over encrypted key/value storage.

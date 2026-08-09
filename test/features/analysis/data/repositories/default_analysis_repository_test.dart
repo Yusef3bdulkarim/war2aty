@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/identity/installation_id_provider.dart';
 import 'package:war2aty/core/logging/app_logger.dart';
@@ -11,8 +13,6 @@ import 'package:war2aty/features/analysis/data/datasources/analysis_remote_data_
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/repositories/default_analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
 import 'package:war2aty/features/ocr/domain/entities/amount_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/date_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';

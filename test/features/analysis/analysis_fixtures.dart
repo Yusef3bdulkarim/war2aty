@@ -1,13 +1,13 @@
-import 'package:war2aty/features/analysis/domain/entities/analysis_amount.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_date.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_summary.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_warning.dart';
-import 'package:war2aty/features/analysis/domain/entities/confidence_band.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_analysis.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
-import 'package:war2aty/features/analysis/domain/entities/key_information.dart';
-import 'package:war2aty/features/analysis/domain/entities/required_action.dart';
+import 'package:war2aty/core/documents/analysis_amount.dart';
+import 'package:war2aty/core/documents/analysis_date.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_summary.dart';
+import 'package:war2aty/core/documents/analysis_warning.dart';
+import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_analysis.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
+import 'package:war2aty/core/documents/key_information.dart';
+import 'package:war2aty/core/documents/required_action.dart';
 
 /// The vertical slice's paper: an electricity bill with something in every
 /// section.

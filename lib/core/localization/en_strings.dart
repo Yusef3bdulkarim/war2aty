@@ -299,6 +299,154 @@ final class EnStrings implements AppStrings {
   String get documentStoredWithImage => 'Result and photo';
 
   @override
+  String get documentSaved => 'Saved to your documents — without the photo';
+
+  @override
+  String get documentSavedWithImage =>
+      'Saved to your documents — with the photo';
+
+  @override
+  String get documentSaveFailed => "Couldn't save this paper. Try again.";
+
+  @override
+  String get saveModeSectionLabel => 'What do you want to save?';
+
+  @override
+  String get saveModeResultOnlyTitle => 'Result only';
+
+  @override
+  String get saveModeResultOnlySubtitle =>
+      'We save the summary and details, without the photo.';
+
+  @override
+  String get saveModeWithImageTitle => 'Result and photo';
+
+  @override
+  String get saveModeWithImageSubtitle =>
+      'We save the summary, details and an encrypted copy of the photo on your device.';
+
+  @override
+  @override
+  String get documentsEmptyTitle => "You haven't saved any documents yet";
+
+  @override
+  String get documentsEmptySubtitle =>
+      "A paper's result shows up here once you save it.";
+
+  @override
+  String get documentsEmptyCta => 'Photograph your first paper';
+
+  @override
+  String get documentsListErrorTitle =>
+      "Couldn't load your documents right now.";
+
+  @override
+  String get documentsSearchHint => 'Search by document name';
+
+  @override
+  String get documentsSearchNoResultsTitle => 'No matches for your search';
+
+  @override
+  String get documentsSearchNoResultsSubtitle =>
+      'Try a different word or check the spelling.';
+
+  @override
+  String get documentsFilterAll => 'All';
+
+  @override
+  String get documentsFilterAppointment => 'Appointments';
+
+  @override
+  String get documentsFilterInvoice => 'Bills';
+
+  @override
+  String get documentsFilterGovernment => 'Government';
+
+  @override
+  String get documentsFilterEducation => 'Education';
+
+  @override
+  String get documentsFilterOther => 'Other';
+
+  @override
+  String get documentDetailsTitle => 'Document details';
+
+  @override
+  String get documentDetailsNotFoundTitle => "This document isn't there";
+
+  @override
+  String get documentDetailsNotFoundMessage => 'It may have been deleted.';
+
+  @override
+  String get documentDetailsErrorTitle => "Couldn't open the document";
+
+  @override
+  String get documentDetailsErrorMessage =>
+      'Something went wrong loading it. Try again.';
+
+  @override
+  String get documentDetailsBackToList => 'Back to documents';
+
+  // Document notes (F08-T09)
+  @override
+  String get documentNoteHeading => 'My note';
+  @override
+  String get documentNoteEmpty => 'No note added yet.';
+  @override
+  String get documentNoteAdd => 'Add a note';
+  @override
+  String get documentNoteEdit => 'Edit';
+  @override
+  String get documentNoteDelete => 'Delete note';
+  @override
+  String get documentNoteHint => 'Add a note to help you remember this paper.';
+  @override
+  String get documentNoteSave => 'Save note';
+  @override
+  String get documentNoteDeleteConfirmTitle => 'Delete note?';
+  @override
+  String get documentNoteDeleteConfirmMessage =>
+      "Once deleted, the note can't be recovered.";
+  @override
+  String get documentNoteSaved => 'Note saved.';
+  @override
+  String get documentNoteDeleted => 'Note deleted.';
+  @override
+  String get documentNoteError => "Couldn't save the note. Try again.";
+
+  @override
+  String get documentEditTitle => 'Edit title';
+  @override
+  String get documentEditCategory => 'Edit category';
+  @override
+  String get documentEditTitleHeading => 'Edit title';
+  @override
+  String get documentEditTitleHint => 'Enter a new title for the document.';
+  @override
+  String get documentEditTitleSave => 'Save title';
+  @override
+  String get documentEditCategoryHeading => 'Edit category';
+  @override
+  String get documentTitleUpdated => 'Title updated.';
+  @override
+  String get documentCategoryUpdated => 'Category updated.';
+  @override
+  String get documentUpdateError => "Couldn't update the document. Try again.";
+
+  // Document delete (F08-T11)
+  @override
+  String get documentDeleteAction => 'Delete document';
+  @override
+  String get documentDeleteConfirmTitle => 'Delete document?';
+  @override
+  String get documentDeleteConfirmMessage =>
+      "Once deleted, the document can't be recovered.";
+  @override
+  String get documentDeleted => 'Document deleted.';
+  @override
+  String get documentDeleteError => "Couldn't delete the document. Try again.";
+
+  @override
   String get navHome => 'Home';
 
   @override

@@ -182,6 +182,148 @@ abstract interface class AppStrings {
   String get documentStoredResultOnly;
   String get documentStoredWithImage;
 
+  /// Confirms a save, and says where the paper went and what was kept — the
+  /// user is told the picture stayed out of it rather than left to assume.
+  String get documentSaved;
+
+  /// Confirms a save that kept the picture too (F08-T04) — its own copy
+  /// rather than a shared one, so the user is told which happened.
+  String get documentSavedWithImage;
+
+  /// A save that did not go through. No detail: the user cannot act on a
+  /// database error, only try again.
+  String get documentSaveFailed;
+
+  // Save-mode sheet (F08-T04) — the explicit choice between keeping the
+  // result only and keeping the page picture too.
+  String get saveModeSectionLabel;
+  String get saveModeResultOnlyTitle;
+  String get saveModeResultOnlySubtitle;
+  String get saveModeWithImageTitle;
+  String get saveModeWithImageSubtitle;
+
+  // Documents list (F08-T05) — «مستنداتي». The screen heading reuses
+  // [navDocuments] itself: the design gives the tab and the page it opens
+  // the exact same Arabic word.
+  /// Shown when nothing has been saved yet.
+  String get documentsEmptyTitle;
+  String get documentsEmptySubtitle;
+
+  /// The way out of the empty state — mirrors the scan action elsewhere.
+  String get documentsEmptyCta;
+
+  /// The list could not be read. No detail: nothing here is actionable
+  /// beyond trying again later, and the stream keeps listening on its own.
+  String get documentsListErrorTitle;
+
+  // Documents search (F08-T06) — filters the list above by title.
+  /// Placeholder inside the empty search field.
+  String get documentsSearchHint;
+
+  /// Shown when a search matches nothing, in place of [documentsEmptyTitle].
+  String get documentsSearchNoResultsTitle;
+  String get documentsSearchNoResultsSubtitle;
+
+  // Documents category filters (F08-T07) — the chip row above the list.
+  // Plural, unlike the singular [documentCategoryInvoice] and its siblings
+  // above, which label one document's badge rather than a whole filter.
+  String get documentsFilterAll;
+  String get documentsFilterAppointment;
+  String get documentsFilterInvoice;
+  String get documentsFilterGovernment;
+  String get documentsFilterEducation;
+  String get documentsFilterOther;
+
+  // Document details (F08-T08) — the full record behind one list row.
+  String get documentDetailsTitle;
+
+  /// The document no longer resolves — deleted (F08-T11) since the list was
+  /// opened, or a stale id. Not the same wording as [documentsListErrorTitle]:
+  /// that one is a read failure, this one is "it isn't there any more".
+  String get documentDetailsNotFoundTitle;
+  String get documentDetailsNotFoundMessage;
+
+  String get documentDetailsErrorTitle;
+  String get documentDetailsErrorMessage;
+
+  /// The way out of both states above.
+  String get documentDetailsBackToList;
+
+  // Document notes (F08-T09) — «ملاحظتي».
+  /// Section heading above the note card.
+  String get documentNoteHeading;
+
+  /// Shown when no note has been added yet.
+  String get documentNoteEmpty;
+
+  /// The action that opens the note editor to write one.
+  String get documentNoteAdd;
+
+  /// The action that opens the note editor to change an existing one.
+  String get documentNoteEdit;
+
+  /// The action that removes the note. Shown alongside [documentNoteEdit].
+  String get documentNoteDelete;
+
+  /// Hint inside the text field while the user is writing.
+  String get documentNoteHint;
+
+  /// Confirms the note in the editor.
+  String get documentNoteSave;
+
+  /// Confirmation dialog when deleting a note.
+  String get documentNoteDeleteConfirmTitle;
+  String get documentNoteDeleteConfirmMessage;
+
+  /// Snackbar feedback after a note action.
+  String get documentNoteSaved;
+  String get documentNoteDeleted;
+  String get documentNoteError;
+
+  // Document update (F08-T10) — title and category editing.
+  /// Overflow menu item that opens the title editor.
+  String get documentEditTitle;
+
+  /// Overflow menu item that opens the category picker.
+  String get documentEditCategory;
+
+  /// Title of the rename sheet.
+  String get documentEditTitleHeading;
+
+  /// Hint inside the title text field.
+  String get documentEditTitleHint;
+
+  /// Confirms the new title in the editor.
+  String get documentEditTitleSave;
+
+  /// Title of the category picker sheet.
+  String get documentEditCategoryHeading;
+
+  /// Snackbar feedback after a successful title update.
+  String get documentTitleUpdated;
+
+  /// Snackbar feedback after a successful category update.
+  String get documentCategoryUpdated;
+
+  /// Snackbar feedback when an update fails.
+  String get documentUpdateError;
+
+  // Document delete (F08-T11) — permanent removal from the device.
+  /// Overflow menu item that starts the delete flow.
+  String get documentDeleteAction;
+
+  /// Confirmation dialog title.
+  String get documentDeleteConfirmTitle;
+
+  /// Confirmation dialog body — warns the action is irreversible.
+  String get documentDeleteConfirmMessage;
+
+  /// Snackbar feedback after a successful delete.
+  String get documentDeleted;
+
+  /// Snackbar feedback when the delete fails.
+  String get documentDeleteError;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

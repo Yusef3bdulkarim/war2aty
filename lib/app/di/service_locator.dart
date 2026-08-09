@@ -6,9 +6,24 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
+import '../../core/crypto/aes_gcm_file_encryptor.dart';
+import '../../core/crypto/document_encryption_key_store.dart';
+import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/daos/documents_dao.dart';
+import '../../core/documents/document_image_store.dart';
+import '../../core/documents/documents_repository.dart';
+import '../../core/documents/drift_documents_repository.dart';
+import '../../core/documents/file_document_image_store.dart';
 import '../../core/documents/recent_documents_repository.dart';
-import '../../core/documents/stub_recent_documents_repository.dart';
+import '../../core/documents/usecases/build_analysis_result.dart';
+import '../../core/documents/usecases/delete_document.dart';
+import '../../core/documents/usecases/save_document.dart';
+import '../../core/documents/usecases/save_document_with_image.dart';
+import '../../core/documents/usecases/set_document_note.dart';
+import '../../core/documents/usecases/update_document.dart';
+import '../../core/documents/usecases/watch_document.dart';
+import '../../core/documents/usecases/watch_documents.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
 import '../../core/identity/installation_id_provider.dart';
@@ -42,7 +57,6 @@ import '../../features/analysis/data/datasources/mock_analysis_remote_data_sourc
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
-import '../../features/analysis/domain/usecases/build_analysis_result.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
@@ -101,6 +115,9 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -122,6 +139,7 @@ Future<void> configureDependencies(
   _registerCapture();
   _registerOcr();
   _registerAnalysis(env);
+  _registerSavedPapers();
   _registerRouting();
 }
 
@@ -278,10 +296,11 @@ void _registerOnboarding() {
 
 void _registerHome() {
   getIt
-    // Replaced by the Drift-backed implementation when F08 builds the
-    // `documents` table; Home does not change when that happens.
+    // The Drift-backed [DocumentsRepository] singleton registered in
+    // `_registerSavedPapers` also answers Home's narrower "recent N" reads
+    // (F08-T05) — one saved-documents source of truth, two ports onto it.
     ..registerLazySingleton<RecentDocumentsRepository>(
-      StubRecentDocumentsRepository.new,
+      getIt.call<DriftDocumentsRepository>,
     )
     ..registerFactory<WatchDailyUsage>(() => WatchDailyUsage(getIt()))
     // Likewise replaced when F09 builds the `reminders` table.
@@ -437,6 +456,54 @@ void _registerAnalysis(AppEnvironment env) {
         extraction: extraction,
         analyzeDocument: getIt(),
         buildResult: getIt(),
+      ),
+    );
+}
+
+void _registerSavedPapers() {
+  getIt
+    ..registerLazySingleton<DocumentsDao>(
+      () => getIt<AppDatabase>().documentsDao,
+    )
+    ..registerLazySingleton<DocumentEncryptionKeyStore>(
+      () => DocumentEncryptionKeyStore(getIt()),
+    )
+    ..registerLazySingleton<FileEncryptor>(() => AesGcmFileEncryptor(getIt()))
+    ..registerLazySingleton<DocumentImageStore>(
+      () => FileDocumentImageStore(getIt()),
+    )
+    // Registered under its concrete type so `_registerHome` can alias
+    // [RecentDocumentsRepository] to the same instance (F08-T05) — one
+    // Drift-backed object answers both ports.
+    ..registerLazySingleton<DriftDocumentsRepository>(
+      () => DriftDocumentsRepository(getIt(), getIt()),
+    )
+    ..registerLazySingleton<DocumentsRepository>(
+      getIt.call<DriftDocumentsRepository>,
+    )
+    ..registerFactory<SaveDocument>(() => SaveDocument(getIt()))
+    ..registerFactory<SaveDocumentWithImage>(
+      () => SaveDocumentWithImage(getIt()),
+    )
+    ..registerFactory<SaveDocumentCubit>(
+      () => SaveDocumentCubit(getIt(), getIt()),
+    )
+    ..registerFactory<WatchDocuments>(() => WatchDocuments(getIt()))
+    ..registerFactory<DocumentsListCubit>(() => DocumentsListCubit(getIt()))
+    ..registerFactory<WatchDocument>(() => WatchDocument(getIt()))
+    ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
+    ..registerFactory<UpdateDocument>(() => UpdateDocument(getIt()))
+    ..registerFactory<DeleteDocument>(() => DeleteDocument(getIt()))
+    // Parameterised by the document id — one cubit instance per opened
+    // details screen, the same shape [ImagePreviewCubit]'s registration uses.
+    ..registerFactoryParam<DocumentDetailsCubit, String, void>(
+      (documentId, _) => DocumentDetailsCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        documentId: documentId,
       ),
     );
 }

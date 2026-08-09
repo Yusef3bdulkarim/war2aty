@@ -3,9 +3,22 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
 import 'package:war2aty/core/database/app_database.dart';
+import 'package:war2aty/core/documents/analysis_amount.dart';
+import 'package:war2aty/core/documents/analysis_date.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_summary.dart';
+import 'package:war2aty/core/documents/analysis_warning.dart';
+import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/document_category.dart';
+import 'package:war2aty/core/documents/document_image_store.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
+import 'package:war2aty/core/documents/documents_repository.dart';
+import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/documents/recent_document.dart';
 import 'package:war2aty/core/documents/recent_documents_repository.dart';
+import 'package:war2aty/core/documents/required_action.dart';
+import 'package:war2aty/core/documents/saved_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/locale_store.dart';
 import 'package:war2aty/core/logging/log_sink.dart';
@@ -428,6 +441,53 @@ RecentDocument documentWith({
   );
 }
 
+/// A saved document's full record, for tests that need more than
+/// [documentWith]'s summary — the details screen (F08-T08).
+///
+/// [kind] rather than a category: [SavedDocument.analysis] carries no
+/// category of its own — it is derived from the kind, the same as the real
+/// entity.
+SavedDocument savedDocumentWith({
+  String id = 'doc-1',
+  String title = 'فاتورة كهرباء شهر أغسطس',
+  DocumentKind kind = DocumentKind.invoice,
+  AnalysisStatus status = AnalysisStatus.success,
+  DocumentStorageMode storageMode = DocumentStorageMode.resultOnly,
+  String? note,
+  AnalysisSummary summary = const AnalysisSummary(
+    short: 'خلاصة سريعة.',
+    detailed: 'شرح تفصيلي للورقة.',
+  ),
+  List<KeyInformation> keyInformation = const [],
+  List<AnalysisDate> dates = const [],
+  List<AnalysisAmount> amounts = const [],
+  List<RequiredAction> actions = const [],
+  List<AnalysisWarning> warnings = const [],
+  String extractedText = 'النص المستخرج من الورقة.',
+}) {
+  return SavedDocument(
+    id: id,
+    analysis: DocumentAnalysis(
+      sessionId: 'session-1',
+      status: status,
+      kind: kind,
+      title: title,
+      kindConfidence: ConfidenceBand.high,
+      summary: summary,
+      keyInformation: keyInformation,
+      dates: dates,
+      amounts: amounts,
+      actions: actions,
+      warnings: warnings,
+    ),
+    extractedText: extractedText,
+    storageMode: storageMode,
+    note: note,
+    savedAt: DateTime.utc(2026, 7, 22, 10),
+    updatedAt: DateTime.utc(2026, 7, 22, 10),
+  );
+}
+
 /// In-memory [UpcomingReminderRepository] the test drives by hand.
 final class FakeUpcomingReminderRepository
     implements UpcomingReminderRepository {
@@ -513,5 +573,184 @@ final class FakeAnalysisSessionStorage implements AnalysisSessionStorage {
         imagePath: '/cache/analysis_sessions/$sessionId/processed.jpg',
       ),
     );
+  }
+}
+
+/// Scriptable [DocumentImageStore] — no filesystem, records what it was asked
+/// to encrypt and delete.
+final class FakeDocumentImageStore implements DocumentImageStore {
+  FakeDocumentImageStore({this.fails = false});
+
+  bool fails;
+
+  /// `documentId -> sourcePath` for every call to [encryptAndStore].
+  final Map<String, String> stored = {};
+
+  /// Every id passed to [delete], in order.
+  final List<String> deletedIds = [];
+
+  @override
+  Future<Result<String, AppFailure>> encryptAndStore({
+    required String documentId,
+    required String sourcePath,
+  }) async {
+    if (fails) return const Err(FileEncryptionFailure());
+    stored[documentId] = sourcePath;
+    return Ok('/private/documents/$documentId/original.enc');
+  }
+
+  @override
+  Future<void> delete(String documentId) async => deletedIds.add(documentId);
+}
+
+/// In-memory [DocumentsRepository] the test drives by hand — the read side
+/// (`watchDocuments`) works like [FakeRecentDocumentsRepository]; the two
+/// write methods just record what they were called with, for tests that
+/// exercise both sides of the interface.
+final class FakeDocumentsRepository implements DocumentsRepository {
+  FakeDocumentsRepository({List<RecentDocument>? seed}) {
+    if (seed != null) emit(seed);
+  }
+
+  final _controller =
+      StreamController<Result<List<RecentDocument>, AppFailure>>.broadcast();
+  Result<List<RecentDocument>, AppFailure> _latest = const Ok([]);
+
+  /// See [FakeUsageRepository.listenCount].
+  int listenCount = 0;
+
+  void emit(List<RecentDocument> documents) {
+    _latest = Ok(documents);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  void emitFailure([AppFailure failure = const LocalDatabaseFailure()]) {
+    _latest = Err(failure);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  Future<void> dispose() =>
+      Future.wait([_controller.close(), _documentController.close()]);
+
+  /// The title filter the cubit last asked for (F08-T06). This fake never
+  /// filters by it — that matching logic is the DAO's, and is covered by
+  /// `documents_dao_test.dart` — it only records what it was asked for so a
+  /// cubit test can assert the request without re-implementing the match.
+  String? requestedTitleQuery;
+
+  /// The category filter the cubit last asked for (F08-T07). Same
+  /// record-only contract as [requestedTitleQuery].
+  DocumentCategory? requestedCategory;
+
+  @override
+  Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
+    String? titleQuery,
+    DocumentCategory? category,
+  }) async* {
+    listenCount++;
+    requestedTitleQuery = titleQuery;
+    requestedCategory = category;
+    yield _latest;
+    yield* _controller.stream;
+  }
+
+  final _documentController =
+      StreamController<Result<SavedDocument?, AppFailure>>.broadcast();
+  Result<SavedDocument?, AppFailure> _latestDocument = const Ok(null);
+
+  /// The id [watchDocument] was last asked for (F08-T08).
+  String? requestedDocumentId;
+
+  /// See [FakeUsageRepository.listenCount], for [watchDocument] instead of
+  /// [watchDocuments].
+  int documentListenCount = 0;
+
+  void emitDocument(SavedDocument? document) {
+    _latestDocument = Ok(document);
+    if (_documentController.hasListener) {
+      _documentController.add(_latestDocument);
+    }
+  }
+
+  void emitDocumentFailure([
+    AppFailure failure = const LocalDatabaseFailure(),
+  ]) {
+    _latestDocument = Err(failure);
+    if (_documentController.hasListener) {
+      _documentController.add(_latestDocument);
+    }
+  }
+
+  @override
+  Stream<Result<SavedDocument?, AppFailure>> watchDocument(String id) async* {
+    documentListenCount++;
+    requestedDocumentId = id;
+    yield _latestDocument;
+    yield* _documentController.stream;
+  }
+
+  Result<String, AppFailure> saveOutcome = const Ok('doc-1');
+
+  @override
+  Future<Result<String, AppFailure>> saveResultOnly({
+    required DocumentAnalysis analysis,
+    required String extractedText,
+  }) async => saveOutcome;
+
+  @override
+  Future<Result<String, AppFailure>> saveWithImage({
+    required DocumentAnalysis analysis,
+    required String extractedText,
+    required String imagePath,
+  }) async => saveOutcome;
+
+  /// Outcome of [updateDocument]. Default success; set to an [Err] to test
+  /// failures (F08-T10).
+  Result<void, AppFailure> updateOutcome = const Ok(null);
+
+  /// The title [updateDocument] was last called with.
+  String? lastTitleSet;
+
+  /// The category [updateDocument] was last called with.
+  DocumentCategory? lastCategorySet;
+
+  @override
+  Future<Result<void, AppFailure>> updateDocument(
+    String id, {
+    String? title,
+    DocumentCategory? category,
+  }) async {
+    lastTitleSet = title;
+    lastCategorySet = category;
+    return updateOutcome;
+  }
+
+  /// Outcome of [deleteDocument]. Default success; set to an [Err] to test
+  /// failures (F08-T11).
+  Result<void, AppFailure> deleteOutcome = const Ok(null);
+
+  /// The id [deleteDocument] was last called with.
+  String? lastDeletedId;
+
+  @override
+  Future<Result<void, AppFailure>> deleteDocument(String id) async {
+    lastDeletedId = id;
+    return deleteOutcome;
+  }
+
+  /// Outcome of [setNote]. Default success; set to an [Err] to test failures.
+  Result<void, AppFailure> setNoteOutcome = const Ok(null);
+
+  /// The note [setNote] was last called with (F08-T09).
+  String? lastNoteSet;
+
+  /// Whether [setNote] was called with `null` (a delete).
+  bool noteDeleted = false;
+
+  @override
+  Future<Result<void, AppFailure>> setNote(String id, String? note) async {
+    lastNoteSet = note;
+    noteDeleted = note == null;
+    return setNoteOutcome;
   }
 }

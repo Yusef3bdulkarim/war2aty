@@ -302,6 +302,153 @@ final class ArStrings implements AppStrings {
   String get documentStoredWithImage => 'النتيجة وصورة الورقة';
 
   @override
+  String get documentSaved => 'تم حفظ النتيجة في مستنداتي — من غير صورة الورقة';
+
+  @override
+  String get documentSavedWithImage =>
+      'تم حفظ النتيجة وصورة الورقة في مستنداتي';
+
+  @override
+  String get documentSaveFailed => 'مقدرناش نحفظ الورقة. جرّب تاني.';
+
+  @override
+  String get saveModeSectionLabel => 'إيه اللي تحفظه؟';
+
+  @override
+  String get saveModeResultOnlyTitle => 'النتيجة فقط';
+
+  @override
+  String get saveModeResultOnlySubtitle =>
+      'بنحفظ الملخص والتفاصيل، من غير صورة الورقة.';
+
+  @override
+  String get saveModeWithImageTitle => 'النتيجة وصورة الورقة';
+
+  @override
+  String get saveModeWithImageSubtitle =>
+      'بنحفظ الملخص والتفاصيل وصورة الورقة مشفّرة على جهازك.';
+
+  @override
+  @override
+  String get documentsEmptyTitle => 'لسه ماحفظتش أي مستند';
+
+  @override
+  String get documentsEmptySubtitle => 'لما تحفظ نتيجة أي ورقة هتظهر هنا.';
+
+  @override
+  String get documentsEmptyCta => 'صوّر أول ورقة';
+
+  @override
+  String get documentsListErrorTitle => 'مقدرناش نجيب مستنداتك دلوقتي.';
+
+  @override
+  String get documentsSearchHint => 'ابحث باسم المستند';
+
+  @override
+  String get documentsSearchNoResultsTitle => 'مفيش نتايج لبحثك';
+
+  @override
+  String get documentsSearchNoResultsSubtitle =>
+      'جرّب اسم تاني أو راجع الإملاء.';
+
+  @override
+  String get documentsFilterAll => 'الكل';
+
+  @override
+  String get documentsFilterAppointment => 'المواعيد';
+
+  @override
+  String get documentsFilterInvoice => 'الفواتير';
+
+  @override
+  String get documentsFilterGovernment => 'الحكومية';
+
+  @override
+  String get documentsFilterEducation => 'التعليمية';
+
+  @override
+  String get documentsFilterOther => 'أخرى';
+
+  @override
+  String get documentDetailsTitle => 'تفاصيل المستند';
+
+  @override
+  String get documentDetailsNotFoundTitle => 'المستند ده مش موجود';
+
+  @override
+  String get documentDetailsNotFoundMessage =>
+      'يمكن يكون اتمسح أو مبقاش موجود.';
+
+  @override
+  String get documentDetailsErrorTitle => 'مقدرناش نفتح المستند';
+
+  @override
+  String get documentDetailsErrorMessage =>
+      'حصلت مشكلة وإحنا بنجيب بيانات المستند. جرّب تاني.';
+
+  @override
+  String get documentDetailsBackToList => 'رجوع للمستندات';
+
+  // Document notes (F08-T09)
+  @override
+  String get documentNoteHeading => 'ملاحظتي';
+  @override
+  String get documentNoteEmpty => 'مافيش ملاحظة مضافة.';
+  @override
+  String get documentNoteAdd => 'إضافة ملاحظة';
+  @override
+  String get documentNoteEdit => 'تعديل';
+  @override
+  String get documentNoteDelete => 'حذف الملاحظة';
+  @override
+  String get documentNoteHint => 'ضيف ملاحظة تساعدك تفتكر الورقة.';
+  @override
+  String get documentNoteSave => 'حفظ الملاحظة';
+  @override
+  String get documentNoteDeleteConfirmTitle => 'حذف الملاحظة؟';
+  @override
+  String get documentNoteDeleteConfirmMessage =>
+      'لو حذفت الملاحظة مش هتقدر ترجعها تاني.';
+  @override
+  String get documentNoteSaved => 'تم حفظ الملاحظة.';
+  @override
+  String get documentNoteDeleted => 'تم حذف الملاحظة.';
+  @override
+  String get documentNoteError => 'مقدرناش نحفظ الملاحظة. جرّب تاني.';
+
+  @override
+  String get documentEditTitle => 'تعديل العنوان';
+  @override
+  String get documentEditCategory => 'تعديل التصنيف';
+  @override
+  String get documentEditTitleHeading => 'تعديل العنوان';
+  @override
+  String get documentEditTitleHint => 'اكتب عنوان جديد للمستند.';
+  @override
+  String get documentEditTitleSave => 'حفظ العنوان';
+  @override
+  String get documentEditCategoryHeading => 'تعديل التصنيف';
+  @override
+  String get documentTitleUpdated => 'تم تعديل العنوان.';
+  @override
+  String get documentCategoryUpdated => 'تم تعديل التصنيف.';
+  @override
+  String get documentUpdateError => 'مقدرناش نعدّل المستند. جرّب تاني.';
+
+  // Document delete (F08-T11)
+  @override
+  String get documentDeleteAction => 'حذف المستند';
+  @override
+  String get documentDeleteConfirmTitle => 'حذف المستند؟';
+  @override
+  String get documentDeleteConfirmMessage =>
+      'لو حذفت المستند مش هتقدر ترجعه تاني.';
+  @override
+  String get documentDeleted => 'تم حذف المستند.';
+  @override
+  String get documentDeleteError => 'مقدرناش نحذف المستند. جرّب تاني.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override

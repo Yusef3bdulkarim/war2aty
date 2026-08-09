@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/documents/analysis_status.dart';
+import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/identity/installation_id_provider.dart';
 import '../../../../core/logging/app_logger.dart';
@@ -10,8 +12,6 @@ import '../../../../core/network/api_error_mapper.dart';
 import '../../../../core/network/network_failure_mapper.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/analysis_request.dart';
-import '../../domain/entities/analysis_status.dart';
-import '../../domain/entities/document_analysis.dart';
 import '../../domain/repositories/analysis_repository.dart';
 import '../datasources/analysis_remote_data_source.dart';
 import '../models/amount_candidate_dto.dart';
