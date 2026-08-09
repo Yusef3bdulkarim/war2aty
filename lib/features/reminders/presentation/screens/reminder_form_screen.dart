@@ -10,6 +10,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../cubit/reminder_form_cubit.dart';
 import '../cubit/reminder_form_state.dart';
 import '../widgets/reminder_alert_list_section.dart';
+import '../widgets/reminder_date_time_pickers.dart';
 import '../widgets/reminder_event_info_card.dart';
 import '../widgets/reminder_linked_document_row.dart';
 import '../widgets/reminder_text_field.dart';
@@ -115,6 +116,9 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                           children: [
                             ReminderTextField(
                               label: context.strings.reminderFormTitleLabel,
+                              hint: editing.isManual
+                                  ? context.strings.reminderManualTitleHint
+                                  : null,
                               controller: _titleController,
                               required: editing.isManual,
                               onChanged: context
@@ -122,9 +126,22 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                                   .setTitle,
                             ),
                             // A from-document reminder's event date/time are
-                            // fixed and shown read-only; a manual reminder's
-                            // own date/time picker is built in F09-T04.
-                            if (!editing.isManual && editing.eventDate != null)
+                            // fixed and shown read-only; a manual reminder
+                            // picks both itself, and both are required
+                            // (F09-T04) — there is no paper to be silently
+                            // missing an hour.
+                            if (editing.isManual)
+                              ReminderDateTimePickers(
+                                eventDate: editing.eventDate,
+                                eventMinuteOfDay: editing.eventMinuteOfDay,
+                                onDatePicked: context
+                                    .read<ReminderFormCubit>()
+                                    .setEventDate,
+                                onTimePicked: context
+                                    .read<ReminderFormCubit>()
+                                    .setEventMinuteOfDay,
+                              )
+                            else if (editing.eventDate != null)
                               ReminderEventInfoCard(
                                 eventDate: editing.eventDate!,
                                 eventMinuteOfDay: editing.eventMinuteOfDay,

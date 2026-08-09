@@ -98,6 +98,46 @@ void main() {
     expect(button.onPressed, isNull);
   });
 
+  testWidgets(
+    'the manual form shows date/time pickers, not the read-only card',
+    (tester) async {
+      final cubit = ReminderFormCubit.manual(
+        createFromDocumentDate: createFromDocumentDate,
+        createManual: createManual,
+      );
+      addTearDown(cubit.close);
+
+      await pumpScreen(tester, cubit);
+
+      expect(find.text(ar.reminderDatePickHint), findsOneWidget);
+      expect(find.text(ar.reminderTimePickHint), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'picking a date and time enables save once a title and an alert exist',
+    (tester) async {
+      final cubit = ReminderFormCubit.manual(
+        createFromDocumentDate: createFromDocumentDate,
+        createManual: createManual,
+      );
+      addTearDown(cubit.close);
+
+      await pumpScreen(tester, cubit);
+      // The title field is the first of the form's two `TextField`s (title,
+      // then note).
+      await tester.enterText(find.byType(TextField).first, 'تذكير جديد');
+      cubit.setEventDate(DateTime(2026, 9));
+      cubit.setEventMinuteOfDay(9 * 60);
+      await tester.pump();
+
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, ar.reminderSaveAction),
+      );
+      expect(button.onPressed, isNotNull);
+    },
+  );
+
   testWidgets('saving calls onSaved with the written reminder', (tester) async {
     repository.createOutcome = Ok(fakeReminder());
     Reminder? saved;

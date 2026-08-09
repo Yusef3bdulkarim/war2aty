@@ -566,4 +566,13 @@ abstract interface class AppStrings {
 
   String get reminderSuccessTitle;
   String get reminderSuccessViewAction;
+
+  // Manual reminder form (F09-T04) — its own required date/time pickers,
+  // absent from the create-from-document form (F09-T03), which reads them
+  // off the paper instead.
+  String get reminderManualTitleHint;
+  String get reminderDateLabel;
+  String get reminderDatePickHint;
+  String get reminderTimeLabel;
+  String get reminderTimePickHint;
 }

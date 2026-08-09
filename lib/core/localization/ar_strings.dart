@@ -688,4 +688,14 @@ final class ArStrings implements AppStrings {
   String get reminderSuccessTitle => 'تم إنشاء التذكير بنجاح.';
   @override
   String get reminderSuccessViewAction => 'عرض التذكير';
+  @override
+  String get reminderManualTitleHint => 'مثال: دفع فاتورة الكهرباء';
+  @override
+  String get reminderDateLabel => 'التاريخ';
+  @override
+  String get reminderDatePickHint => 'اختار التاريخ';
+  @override
+  String get reminderTimeLabel => 'الوقت';
+  @override
+  String get reminderTimePickHint => 'اختار الوقت';
 }

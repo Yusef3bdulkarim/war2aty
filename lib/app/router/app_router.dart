@@ -231,7 +231,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
         },
       ),
       // The reminder flows (F09): their own back control, opened from the
-      // result/details screens above or, once F09-T04/T11 land, from the
+      // result/details screens above or, once F09-T11 lands, from the
       // reminders tab.
       GoRoute(
         path: AppRoutes.reminderCreate,
@@ -243,6 +243,26 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             create: (_) => getIt<ReminderFormCubit>(param1: args),
             child: ReminderFormScreen(
               screenTitle: context.strings.reminderCreateScreenTitle,
+              onClose: context.pop,
+              onSaved: (reminder) => context.pushReplacement(
+                AppRoutes.reminderSuccess,
+                extra: reminder,
+              ),
+            ),
+          );
+        },
+      ),
+      // F09-T04. `instanceName` (not `param1`) picks the manual factory —
+      // there is nothing to seed it with, unlike `reminderCreate` above.
+      GoRoute(
+        path: AppRoutes.reminderManual,
+        builder: (context, state) {
+          return BlocProvider<ReminderFormCubit>(
+            create: (_) => getIt<ReminderFormCubit>(
+              instanceName: manualReminderFormInstanceName,
+            ),
+            child: ReminderFormScreen(
+              screenTitle: context.strings.reminderAddAction,
               onClose: context.pop,
               onSaved: (reminder) => context.pushReplacement(
                 AppRoutes.reminderSuccess,

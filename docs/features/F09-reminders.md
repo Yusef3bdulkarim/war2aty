@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders` · **Milestone:** M7
 - **Depends on:** F00 (db), F07/F08 (source), notifications core · **Feeds:** Home (upcoming), OS notifications
-- **Progress:** 4 / 14 DONE
+- **Progress:** 5 / 14 DONE
 
 Local reminders (Drift = source of truth, not the scheduled notification). **Decision at start:** exact-alarm behavior + permission timing (Android 13+).
 
@@ -13,7 +13,7 @@ Local reminders (Drift = source of truth, not the scheduled notification). **Dec
 | 1 | F09-T01 | Reminder Drift schema + domain | `reminders` + `reminder_alerts` + migration | DONE |
 | 2 | F09-T02 | Shared reminder form | reusable form widget | DONE |
 | 3 | F09-T03 | Create-from-document-date | prefilled from result date | DONE |
-| 4 | F09-T04 | Create-manual | «إضافة تذكير» | TODO |
+| 4 | F09-T04 | Create-manual | «إضافة تذكير» | DONE |
 | 5 | F09-T05 | Event-vs-alert time | event date/time ≠ alert datetime | DONE |
 | 6 | F09-T06 | Missing-time handling | «الورقة مافيهاش وقت» → user picks alert time | TODO |
 | 7 | F09-T07 | Multiple-dates selection | choose intended date | DONE |
