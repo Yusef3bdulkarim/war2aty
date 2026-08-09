@@ -591,4 +591,15 @@ abstract interface class AppStrings {
   String get reminderNotifPermMessage;
   String get reminderNotifPermAllow;
   String get reminderNotifPermSaveWithout;
+
+  /// The OS notification's own title/channel name (F09-T10) — distinct from
+  /// [homeUpcomingReminderTitle], which heads a card inside the app; this one
+  /// is read by the operating system itself, outside any locale-aware
+  /// widget tree.
+  String get reminderNotificationChannelName;
+
+  /// Shown on the OS notification instead of the reminder's real title when
+  /// sensitive details are hidden (F09-T14, default on) — never a specific
+  /// amount, account number or name, whatever the reminder is about.
+  String get reminderNotificationGenericTitle;
 }

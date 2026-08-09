@@ -714,4 +714,9 @@ final class EnStrings implements AppStrings {
   String get reminderNotifPermAllow => 'Allow notifications';
   @override
   String get reminderNotifPermSaveWithout => 'Save without a notification';
+  @override
+  String get reminderNotificationChannelName => 'Reminders';
+  @override
+  String get reminderNotificationGenericTitle =>
+      'You have an upcoming reminder';
 }

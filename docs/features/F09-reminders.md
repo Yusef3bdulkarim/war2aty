@@ -2,9 +2,11 @@
 
 - **Branch:** `feature/reminders` · **Milestone:** M7
 - **Depends on:** F00 (db), F07/F08 (source), notifications core · **Feeds:** Home (upcoming), OS notifications
-- **Progress:** 8 / 14 DONE
+- **Progress:** 9 / 14 DONE
 
 Local reminders (Drift = source of truth, not the scheduled notification). **Decision at start:** exact-alarm behavior + permission timing (Android 13+).
+
+**Decided (T09/T10):** permission is requested once, right before the first reminder that needs one is saved — never during onboarding, never again once granted (F09-T09). Alarms are scheduled `inexactAllowWhileIdle` (approximate delivery, no `SCHEDULE_EXACT_ALARM`) — Play Store policy reserves exact alarms for genuine alarm-clock/calendar apps, which this is not (F09-T10).
 
 ## Tasks
 
@@ -19,7 +21,7 @@ Local reminders (Drift = source of truth, not the scheduled notification). **Dec
 | 7 | F09-T07 | Multiple-dates selection | choose intended date | DONE |
 | 8 | F09-T08 | Alerts (up to 3) | add/remove up to 3 alert times | DONE |
 | 9 | F09-T09 | Notification permission | request on first reminder | DONE |
-| 10 | F09-T10 | `ReminderScheduler` | schedule/reschedule/cancel; Africa/Cairo tz | TODO |
+| 10 | F09-T10 | `ReminderScheduler` | schedule/reschedule/cancel; Africa/Cairo tz | DONE |
 | 11 | F09-T11 | Lists | القادمة/الفائتة/المكتملة | TODO |
 | 12 | F09-T12 | Snooze/complete/delete | actions + confirmations | TODO |
 | 13 | F09-T13 | Reconcile-on-restart | DB ↔ OS scheduled state | TODO |

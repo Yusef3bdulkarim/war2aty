@@ -8,6 +8,15 @@
          notification can show — requested once, right before the first
          reminder that needs one is saved (F09-T09), never during onboarding. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- F09-T10/T13: reminders are scheduled inexact (`inexactAllowWhileIdle`,
+         no SCHEDULE_EXACT_ALARM needed — see
+         `FlutterLocalNotificationsPort`'s own doc comment for why). These two
+         let flutter_local_notifications re-arm what it had scheduled after a
+         reboot, so a reminder is not silently lost until the app happens to
+         be reopened; `ReminderScheduler.reconcile` (F09-T13) is the second,
+         app-level line of defence for the same problem. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <!-- The app is usable without a camera (gallery fallback), so a device
          without one must still be able to install it. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
@@ -44,6 +53,19 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- F09-T10/T13: lets flutter_local_notifications re-schedule what it
+             had pending after the device reboots. -->
+        <receiver android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>
+        <receiver android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

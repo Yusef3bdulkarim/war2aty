@@ -6,6 +6,7 @@ import '../database/app_database.dart';
 import '../database/daos/documents_dao.dart';
 import '../error/app_failure.dart';
 import '../identity/installation_id_provider.dart';
+import '../reminders/reminder_scheduler.dart';
 import '../result/result.dart';
 import 'document_analysis.dart';
 import 'document_category.dart';
@@ -34,13 +35,21 @@ final class DriftDocumentsRepository
     this._images, {
     IdGenerator? idGenerator,
     DateTime Function()? clock,
+    ReminderScheduler? reminderScheduler,
   }) : _generateId = idGenerator ?? (() => const Uuid().v4()),
-       _now = clock ?? DateTime.now;
+       _now = clock ?? DateTime.now,
+       _reminderScheduler = reminderScheduler;
 
   final DocumentsDao _dao;
   final DocumentImageStore _images;
   final IdGenerator _generateId;
   final DateTime Function() _now;
+
+  /// Brings the OS in line with the database after a delete cascades onto a
+  /// linked reminder (F09-T10) — optional so this repository does not have
+  /// to be re-registered wherever it is already constructed without one
+  /// (e.g. before F09 landed).
+  final ReminderScheduler? _reminderScheduler;
 
   @override
   Stream<Result<List<RecentDocument>, AppFailure>> watchDocuments({
@@ -170,7 +179,12 @@ final class DriftDocumentsRepository
       // unconditionally is safe and avoids a read-then-delete race.
       await _images.delete(id);
       await _dao.deleteDocument(id);
-      // TODO(F09): cancel a linked local notification here once reminders land.
+      // The FK cascade just removed any reminder linked to this document; a
+      // reconcile brings the OS notification in line with that. Neither
+      // repository imports the other's concrete type — see
+      // `LocalNotificationsReminderScheduler`'s own doc comment. Best-effort
+      // and unawaited: the delete itself already fully succeeded.
+      unawaited(_reminderScheduler?.reconcile());
       return const Ok(null);
     } on Object {
       return const Err(LocalDatabaseFailure());

@@ -713,4 +713,8 @@ final class ArStrings implements AppStrings {
   String get reminderNotifPermAllow => 'السماح بالتنبيهات';
   @override
   String get reminderNotifPermSaveWithout => 'حفظ بدون تنبيه';
+  @override
+  String get reminderNotificationChannelName => 'التذكيرات';
+  @override
+  String get reminderNotificationGenericTitle => 'عندك تذكير بموعد قريب';
 }

@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    as fln;
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
@@ -42,6 +44,9 @@ import '../../core/permissions/system_notification_permission_repository.dart';
 import '../../core/permissions/usecases/get_notification_permission.dart';
 import '../../core/permissions/usecases/request_notification_permission.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
+import '../../core/reminders/flutter_local_notifications_port.dart';
+import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
+import '../../core/reminders/local_notifications_port.dart';
 import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
@@ -232,8 +237,6 @@ void _registerLaunch(AppEnvironment env) {
     ..registerLazySingleton<AnalysisSessionStorage>(
       FileAnalysisSessionStorage.new,
     )
-    // Replaced by the real scheduler when F09 lands.
-    ..registerLazySingleton<ReminderScheduler>(NoopReminderScheduler.new)
     ..registerLazySingleton<UsageRemoteDataSource>(
       () => EdgeFunctionUsageRemoteDataSource(getIt()),
     )
@@ -280,6 +283,9 @@ List<BootstrapStep> _buildLaunchSteps() {
       return result.map<void>((_) {});
     }, critical: false),
     BootstrapStep(BootstrapStage.reminders, () async {
+      // The plugin/timezone/channel setup (F09-T10) has to run before the
+      // first `reconcile` ever schedules anything.
+      await getIt<LocalNotificationsPort>().initialize();
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -488,7 +494,11 @@ void _registerSavedPapers() {
     // [RecentDocumentsRepository] to the same instance (F08-T05) — one
     // Drift-backed object answers both ports.
     ..registerLazySingleton<DriftDocumentsRepository>(
-      () => DriftDocumentsRepository(getIt(), getIt()),
+      () => DriftDocumentsRepository(
+        getIt(),
+        getIt(),
+        reminderScheduler: getIt(),
+      ),
     )
     ..registerLazySingleton<DocumentsRepository>(
       getIt.call<DriftDocumentsRepository>,
@@ -530,6 +540,20 @@ void _registerReminders() {
     )
     ..registerLazySingleton<RemindersRepository>(
       getIt.call<DriftRemindersRepository>,
+    )
+    // F09-T10. `FlutterLocalNotificationsPort` is the only file allowed to
+    // import `flutter_local_notifications`/`timezone` — everything above it,
+    // including the scheduler, speaks `LocalNotificationsPort`.
+    ..registerLazySingleton<fln.FlutterLocalNotificationsPlugin>(
+      fln.FlutterLocalNotificationsPlugin.new,
+    )
+    ..registerLazySingleton<LocalNotificationsPort>(
+      // Arabic, unconditionally — see `FlutterLocalNotificationsPort`'s own
+      // doc comment for why this one string isn't locale-aware.
+      () => FlutterLocalNotificationsPort(getIt(), 'التذكيرات'),
+    )
+    ..registerLazySingleton<ReminderScheduler>(
+      () => LocalNotificationsReminderScheduler(getIt(), getIt(), getIt()),
     )
     ..registerFactory<CreateReminderFromDocumentDate>(
       () => CreateReminderFromDocumentDate(getIt()),

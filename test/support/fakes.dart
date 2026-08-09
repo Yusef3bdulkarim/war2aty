@@ -24,9 +24,11 @@ import 'package:war2aty/core/localization/locale_store.dart';
 import 'package:war2aty/core/logging/log_sink.dart';
 import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/reminders/local_notifications_port.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/reminder_alert.dart';
 import 'package:war2aty/core/reminders/reminder_alert_status.dart';
+import 'package:war2aty/core/reminders/reminder_scheduler.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 import 'package:war2aty/core/reminders/reminders_repository.dart';
 import 'package:war2aty/core/reminders/upcoming_reminder.dart';
@@ -810,9 +812,12 @@ Reminder fakeReminder({
   createdAt: DateTime(2026),
   updatedAt: DateTime(2026),
   alerts: [
+    // Prefixed with the reminder's own id: two `fakeReminder()`s in the same
+    // test must not collide on the same alert id (and so the same
+    // `notificationIdOf` hash) just because both start counting from 0.
     for (final (i, time) in alertTimes.indexed)
       ReminderAlert(
-        id: 'a$i',
+        id: '$id-a$i',
         reminderId: id,
         scheduledAt: time,
         status: ReminderAlertStatus.scheduled,
@@ -977,5 +982,62 @@ final class FakeRemindersRepository implements RemindersRepository {
     lastAlertStatusId = alertId;
     lastAlertStatus = status;
     return setAlertStatusOutcome;
+  }
+}
+
+/// In-memory [LocalNotificationsPort] (F09-T10) — no plugin, no platform
+/// channel. Tracks what is "scheduled" as a plain map so a scheduler test
+/// can assert on it directly.
+final class FakeLocalNotificationsPort implements LocalNotificationsPort {
+  int initializeCount = 0;
+
+  /// id -> (title, body) of everything currently "scheduled".
+  final Map<int, (String, String?)> scheduled = {};
+
+  /// The `at` each id was last scheduled for, kept alongside [scheduled] so
+  /// a test can assert the instant without a bespoke record type per call.
+  final Map<int, DateTime> scheduledAt = {};
+
+  /// Set of ids on which [schedule] should throw, to exercise the
+  /// scheduler's own failure handling.
+  final Set<int> failingIds = {};
+
+  @override
+  Future<void> initialize() async => initializeCount++;
+
+  @override
+  Future<void> schedule({
+    required int id,
+    required DateTime at,
+    required String title,
+    String? body,
+  }) async {
+    if (failingIds.contains(id)) {
+      throw StateError('scheduling failed for $id');
+    }
+    scheduled[id] = (title, body);
+    scheduledAt[id] = at;
+  }
+
+  @override
+  Future<void> cancel(int id) async {
+    scheduled.remove(id);
+    scheduledAt.remove(id);
+  }
+
+  @override
+  Future<Set<int>> pendingIds() async => scheduled.keys.toSet();
+}
+
+/// Records how often [reconcile] is called, for a test that only needs to
+/// know a caller asked — not what an actual scheduler would then do.
+final class FakeReminderScheduler implements ReminderScheduler {
+  int reconcileCount = 0;
+  Result<int, AppFailure> outcome = const Ok(0);
+
+  @override
+  Future<Result<int, AppFailure>> reconcile() async {
+    reconcileCount++;
+    return outcome;
   }
 }
