@@ -1,10 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/usecases/build_analysis_result.dart';
 import '../../../../core/storage/analysis_session.dart';
 import '../../../ocr/domain/entities/extraction_result.dart';
 import '../../domain/entities/analysis_request.dart';
 import '../../domain/usecases/analyze_document.dart';
-import '../../domain/usecases/build_analysis_result.dart';
 import 'analysis_result_state.dart';
 
 /// Drives one analysis run and the result screen that follows it.

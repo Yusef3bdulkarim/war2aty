@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/documents/analysis_date.dart';
+import '../../../../core/documents/analysis_result.dart';
+import '../../../../core/documents/analysis_section.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
@@ -9,25 +11,23 @@ import '../../../../core/localization/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/analysis_result.dart';
-import '../../domain/entities/analysis_section.dart';
+import '../../../../core/widgets/expandable_panel.dart';
+import '../../../../core/widgets/partial_result_banner.dart';
+import '../../../../core/widgets/result_actions_card.dart';
+import '../../../../core/widgets/result_amounts_card.dart';
+import '../../../../core/widgets/result_dates_card.dart';
+import '../../../../core/widgets/result_extracted_text_panel.dart';
+import '../../../../core/widgets/result_header_card.dart';
+import '../../../../core/widgets/result_key_information_card.dart';
+import '../../../../core/widgets/result_list_card.dart';
+import '../../../../core/widgets/result_summary_card.dart';
+import '../../../../core/widgets/result_warnings_card.dart';
+import '../../../../core/widgets/service_state_view.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
-import '../widgets/expandable_panel.dart';
 import '../widgets/extracted_text_only_view.dart';
-import '../widgets/partial_result_banner.dart';
 import '../widgets/result_action_bar.dart';
-import '../widgets/result_actions_card.dart';
-import '../widgets/result_amounts_card.dart';
-import '../widgets/result_dates_card.dart';
-import '../widgets/result_extracted_text_panel.dart';
-import '../widgets/result_header_card.dart';
-import '../widgets/result_key_information_card.dart';
-import '../widgets/result_list_card.dart';
-import '../widgets/result_summary_card.dart';
-import '../widgets/result_warnings_card.dart';
-import '../widgets/service_state_view.dart';
 
 // From `Waraqti.dc.html` → the result page. The top bar's 56px is measured
 // from the physical screen top and already contains the 52px status bar, which

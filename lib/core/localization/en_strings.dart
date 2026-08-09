@@ -369,6 +369,52 @@ final class EnStrings implements AppStrings {
   String get documentsFilterOther => 'Other';
 
   @override
+  String get documentDetailsTitle => 'Document details';
+
+  @override
+  String get documentDetailsNotFoundTitle => "This document isn't there";
+
+  @override
+  String get documentDetailsNotFoundMessage => 'It may have been deleted.';
+
+  @override
+  String get documentDetailsErrorTitle => "Couldn't open the document";
+
+  @override
+  String get documentDetailsErrorMessage =>
+      'Something went wrong loading it. Try again.';
+
+  @override
+  String get documentDetailsBackToList => 'Back to documents';
+
+  // Document notes (F08-T09)
+  @override
+  String get documentNoteHeading => 'My note';
+  @override
+  String get documentNoteEmpty => 'No note added yet.';
+  @override
+  String get documentNoteAdd => 'Add a note';
+  @override
+  String get documentNoteEdit => 'Edit';
+  @override
+  String get documentNoteDelete => 'Delete note';
+  @override
+  String get documentNoteHint => 'Add a note to help you remember this paper.';
+  @override
+  String get documentNoteSave => 'Save note';
+  @override
+  String get documentNoteDeleteConfirmTitle => 'Delete note?';
+  @override
+  String get documentNoteDeleteConfirmMessage =>
+      "Once deleted, the note can't be recovered.";
+  @override
+  String get documentNoteSaved => 'Note saved.';
+  @override
+  String get documentNoteDeleted => 'Note deleted.';
+  @override
+  String get documentNoteError => "Couldn't save the note. Try again.";
+
+  @override
   String get navHome => 'Home';
 
   @override

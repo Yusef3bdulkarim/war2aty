@@ -21,19 +21,21 @@ void main() {
   setUp(() => repository = FakeDocumentsRepository());
   tearDown(() => repository.dispose());
 
-  Widget screenUnderTest({VoidCallback? onScan}) =>
-      BlocProvider<DocumentsListCubit>(
-        create: (_) => DocumentsListCubit(WatchDocuments(repository))..start(),
-        child: DocumentsListScreen(onScan: onScan),
-      );
+  Widget screenUnderTest({
+    VoidCallback? onScan,
+    ValueChanged<String>? onOpenDocument,
+  }) => BlocProvider<DocumentsListCubit>(
+    create: (_) => DocumentsListCubit(WatchDocuments(repository))..start(),
+    child: DocumentsListScreen(onScan: onScan, onOpenDocument: onOpenDocument),
+  );
 
   group('DocumentsListScreen', () {
-    testWidgets('shows the heading before the database answers', (
+    testWidgets('shows a spinner before the database answers', (
       tester,
     ) async {
       await pumpApp(tester, screenUnderTest(), settle: false);
 
-      expect(find.text(ar.navDocuments), findsOneWidget);
+      // The heading text lives in the nav shell tab, not this screen.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
@@ -97,6 +99,23 @@ void main() {
       expect(find.text('فاتورة كهرباء'), findsOneWidget);
     });
 
+    testWidgets('opens a document when its row is tapped (F08-T08)', (
+      tester,
+    ) async {
+      repository.emit([documentWith(id: 'doc-9', title: 'فاتورة كهرباء')]);
+      String? opened;
+
+      await pumpApp(
+        tester,
+        screenUnderTest(onOpenDocument: (id) => opened = id),
+      );
+
+      await tester.tap(find.text('فاتورة كهرباء'));
+      await tester.pumpAndSettle();
+
+      expect(opened, 'doc-9');
+    });
+
     testWidgets('renders in English', (tester) async {
       await pumpApp(
         tester,
@@ -104,7 +123,7 @@ void main() {
         locale: AppLocalizations.english,
       );
 
-      expect(find.text(en.navDocuments), findsOneWidget);
+      // The heading text lives in the nav shell tab, not this screen.
       expect(find.text(en.documentsEmptyTitle), findsOneWidget);
     });
 

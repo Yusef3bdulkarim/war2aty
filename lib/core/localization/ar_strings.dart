@@ -370,6 +370,53 @@ final class ArStrings implements AppStrings {
   String get documentsFilterOther => 'أخرى';
 
   @override
+  String get documentDetailsTitle => 'تفاصيل المستند';
+
+  @override
+  String get documentDetailsNotFoundTitle => 'المستند ده مش موجود';
+
+  @override
+  String get documentDetailsNotFoundMessage =>
+      'يمكن يكون اتمسح أو مبقاش موجود.';
+
+  @override
+  String get documentDetailsErrorTitle => 'مقدرناش نفتح المستند';
+
+  @override
+  String get documentDetailsErrorMessage =>
+      'حصلت مشكلة وإحنا بنجيب بيانات المستند. جرّب تاني.';
+
+  @override
+  String get documentDetailsBackToList => 'رجوع للمستندات';
+
+  // Document notes (F08-T09)
+  @override
+  String get documentNoteHeading => 'ملاحظتي';
+  @override
+  String get documentNoteEmpty => 'مافيش ملاحظة مضافة.';
+  @override
+  String get documentNoteAdd => 'إضافة ملاحظة';
+  @override
+  String get documentNoteEdit => 'تعديل';
+  @override
+  String get documentNoteDelete => 'حذف الملاحظة';
+  @override
+  String get documentNoteHint => 'ضيف ملاحظة تساعدك تفتكر الورقة.';
+  @override
+  String get documentNoteSave => 'حفظ الملاحظة';
+  @override
+  String get documentNoteDeleteConfirmTitle => 'حذف الملاحظة؟';
+  @override
+  String get documentNoteDeleteConfirmMessage =>
+      'لو حذفت الملاحظة مش هتقدر ترجعها تاني.';
+  @override
+  String get documentNoteSaved => 'تم حفظ الملاحظة.';
+  @override
+  String get documentNoteDeleted => 'تم حذف الملاحظة.';
+  @override
+  String get documentNoteError => 'مقدرناش نحفظ الملاحظة. جرّب تاني.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override

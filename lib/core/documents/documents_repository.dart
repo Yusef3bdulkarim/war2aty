@@ -3,6 +3,7 @@ import '../result/result.dart';
 import 'document_analysis.dart';
 import 'document_category.dart';
 import 'recent_document.dart';
+import 'saved_document.dart';
 
 /// Keeps analysed papers on the device.
 ///
@@ -24,6 +25,20 @@ abstract interface class DocumentsRepository {
     String? titleQuery,
     DocumentCategory? category,
   });
+
+  /// Watches one saved document, in full — the details screen (F08-T08).
+  ///
+  /// Emits `null` once the document is gone (deleted, or never there), the
+  /// same "answer, not a failure" convention [watchDocuments] uses for an
+  /// empty list — a missing document is something the screen shows, not an
+  /// error it reports.
+  Stream<Result<SavedDocument?, AppFailure>> watchDocument(String id);
+
+  /// Adds, replaces, or removes the user's note on a saved document (F08-T09).
+  ///
+  /// A `null` [note] deletes it. The note is the user's own words; the privacy
+  /// contract (CLAUDE.md §7) forbids logging it, same as the extracted text.
+  Future<Result<void, AppFailure>> setNote(String id, String? note);
 
   /// Saves [analysis] and the text it was read from, and nothing else.
   ///

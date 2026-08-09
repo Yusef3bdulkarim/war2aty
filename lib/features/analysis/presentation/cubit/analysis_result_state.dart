@@ -1,5 +1,5 @@
+import '../../../../core/documents/analysis_result.dart';
 import '../../../../core/error/app_failure.dart';
-import '../../domain/entities/analysis_result.dart';
 
 /// States of the result screen.
 sealed class AnalysisResultState {

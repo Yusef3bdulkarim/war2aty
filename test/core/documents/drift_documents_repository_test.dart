@@ -11,6 +11,7 @@ import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/drift_documents_repository.dart';
 import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/documents/recent_document.dart';
+import 'package:war2aty/core/documents/saved_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 
@@ -283,6 +284,83 @@ void main() {
     });
   });
 
+  group('watchDocument', () {
+    test('emits null for an id nothing was saved under', () async {
+      final result = await repository.watchDocument('nope').first;
+
+      expect((result as Ok<SavedDocument?, AppFailure>).value, isNull);
+    });
+
+    test('emits the document as soon as it is written', () async {
+      await repository.saveResultOnly(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+      );
+
+      final result = await repository.watchDocument('doc-1').first;
+      final document = (result as Ok<SavedDocument?, AppFailure>).value;
+
+      expect(document, isNotNull);
+      expect(document!.id, 'doc-1');
+      expect(document.analysis.title, 'فاتورة كهرباء');
+      expect(document.extractedText, 'شركة الكهرباء');
+    });
+
+    test('does not answer for a different document', () async {
+      await repository.saveResultOnly(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+      );
+
+      final result = await repository.watchDocument('someone-else').first;
+
+      expect((result as Ok<SavedDocument?, AppFailure>).value, isNull);
+    });
+
+    test('re-emits when the document changes', () async {
+      await repository.saveResultOnly(
+        analysis: _analysis(),
+        extractedText: 'شركة الكهرباء',
+      );
+
+      final states = <SavedDocument?>[];
+      final sub = repository
+          .watchDocument('doc-1')
+          .listen(
+            (result) =>
+                states.add((result as Ok<SavedDocument?, AppFailure>).value),
+          );
+      await pumpEventQueue();
+
+      await dao.setNote(
+        'doc-1',
+        'ادفع من الفوري',
+        updatedAt: DateTime(2026, 7, 30),
+      );
+      await pumpEventQueue();
+      await sub.cancel();
+
+      expect(states, hasLength(2));
+      expect(states.last!.note, 'ادفع من الفوري');
+    });
+
+    test('turns a database error into a LocalDatabaseFailure', () async {
+      final failing = DriftDocumentsRepository(
+        _ThrowingDao(db),
+        images,
+        idGenerator: () => 'doc-1',
+        clock: () => DateTime(2026, 7, 29),
+      );
+
+      final result = await failing.watchDocument('doc-1').first;
+
+      expect(
+        result,
+        const Err<SavedDocument?, AppFailure>(LocalDatabaseFailure()),
+      );
+    });
+  });
+
   group('watchRecent', () {
     test('limits the list to the requested count', () async {
       var next = 0;
@@ -326,14 +404,19 @@ void main() {
   });
 }
 
-/// A DAO whose write always fails, so the repository's error boundary can be
-/// exercised without a database that has to be broken first.
+/// A DAO whose write and single-document read always fail, so the
+/// repository's error boundary can be exercised without a database that has
+/// to be broken first.
 final class _ThrowingDao extends DocumentsDao {
   _ThrowingDao(super.db);
 
   @override
   Future<void> saveDocument(DocumentWrite write) =>
       Future<void>.error(StateError('disk is on fire'));
+
+  @override
+  Stream<DocumentBundle?> watchDocumentById(String id) =>
+      Stream<DocumentBundle?>.error(StateError('disk is on fire'));
 }
 
 DocumentAnalysis _analysis({DocumentKind kind = DocumentKind.invoice}) =>

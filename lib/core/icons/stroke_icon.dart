@@ -108,6 +108,9 @@ enum StrokeGlyph {
   /// page's tint. The struck-through shape still reads as "no signal".
   wifiOff,
 
+  /// A simple plus sign — the add action on the note card (F08-T09).
+  plus,
+
   /// A magnifying glass — filters the «مستنداتي» list as the user types
   /// (F08-T06).
   search,
@@ -195,6 +198,7 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M2 8.8a15 15 0 0 1 20 0 M2 2l20 20',
   StrokeGlyph.arrowBack: 'M15 6l6 6-6 6 M3 12h18',
   // `<circle cx=11 cy=11 r=7/>` plus the handle.
+  StrokeGlyph.plus: 'M12 5v14M5 12h14',
   StrokeGlyph.search: '${_circle(11, 11, 7)} M21 21l-4-4',
   // `<circle cx=12 cy=12 r=9/>`, the stem, and the dot — which the design
   // draws as a hairline `h.01` with a round cap.

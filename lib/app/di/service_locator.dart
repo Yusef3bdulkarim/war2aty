@@ -16,8 +16,11 @@ import '../../core/documents/documents_repository.dart';
 import '../../core/documents/drift_documents_repository.dart';
 import '../../core/documents/file_document_image_store.dart';
 import '../../core/documents/recent_documents_repository.dart';
+import '../../core/documents/usecases/build_analysis_result.dart';
 import '../../core/documents/usecases/save_document.dart';
 import '../../core/documents/usecases/save_document_with_image.dart';
+import '../../core/documents/usecases/set_document_note.dart';
+import '../../core/documents/usecases/watch_document.dart';
 import '../../core/documents/usecases/watch_documents.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
@@ -52,7 +55,6 @@ import '../../features/analysis/data/datasources/mock_analysis_remote_data_sourc
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
-import '../../features/analysis/domain/usecases/build_analysis_result.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
@@ -111,6 +113,7 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../router/app_router.dart';
@@ -484,7 +487,19 @@ void _registerSavedPapers() {
       () => SaveDocumentCubit(getIt(), getIt()),
     )
     ..registerFactory<WatchDocuments>(() => WatchDocuments(getIt()))
-    ..registerFactory<DocumentsListCubit>(() => DocumentsListCubit(getIt()));
+    ..registerFactory<DocumentsListCubit>(() => DocumentsListCubit(getIt()))
+    ..registerFactory<WatchDocument>(() => WatchDocument(getIt()))
+    ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
+    // Parameterised by the document id — one cubit instance per opened
+    // details screen, the same shape [ImagePreviewCubit]'s registration uses.
+    ..registerFactoryParam<DocumentDetailsCubit, String, void>(
+      (documentId, _) => DocumentDetailsCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        documentId: documentId,
+      ),
+    );
 }
 
 void _registerRouting() {

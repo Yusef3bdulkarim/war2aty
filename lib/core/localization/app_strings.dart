@@ -234,6 +234,52 @@ abstract interface class AppStrings {
   String get documentsFilterEducation;
   String get documentsFilterOther;
 
+  // Document details (F08-T08) — the full record behind one list row.
+  String get documentDetailsTitle;
+
+  /// The document no longer resolves — deleted (F08-T11) since the list was
+  /// opened, or a stale id. Not the same wording as [documentsListErrorTitle]:
+  /// that one is a read failure, this one is "it isn't there any more".
+  String get documentDetailsNotFoundTitle;
+  String get documentDetailsNotFoundMessage;
+
+  String get documentDetailsErrorTitle;
+  String get documentDetailsErrorMessage;
+
+  /// The way out of both states above.
+  String get documentDetailsBackToList;
+
+  // Document notes (F08-T09) — «ملاحظتي».
+  /// Section heading above the note card.
+  String get documentNoteHeading;
+
+  /// Shown when no note has been added yet.
+  String get documentNoteEmpty;
+
+  /// The action that opens the note editor to write one.
+  String get documentNoteAdd;
+
+  /// The action that opens the note editor to change an existing one.
+  String get documentNoteEdit;
+
+  /// The action that removes the note. Shown alongside [documentNoteEdit].
+  String get documentNoteDelete;
+
+  /// Hint inside the text field while the user is writing.
+  String get documentNoteHint;
+
+  /// Confirms the note in the editor.
+  String get documentNoteSave;
+
+  /// Confirmation dialog when deleting a note.
+  String get documentNoteDeleteConfirmTitle;
+  String get documentNoteDeleteConfirmMessage;
+
+  /// Snackbar feedback after a note action.
+  String get documentNoteSaved;
+  String get documentNoteDeleted;
+  String get documentNoteError;
+
   // Bottom navigation
   String get navHome;
   String get navDocuments;

@@ -28,8 +28,10 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
+import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/saved_papers/presentation/screens/document_details_screen.dart';
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
@@ -49,9 +51,13 @@ abstract final class AppRoutes {
   static const String preview = '/preview';
   static const String ocr = '/ocr';
   static const String result = '/result';
+  static const String documentDetails = '/documents';
 
   /// The first-run flow, which sits outside the bottom-nav shell.
   static const Set<String> firstRun = {onboarding, privacy};
+
+  /// One saved document's details (F08-T08), by its id.
+  static String documentDetailsWith(String id) => '$documentDetails/$id';
 
   /// The capture route for [source].
   ///
@@ -192,6 +198,21 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           );
         },
       ),
+      // Also outside the shell, like the result route it shares a layout
+      // with: opened from a row in the list, and left through its own back
+      // control rather than the bottom nav.
+      GoRoute(
+        path: '${AppRoutes.documentDetails}/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null) return const _BackToHome();
+
+          return BlocProvider<DocumentDetailsCubit>(
+            create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
+            child: DocumentDetailsScreen(onClose: context.pop),
+          );
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -227,6 +248,8 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                     onScan: () => context.push(
                       AppRoutes.captureWith(CaptureSource.camera),
                     ),
+                    onOpenDocument: (id) =>
+                        context.push(AppRoutes.documentDetailsWith(id)),
                   ),
                 ),
               ),

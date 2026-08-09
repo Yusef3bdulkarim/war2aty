@@ -31,11 +31,16 @@ const double _rowGap = 12;
 /// swaps between loading, the list, the empty state and a failed read —
 /// mirroring how Home keeps its greeting up while its own sections load.
 class DocumentsListScreen extends StatelessWidget {
-  const DocumentsListScreen({this.onScan, super.key});
+  const DocumentsListScreen({this.onScan, this.onOpenDocument, super.key});
 
   /// Where the empty state's action leads. Optional so the screen can be
   /// pumped on its own in a widget test without a router.
   final VoidCallback? onScan;
+
+  /// Opens one document's details (F08-T08), given its id. `null` leaves
+  /// every row un-tappable, the same "nowhere to go yet" state the rows
+  /// showed before this screen existed.
+  final ValueChanged<String>? onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -48,14 +53,13 @@ class DocumentsListScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(_pageSide, _pageTop, _pageSide, 0),
-              child: _Header(),
-            ),
             Expanded(
               child: BlocBuilder<DocumentsListCubit, DocumentsListState>(
-                builder: (context, state) =>
-                    _Content(state: state, onScan: onScan),
+                builder: (context, state) => _Content(
+                  state: state,
+                  onScan: onScan,
+                  onOpenDocument: onOpenDocument,
+                ),
               ),
             ),
           ],
@@ -75,10 +79,11 @@ class DocumentsListScreen extends StatelessWidget {
 /// down its `State` along with the [TextEditingController] and focus it owns
 /// (F08-T06).
 class _Content extends StatelessWidget {
-  const _Content({required this.state, this.onScan});
+  const _Content({required this.state, this.onScan, this.onOpenDocument});
 
   final DocumentsListState state;
   final VoidCallback? onScan;
+  final ValueChanged<String>? onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -92,49 +97,58 @@ class _Content extends StatelessWidget {
       _ => false,
     };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showFilters) ...[
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: _pageSide),
-            child: DocumentsSearchField(),
-          ),
-          const SizedBox(height: _searchBottomGap),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: _pageSide),
-            child: DocumentsCategoryFilterChips(
-              selected: switch (state) {
-                DocumentsListAvailable(:final category) => category,
-                _ => null,
-              },
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(_pageSide, _pageTop, _pageSide, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showFilters) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: _pageSide),
+              child: DocumentsSearchField(),
             ),
-          ),
-          const SizedBox(height: _filtersBottomGap),
-        ],
-        Expanded(
-          child: switch (state) {
-            DocumentsListLoading() => const _Loading(),
-            DocumentsListUnavailable() => const _LoadFailed(),
-            DocumentsListAvailable(
-              :final documents,
-              :final query,
-              :final category,
-            ) =>
-              _Body(
-                documents: documents,
-                isFiltered: query.trim().isNotEmpty || category != null,
-                onScan: onScan,
+            const SizedBox(height: _searchBottomGap),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: _pageSide),
+              child: DocumentsCategoryFilterChips(
+                selected: switch (state) {
+                  DocumentsListAvailable(:final category) => category,
+                  _ => null,
+                },
               ),
-          },
-        ),
-      ],
+            ),
+            const SizedBox(height: _filtersBottomGap),
+          ],
+          Expanded(
+            child: switch (state) {
+              DocumentsListLoading() => const _Loading(),
+              DocumentsListUnavailable() => const _LoadFailed(),
+              DocumentsListAvailable(
+                :final documents,
+                :final query,
+                :final category,
+              ) =>
+                _Body(
+                  documents: documents,
+                  isFiltered: query.trim().isNotEmpty || category != null,
+                  onScan: onScan,
+                  onOpenDocument: onOpenDocument,
+                ),
+            },
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _Body extends StatelessWidget {
-  const _Body({required this.documents, required this.isFiltered, this.onScan});
+  const _Body({
+    required this.documents,
+    required this.isFiltered,
+    this.onScan,
+    this.onOpenDocument,
+  });
 
   final List<RecentDocument> documents;
 
@@ -144,6 +158,7 @@ class _Body extends StatelessWidget {
   final bool isFiltered;
 
   final VoidCallback? onScan;
+  final ValueChanged<String>? onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -166,31 +181,34 @@ class _Body extends StatelessWidget {
       itemCount: documents.length,
       separatorBuilder: (context, index) => const SizedBox(height: _rowGap),
       itemBuilder: (context, index) {
-        // `F08-T08` will wire a real destination; until then the row shows
-        // exactly as designed but leads nowhere, the same pattern Home's
-        // recent strip uses for the same not-yet-built screen.
-        return DocumentListItem(document: documents[index]);
+        final document = documents[index];
+        return DocumentListItem(
+          document: document,
+          onTap: onOpenDocument == null
+              ? null
+              : () => onOpenDocument!(document.id),
+        );
       },
     );
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header();
+// class _Header extends StatelessWidget {
+//   const _Header();
 
-  @override
-  Widget build(BuildContext context) {
-    const colors = AppColors.light;
+//   @override
+//   Widget build(BuildContext context) {
+//     const colors = AppColors.light;
 
-    return Semantics(
-      header: true,
-      child: Text(
-        context.strings.navDocuments,
-        style: AppTypography.headlineLarge.copyWith(color: colors.ink),
-      ),
-    );
-  }
-}
+//     return Semantics(
+//       header: true,
+//       child: Text(
+//         context.strings.navDocuments,
+//         style: AppTypography.headlineLarge.copyWith(color: colors.ink),
+//       ),
+//     );
+//   }
+// }
 
 class _Loading extends StatelessWidget {
   const _Loading();

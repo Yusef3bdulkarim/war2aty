@@ -7,6 +7,7 @@ import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/documents_repository.dart';
 import 'package:war2aty/core/documents/recent_document.dart';
+import 'package:war2aty/core/documents/saved_document.dart';
 import 'package:war2aty/core/documents/usecases/save_document.dart';
 import 'package:war2aty/core/documents/usecases/save_document_with_image.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -145,6 +146,10 @@ final class _FakeRepository implements DocumentsRepository {
   }) => const Stream.empty();
 
   @override
+  Stream<Result<SavedDocument?, AppFailure>> watchDocument(String id) =>
+      const Stream.empty();
+
+  @override
   Future<Result<String, AppFailure>> saveResultOnly({
     required DocumentAnalysis analysis,
     required String extractedText,
@@ -167,6 +172,10 @@ final class _FakeRepository implements DocumentsRepository {
     lastImagePath = imagePath;
     return withImageOutcome;
   }
+
+  @override
+  Future<Result<void, AppFailure>> setNote(String id, String? note) async =>
+      const Ok(null);
 }
 
 DocumentAnalysis _analysis() => const DocumentAnalysis(

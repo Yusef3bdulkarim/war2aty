@@ -15,6 +15,7 @@ import 'document_write_mapper.dart';
 import 'documents_repository.dart';
 import 'recent_document.dart';
 import 'recent_documents_repository.dart';
+import 'saved_document.dart';
 
 /// [DocumentsRepository] backed by the local Drift database.
 ///
@@ -70,6 +71,31 @@ final class DriftDocumentsRepository
                 sink.add(const Err(LocalDatabaseFailure())),
           ),
         );
+  }
+
+  @override
+  Stream<Result<SavedDocument?, AppFailure>> watchDocument(String id) {
+    return _dao
+        .watchDocumentById(id)
+        .map<Result<SavedDocument?, AppFailure>>(
+          (bundle) => Ok(bundle == null ? null : savedDocumentOf(bundle)),
+        )
+        .transform(
+          StreamTransformer.fromHandlers(
+            handleError: (error, stackTrace, sink) =>
+                sink.add(const Err(LocalDatabaseFailure())),
+          ),
+        );
+  }
+
+  @override
+  Future<Result<void, AppFailure>> setNote(String id, String? note) async {
+    try {
+      await _dao.setNote(id, note, updatedAt: _now());
+      return const Ok(null);
+    } on Object {
+      return const Err(LocalDatabaseFailure());
+    }
   }
 
   @override
