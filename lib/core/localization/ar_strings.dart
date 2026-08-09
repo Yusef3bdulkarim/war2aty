@@ -681,6 +681,12 @@ final class ArStrings implements AppStrings {
   @override
   String get reminderAlertPickerTitle => 'اختار موعد التنبيه';
   @override
+  String get reminderMissingEventTimeWarning =>
+      'الورقة مافيهاش وقت محدد. اختار الوقت المناسب للتنبيه.';
+  @override
+  String reminderSuggestedAlertTime(String time) =>
+      'اقتراح: نبّهني الساعة $time';
+  @override
   String get reminderCreateScreenTitle => 'إنشاء تذكير';
   @override
   String get reminderAddAction => 'إضافة تذكير';

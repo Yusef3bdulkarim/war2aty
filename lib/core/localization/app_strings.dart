@@ -556,6 +556,15 @@ abstract interface class AppStrings {
 
   String get reminderAlertPickerTitle;
 
+  /// Shown instead of an alert list when the paper gave no event time
+  /// (F09-T06) — says why there is nothing to offer relative to, rather than
+  /// leaving the empty state unexplained.
+  String get reminderMissingEventTimeWarning;
+
+  /// A one-tap shortcut to a sensible default alert — [time] is already
+  /// formatted, read the same way anywhere else a clock time is shown.
+  String reminderSuggestedAlertTime(String time);
+
   // Reminder create-from-document (F09-T03) and manual (F09-T04) screen
   // titles, and the success screen after either saves.
   String get reminderCreateScreenTitle;

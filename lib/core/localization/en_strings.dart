@@ -682,6 +682,12 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderAlertPickerTitle => 'Choose an alert time';
   @override
+  String get reminderMissingEventTimeWarning =>
+      'The document did not give a time. Choose the right time for the alert.';
+  @override
+  String reminderSuggestedAlertTime(String time) =>
+      'Suggested: remind me at $time';
+  @override
   String get reminderCreateScreenTitle => 'Create reminder';
   @override
   String get reminderAddAction => 'Add reminder';

@@ -4,6 +4,7 @@ import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/reminders/alert_time_label.dart';
 import '../../../../core/reminders/alert_time_offset.dart';
+import '../../../../core/reminders/reminder_due_label.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -21,6 +22,17 @@ const double _rowFontSize = 15;
 const double _checkSize = 22;
 const double _addButtonFontSize = 15;
 const double _sectionGapBelow = 20;
+const double _warningRadius = 12;
+const double _warningPaddingH = 13;
+const double _warningPaddingV = 12;
+const double _warningGap = 8;
+const double _warningFontSize = 14;
+const double _warningGapBelow = 12;
+const double _suggestionRadius = 13;
+const double _suggestionPaddingV = 13;
+const double _suggestionGap = 8;
+const double _suggestionFontSize = 14.5;
+const double _suggestionGapBelow = 20;
 
 /// «مواعيد التنبيه» — the alert times a reminder-in-progress has, with the
 /// way to add up to [kMaxReminderAlerts] and remove any of them (F09-T08).
@@ -30,12 +42,20 @@ const double _sectionGapBelow = 20;
 /// the not-yet-filled manual form) gave no event time, so the picker this
 /// opens offers only a hand-picked absolute time, never a relative preset
 /// with nothing to be relative to (F09-T06).
+///
+/// [missingEventTimeSuggestion], when given, is a ready-to-use alert instant
+/// — the design's own «اقتراح: نبّهني الساعة 10 صباحًا» — shown alongside an
+/// explanation of *why* there is nothing to pick from, instead of a bare
+/// empty list. Pass it only when the paper genuinely had a date but no
+/// time; a manual reminder whose date/time simply have not been filled in
+/// yet is a different situation and gets no such explanation.
 class ReminderAlertListSection extends StatelessWidget {
   const ReminderAlertListSection({
     required this.alerts,
     required this.eventInstant,
     required this.onAdd,
     required this.onRemove,
+    this.missingEventTimeSuggestion,
     super.key,
   });
 
@@ -43,11 +63,14 @@ class ReminderAlertListSection extends StatelessWidget {
   final DateTime? eventInstant;
   final ValueChanged<ReminderAlertDraft> onAdd;
   final ValueChanged<int> onRemove;
+  final DateTime? missingEventTimeSuggestion;
 
   @override
   Widget build(BuildContext context) {
     const colors = AppColors.light;
     final strings = context.strings;
+    final showMissingTimeHint =
+        alerts.isEmpty && missingEventTimeSuggestion != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,6 +91,73 @@ class ReminderAlertListSection extends StatelessWidget {
             onRemove: () => onRemove(index),
             removeLabel: strings.reminderRemoveAlertLabel,
           ),
+        ],
+        if (showMissingTimeHint) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _warningPaddingH,
+              vertical: _warningPaddingV,
+            ),
+            decoration: BoxDecoration(
+              color: colors.warningTint,
+              borderRadius: BorderRadius.circular(_warningRadius),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                StrokeIcon(StrokeGlyph.info, color: colors.warning, size: 17),
+                const SizedBox(width: _warningGap),
+                Expanded(
+                  child: Text(
+                    strings.reminderMissingEventTimeWarning,
+                    style: AppTypography.bodySmall.copyWith(
+                      fontSize: _warningFontSize,
+                      fontWeight: AppTypography.medium,
+                      height: 1.65,
+                      color: colors.warningInk,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: _warningGapBelow),
+          Material(
+            color: colors.surfaceTeal,
+            borderRadius: BorderRadius.circular(_suggestionRadius),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(_suggestionRadius),
+              onTap: () =>
+                  onAdd(ReminderAlertDraft(time: missingEventTimeSuggestion!)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: _suggestionPaddingV,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    StrokeIcon(
+                      StrokeGlyph.sparkle,
+                      color: colors.brandDeep,
+                      size: 17,
+                    ),
+                    const SizedBox(width: _suggestionGap),
+                    Text(
+                      strings.reminderSuggestedAlertTime(
+                        formatClockTime(strings, missingEventTimeSuggestion!),
+                      ),
+                      style: AppTypography.labelCard.copyWith(
+                        fontSize: _suggestionFontSize,
+                        fontWeight: AppTypography.bold,
+                        color: colors.brandDeep,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: _suggestionGapBelow),
         ],
         if (alerts.length < kMaxReminderAlerts) ...[
           if (alerts.isNotEmpty) const SizedBox(height: _rowGap),

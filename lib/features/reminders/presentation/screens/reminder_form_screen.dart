@@ -7,6 +7,7 @@ import '../../../../core/reminders/reminder.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/time/cairo_day.dart';
 import '../cubit/reminder_form_cubit.dart';
 import '../cubit/reminder_form_state.dart';
 import '../widgets/reminder_alert_list_section.dart';
@@ -149,6 +150,8 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                             ReminderAlertListSection(
                               alerts: editing.alerts,
                               eventInstant: editing.eventInstant,
+                              missingEventTimeSuggestion:
+                                  _missingEventTimeSuggestion(editing),
                               onAdd: context.read<ReminderFormCubit>().addAlert,
                               onRemove: context
                                   .read<ReminderFormCubit>()
@@ -176,6 +179,19 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
         );
       },
     );
+  }
+
+  /// A ready-to-use 10 AM alert on the event's own date — the design's own
+  /// «اقتراح: نبّهني الساعة 10 صباحًا» (F09-T06). Only offered for a
+  /// from-document reminder whose paper genuinely gave a date but no hour —
+  /// a manual reminder whose date/time simply are not filled in yet has
+  /// nothing to suggest against.
+  DateTime? _missingEventTimeSuggestion(ReminderFormEditing editing) {
+    final date = editing.eventDate;
+    if (editing.isManual || date == null || editing.eventMinuteOfDay != null) {
+      return null;
+    }
+    return cairoInstant(date.year, date.month, date.day, 10);
   }
 }
 
