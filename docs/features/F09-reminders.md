@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders` · **Milestone:** M7
 - **Depends on:** F00 (db), F07/F08 (source), notifications core · **Feeds:** Home (upcoming), OS notifications
-- **Progress:** 6 / 14 DONE
+- **Progress:** 7 / 14 DONE
 
 Local reminders (Drift = source of truth, not the scheduled notification). **Decision at start:** exact-alarm behavior + permission timing (Android 13+).
 
@@ -17,7 +17,7 @@ Local reminders (Drift = source of truth, not the scheduled notification). **Dec
 | 5 | F09-T05 | Event-vs-alert time | event date/time ≠ alert datetime | DONE |
 | 6 | F09-T06 | Missing-time handling | «الورقة مافيهاش وقت» → user picks alert time | DONE |
 | 7 | F09-T07 | Multiple-dates selection | choose intended date | DONE |
-| 8 | F09-T08 | Alerts (up to 3) | add/remove up to 3 alert times | TODO |
+| 8 | F09-T08 | Alerts (up to 3) | add/remove up to 3 alert times | DONE |
 | 9 | F09-T09 | Notification permission | request on first reminder | TODO |
 | 10 | F09-T10 | `ReminderScheduler` | schedule/reschedule/cancel; Africa/Cairo tz | TODO |
 | 11 | F09-T11 | Lists | القادمة/الفائتة/المكتملة | TODO |
