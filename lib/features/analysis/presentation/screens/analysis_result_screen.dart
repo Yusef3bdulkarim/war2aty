@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/audio/audio_reader_cubit.dart';
+import '../../../../core/audio/audio_reader_state.dart';
 import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/documents/analysis_result.dart';
 import '../../../../core/documents/analysis_section.dart';
+import '../../../../core/documents/reading_mode.dart';
+import '../../../../core/documents/reading_mode_label.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
@@ -11,6 +15,8 @@ import '../../../../core/localization/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/audio_mini_player_bar.dart';
+import '../../../../core/widgets/audio_options_sheet.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
 import '../../../../core/widgets/result_actions_card.dart';
@@ -63,8 +69,14 @@ class AnalysisResultScreen extends StatelessWidget {
   /// pumped on its own in a widget test.
   final VoidCallback? onClose;
 
-  /// Reads the paper aloud. Absent until there is a reader (F10) — every
-  /// control that would use it is left out rather than shown doing nothing.
+  /// Reads the extracted text aloud from a state page that has no analysis to
+  /// offer modes over (no internet, daily limit reached, an unsupported
+  /// paper). Absent until there is a reader (F10) — every control that would
+  /// use it is left out rather than shown doing nothing.
+  ///
+  /// The ready result itself does not take this: its mini-player (F10-T03) is
+  /// self-contained, since it needs to draw a bar inline in the page rather
+  /// than just run a callback.
   final VoidCallback? onListen;
 
   /// Starts a reminder for the date the user chose. Absent until the reminder
@@ -92,7 +104,6 @@ class AnalysisResultScreen extends StatelessWidget {
           AnalysisResultReady(:final result) => _ResultBody(
             result: result,
             onClose: onClose,
-            onListen: onListen,
             onCreateReminder: onCreateReminder,
             onSave: onSave,
           ),
@@ -109,55 +120,107 @@ class AnalysisResultScreen extends StatelessWidget {
 }
 
 /// The top bar and the ordered sections.
-class _ResultBody extends StatelessWidget {
+class _ResultBody extends StatefulWidget {
   const _ResultBody({
     required this.result,
     this.onClose,
-    this.onListen,
     this.onCreateReminder,
     this.onSave,
   });
 
   final AnalysisResult result;
   final VoidCallback? onClose;
-  final VoidCallback? onListen;
   final ValueChanged<AnalysisDate>? onCreateReminder;
   final VoidCallback? onSave;
 
   @override
+  State<_ResultBody> createState() => _ResultBodyState();
+}
+
+class _ResultBodyState extends State<_ResultBody> {
+  // Local UI state: purely cosmetic — which icon the mini-player's toggle
+  // shows. Real pause/resume against the TTS engine is F10-T05; until then
+  // this only flips the icon, never the engine.
+  bool _isPaused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _TopBar(onClose: onClose),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              _pageSide,
-              _pageTop,
-              _pageSide,
-              _pageBottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Above everything: a half-read paper must not look like a
-                // fully understood one, whatever it managed to fill in.
-                if (result.analysis.isPartial) const PartialResultBanner(),
-                for (final section in result.sections)
-                  _section(section, context.strings),
-              ],
+    final strings = context.strings;
+
+    return BlocConsumer<AudioReaderCubit, AudioReaderState>(
+      listenWhen: (previous, current) => current is AudioReaderFailed,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
+          );
+      },
+      builder: (context, audioState) => Column(
+        children: [
+          _TopBar(onClose: widget.onClose),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                _pageSide,
+                _pageTop,
+                _pageSide,
+                _pageBottom,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Above everything: a half-read paper must not look like a
+                  // fully understood one, whatever it managed to fill in.
+                  if (widget.result.analysis.isPartial)
+                    const PartialResultBanner(),
+                  for (final section in widget.result.sections)
+                    _section(section, strings),
+                ],
+              ),
             ),
           ),
-        ),
-        // Pinned below the scroll: these three are what the page is *for*, and
-        // the design keeps them in reach without scrolling to the end.
-        ResultActionBar(
-          dates: result.analysis.dates,
-          onListen: onListen,
-          onCreateReminder: onCreateReminder,
-          onSave: onSave,
-        ),
-      ],
+          if (audioState case AudioReaderReading(:final mode))
+            AudioMiniPlayerBar(
+              modeLabel: readingModeLabel(strings, mode),
+              isPlaying: !_isPaused,
+              // Static until F10-T08 wires the real progress stream.
+              progress: 0.42,
+              onTogglePlayPause: () => setState(() => _isPaused = !_isPaused),
+              onOptions: _openAudioSheet,
+              onStop: () => context.read<AudioReaderCubit>().stop(),
+            ),
+          // Pinned below the scroll: these three are what the page is *for*,
+          // and the design keeps them in reach without scrolling to the end.
+          ResultActionBar(
+            dates: widget.result.analysis.dates,
+            onListen: _openAudioSheet,
+            onCreateReminder: widget.onCreateReminder,
+            onSave: widget.onSave,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the mode-picker sheet and starts the mini-player reading whatever
+  /// the user confirms there. Reopening it (from the bar's «خيارات»)
+  /// highlights the mode already reading rather than resetting to the first.
+  Future<void> _openAudioSheet() async {
+    final cubit = context.read<AudioReaderCubit>();
+    final currentlyReading = cubit.state;
+    final mode = await showAudioOptionsSheet(
+      context,
+      initialMode: currentlyReading is AudioReaderReading
+          ? currentlyReading.mode
+          : ReadingMode.summaryOnly,
+    );
+    if (mode == null || !mounted) return;
+    setState(() => _isPaused = false);
+    await cubit.start(
+      result: widget.result,
+      mode: mode,
+      strings: context.strings,
     );
   }
 
@@ -166,44 +229,43 @@ class _ResultBody extends StatelessWidget {
   /// named beside it.
   Widget _section(AnalysisSection section, AppStrings strings) {
     const colors = AppColors.light;
+    final analysis = widget.result.analysis;
 
     return switch (section) {
-      AnalysisSection.header => ResultHeaderCard(analysis: result.analysis),
+      AnalysisSection.header => ResultHeaderCard(analysis: analysis),
       AnalysisSection.summary => ResultSummaryCard(
-        summary: result.analysis.summary.short,
+        summary: analysis.summary.short,
       ),
       AnalysisSection.actionRequired => ResultActionsCard(
-        actions: result.analysis.actions,
+        actions: analysis.actions,
       ),
       AnalysisSection.warnings => ResultWarningsCard(
-        warnings: result.analysis.warnings,
+        warnings: analysis.warnings,
       ),
       AnalysisSection.keyInformation => ResultKeyInformationCard(
-        items: result.analysis.keyInformation,
+        items: analysis.keyInformation,
       ),
-      AnalysisSection.amounts => ResultAmountsCard(
-        amounts: result.analysis.amounts,
-      ),
+      AnalysisSection.amounts => ResultAmountsCard(amounts: analysis.amounts),
       AnalysisSection.dates => ResultDatesCard(
-        dates: result.analysis.dates,
-        onCreateReminder: onCreateReminder,
+        dates: analysis.dates,
+        onCreateReminder: widget.onCreateReminder,
       ),
       AnalysisSection.requiredDocuments => ResultListCard(
         glyph: StrokeGlyph.documentCheck,
         title: strings.resultRequiredDocumentsTitle,
-        items: result.analysis.requiredDocuments,
+        items: analysis.requiredDocuments,
       ),
       AnalysisSection.instructions => ResultListCard(
         glyph: StrokeGlyph.documentSteps,
         title: strings.resultInstructionsTitle,
-        items: result.analysis.instructions,
+        items: analysis.instructions,
         numbered: true,
       ),
       AnalysisSection.detailedExplanation => ExpandablePanel(
         label: strings.resultShowExplanation,
         gapAbove: _explanationGapAbove,
         child: Text(
-          result.analysis.summary.detailed,
+          analysis.summary.detailed,
           style: AppTypography.bodySmall.copyWith(
             fontSize: _explanationFontSize,
             height: _explanationHeight,
@@ -212,8 +274,8 @@ class _ResultBody extends StatelessWidget {
         ),
       ),
       AnalysisSection.extractedText => ResultExtractedTextPanel(
-        text: result.extractedText,
-        onListen: onListen,
+        text: widget.result.extractedText,
+        onListen: _openAudioSheet,
       ),
     };
   }

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/audio-reader` · **Milestone:** M8
 - **Depends on:** F07 (result content), TTS core · **Feeds:** — (leaf)
-- **Progress:** 2 / 8 DONE
+- **Progress:** 4 / 8 DONE
 
 Local TTS reading of the result. Text built on-device; nothing sent to an external voice service.
 
@@ -12,8 +12,8 @@ Local TTS reading of the result. Text built on-device; nothing sent to an extern
 |---|---|---|---|---|
 | 1 | F10-T01 | `TextToSpeechService` abstraction | interface over flutter_tts | DONE |
 | 2 | F10-T02 | Reading-text builder | 4 modes (summary/summary+key/full/extracted) built locally | DONE |
-| 3 | F10-T03 | Mini-player UI | «الاستماع للورقة»; «بيقرأ:…» | TODO |
-| 4 | F10-T04 | Play/speak | starts reading selected mode | TODO |
+| 3 | F10-T03 | Mini-player UI | «الاستماع للورقة»; «بيقرأ:…» | DONE |
+| 4 | F10-T04 | Play/speak | starts reading selected mode | DONE |
 | 5 | F10-T05 | Pause/resume/stop | transport controls | TODO |
 | 6 | F10-T06 | Speed control | «سرعة القراءة» | TODO |
 | 7 | F10-T07 | Voice selection | «صوت القراءة» from device voices | TODO |

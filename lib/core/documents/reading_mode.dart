@@ -1,8 +1,11 @@
 /// How much of a result `BuildReadingText` turns into speech (F10-T02).
 ///
 /// Each mode is a self-contained utterance, not a layer stacked on the one
-/// before it in the UI sense — the mini-player (F10-T03) offers all four and
-/// switching modes restarts the reading rather than continuing it.
+/// before it in the UI sense — switching modes restarts the reading rather
+/// than continuing it. The result page's mini-player (F10-T03) offers the
+/// first three as a choice; [extractedText] has no analysis to summarise, so
+/// it is only reached by reading a fallback screen's text straight away,
+/// never picked from a sheet.
 enum ReadingMode {
   /// Just the one-line «الخلاصة السريعة».
   summaryOnly,

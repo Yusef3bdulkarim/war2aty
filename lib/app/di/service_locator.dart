@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
@@ -83,6 +84,8 @@ import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
+import '../../features/audio_reader/domain/usecases/start_reading.dart';
+import '../../features/audio_reader/domain/usecases/stop_reading.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
@@ -654,7 +657,15 @@ void _registerAudioReader() {
       FlutterTtsTextToSpeechService.new,
     )
     // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
-    ..registerFactory<BuildReadingText>(BuildReadingText.new);
+    ..registerFactory<BuildReadingText>(BuildReadingText.new)
+    // F10-T04.
+    ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))
+    ..registerFactory<StopReading>(() => StopReading(getIt()))
+    // One per result screen visit, like `AnalysisResultCubit` and
+    // `SaveDocumentCubit` beside it.
+    ..registerFactory<AudioReaderCubit>(
+      () => AudioReaderCubit(getIt(), getIt()),
+    );
 }
 
 void _registerRouting() {

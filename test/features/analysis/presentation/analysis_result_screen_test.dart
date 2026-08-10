@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -11,6 +12,8 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
+import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
 import 'package:war2aty/core/widgets/result_header_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
@@ -21,9 +24,13 @@ import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cub
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress_view.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
+import '../../../support/fakes.dart';
 import '../../../support/pump_app.dart';
 import '../analysis_fixtures.dart';
 
@@ -56,6 +63,8 @@ final class _FakeRepository implements AnalysisRepository {
 void main() {
   late _FakeRepository repository;
   late AnalysisResultCubit cubit;
+  late FakeTextToSpeechService tts;
+  late AudioReaderCubit audioReaderCubit;
 
   setUp(() {
     repository = _FakeRepository();
@@ -65,9 +74,18 @@ void main() {
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
     );
+    tts = FakeTextToSpeechService();
+    audioReaderCubit = AudioReaderCubit(
+      StartReading(const BuildReadingText(), tts),
+      StopReading(tts),
+    );
   });
 
-  tearDown(() => cubit.close());
+  tearDown(() async {
+    await cubit.close();
+    await audioReaderCubit.close();
+    await tts.dispose();
+  });
 
   Future<void> pumpScreen(
     WidgetTester tester, {
@@ -77,8 +95,11 @@ void main() {
     bool settle = true,
   }) => pumpApp(
     tester,
-    BlocProvider<AnalysisResultCubit>.value(
-      value: cubit,
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<AnalysisResultCubit>.value(value: cubit),
+        BlocProvider<AudioReaderCubit>.value(value: audioReaderCubit),
+      ],
       child: AnalysisResultScreen(onClose: onClose),
     ),
     locale: locale,
@@ -117,6 +138,17 @@ void main() {
       // …followed by the second (F07-T03).
       expect(find.byType(ResultSummaryCard), findsOneWidget);
       expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
+    });
+
+    testWidgets('offers to listen without needing an external onListen', (
+      tester,
+    ) async {
+      // Unlike the state-page fallback, the ready result's reader is
+      // self-contained — no callback needs wiring for the button to appear.
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      expect(find.text(_strings.resultListen), findsOneWidget);
     });
 
     testWidgets('the back control leaves the result', (tester) async {
@@ -160,6 +192,162 @@ void main() {
       expect(repository.calls, 2);
       expect(find.byType(ResultHeaderCard), findsOneWidget);
     });
+  });
+
+  group('the mini-player (F10-T03)', () {
+    testWidgets(
+      'opens the mode sheet and starts the bar with what was picked',
+      (tester) async {
+        await cubit.analyze();
+        await pumpScreen(tester);
+
+        await tester.tap(find.text(_strings.resultListen));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AudioOptionsSheet), findsOneWidget);
+        await tester.tap(find.text(_strings.audioReaderModeFull));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AudioOptionsSheet), findsNothing);
+        expect(find.byType(AudioMiniPlayerBar), findsOneWidget);
+        expect(
+          find.text(
+            _strings.audioReaderNowReading(_strings.audioReaderModeFull),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('the extracted-text panel opens the same sheet', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      final expandToggle = find.text(_strings.resultShowExtractedText);
+      await tester.ensureVisible(expandToggle);
+      await tester.tap(expandToggle);
+      await tester.pumpAndSettle();
+
+      final listenButton = find.text(_strings.resultListenToText);
+      await tester.ensureVisible(listenButton);
+      await tester.tap(listenButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AudioOptionsSheet), findsOneWidget);
+    });
+
+    testWidgets('stopping removes the bar', (tester) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+      expect(find.byType(AudioMiniPlayerBar), findsOneWidget);
+
+      await tester.tap(find.byTooltip(_strings.audioReaderStopLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AudioMiniPlayerBar), findsNothing);
+    });
+
+    testWidgets('«خيارات» reopens the sheet on the mode already reading', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.text(_strings.audioReaderModeSummaryAndKeyInformation),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(_strings.audioReaderOptions));
+      await tester.pumpAndSettle();
+      // Confirming straight away keeps reading the same mode.
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          _strings.audioReaderNowReading(
+            _strings.audioReaderModeSummaryAndKeyInformation,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('dismissing the sheet without a mode starts nothing', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AudioMiniPlayerBar), findsNothing);
+    });
+  });
+
+  group('the mini-player really speaks (F10-T04)', () {
+    testWidgets('confirming a mode actually speaks its text', (tester) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_strings.audioReaderModeFull));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.spoken, [invoiceAnalysis().summary.detailed]);
+    });
+
+    testWidgets('stopping actually silences the engine', (tester) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip(_strings.audioReaderStopLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.stopCount, 1);
+    });
+
+    testWidgets(
+      'a picked mode that fails to speak reports it instead of showing a bar',
+      (tester) async {
+        tts.speakFails = true;
+        await cubit.analyze();
+        await pumpScreen(tester);
+
+        await tester.tap(find.text(_strings.resultListen));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(AudioMiniPlayerBar), findsNothing);
+        expect(find.text(_strings.audioReaderFailedFeedback), findsOneWidget);
+      },
+    );
   });
 
   group('a partially understood paper', () {

@@ -40,6 +40,9 @@ import 'package:war2aty/core/storage/analysis_session_storage.dart';
 import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
+import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
@@ -1069,4 +1072,63 @@ final class FakeReminderScheduler implements ReminderScheduler {
     reconcileCount++;
     return outcome;
   }
+}
+
+/// Scriptable [TextToSpeechService] — no plugin, no OS engine (F10).
+///
+/// [speakFails] / [stopFails] drive the two error paths a cubit test needs;
+/// [spoken] records every text handed to [speak], in order, so a test can
+/// assert what was actually read without re-implementing `BuildReadingText`.
+final class FakeTextToSpeechService implements TextToSpeechService {
+  FakeTextToSpeechService({this.speakFails = false, this.stopFails = false});
+
+  bool speakFails;
+  bool stopFails;
+
+  final List<String> spoken = [];
+  int stopCount = 0;
+  int pauseCount = 0;
+  int resumeCount = 0;
+
+  final _events = StreamController<TtsEvent>.broadcast();
+
+  @override
+  Future<Result<void, AppFailure>> speak(String text) async {
+    spoken.add(text);
+    return speakFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> pause() async {
+    pauseCount++;
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> resume() async {
+    resumeCount++;
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> stop() async {
+    stopCount++;
+    return stopFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> setSpeechRate(double rate) async =>
+      const Ok(null);
+
+  @override
+  Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async =>
+      const Ok(null);
+
+  @override
+  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async => const Ok([]);
+
+  @override
+  Stream<TtsEvent> get events => _events.stream;
+
+  Future<void> dispose() => _events.close();
 }

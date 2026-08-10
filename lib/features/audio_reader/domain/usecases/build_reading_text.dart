@@ -2,8 +2,8 @@ import '../../../../core/documents/analysis_result.dart';
 import '../../../../core/documents/confidence_label.dart';
 import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/documents/key_information.dart';
+import '../../../../core/documents/reading_mode.dart';
 import '../../../../core/localization/app_strings.dart';
-import '../entities/reading_mode.dart';
 
 /// Assembles the text `TextToSpeechService.speak` reads for one [ReadingMode].
 ///
