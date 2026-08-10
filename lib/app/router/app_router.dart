@@ -47,8 +47,8 @@ import '../../features/saved_papers/presentation/screens/document_details_screen
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../di/service_locator.dart';
-import '../shell/placeholder_tab.dart';
 import '../shell/scaffold_with_nav_bar.dart';
 
 /// Route path constants.
@@ -370,10 +370,13 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               ),
             ],
           ),
-          _branch(
-            AppRoutes.settings,
-            (c) => c.strings.navSettings,
-            Icons.settings,
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.settings,
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
           ),
         ],
       ),
@@ -444,22 +447,6 @@ Widget _galleryPicker(BuildContext context) {
       onPicked: (photo) => context.push(AppRoutes.previewWith(photo.path)),
       onCancelled: context.pop,
     ),
-  );
-}
-
-StatefulShellBranch _branch(
-  String path,
-  String Function(BuildContext) title,
-  IconData icon,
-) {
-  return StatefulShellBranch(
-    routes: [
-      GoRoute(
-        path: path,
-        builder: (context, state) =>
-            PlaceholderTab(title: title(context), icon: icon),
-      ),
-    ],
   );
 }
 

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/settings` · **Milestone:** M8
 - **Depends on:** F00, F08/F09 (delete-all), F10 (audio prefs) · **Feeds:** whole-app locale/theme/consent
-- **Progress:** 0 / 12 DONE
+- **Progress:** 1 / 12 DONE
 
 Settings hub. Includes the **AR/EN language switch** (the approved bilingual addition to the design).
 
@@ -10,7 +10,7 @@ Settings hub. Includes the **AR/EN language switch** (the approved bilingual add
 
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
-| 1 | F11-T01 | Settings scaffold + sections | «الإعدادات» layout | TODO |
+| 1 | F11-T01 | Settings scaffold + sections | «الإعدادات» layout | DONE |
 | 2 | F11-T02 | Analysis consent | «السماح بإرسال النص للتحليل» toggle | TODO |
 | 3 | F11-T03 | Processing-mode | «طريقة معالجة الأوراق» | TODO |
 | 4 | F11-T04 | Language switch AR/EN | `LocaleController` + persist; flips whole app + direction | TODO |

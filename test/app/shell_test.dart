@@ -29,6 +29,7 @@ import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/settings/presentation/screens/settings_screen.dart';
 
 import '../support/fakes.dart';
 
@@ -130,6 +131,18 @@ void main() {
     expect(find.text(en.navHome), findsWidgets);
     expect(find.text(en.navSettings), findsWidgets);
     expect(navDirection(tester), TextDirection.ltr);
+  });
+
+  testWidgets('the settings tab opens the real settings screen (F11-T01)', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    const ar = ArStrings();
+
+    await tester.tap(find.text(ar.navSettings).last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
   });
 
   group('into capture', () {
