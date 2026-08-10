@@ -848,4 +848,6 @@ final class EnStrings implements AppStrings {
   String get audioReaderStopLabel => 'Stop reading';
   @override
   String get audioReaderFailedFeedback => 'Something went wrong. Try again.';
+  @override
+  String get audioReaderSpeedLabel => 'Reading speed';
 }

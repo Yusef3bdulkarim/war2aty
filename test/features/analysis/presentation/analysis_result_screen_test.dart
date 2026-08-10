@@ -25,6 +25,9 @@ import 'package:war2aty/features/analysis/presentation/screens/analysis_result_s
 import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress_view.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
@@ -78,6 +81,9 @@ void main() {
     audioReaderCubit = AudioReaderCubit(
       StartReading(const BuildReadingText(), tts),
       StopReading(tts),
+      PauseReading(tts),
+      ResumeReading(tts),
+      SetReadingSpeed(tts),
     );
   });
 
@@ -348,6 +354,68 @@ void main() {
         expect(find.text(_strings.audioReaderFailedFeedback), findsOneWidget);
       },
     );
+  });
+
+  group('the mini-player pauses and resumes (F10-T05)', () {
+    Future<void> startReading(WidgetTester tester) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the toggle pauses the engine and offers to resume', (
+      tester,
+    ) async {
+      await startReading(tester);
+
+      await tester.tap(find.byTooltip(_strings.audioReaderPauseLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.pauseCount, 1);
+      expect(find.byTooltip(_strings.audioReaderResumeLabel), findsOneWidget);
+    });
+
+    testWidgets('tapping it again resumes the engine', (tester) async {
+      await startReading(tester);
+      await tester.tap(find.byTooltip(_strings.audioReaderPauseLabel));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip(_strings.audioReaderResumeLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.resumeCount, 1);
+      expect(find.byTooltip(_strings.audioReaderPauseLabel), findsOneWidget);
+    });
+
+    testWidgets('stopping while paused still silences the engine', (
+      tester,
+    ) async {
+      await startReading(tester);
+      await tester.tap(find.byTooltip(_strings.audioReaderPauseLabel));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip(_strings.audioReaderStopLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.stopCount, 1);
+      expect(find.byType(AudioMiniPlayerBar), findsNothing);
+    });
+
+    testWidgets('starting a fresh reading is never paused', (tester) async {
+      await startReading(tester);
+      await tester.tap(find.byTooltip(_strings.audioReaderPauseLabel));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(_strings.audioReaderOptions));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip(_strings.audioReaderPauseLabel), findsOneWidget);
+    });
   });
 
   group('a partially understood paper', () {

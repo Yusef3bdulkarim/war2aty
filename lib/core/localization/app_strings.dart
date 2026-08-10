@@ -711,4 +711,9 @@ abstract interface class AppStrings {
   /// (F10-T04). Not spelled out further — the same reasoning
   /// [reminderActionFailedFeedback] documents for itself.
   String get audioReaderFailedFeedback;
+
+  /// The options sheet's speed row (F10-T06) — «سرعة القراءة». The pill
+  /// labels themselves (`0.75x`, `1x`, …) are not localized; see
+  /// `ReadingSpeed.label`.
+  String get audioReaderSpeedLabel;
 }

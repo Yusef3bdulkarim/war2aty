@@ -5,18 +5,25 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/reading_speed.dart';
 
 import '../../support/pump_app.dart';
 
-// F10-T03: the «الاستماع للورقة» mode-picker sheet.
+// F10-T03: the «الاستماع للورقة» mode-picker sheet. F10-T06 adds its
+// «سرعة القراءة» speed row.
 const _strings = ArStrings();
 
 void main() {
-  Future<ReadingMode?> openSheet(
+  // Opens the sheet without ever confirming it — for tests that only care
+  // what is drawn, or that dismissing/never-choosing answers `null`.
+  Future<AudioReadingChoice?> openSheet(
     WidgetTester tester, {
     ReadingMode initialMode = ReadingMode.summaryOnly,
+    ReadingSpeed initialSpeed = ReadingSpeed.normal,
+    Locale locale = AppLocalizations.arabic,
+    TextScaler? textScaler,
   }) async {
-    ReadingMode? result;
+    AudioReadingChoice? result;
     await pumpApp(
       tester,
       Builder(
@@ -24,10 +31,13 @@ void main() {
           onPressed: () async => result = await showAudioOptionsSheet(
             context,
             initialMode: initialMode,
+            initialSpeed: initialSpeed,
           ),
           child: const Text('open'),
         ),
       ),
+      locale: locale,
+      textScaler: textScaler,
     );
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
@@ -52,7 +62,7 @@ void main() {
     testWidgets('confirms the mode already highlighted by default', (
       tester,
     ) async {
-      ReadingMode? result;
+      AudioReadingChoice? result;
       await pumpApp(
         tester,
         Builder(
@@ -60,6 +70,7 @@ void main() {
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
               initialMode: ReadingMode.summaryOnly,
+              initialSpeed: ReadingSpeed.normal,
             ),
             child: const Text('open'),
           ),
@@ -71,11 +82,11 @@ void main() {
       await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
       await tester.pumpAndSettle();
 
-      expect(result, ReadingMode.summaryOnly);
+      expect(result?.mode, ReadingMode.summaryOnly);
     });
 
     testWidgets('confirms whichever mode was tapped', (tester) async {
-      ReadingMode? result;
+      AudioReadingChoice? result;
       await pumpApp(
         tester,
         Builder(
@@ -83,6 +94,7 @@ void main() {
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
               initialMode: ReadingMode.summaryOnly,
+              initialSpeed: ReadingSpeed.normal,
             ),
             child: const Text('open'),
           ),
@@ -96,11 +108,11 @@ void main() {
       await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
       await tester.pumpAndSettle();
 
-      expect(result, ReadingMode.fullExplanation);
+      expect(result?.mode, ReadingMode.fullExplanation);
     });
 
     testWidgets('highlights whichever mode is reopened', (tester) async {
-      ReadingMode? result;
+      AudioReadingChoice? result;
       await pumpApp(
         tester,
         Builder(
@@ -108,6 +120,7 @@ void main() {
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
               initialMode: ReadingMode.summaryAndKeyInformation,
+              initialSpeed: ReadingSpeed.normal,
             ),
             child: const Text('open'),
           ),
@@ -119,7 +132,7 @@ void main() {
       await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
       await tester.pumpAndSettle();
 
-      expect(result, ReadingMode.summaryAndKeyInformation);
+      expect(result?.mode, ReadingMode.summaryAndKeyInformation);
     });
 
     testWidgets('answers null when dismissed without choosing', (tester) async {
@@ -132,7 +145,38 @@ void main() {
     });
 
     testWidgets('lays out under Large Text', (tester) async {
-      ReadingMode? result;
+      final result = await openSheet(
+        tester,
+        textScaler: const TextScaler.linear(2),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(result, isNull);
+    });
+
+    testWidgets('follows the locale', (tester) async {
+      await openSheet(tester, locale: AppLocalizations.english);
+
+      const english = EnStrings();
+      expect(find.text(english.audioReaderSheetTitle), findsOneWidget);
+      expect(find.text(english.audioReaderModeSummary), findsOneWidget);
+    });
+  });
+
+  group('the speed row (F10-T06)', () {
+    testWidgets('shows the label and all four speeds', (tester) async {
+      await openSheet(tester);
+
+      expect(find.text(_strings.audioReaderSpeedLabel), findsOneWidget);
+      for (final speed in ReadingSpeed.values) {
+        expect(find.text(speed.label), findsOneWidget);
+      }
+    });
+
+    testWidgets('confirming without picking a speed keeps the default', (
+      tester,
+    ) async {
+      AudioReadingChoice? result;
       await pumpApp(
         tester,
         Builder(
@@ -140,39 +184,71 @@ void main() {
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
               initialMode: ReadingMode.summaryOnly,
+              initialSpeed: ReadingSpeed.normal,
             ),
             child: const Text('open'),
           ),
         ),
-        textScaler: const TextScaler.linear(2),
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      expect(tester.takeException(), isNull);
-      expect(result, isNull);
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(result?.speed, ReadingSpeed.normal);
     });
 
-    testWidgets('follows the locale', (tester) async {
+    testWidgets('confirms whichever speed was tapped', (tester) async {
+      AudioReadingChoice? result;
       await pumpApp(
         tester,
         Builder(
           builder: (context) => ElevatedButton(
-            onPressed: () async => showAudioOptionsSheet(
+            onPressed: () async => result = await showAudioOptionsSheet(
               context,
               initialMode: ReadingMode.summaryOnly,
+              initialSpeed: ReadingSpeed.normal,
             ),
             child: const Text('open'),
           ),
         ),
-        locale: AppLocalizations.english,
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      const english = EnStrings();
-      expect(find.text(english.audioReaderSheetTitle), findsOneWidget);
-      expect(find.text(english.audioReaderModeSummary), findsOneWidget);
+      await tester.tap(find.text(ReadingSpeed.fastest.label));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(result?.speed, ReadingSpeed.fastest);
+      // The mode untouched by this run stays whatever it was reopened with.
+      expect(result?.mode, ReadingMode.summaryOnly);
+    });
+
+    testWidgets('highlights whichever speed is reopened', (tester) async {
+      AudioReadingChoice? result;
+      await pumpApp(
+        tester,
+        Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async => result = await showAudioOptionsSheet(
+              context,
+              initialMode: ReadingMode.summaryOnly,
+              initialSpeed: ReadingSpeed.faster,
+            ),
+            child: const Text('open'),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      // Confirming without picking anything else keeps the reopened speed.
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(result?.speed, ReadingSpeed.faster);
     });
   });
 }

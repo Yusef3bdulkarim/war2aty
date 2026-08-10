@@ -1,3 +1,4 @@
+import '../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../documents/reading_mode.dart';
 import '../error/app_failure.dart';
 
@@ -11,19 +12,32 @@ final class AudioReaderIdle extends AudioReaderState {
   const AudioReaderIdle();
 }
 
-/// [mode] is currently being read aloud.
+/// [mode] is currently being read aloud, or sits paused mid-way through if
+/// [isPaused] (F10-T05) — either way the mini-player stays on screen; only
+/// [AudioReaderIdle]/[stop] hides it. [speed] (F10-T06) is whatever the
+/// options sheet was last confirmed with — [ReadingSpeed.normal] for a
+/// reading nothing has changed it away from yet.
 final class AudioReaderReading extends AudioReaderState {
-  const AudioReaderReading(this.mode);
+  const AudioReaderReading(
+    this.mode, {
+    this.isPaused = false,
+    this.speed = ReadingSpeed.normal,
+  });
 
   final ReadingMode mode;
+  final bool isPaused;
+  final ReadingSpeed speed;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is AudioReaderReading && other.mode == mode;
+      other is AudioReaderReading &&
+          other.mode == mode &&
+          other.isPaused == isPaused &&
+          other.speed == speed;
 
   @override
-  int get hashCode => mode.hashCode;
+  int get hashCode => Object.hash(mode, isPaused, speed);
 }
 
 /// The engine could not start (or stop) speaking. Carries the failure rather

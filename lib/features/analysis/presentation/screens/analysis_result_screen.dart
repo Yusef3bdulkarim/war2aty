@@ -29,6 +29,7 @@ import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
+import '../../../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
@@ -138,11 +139,6 @@ class _ResultBody extends StatefulWidget {
 }
 
 class _ResultBodyState extends State<_ResultBody> {
-  // Local UI state: purely cosmetic — which icon the mini-player's toggle
-  // shows. Real pause/resume against the TTS engine is F10-T05; until then
-  // this only flips the icon, never the engine.
-  bool _isPaused = false;
-
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
@@ -180,13 +176,20 @@ class _ResultBodyState extends State<_ResultBody> {
               ),
             ),
           ),
-          if (audioState case AudioReaderReading(:final mode))
+          if (audioState case AudioReaderReading(:final mode, :final isPaused))
             AudioMiniPlayerBar(
               modeLabel: readingModeLabel(strings, mode),
-              isPlaying: !_isPaused,
+              isPlaying: !isPaused,
               // Static until F10-T08 wires the real progress stream.
               progress: 0.42,
-              onTogglePlayPause: () => setState(() => _isPaused = !_isPaused),
+              onTogglePlayPause: () {
+                final cubit = context.read<AudioReaderCubit>();
+                if (isPaused) {
+                  cubit.resume();
+                } else {
+                  cubit.pause();
+                }
+              },
               onOptions: _openAudioSheet,
               onStop: () => context.read<AudioReaderCubit>().stop(),
             ),
@@ -203,23 +206,27 @@ class _ResultBodyState extends State<_ResultBody> {
     );
   }
 
-  /// Opens the mode-picker sheet and starts the mini-player reading whatever
-  /// the user confirms there. Reopening it (from the bar's «خيارات»)
-  /// highlights the mode already reading rather than resetting to the first.
+  /// Opens the mode-and-speed-picker sheet and starts the mini-player reading
+  /// whatever the user confirms there. Reopening it (from the bar's
+  /// «خيارات») highlights the mode and speed already reading rather than
+  /// resetting either to the first/default.
   Future<void> _openAudioSheet() async {
     final cubit = context.read<AudioReaderCubit>();
     final currentlyReading = cubit.state;
-    final mode = await showAudioOptionsSheet(
+    final choice = await showAudioOptionsSheet(
       context,
       initialMode: currentlyReading is AudioReaderReading
           ? currentlyReading.mode
           : ReadingMode.summaryOnly,
+      initialSpeed: currentlyReading is AudioReaderReading
+          ? currentlyReading.speed
+          : ReadingSpeed.normal,
     );
-    if (mode == null || !mounted) return;
-    setState(() => _isPaused = false);
+    if (choice == null || !mounted) return;
     await cubit.start(
       result: widget.result,
-      mode: mode,
+      mode: choice.mode,
+      speed: choice.speed,
       strings: context.strings,
     );
   }

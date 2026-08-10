@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../documents/reading_mode.dart';
 import '../documents/reading_mode_label.dart';
 import '../localization/app_localizations.dart';
@@ -30,6 +31,13 @@ const double _skipSize = 46;
 const double _skipIconSize = 22;
 const double _playSize = 70;
 const double _playIconSize = 30;
+const double _speedRowGapAbove = 16;
+const double _speedLabelFontSize = 13;
+const double _speedLabelGap = 8;
+const double _speedPillGap = 6;
+const double _speedPillFontSize = 13;
+const double _speedPillPaddingH = 12;
+const double _speedPillPaddingV = 6;
 
 /// The modes this sheet offers, in display order. [ReadingMode.extractedText]
 /// is not among them: it has no analysis to summarise, and is only reached by
@@ -40,17 +48,24 @@ const List<ReadingMode> _offeredModes = [
   ReadingMode.fullExplanation,
 ];
 
-/// Asks which of the paper to read, and answers with it once the user taps
-/// the play control — or with `null` if the sheet was dismissed without
-/// choosing: either way nothing starts speaking from this call alone.
+/// What the sheet answers with once the user taps the play control: both the
+/// [ReadingMode] and the [ReadingSpeed] (F10-T06) chosen alongside it — one
+/// choice, since both are confirmed by the same tap.
+typedef AudioReadingChoice = ({ReadingMode mode, ReadingSpeed speed});
+
+/// Asks which of the paper to read and how fast, and answers with both once
+/// the user taps the play control — or with `null` if the sheet was
+/// dismissed without choosing: either way nothing starts speaking from this
+/// call alone.
 ///
 /// [initialMode] highlights whichever mode is already reading (reopened from
 /// the mini-player's «خيارات»), or the first mode the first time this is
-/// opened for a paper.
-Future<ReadingMode?> showAudioOptionsSheet(
+/// opened for a paper. [initialSpeed] does the same for the speed row.
+Future<AudioReadingChoice?> showAudioOptionsSheet(
   BuildContext context, {
   required ReadingMode initialMode,
-}) => showModalBottomSheet<ReadingMode>(
+  required ReadingSpeed initialSpeed,
+}) => showModalBottomSheet<AudioReadingChoice>(
   context: context,
   backgroundColor: AppColors.light.card,
   isScrollControlled: true,
@@ -60,11 +75,13 @@ Future<ReadingMode?> showAudioOptionsSheet(
   shape: const RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
   ),
-  builder: (_) => AudioOptionsSheet(initialMode: initialMode),
+  builder: (_) =>
+      AudioOptionsSheet(initialMode: initialMode, initialSpeed: initialSpeed),
 );
 
-/// The body of that sheet: a three-way choice of [ReadingMode], and a play
-/// control that confirms whichever is picked.
+/// The body of that sheet: a three-way choice of [ReadingMode], a four-way
+/// choice of [ReadingSpeed] (F10-T06), and a play control that confirms
+/// whichever of each is picked.
 ///
 /// The rewind/forward controls flanking play are drawn to match the design
 /// but stay disabled — nothing in F10 yet seeks within a reading, so a
@@ -75,22 +92,30 @@ Future<ReadingMode?> showAudioOptionsSheet(
 /// screen never imports another feature — the same reason `SaveModeSheet`'s
 /// sibling `DateSelectionSheet` sits here instead of in `reminders`.
 class AudioOptionsSheet extends StatefulWidget {
-  const AudioOptionsSheet({required this.initialMode, super.key});
+  const AudioOptionsSheet({
+    required this.initialMode,
+    required this.initialSpeed,
+    super.key,
+  });
 
   final ReadingMode initialMode;
+  final ReadingSpeed initialSpeed;
 
   @override
   State<AudioOptionsSheet> createState() => _AudioOptionsSheetState();
 }
 
 class _AudioOptionsSheetState extends State<AudioOptionsSheet> {
-  // Local UI state: which mode is highlighted before the user confirms.
+  // Local UI state: which mode/speed are highlighted before the user
+  // confirms.
   late ReadingMode _mode;
+  late ReadingSpeed _speed;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.initialMode;
+    _speed = widget.initialSpeed;
   }
 
   @override
@@ -150,13 +175,103 @@ class _AudioOptionsSheetState extends State<AudioOptionsSheet> {
                 const SizedBox(width: _transportGap),
                 _PlayButton(
                   label: strings.audioReaderStartLabel,
-                  onPressed: () => Navigator.of(context).pop(_mode),
+                  onPressed: () =>
+                      Navigator.of(context).pop((mode: _mode, speed: _speed)),
                 ),
                 const SizedBox(width: _transportGap),
                 const _SkipButton(icon: Icons.fast_forward_rounded),
               ],
             ),
+            const SizedBox(height: _speedRowGapAbove),
+            _SpeedRow(
+              label: strings.audioReaderSpeedLabel,
+              selected: _speed,
+              onSelected: (speed) => setState(() => _speed = speed),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The speed row (F10-T06): a muted label followed by the four
+/// [ReadingSpeed] pills, matching the design's own centred layout.
+class _SpeedRow extends StatelessWidget {
+  const _SpeedRow({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final ReadingSpeed selected;
+  final ValueChanged<ReadingSpeed> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = AppColors.light;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            fontSize: _speedLabelFontSize,
+            fontWeight: AppTypography.semiBold,
+            color: colors.textMuted,
+          ),
+        ),
+        const SizedBox(width: _speedLabelGap),
+        for (final (index, speed) in ReadingSpeed.values.indexed) ...[
+          if (index > 0) const SizedBox(width: _speedPillGap),
+          _SpeedPill(
+            speed: speed,
+            selected: speed == selected,
+            onTap: () => onSelected(speed),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// One choosable [ReadingSpeed].
+class _SpeedPill extends StatelessWidget {
+  const _SpeedPill({
+    required this.speed,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ReadingSpeed speed;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = AppColors.light;
+
+    return Material(
+      color: selected ? colors.brandPrimary : colors.surface,
+      borderRadius: BorderRadius.circular(AppRadii.pill),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadii.pill),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _speedPillPaddingH,
+            vertical: _speedPillPaddingV,
+          ),
+          child: Text(
+            speed.label,
+            style: AppTypography.caption.copyWith(
+              fontSize: _speedPillFontSize,
+              fontWeight: AppTypography.bold,
+              color: selected ? colors.onBrand : colors.textMuted,
+            ),
+          ),
         ),
       ),
     );

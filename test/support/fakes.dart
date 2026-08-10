@@ -1080,15 +1080,28 @@ final class FakeReminderScheduler implements ReminderScheduler {
 /// [spoken] records every text handed to [speak], in order, so a test can
 /// assert what was actually read without re-implementing `BuildReadingText`.
 final class FakeTextToSpeechService implements TextToSpeechService {
-  FakeTextToSpeechService({this.speakFails = false, this.stopFails = false});
+  FakeTextToSpeechService({
+    this.speakFails = false,
+    this.stopFails = false,
+    this.pauseFails = false,
+    this.resumeFails = false,
+    this.setSpeechRateFails = false,
+  });
 
   bool speakFails;
   bool stopFails;
+  bool pauseFails;
+  bool resumeFails;
+  bool setSpeechRateFails;
 
   final List<String> spoken = [];
   int stopCount = 0;
   int pauseCount = 0;
   int resumeCount = 0;
+
+  /// Every rate handed to [setSpeechRate], in order (F10-T06) — so a test can
+  /// assert the chosen `ReadingSpeed` actually reached the engine.
+  final List<double> speechRates = [];
 
   final _events = StreamController<TtsEvent>.broadcast();
 
@@ -1101,13 +1114,13 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   @override
   Future<Result<void, AppFailure>> pause() async {
     pauseCount++;
-    return const Ok(null);
+    return pauseFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
   @override
   Future<Result<void, AppFailure>> resume() async {
     resumeCount++;
-    return const Ok(null);
+    return resumeFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
   @override
@@ -1117,8 +1130,10 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   }
 
   @override
-  Future<Result<void, AppFailure>> setSpeechRate(double rate) async =>
-      const Ok(null);
+  Future<Result<void, AppFailure>> setSpeechRate(double rate) async {
+    speechRates.add(rate);
+    return setSpeechRateFails ? const Err(TtsFailure()) : const Ok(null);
+  }
 
   @override
   Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async =>

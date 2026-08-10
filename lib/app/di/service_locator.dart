@@ -84,6 +84,9 @@ import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
+import '../../features/audio_reader/domain/usecases/pause_reading.dart';
+import '../../features/audio_reader/domain/usecases/resume_reading.dart';
+import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
@@ -661,10 +664,15 @@ void _registerAudioReader() {
     // F10-T04.
     ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))
     ..registerFactory<StopReading>(() => StopReading(getIt()))
+    // F10-T05.
+    ..registerFactory<PauseReading>(() => PauseReading(getIt()))
+    ..registerFactory<ResumeReading>(() => ResumeReading(getIt()))
+    // F10-T06.
+    ..registerFactory<SetReadingSpeed>(() => SetReadingSpeed(getIt()))
     // One per result screen visit, like `AnalysisResultCubit` and
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
-      () => AudioReaderCubit(getIt(), getIt()),
+      () => AudioReaderCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
     );
 }
 

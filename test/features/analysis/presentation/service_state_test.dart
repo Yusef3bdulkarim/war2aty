@@ -17,6 +17,9 @@ import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cub
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
@@ -69,6 +72,9 @@ void main() {
     audioReaderCubit = AudioReaderCubit(
       StartReading(const BuildReadingText(), tts),
       StopReading(tts),
+      PauseReading(tts),
+      ResumeReading(tts),
+      SetReadingSpeed(tts),
     );
   });
 

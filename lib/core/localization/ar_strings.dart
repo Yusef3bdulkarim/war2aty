@@ -843,4 +843,6 @@ final class ArStrings implements AppStrings {
   String get audioReaderStopLabel => 'إيقاف القراءة';
   @override
   String get audioReaderFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
+  @override
+  String get audioReaderSpeedLabel => 'سرعة القراءة';
 }
