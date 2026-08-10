@@ -2,28 +2,32 @@
 
 - **Branch:** `feature/reminders` · **Milestone:** M7
 - **Depends on:** F00 (db), F07/F08 (source), notifications core · **Feeds:** Home (upcoming), OS notifications
-- **Progress:** 0 / 14 DONE
+- **Progress:** 14 / 14 DONE
 
 Local reminders (Drift = source of truth, not the scheduled notification). **Decision at start:** exact-alarm behavior + permission timing (Android 13+).
+
+**Decided (T09/T10):** permission is requested once, right before the first reminder that needs one is saved — never during onboarding, never again once granted (F09-T09). Alarms are scheduled `inexactAllowWhileIdle` (approximate delivery, no `SCHEDULE_EXACT_ALARM`) — Play Store policy reserves exact alarms for genuine alarm-clock/calendar apps, which this is not (F09-T10).
 
 ## Tasks
 
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
-| 1 | F09-T01 | Reminder Drift schema + domain | `reminders` + `reminder_alerts` + migration | TODO |
-| 2 | F09-T02 | Shared reminder form | reusable form widget | TODO |
-| 3 | F09-T03 | Create-from-document-date | prefilled from result date | TODO |
-| 4 | F09-T04 | Create-manual | «إضافة تذكير» | TODO |
-| 5 | F09-T05 | Event-vs-alert time | event date/time ≠ alert datetime | TODO |
-| 6 | F09-T06 | Missing-time handling | «الورقة مافيهاش وقت» → user picks alert time | TODO |
-| 7 | F09-T07 | Multiple-dates selection | choose intended date | TODO |
-| 8 | F09-T08 | Alerts (up to 3) | add/remove up to 3 alert times | TODO |
-| 9 | F09-T09 | Notification permission | request on first reminder | TODO |
-| 10 | F09-T10 | `ReminderScheduler` | schedule/reschedule/cancel; Africa/Cairo tz | TODO |
-| 11 | F09-T11 | Lists | القادمة/الفائتة/المكتملة | TODO |
-| 12 | F09-T12 | Snooze/complete/delete | actions + confirmations | TODO |
-| 13 | F09-T13 | Reconcile-on-restart | DB ↔ OS scheduled state | TODO |
-| 14 | F09-T14 | Notification privacy | hide sensitive details on lock screen (default on) | TODO |
+| 1 | F09-T01 | Reminder Drift schema + domain | `reminders` + `reminder_alerts` + migration | DONE |
+| 2 | F09-T02 | Shared reminder form | reusable form widget | DONE |
+| 3 | F09-T03 | Create-from-document-date | prefilled from result date | DONE |
+| 4 | F09-T04 | Create-manual | «إضافة تذكير» | DONE |
+| 5 | F09-T05 | Event-vs-alert time | event date/time ≠ alert datetime | DONE |
+| 6 | F09-T06 | Missing-time handling | «الورقة مافيهاش وقت» → user picks alert time | DONE |
+| 7 | F09-T07 | Multiple-dates selection | choose intended date | DONE |
+| 8 | F09-T08 | Alerts (up to 3) | add/remove up to 3 alert times | DONE |
+| 9 | F09-T09 | Notification permission | request on first reminder | DONE |
+| 10 | F09-T10 | `ReminderScheduler` | schedule/reschedule/cancel; Africa/Cairo tz | DONE |
+| 11 | F09-T11 | Lists | القادمة/الفائتة/المكتملة | DONE |
+| 12 | F09-T12 | Snooze/complete/delete | actions + confirmations | DONE |
+| 13 | F09-T13 | Reconcile-on-restart | DB ↔ OS scheduled state | DONE |
+| 14 | F09-T14 | Notification privacy | hide sensitive details on lock screen (default on) | DONE |
 
 ## Exit DoD
 Reminder fires at chosen alert; survives restart (reconcile); event time never fabricated; sensitive details hidden on lock screen.
+
+**Note (T14):** the setting (`GetHideSensitiveNotificationDetails`/`SetHideSensitiveNotificationDetails`, Drift-backed, default on) is fully wired into the scheduler — no Settings screen exists yet to expose a toggle for it (that tab is still a placeholder pending its own feature/design), so today it is on, unconditionally, for every user. The read/write use cases are ready for whenever Settings is built.

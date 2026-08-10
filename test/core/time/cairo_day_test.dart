@@ -65,4 +65,30 @@ void main() {
       expect(nextCairoResetAfter(now).isAfter(now), isTrue);
     });
   });
+
+  group('cairoInstant', () {
+    test('reverses cairoLocalOf', () {
+      final instant = DateTime.utc(2026, 8, 24, 8); // 10:00 Cairo.
+      final cairo = cairoLocalOf(instant);
+
+      expect(
+        cairoInstant(
+          cairo.year,
+          cairo.month,
+          cairo.day,
+          cairo.hour,
+          cairo.minute,
+        ),
+        instant,
+      );
+    });
+
+    test('10 AM Cairo is 08:00 UTC', () {
+      expect(cairoInstant(2026, 8, 24, 10), DateTime.utc(2026, 8, 24, 8));
+    });
+
+    test('defaults the time of day to midnight', () {
+      expect(cairoInstant(2026, 8, 24), DateTime.utc(2026, 8, 23, 22));
+    });
+  });
 }

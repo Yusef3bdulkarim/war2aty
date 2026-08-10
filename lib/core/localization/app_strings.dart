@@ -509,4 +509,173 @@ abstract interface class AppStrings {
   /// document as a whole.
   String get confidenceReview;
   String get confidenceUncertain;
+
+  // Reminder form (F09-T02) — shared by "create from a document date"
+  // (F09-T03) and "add manually" (F09-T04).
+  String get reminderFormTitleLabel;
+
+  /// Heads the read-only card showing what the paper said — only present
+  /// when the reminder was created from a document's date.
+  String get reminderFromDocumentInfoHeading;
+
+  String get reminderEventDateLabel;
+  String get reminderEventTimeLabel;
+
+  /// Said in place of a time the paper never gave (F09-T06) — never a
+  /// guessed hour.
+  String get reminderEventTimeMissing;
+
+  String get reminderAlertsSectionLabel;
+  String get reminderAddAnotherAlert;
+
+  /// Read by assistive technology on the small "×" next to an alert —
+  /// [reminderAddAnotherAlert] says what adding one does, this says what
+  /// removing one does.
+  String get reminderRemoveAlertLabel;
+
+  String get reminderNoteLabel;
+  String get reminderNoteHint;
+
+  String get reminderLinkedDocumentSectionLabel;
+  String get reminderLinkedDocumentValueLabel;
+
+  String get reminderSaveAction;
+
+  /// Quick offsets the alert picker offers when the event has a known time
+  /// (F09-T05) — a reminder is never scheduled without the user choosing one
+  /// of these or [reminderAlertOffsetCustom].
+  String get reminderAlertOffsetThreeDays;
+  String get reminderAlertOffsetOneDay;
+  String get reminderAlertOffsetTwoHours;
+  String get reminderAlertOffsetAtEventTime;
+
+  /// Picks an exact date and time by hand — the only option offered at all
+  /// when the paper gave no event time (F09-T06), since there is nothing to
+  /// offset from.
+  String get reminderAlertOffsetCustom;
+
+  String get reminderAlertPickerTitle;
+
+  /// Shown instead of an alert list when the paper gave no event time
+  /// (F09-T06) — says why there is nothing to offer relative to, rather than
+  /// leaving the empty state unexplained.
+  String get reminderMissingEventTimeWarning;
+
+  /// A one-tap shortcut to a sensible default alert — [time] is already
+  /// formatted, read the same way anywhere else a clock time is shown.
+  String reminderSuggestedAlertTime(String time);
+
+  // Reminder create-from-document (F09-T03) and manual (F09-T04) screen
+  // titles, and the success screen after either saves.
+  String get reminderCreateScreenTitle;
+
+  /// Also the manual screen's own title — the design gives the header
+  /// button and the screen it opens the exact same words.
+  String get reminderAddAction;
+
+  String get reminderSuccessTitle;
+  String get reminderSuccessViewAction;
+
+  // Manual reminder form (F09-T04) — its own required date/time pickers,
+  // absent from the create-from-document form (F09-T03), which reads them
+  // off the paper instead.
+  String get reminderManualTitleHint;
+  String get reminderDateLabel;
+  String get reminderDatePickHint;
+  String get reminderTimeLabel;
+  String get reminderTimePickHint;
+
+  // Notification permission sheet (F09-T09) — shown once, right before the
+  // first reminder that would need an OS notification is saved.
+  String get reminderNotifPermTitle;
+  String get reminderNotifPermMessage;
+  String get reminderNotifPermAllow;
+  String get reminderNotifPermSaveWithout;
+
+  /// The OS notification's own title/channel name (F09-T10) — distinct from
+  /// [homeUpcomingReminderTitle], which heads a card inside the app; this one
+  /// is read by the operating system itself, outside any locale-aware
+  /// widget tree.
+  String get reminderNotificationChannelName;
+
+  /// Shown on the OS notification instead of the reminder's real title when
+  /// sensitive details are hidden (F09-T14, default on) — never a specific
+  /// amount, account number or name, whatever the reminder is about.
+  String get reminderNotificationGenericTitle;
+
+  // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
+  String get reminderListTitle;
+  String get reminderTabUpcoming;
+  String get reminderTabMissed;
+  String get reminderTabCompleted;
+
+  String get reminderEmptyTitle;
+  String get reminderEmptySubtitle;
+
+  /// The way out of [reminderEmptyTitle] besides [reminderAddAction] —
+  /// mirrors the scan action Home and the documents list offer for the
+  /// same "nothing yet" moment.
+  String get reminderEmptyScanCta;
+
+  String get reminderEmptyMissedTitle;
+  String get reminderEmptyCompletedTitle;
+
+  /// The list card's own status pill — also the details screen's (F09-T12).
+  String get reminderStatusUpcoming;
+  String get reminderStatusMissed;
+  String get reminderStatusCompleted;
+
+  /// The list card's own quick actions — wired in F09-T12; the card widget
+  /// (F09-T11) already draws them whenever a callback is given.
+  String get reminderCompleteAction;
+  String get reminderSnoozeAction;
+
+  /// Mirrors [documentsListErrorTitle] for the reminders list's own failed
+  /// read.
+  String get reminderListErrorTitle;
+
+  // Reminder details screen (F09-T12) — «تفاصيل التذكير».
+  String get reminderDetailsTitle;
+
+  /// Row labels on the details screen.
+  String get reminderDetailsDateLabel;
+  String get reminderDetailsTimeLabel;
+  String get reminderDetailsAlertLabel;
+  String get reminderDetailsDescriptionLabel;
+
+  /// The linked-document button — navigates to the document's details.
+  String get reminderDetailsLinkedDocumentLabel;
+
+  /// The detail screen's own not-found / error states — mirrors the document
+  /// details screen's pair.
+  String get reminderDetailsNotFoundTitle;
+  String get reminderDetailsNotFoundMessage;
+  String get reminderDetailsErrorTitle;
+  String get reminderDetailsErrorMessage;
+  String get reminderDetailsBackToList;
+
+  /// Detail screen actions.
+  String get reminderDetailsCompleteAction;
+  String get reminderDetailsSnoozeAction;
+  String get reminderDetailsEditAction;
+  String get reminderDetailsDeleteAction;
+
+  // Snooze sheet (F09-T12) — «تأجيل التذكير».
+  String get reminderSnoozeSheetTitle;
+  String get reminderSnoozeSheetSubtitle;
+  String get reminderSnoozeOptionOneHour;
+  String get reminderSnoozeOptionTomorrow;
+  String get reminderSnoozeOptionCustom;
+
+  // Delete confirmation sheet (F09-T12) — «حذف التذكير؟».
+  String get reminderDeleteSheetTitle;
+  String get reminderDeleteSheetMessage;
+  String get reminderDeleteSheetConfirm;
+  String get reminderDeleteSheetCancel;
+
+  /// Snackbar feedback after actions.
+  String get reminderCompletedFeedback;
+  String get reminderSnoozedFeedback;
+  String get reminderDeletedFeedback;
+  String get reminderActionFailedFeedback;
 }

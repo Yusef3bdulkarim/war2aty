@@ -640,4 +640,180 @@ final class ArStrings implements AppStrings {
   String get confidenceReview => 'راجع المعلومة';
   @override
   String get confidenceUncertain => 'قراءة غير مؤكدة';
+
+  // Reminder form (F09-T02)
+  @override
+  String get reminderFormTitleLabel => 'عنوان التذكير';
+  @override
+  String get reminderFromDocumentInfoHeading => 'معلومات من الورقة';
+  @override
+  String get reminderEventDateLabel => 'تاريخ الحدث';
+  @override
+  String get reminderEventTimeLabel => 'وقت الحدث';
+  @override
+  String get reminderEventTimeMissing => 'غير موجود في الورقة';
+  @override
+  String get reminderAlertsSectionLabel => 'مواعيد التنبيه';
+  @override
+  String get reminderAddAnotherAlert => 'إضافة تنبيه تاني';
+  @override
+  String get reminderRemoveAlertLabel => 'احذف هذا التنبيه';
+  @override
+  String get reminderNoteLabel => 'ملاحظة';
+  @override
+  String get reminderNoteHint => 'ضيف أي تفاصيل محتاج تفتكرها.';
+  @override
+  String get reminderLinkedDocumentSectionLabel => 'ربط بمستند محفوظ';
+  @override
+  String get reminderLinkedDocumentValueLabel => 'مرتبط بـ';
+  @override
+  String get reminderSaveAction => 'حفظ التذكير';
+  @override
+  String get reminderAlertOffsetThreeDays => 'قبل الموعد بـ3 أيام';
+  @override
+  String get reminderAlertOffsetOneDay => 'قبل الموعد بيوم';
+  @override
+  String get reminderAlertOffsetTwoHours => 'قبل الموعد بساعتين';
+  @override
+  String get reminderAlertOffsetAtEventTime => 'في نفس الموعد';
+  @override
+  String get reminderAlertOffsetCustom => 'وقت مخصص';
+  @override
+  String get reminderAlertPickerTitle => 'اختار موعد التنبيه';
+  @override
+  String get reminderMissingEventTimeWarning =>
+      'الورقة مافيهاش وقت محدد. اختار الوقت المناسب للتنبيه.';
+  @override
+  String reminderSuggestedAlertTime(String time) =>
+      'اقتراح: نبّهني الساعة $time';
+  @override
+  String get reminderCreateScreenTitle => 'إنشاء تذكير';
+  @override
+  String get reminderAddAction => 'إضافة تذكير';
+  @override
+  String get reminderSuccessTitle => 'تم إنشاء التذكير بنجاح.';
+  @override
+  String get reminderSuccessViewAction => 'عرض التذكير';
+  @override
+  String get reminderManualTitleHint => 'مثال: دفع فاتورة الكهرباء';
+  @override
+  String get reminderDateLabel => 'التاريخ';
+  @override
+  String get reminderDatePickHint => 'اختار التاريخ';
+  @override
+  String get reminderTimeLabel => 'الوقت';
+  @override
+  String get reminderTimePickHint => 'اختار الوقت';
+  @override
+  String get reminderNotifPermTitle => 'اسمح بالتنبيهات';
+  @override
+  String get reminderNotifPermMessage =>
+      'علشان نفتكرك بالموعد في الوقت اللي اخترته.';
+  @override
+  String get reminderNotifPermAllow => 'السماح بالتنبيهات';
+  @override
+  String get reminderNotifPermSaveWithout => 'حفظ بدون تنبيه';
+  @override
+  String get reminderNotificationChannelName => 'التذكيرات';
+  @override
+  String get reminderNotificationGenericTitle => 'عندك تذكير بموعد قريب';
+  @override
+  String get reminderListTitle => 'التذكيرات';
+  @override
+  String get reminderTabUpcoming => 'القادمة';
+  @override
+  String get reminderTabMissed => 'الفائتة';
+  @override
+  String get reminderTabCompleted => 'المكتملة';
+  @override
+  String get reminderEmptyTitle => 'مافيش تذكيرات لسه';
+  @override
+  String get reminderEmptySubtitle =>
+      'اعمل تذكير يدوي، أو أنشئ تذكير من تاريخ موجود في ورقة.';
+  @override
+  String get reminderEmptyScanCta => 'صوّر ورقة';
+  @override
+  String get reminderEmptyMissedTitle => 'مافيش تذكيرات فائتة.';
+  @override
+  String get reminderEmptyCompletedTitle => 'التذكيرات اللي تنفذها هتظهر هنا.';
+  @override
+  String get reminderStatusUpcoming => 'قادم';
+  @override
+  String get reminderStatusMissed => 'فائت';
+  @override
+  String get reminderStatusCompleted => 'تم';
+  @override
+  String get reminderCompleteAction => 'تم التنفيذ';
+  @override
+  String get reminderSnoozeAction => 'تأجيل';
+  @override
+  String get reminderListErrorTitle => 'مقدرناش نجيب تذكيراتك دلوقتي.';
+
+  // Reminder details (F09-T12)
+  @override
+  String get reminderDetailsTitle => 'تفاصيل التذكير';
+  @override
+  String get reminderDetailsDateLabel => 'التاريخ';
+  @override
+  String get reminderDetailsTimeLabel => 'الوقت';
+  @override
+  String get reminderDetailsAlertLabel => 'موعد التنبيه';
+  @override
+  String get reminderDetailsDescriptionLabel => 'ملاحظة';
+  @override
+  String get reminderDetailsLinkedDocumentLabel => 'عرض المستند المرتبط';
+  @override
+  String get reminderDetailsNotFoundTitle => 'التذكير مش موجود';
+  @override
+  String get reminderDetailsNotFoundMessage =>
+      'ممكن يكون التذكير ده اتحذف، أو الرابط غلط.';
+  @override
+  String get reminderDetailsErrorTitle => 'حصلت مشكلة';
+  @override
+  String get reminderDetailsErrorMessage =>
+      'مقدرناش نعرض تفاصيل التذكير دلوقتي. جرّب تاني.';
+  @override
+  String get reminderDetailsBackToList => 'الرجوع للتذكيرات';
+  @override
+  String get reminderDetailsCompleteAction => 'تم التنفيذ';
+  @override
+  String get reminderDetailsSnoozeAction => 'تأجيل';
+  @override
+  String get reminderDetailsEditAction => 'تعديل';
+  @override
+  String get reminderDetailsDeleteAction => 'حذف';
+
+  // Snooze sheet (F09-T12)
+  @override
+  String get reminderSnoozeSheetTitle => 'تأجيل التذكير';
+  @override
+  String get reminderSnoozeSheetSubtitle =>
+      'التأجيل بيغيّر موعد التنبيه بس، مش التاريخ الأصلي للحدث.';
+  @override
+  String get reminderSnoozeOptionOneHour => 'بعد ساعة';
+  @override
+  String get reminderSnoozeOptionTomorrow => 'بكرة في نفس الوقت';
+  @override
+  String get reminderSnoozeOptionCustom => 'اختيار وقت جديد';
+
+  // Delete confirmation sheet (F09-T12)
+  @override
+  String get reminderDeleteSheetTitle => 'حذف التذكير؟';
+  @override
+  String get reminderDeleteSheetMessage =>
+      'الحذف نهائي ومش هتقدر ترجع التذكير بعد كده.';
+  @override
+  String get reminderDeleteSheetConfirm => 'حذف';
+  @override
+  String get reminderDeleteSheetCancel => 'إلغاء';
+
+  // Action feedback (F09-T12)
+  @override
+  String get reminderCompletedFeedback => 'تم التنفيذ.';
+  @override
+  String get reminderSnoozedFeedback => 'تم تأجيل التذكير.';
+  @override
+  String get reminderDeletedFeedback => 'تم حذف التذكير.';
+  @override
+  String get reminderActionFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
 }

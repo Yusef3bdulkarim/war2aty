@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    as fln;
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
@@ -11,6 +13,7 @@ import '../../core/crypto/document_encryption_key_store.dart';
 import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/documents_dao.dart';
+import '../../core/database/daos/reminders_dao.dart';
 import '../../core/documents/document_image_store.dart';
 import '../../core/documents/documents_repository.dart';
 import '../../core/documents/drift_documents_repository.dart';
@@ -34,11 +37,30 @@ import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
+import '../../core/permissions/notification_permission_repository.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
+import '../../core/permissions/system_notification_permission_repository.dart';
+import '../../core/permissions/usecases/get_notification_permission.dart';
+import '../../core/permissions/usecases/request_notification_permission.dart';
+import '../../core/reminders/drift_reminders_repository.dart';
+import '../../core/reminders/flutter_local_notifications_port.dart';
+import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
+import '../../core/reminders/local_notifications_port.dart';
+import '../../core/reminders/notification_privacy_store.dart';
 import '../../core/reminders/reminder_scheduler.dart';
+import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
+import '../../core/reminders/usecases/complete_reminder.dart';
+import '../../core/reminders/usecases/create_manual_reminder.dart';
+import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
+import '../../core/reminders/usecases/delete_reminder.dart';
+import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import '../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
+import '../../core/reminders/usecases/snooze_reminder.dart';
+import '../../core/reminders/usecases/watch_reminder.dart';
+import '../../core/reminders/usecases/watch_reminders.dart';
 import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
 import '../../core/storage/analysis_session.dart';
@@ -115,6 +137,10 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
+import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
@@ -140,6 +166,7 @@ Future<void> configureDependencies(
   _registerOcr();
   _registerAnalysis(env);
   _registerSavedPapers();
+  _registerReminders();
   _registerRouting();
 }
 
@@ -220,8 +247,6 @@ void _registerLaunch(AppEnvironment env) {
     ..registerLazySingleton<AnalysisSessionStorage>(
       FileAnalysisSessionStorage.new,
     )
-    // Replaced by the real scheduler when F09 lands.
-    ..registerLazySingleton<ReminderScheduler>(NoopReminderScheduler.new)
     ..registerLazySingleton<UsageRemoteDataSource>(
       () => EdgeFunctionUsageRemoteDataSource(getIt()),
     )
@@ -268,6 +293,9 @@ List<BootstrapStep> _buildLaunchSteps() {
       return result.map<void>((_) {});
     }, critical: false),
     BootstrapStep(BootstrapStage.reminders, () async {
+      // The plugin/timezone/channel setup (F09-T10) has to run before the
+      // first `reconcile` ever schedules anything.
+      await getIt<LocalNotificationsPort>().initialize();
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -476,7 +504,11 @@ void _registerSavedPapers() {
     // [RecentDocumentsRepository] to the same instance (F08-T05) — one
     // Drift-backed object answers both ports.
     ..registerLazySingleton<DriftDocumentsRepository>(
-      () => DriftDocumentsRepository(getIt(), getIt()),
+      () => DriftDocumentsRepository(
+        getIt(),
+        getIt(),
+        reminderScheduler: getIt(),
+      ),
     )
     ..registerLazySingleton<DocumentsRepository>(
       getIt.call<DriftDocumentsRepository>,
@@ -505,6 +537,106 @@ void _registerSavedPapers() {
         getIt(),
         documentId: documentId,
       ),
+    );
+}
+
+void _registerReminders() {
+  getIt
+    ..registerLazySingleton<RemindersDao>(
+      () => getIt<AppDatabase>().remindersDao,
+    )
+    ..registerLazySingleton<DriftRemindersRepository>(
+      () => DriftRemindersRepository(getIt()),
+    )
+    ..registerLazySingleton<RemindersRepository>(
+      getIt.call<DriftRemindersRepository>,
+    )
+    // F09-T10. `FlutterLocalNotificationsPort` is the only file allowed to
+    // import `flutter_local_notifications`/`timezone` — everything above it,
+    // including the scheduler, speaks `LocalNotificationsPort`.
+    ..registerLazySingleton<fln.FlutterLocalNotificationsPlugin>(
+      fln.FlutterLocalNotificationsPlugin.new,
+    )
+    ..registerLazySingleton<LocalNotificationsPort>(
+      // Arabic, unconditionally — see `FlutterLocalNotificationsPort`'s own
+      // doc comment for why this one string isn't locale-aware.
+      () => FlutterLocalNotificationsPort(getIt(), 'التذكيرات'),
+    )
+    // F09-T14. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<NotificationPrivacyStore>(
+      () => DriftNotificationPrivacyStore(getIt()),
+    )
+    ..registerFactory<GetHideSensitiveNotificationDetails>(
+      () => GetHideSensitiveNotificationDetails(getIt()),
+    )
+    ..registerFactory<SetHideSensitiveNotificationDetails>(
+      () => SetHideSensitiveNotificationDetails(getIt()),
+    )
+    ..registerLazySingleton<ReminderScheduler>(
+      () => LocalNotificationsReminderScheduler(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
+    )
+    ..registerFactory<CreateReminderFromDocumentDate>(
+      () => CreateReminderFromDocumentDate(getIt(), getIt()),
+    )
+    ..registerFactory<CreateManualReminder>(
+      () => CreateManualReminder(getIt(), getIt()),
+    )
+    ..registerFactory<CompleteReminder>(
+      () => CompleteReminder(getIt(), getIt()),
+    )
+    ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
+    ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
+    // F09-T09. Reuses the `PermissionService` singleton `_registerCapture`
+    // already set up — one plugin boundary for every runtime permission.
+    ..registerLazySingleton<NotificationPermissionRepository>(
+      () => SystemNotificationPermissionRepository(getIt()),
+    )
+    ..registerFactory<GetNotificationPermission>(
+      () => GetNotificationPermission(getIt()),
+    )
+    ..registerFactory<RequestNotificationPermission>(
+      () => RequestNotificationPermission(getIt()),
+    )
+    // From a document's date (F09-T03): one cubit per opened form, seeded
+    // with what the router already knows (the chosen date, and the document
+    // it came from, if any).
+    ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
+      (args, _) => ReminderFormCubit.fromDocument(
+        createFromDocumentDate: getIt(),
+        createManual: getIt(),
+        getNotificationPermission: getIt(),
+        requestNotificationPermission: getIt(),
+        args: args,
+      ),
+    )
+    // Manual (F09-T04): a distinct registration under the same type, since
+    // it starts from nothing rather than from router args — `instanceName`
+    // is how get_it tells the two apart.
+    ..registerFactory<ReminderFormCubit>(
+      () => ReminderFormCubit.manual(
+        createFromDocumentDate: getIt(),
+        createManual: getIt(),
+        getNotificationPermission: getIt(),
+        requestNotificationPermission: getIt(),
+      ),
+      instanceName: manualReminderFormInstanceName,
+    )
+    // The reminders tab (F09-T11): a fresh cubit per visit, like every other
+    // top-level list cubit here.
+    ..registerFactory<WatchReminders>(() => WatchReminders(getIt()))
+    ..registerFactory<WatchReminder>(() => WatchReminder(getIt()))
+    ..registerFactory<RemindersCubit>(
+      () => RemindersCubit(getIt(), getIt(), getIt()),
+    )
+    // One cubit per opened details screen, parameterised by the reminder's
+    // id — the same shape `DocumentDetailsCubit` uses.
+    ..registerFactory<ReminderDetailsCubit>(
+      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
     );
 }
 

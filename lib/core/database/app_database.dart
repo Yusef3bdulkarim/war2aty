@@ -5,8 +5,12 @@ import 'package:drift_flutter/drift_flutter.dart';
 // row and companion classes, and a part cannot import them itself.
 import '../documents/document_category.dart';
 import '../documents/recent_document.dart';
+import '../reminders/reminder_alert_status.dart';
+import '../reminders/reminder_status.dart';
 import 'daos/documents_dao.dart';
+import 'daos/reminders_dao.dart';
 import 'tables/document_tables.dart';
+import 'tables/reminder_tables.dart';
 
 part 'app_database.g.dart';
 
@@ -34,10 +38,10 @@ class UsageCache extends Table {
   Set<Column<Object>> get primaryKey => {usageDate};
 }
 
-/// The local SQLite database (schema v2).
+/// The local SQLite database (schema v3).
 ///
-/// v1 held the foundation tables; v2 adds the saved-document tables (F08).
-/// Reminder tables follow in F09.
+/// v1 held the foundation tables; v2 added the saved-document tables (F08);
+/// v3 adds the reminder tables (F09).
 @DriftDatabase(
   tables: [
     AppSettings,
@@ -49,8 +53,10 @@ class UsageCache extends Table {
     DocumentActions,
     DocumentWarnings,
     DocumentTextItems,
+    Reminders,
+    ReminderAlerts,
   ],
-  daos: [DocumentsDao],
+  daos: [DocumentsDao, RemindersDao],
 )
 class AppDatabase extends _$AppDatabase {
   /// Opens the on-device database. Pass an [executor] (e.g. an in-memory one)
@@ -59,7 +65,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'war2aty'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,10 +78,16 @@ class AppDatabase extends _$AppDatabase {
           await m.create(entity);
         }
       }
+      if (from < 3) {
+        for (final entity in _reminderSchema) {
+          await m.create(entity);
+        }
+      }
     },
     beforeOpen: (details) async {
-      // Off by default in SQLite, and the document children rely on it: only
-      // with it on does deleting a paper take its dates and amounts with it.
+      // Off by default in SQLite, and the document/reminder children rely on
+      // it: only with it on does deleting a paper (or a reminder) take its
+      // children with it.
       await customStatement('PRAGMA foreign_keys = ON');
     },
   );
@@ -92,6 +104,17 @@ class AppDatabase extends _$AppDatabase {
     documentTextItems,
     documentsSavedAt,
     documentsCategory,
+  ];
+
+  /// The entities v3 introduced (F09), same ordering rule as
+  /// [_documentSchema].
+  List<DatabaseSchemaEntity> get _reminderSchema => [
+    reminders,
+    reminderAlerts,
+    remindersEventDate,
+    remindersStatus,
+    remindersDocument,
+    reminderAlertsReminder,
   ];
 
   /// Reads a single setting value, or `null` if unset.

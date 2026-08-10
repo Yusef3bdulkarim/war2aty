@@ -22,7 +22,16 @@ import 'package:war2aty/core/documents/saved_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/locale_store.dart';
 import 'package:war2aty/core/logging/log_sink.dart';
+import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/reminders/local_notifications_port.dart';
+import 'package:war2aty/core/reminders/notification_privacy_store.dart';
+import 'package:war2aty/core/reminders/reminder.dart';
+import 'package:war2aty/core/reminders/reminder_alert.dart';
+import 'package:war2aty/core/reminders/reminder_alert_status.dart';
+import 'package:war2aty/core/reminders/reminder_scheduler.dart';
+import 'package:war2aty/core/reminders/reminder_status.dart';
+import 'package:war2aty/core/reminders/reminders_repository.dart';
 import 'package:war2aty/core/reminders/upcoming_reminder.dart';
 import 'package:war2aty/core/reminders/upcoming_reminder_repository.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -56,6 +65,21 @@ final class FakeLocaleStore implements LocaleStore {
 
   @override
   Future<void> writeLanguageCode(String code) async => _code = code;
+}
+
+/// In-memory [NotificationPrivacyStore] (F09-T14) — no persistence,
+/// seedable. `null` (the default) models a user who has never touched the
+/// setting, the same as [FakeLocaleStore]'s own default.
+final class FakeNotificationPrivacyStore implements NotificationPrivacyStore {
+  FakeNotificationPrivacyStore([this._hide]);
+
+  bool? _hide;
+
+  @override
+  Future<bool?> readHideSensitiveDetails() async => _hide;
+
+  @override
+  Future<void> writeHideSensitiveDetails(bool hide) async => _hide = hide;
 }
 
 /// In-memory [OnboardingRepository]; can be seeded as "already seen" or made
@@ -179,6 +203,35 @@ final class FakeCameraPermissionRepository
   Future<Result<bool, AppFailure>> openSettings() async {
     openSettingsCount++;
     return fails ? const Err(CameraPermissionFailure()) : const Ok(true);
+  }
+}
+
+/// In-memory [NotificationPermissionRepository] (F09-T09), the same shape as
+/// [FakeCameraPermissionRepository].
+final class FakeNotificationPermissionRepository
+    implements NotificationPermissionRepository {
+  FakeNotificationPermissionRepository({
+    this.status = PermissionOutcome.granted,
+    PermissionOutcome? afterRequest,
+    this.fails = false,
+  }) : afterRequest = afterRequest ?? status;
+
+  PermissionOutcome status;
+  PermissionOutcome afterRequest;
+  final bool fails;
+
+  int requestCount = 0;
+
+  @override
+  Future<Result<PermissionOutcome, AppFailure>> currentStatus() async =>
+      fails ? const Err(NotificationPermissionFailure()) : Ok(status);
+
+  @override
+  Future<Result<PermissionOutcome, AppFailure>> request() async {
+    requestCount++;
+    if (fails) return const Err(NotificationPermissionFailure());
+    status = afterRequest;
+    return Ok(status);
   }
 }
 
@@ -752,5 +805,268 @@ final class FakeDocumentsRepository implements DocumentsRepository {
     lastNoteSet = note;
     noteDeleted = note == null;
     return setNoteOutcome;
+  }
+}
+
+/// A minimal, always-valid [Reminder] a fake can hand back — real field
+/// values matter less than that every required one is present.
+Reminder fakeReminder({
+  String id = 'r1',
+  String? documentId,
+  String title = 'دفع فاتورة الكهرباء',
+  ReminderStatus status = ReminderStatus.pending,
+  bool isManual = false,
+  List<DateTime> alertTimes = const [],
+}) => Reminder(
+  id: id,
+  documentId: documentId,
+  title: title,
+  eventDate: DateTime(2026, 8, 25),
+  eventMinuteOfDay: 600,
+  status: status,
+  isManual: isManual,
+  createdAt: DateTime(2026),
+  updatedAt: DateTime(2026),
+  alerts: [
+    // Prefixed with the reminder's own id: two `fakeReminder()`s in the same
+    // test must not collide on the same alert id (and so the same
+    // `notificationIdOf` hash) just because both start counting from 0.
+    for (final (i, time) in alertTimes.indexed)
+      ReminderAlert(
+        id: '$id-a$i',
+        reminderId: id,
+        scheduledAt: time,
+        status: ReminderAlertStatus.scheduled,
+      ),
+  ],
+);
+
+/// Records what it is asked to do rather than persisting anything, for
+/// cubit tests that must not depend on Drift (F09).
+final class FakeRemindersRepository implements RemindersRepository {
+  final _controller =
+      StreamController<Result<List<Reminder>, AppFailure>>.broadcast();
+  Result<List<Reminder>, AppFailure> _latest = const Ok([]);
+
+  final _reminderControllers =
+      <String, StreamController<Result<Reminder?, AppFailure>>>{};
+  final _latestReminder = <String, Result<Reminder?, AppFailure>>{};
+
+  void emit(List<Reminder> reminders) {
+    _latest = Ok(reminders);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  void emitFailure([AppFailure failure = const LocalDatabaseFailure()]) {
+    _latest = Err(failure);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  void emitReminder(String id, Reminder? reminder) {
+    _latestReminder[id] = Ok(reminder);
+    _reminderControllers[id]?.add(_latestReminder[id]!);
+  }
+
+  void emitReminderFailure(
+    String id, [
+    AppFailure failure = const LocalDatabaseFailure(),
+  ]) {
+    _latestReminder[id] = Err(failure);
+    _reminderControllers[id]?.add(_latestReminder[id]!);
+  }
+
+  Future<void> dispose() async {
+    await _controller.close();
+    for (final c in _reminderControllers.values) {
+      await c.close();
+    }
+  }
+
+  @override
+  Stream<Result<List<Reminder>, AppFailure>> watchReminders() async* {
+    yield _latest;
+    yield* _controller.stream;
+  }
+
+  @override
+  Stream<Result<Reminder?, AppFailure>> watchReminder(String id) async* {
+    final controller = _reminderControllers.putIfAbsent(
+      id,
+      StreamController<Result<Reminder?, AppFailure>>.broadcast,
+    );
+    yield _latestReminder[id] ?? const Ok(null);
+    yield* controller.stream;
+  }
+
+  /// Outcome of [createReminder]. Default success with [fakeReminder].
+  Result<Reminder, AppFailure> createOutcome = Ok(fakeReminder());
+
+  /// The arguments [createReminder] was last called with.
+  String? lastCreatedTitle;
+  String? lastCreatedDescription;
+  String? lastCreatedDocumentId;
+  DateTime? lastCreatedEventDate;
+  int? lastCreatedEventMinuteOfDay;
+  bool? lastCreatedIsManual;
+  List<DateTime>? lastCreatedAlertTimes;
+
+  @override
+  Future<Result<Reminder, AppFailure>> createReminder({
+    String? documentId,
+    required String title,
+    String? description,
+    required DateTime eventDate,
+    int? eventMinuteOfDay,
+    required bool isManual,
+    required List<DateTime> alertTimes,
+  }) async {
+    lastCreatedDocumentId = documentId;
+    lastCreatedTitle = title;
+    lastCreatedDescription = description;
+    lastCreatedEventDate = eventDate;
+    lastCreatedEventMinuteOfDay = eventMinuteOfDay;
+    lastCreatedIsManual = isManual;
+    lastCreatedAlertTimes = alertTimes;
+    return createOutcome;
+  }
+
+  Result<void, AppFailure> updateOutcome = const Ok(null);
+  List<DateTime>? lastUpdatedAlertTimes;
+
+  @override
+  Future<Result<void, AppFailure>> updateReminder(
+    String id, {
+    String? title,
+    String? description,
+    bool clearDescription = false,
+    List<DateTime>? alertTimes,
+  }) async {
+    lastUpdatedAlertTimes = alertTimes;
+    return updateOutcome;
+  }
+
+  Result<void, AppFailure> completeOutcome = const Ok(null);
+  String? lastCompletedId;
+
+  @override
+  Future<Result<void, AppFailure>> completeReminder(String id) async {
+    lastCompletedId = id;
+    return completeOutcome;
+  }
+
+  Result<void, AppFailure> snoozeOutcome = const Ok(null);
+  String? lastSnoozedId;
+  DateTime? lastSnoozedTo;
+
+  @override
+  Future<Result<void, AppFailure>> snoozeReminder(
+    String id,
+    DateTime newAlertTime,
+  ) async {
+    lastSnoozedId = id;
+    lastSnoozedTo = newAlertTime;
+    return snoozeOutcome;
+  }
+
+  Result<void, AppFailure> deleteOutcome = const Ok(null);
+  String? lastDeletedId;
+
+  @override
+  Future<Result<void, AppFailure>> deleteReminder(String id) async {
+    lastDeletedId = id;
+    return deleteOutcome;
+  }
+
+  Result<void, AppFailure> deleteAllOutcome = const Ok(null);
+  bool deleteAllCalled = false;
+
+  @override
+  Future<Result<void, AppFailure>> deleteAllReminders() async {
+    deleteAllCalled = true;
+    return deleteAllOutcome;
+  }
+
+  Result<List<Reminder>, AppFailure> pendingOutcome = const Ok([]);
+
+  @override
+  Future<Result<List<Reminder>, AppFailure>> pendingReminders() async =>
+      pendingOutcome;
+
+  Result<List<Reminder>, AppFailure> forDocumentOutcome = const Ok([]);
+
+  @override
+  Future<Result<List<Reminder>, AppFailure>> remindersForDocument(
+    String documentId,
+  ) async => forDocumentOutcome;
+
+  Result<void, AppFailure> setAlertStatusOutcome = const Ok(null);
+  String? lastAlertStatusId;
+  ReminderAlertStatus? lastAlertStatus;
+
+  @override
+  Future<Result<void, AppFailure>> setAlertStatus(
+    String alertId,
+    ReminderAlertStatus status,
+  ) async {
+    lastAlertStatusId = alertId;
+    lastAlertStatus = status;
+    return setAlertStatusOutcome;
+  }
+}
+
+/// In-memory [LocalNotificationsPort] (F09-T10) — no plugin, no platform
+/// channel. Tracks what is "scheduled" as a plain map so a scheduler test
+/// can assert on it directly.
+final class FakeLocalNotificationsPort implements LocalNotificationsPort {
+  int initializeCount = 0;
+
+  /// id -> (title, body) of everything currently "scheduled".
+  final Map<int, (String, String?)> scheduled = {};
+
+  /// The `at` each id was last scheduled for, kept alongside [scheduled] so
+  /// a test can assert the instant without a bespoke record type per call.
+  final Map<int, DateTime> scheduledAt = {};
+
+  /// Set of ids on which [schedule] should throw, to exercise the
+  /// scheduler's own failure handling.
+  final Set<int> failingIds = {};
+
+  @override
+  Future<void> initialize() async => initializeCount++;
+
+  @override
+  Future<void> schedule({
+    required int id,
+    required DateTime at,
+    required String title,
+    String? body,
+  }) async {
+    if (failingIds.contains(id)) {
+      throw StateError('scheduling failed for $id');
+    }
+    scheduled[id] = (title, body);
+    scheduledAt[id] = at;
+  }
+
+  @override
+  Future<void> cancel(int id) async {
+    scheduled.remove(id);
+    scheduledAt.remove(id);
+  }
+
+  @override
+  Future<Set<int>> pendingIds() async => scheduled.keys.toSet();
+}
+
+/// Records how often [reconcile] is called, for a test that only needs to
+/// know a caller asked — not what an actual scheduler would then do.
+final class FakeReminderScheduler implements ReminderScheduler {
+  int reconcileCount = 0;
+  Result<int, AppFailure> outcome = const Ok(0);
+
+  @override
+  Future<Result<int, AppFailure>> reconcile() async {
+    reconcileCount++;
+    return outcome;
   }
 }

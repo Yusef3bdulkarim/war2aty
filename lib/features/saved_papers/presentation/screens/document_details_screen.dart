@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/documents/analysis_section.dart';
 import '../../../../core/documents/saved_document.dart';
 import '../../../../core/icons/stroke_icon.dart';
@@ -51,11 +52,15 @@ const double _explanationHeight = 1.9;
 /// result screen draws (`AnalysisSection`), fed from what was stored instead
 /// of what a fresh analysis just returned.
 class DocumentDetailsScreen extends StatelessWidget {
-  const DocumentDetailsScreen({this.onClose, super.key});
+  const DocumentDetailsScreen({this.onClose, this.onCreateReminder, super.key});
 
   /// Leaves the details screen. The router supplies it; optional so the
   /// screen can be pumped on its own in a widget test.
   final VoidCallback? onClose;
+
+  /// Starts a reminder for the date the user chose (F09). Absent until the
+  /// router wires it, same convention `AnalysisResultScreen` uses.
+  final ValueChanged<AnalysisDate>? onCreateReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +76,7 @@ class DocumentDetailsScreen extends StatelessWidget {
               document: document,
               sections: sections,
               onClose: onClose,
+              onCreateReminder: onCreateReminder,
             ),
           DocumentDetailsNotFound() => _StateBody(
             glyph: StrokeGlyph.search,
@@ -152,11 +158,13 @@ class _DetailsBody extends StatelessWidget {
     required this.document,
     required this.sections,
     this.onClose,
+    this.onCreateReminder,
   });
 
   final SavedDocument document;
   final List<AnalysisSection> sections;
   final VoidCallback? onClose;
+  final ValueChanged<AnalysisDate>? onCreateReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -195,10 +203,11 @@ class _DetailsBody extends StatelessWidget {
   }
 
   /// The widget for one section — the result screen's own mapping, over the
-  /// document that was saved instead of the one just analysed. `dates` and
-  /// `extractedText` leave out the actions the result screen offers there
-  /// (a reminder, listening aloud): neither has anywhere to go yet, and a
-  /// button that does nothing is worse than none (F09, F10).
+  /// document that was saved instead of the one just analysed. `extractedText`
+  /// leaves out the action the result screen offers there (listening aloud):
+  /// there is no reader yet, and a button that does nothing is worse than
+  /// none (F10). `dates` now offers the reminder action (F09) same as the
+  /// result screen's.
   Widget _section(AnalysisSection section, AppStrings strings) {
     const colors = AppColors.light;
     final analysis = document.analysis;
@@ -218,7 +227,10 @@ class _DetailsBody extends StatelessWidget {
         items: analysis.keyInformation,
       ),
       AnalysisSection.amounts => ResultAmountsCard(amounts: analysis.amounts),
-      AnalysisSection.dates => ResultDatesCard(dates: analysis.dates),
+      AnalysisSection.dates => ResultDatesCard(
+        dates: analysis.dates,
+        onCreateReminder: onCreateReminder,
+      ),
       AnalysisSection.requiredDocuments => ResultListCard(
         glyph: StrokeGlyph.documentCheck,
         title: strings.resultRequiredDocumentsTitle,

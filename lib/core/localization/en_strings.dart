@@ -641,4 +641,184 @@ final class EnStrings implements AppStrings {
   String get confidenceReview => 'Please double-check';
   @override
   String get confidenceUncertain => 'Uncertain reading';
+
+  // Reminder form (F09-T02)
+  @override
+  String get reminderFormTitleLabel => 'Reminder title';
+  @override
+  String get reminderFromDocumentInfoHeading => 'From the document';
+  @override
+  String get reminderEventDateLabel => 'Event date';
+  @override
+  String get reminderEventTimeLabel => 'Event time';
+  @override
+  String get reminderEventTimeMissing => 'Not on the document';
+  @override
+  String get reminderAlertsSectionLabel => 'Alert times';
+  @override
+  String get reminderAddAnotherAlert => 'Add another alert';
+  @override
+  String get reminderRemoveAlertLabel => 'Remove this alert';
+  @override
+  String get reminderNoteLabel => 'Note';
+  @override
+  String get reminderNoteHint => 'Add anything you need to remember.';
+  @override
+  String get reminderLinkedDocumentSectionLabel => 'Link a saved document';
+  @override
+  String get reminderLinkedDocumentValueLabel => 'Linked to';
+  @override
+  String get reminderSaveAction => 'Save reminder';
+  @override
+  String get reminderAlertOffsetThreeDays => '3 days before';
+  @override
+  String get reminderAlertOffsetOneDay => '1 day before';
+  @override
+  String get reminderAlertOffsetTwoHours => '2 hours before';
+  @override
+  String get reminderAlertOffsetAtEventTime => 'At the event time';
+  @override
+  String get reminderAlertOffsetCustom => 'Custom time';
+  @override
+  String get reminderAlertPickerTitle => 'Choose an alert time';
+  @override
+  String get reminderMissingEventTimeWarning =>
+      'The document did not give a time. Choose the right time for the alert.';
+  @override
+  String reminderSuggestedAlertTime(String time) =>
+      'Suggested: remind me at $time';
+  @override
+  String get reminderCreateScreenTitle => 'Create reminder';
+  @override
+  String get reminderAddAction => 'Add reminder';
+  @override
+  String get reminderSuccessTitle => 'Reminder created.';
+  @override
+  String get reminderSuccessViewAction => 'View reminder';
+  @override
+  String get reminderManualTitleHint => 'e.g. Pay the electricity bill';
+  @override
+  String get reminderDateLabel => 'Date';
+  @override
+  String get reminderDatePickHint => 'Choose a date';
+  @override
+  String get reminderTimeLabel => 'Time';
+  @override
+  String get reminderTimePickHint => 'Choose a time';
+  @override
+  String get reminderNotifPermTitle => 'Allow notifications';
+  @override
+  String get reminderNotifPermMessage =>
+      'So we can remind you at the time you chose.';
+  @override
+  String get reminderNotifPermAllow => 'Allow notifications';
+  @override
+  String get reminderNotifPermSaveWithout => 'Save without a notification';
+  @override
+  String get reminderNotificationChannelName => 'Reminders';
+  @override
+  String get reminderNotificationGenericTitle =>
+      'You have an upcoming reminder';
+  @override
+  String get reminderListTitle => 'Reminders';
+  @override
+  String get reminderTabUpcoming => 'Upcoming';
+  @override
+  String get reminderTabMissed => 'Missed';
+  @override
+  String get reminderTabCompleted => 'Completed';
+  @override
+  String get reminderEmptyTitle => 'No reminders yet';
+  @override
+  String get reminderEmptySubtitle =>
+      'Add one by hand, or create one from a date already on a document.';
+  @override
+  String get reminderEmptyScanCta => 'Photograph a paper';
+  @override
+  String get reminderEmptyMissedTitle => 'No missed reminders.';
+  @override
+  String get reminderEmptyCompletedTitle =>
+      'Reminders you complete will show up here.';
+  @override
+  String get reminderStatusUpcoming => 'Upcoming';
+  @override
+  String get reminderStatusMissed => 'Missed';
+  @override
+  String get reminderStatusCompleted => 'Done';
+  @override
+  String get reminderCompleteAction => 'Mark done';
+  @override
+  String get reminderSnoozeAction => 'Snooze';
+  @override
+  String get reminderListErrorTitle =>
+      "We couldn't load your reminders right now.";
+
+  // Reminder details (F09-T12)
+  @override
+  String get reminderDetailsTitle => 'Reminder details';
+  @override
+  String get reminderDetailsDateLabel => 'Date';
+  @override
+  String get reminderDetailsTimeLabel => 'Time';
+  @override
+  String get reminderDetailsAlertLabel => 'Alert time';
+  @override
+  String get reminderDetailsDescriptionLabel => 'Note';
+  @override
+  String get reminderDetailsLinkedDocumentLabel => 'View linked document';
+  @override
+  String get reminderDetailsNotFoundTitle => 'Reminder not found';
+  @override
+  String get reminderDetailsNotFoundMessage =>
+      'This reminder may have been deleted, or the link is invalid.';
+  @override
+  String get reminderDetailsErrorTitle => 'Something went wrong';
+  @override
+  String get reminderDetailsErrorMessage =>
+      "We couldn't show this reminder right now. Please try again.";
+  @override
+  String get reminderDetailsBackToList => 'Back to reminders';
+  @override
+  String get reminderDetailsCompleteAction => 'Mark done';
+  @override
+  String get reminderDetailsSnoozeAction => 'Snooze';
+  @override
+  String get reminderDetailsEditAction => 'Edit';
+  @override
+  String get reminderDetailsDeleteAction => 'Delete';
+
+  // Snooze sheet (F09-T12)
+  @override
+  String get reminderSnoozeSheetTitle => 'Snooze reminder';
+  @override
+  String get reminderSnoozeSheetSubtitle =>
+      'Snoozing changes the alert time only, not the original event date.';
+  @override
+  String get reminderSnoozeOptionOneHour => 'In 1 hour';
+  @override
+  String get reminderSnoozeOptionTomorrow => 'Tomorrow at the same time';
+  @override
+  String get reminderSnoozeOptionCustom => 'Choose a new time';
+
+  // Delete confirmation sheet (F09-T12)
+  @override
+  String get reminderDeleteSheetTitle => 'Delete reminder?';
+  @override
+  String get reminderDeleteSheetMessage =>
+      'This is permanent — you will not be able to get this reminder back.';
+  @override
+  String get reminderDeleteSheetConfirm => 'Delete';
+  @override
+  String get reminderDeleteSheetCancel => 'Cancel';
+
+  // Action feedback (F09-T12)
+  @override
+  String get reminderCompletedFeedback => 'Marked as done.';
+  @override
+  String get reminderSnoozedFeedback => 'Reminder snoozed.';
+  @override
+  String get reminderDeletedFeedback => 'Reminder deleted.';
+  @override
+  String get reminderActionFailedFeedback =>
+      'Something went wrong. Please try again.';
 }
