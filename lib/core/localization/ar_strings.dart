@@ -748,4 +748,72 @@ final class ArStrings implements AppStrings {
   String get reminderSnoozeAction => 'تأجيل';
   @override
   String get reminderListErrorTitle => 'مقدرناش نجيب تذكيراتك دلوقتي.';
+
+  // Reminder details (F09-T12)
+  @override
+  String get reminderDetailsTitle => 'تفاصيل التذكير';
+  @override
+  String get reminderDetailsDateLabel => 'التاريخ';
+  @override
+  String get reminderDetailsTimeLabel => 'الوقت';
+  @override
+  String get reminderDetailsAlertLabel => 'موعد التنبيه';
+  @override
+  String get reminderDetailsDescriptionLabel => 'ملاحظة';
+  @override
+  String get reminderDetailsLinkedDocumentLabel => 'عرض المستند المرتبط';
+  @override
+  String get reminderDetailsNotFoundTitle => 'التذكير مش موجود';
+  @override
+  String get reminderDetailsNotFoundMessage =>
+      'ممكن يكون التذكير ده اتحذف، أو الرابط غلط.';
+  @override
+  String get reminderDetailsErrorTitle => 'حصلت مشكلة';
+  @override
+  String get reminderDetailsErrorMessage =>
+      'مقدرناش نعرض تفاصيل التذكير دلوقتي. جرّب تاني.';
+  @override
+  String get reminderDetailsBackToList => 'الرجوع للتذكيرات';
+  @override
+  String get reminderDetailsCompleteAction => 'تم التنفيذ';
+  @override
+  String get reminderDetailsSnoozeAction => 'تأجيل';
+  @override
+  String get reminderDetailsEditAction => 'تعديل';
+  @override
+  String get reminderDetailsDeleteAction => 'حذف';
+
+  // Snooze sheet (F09-T12)
+  @override
+  String get reminderSnoozeSheetTitle => 'تأجيل التذكير';
+  @override
+  String get reminderSnoozeSheetSubtitle =>
+      'التأجيل بيغيّر موعد التنبيه بس، مش التاريخ الأصلي للحدث.';
+  @override
+  String get reminderSnoozeOptionOneHour => 'بعد ساعة';
+  @override
+  String get reminderSnoozeOptionTomorrow => 'بكرة في نفس الوقت';
+  @override
+  String get reminderSnoozeOptionCustom => 'اختيار وقت جديد';
+
+  // Delete confirmation sheet (F09-T12)
+  @override
+  String get reminderDeleteSheetTitle => 'حذف التذكير؟';
+  @override
+  String get reminderDeleteSheetMessage =>
+      'الحذف نهائي ومش هتقدر ترجع التذكير بعد كده.';
+  @override
+  String get reminderDeleteSheetConfirm => 'حذف';
+  @override
+  String get reminderDeleteSheetCancel => 'إلغاء';
+
+  // Action feedback (F09-T12)
+  @override
+  String get reminderCompletedFeedback => 'تم التنفيذ.';
+  @override
+  String get reminderSnoozedFeedback => 'تم تأجيل التذكير.';
+  @override
+  String get reminderDeletedFeedback => 'تم حذف التذكير.';
+  @override
+  String get reminderActionFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
 }

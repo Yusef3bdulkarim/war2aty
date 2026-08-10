@@ -5,6 +5,8 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
+import 'package:war2aty/core/reminders/usecases/complete_reminder.dart';
+import 'package:war2aty/core/reminders/usecases/snooze_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/watch_reminders.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminders_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/screens/reminders_list_screen.dart';
@@ -17,15 +19,23 @@ void main() {
   const en = EnStrings();
 
   late FakeRemindersRepository repository;
+  late FakeReminderScheduler scheduler;
 
-  setUp(() => repository = FakeRemindersRepository());
+  setUp(() {
+    repository = FakeRemindersRepository();
+    scheduler = FakeReminderScheduler();
+  });
   tearDown(() => repository.dispose());
 
   Widget screenUnderTest({
     VoidCallback? onAddReminder,
     ValueChanged<String>? onOpenReminder,
   }) => BlocProvider<RemindersCubit>(
-    create: (_) => RemindersCubit(WatchReminders(repository))..start(),
+    create: (_) => RemindersCubit(
+      WatchReminders(repository),
+      CompleteReminder(repository, scheduler),
+      SnoozeReminder(repository, scheduler),
+    )..start(),
     child: RemindersListScreen(
       onAddReminder: onAddReminder,
       onOpenReminder: onOpenReminder,

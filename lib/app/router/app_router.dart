@@ -30,9 +30,11 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
+import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
+import '../../features/reminders/presentation/screens/reminder_details_screen.dart';
 import '../../features/reminders/presentation/screens/reminder_form_screen.dart';
 import '../../features/reminders/presentation/screens/reminder_success_screen.dart';
 import '../../features/reminders/presentation/screens/reminders_list_screen.dart';
@@ -71,6 +73,9 @@ abstract final class AppRoutes {
 
   /// One saved document's details (F08-T08), by its id.
   static String documentDetailsWith(String id) => '$documentDetails/$id';
+
+  /// One reminder's details (F09-T12), by its id.
+  static String reminderDetailsWith(String id) => '$reminders/$id';
 
   /// The capture route for [source].
   ///
@@ -290,6 +295,24 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           );
         },
       ),
+      // One reminder's details (F09-T12): opened from a card in the
+      // reminders tab, its own back control like `documentDetails` above.
+      GoRoute(
+        path: '${AppRoutes.reminders}/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null) return const _BackToHome();
+
+          return BlocProvider<ReminderDetailsCubit>(
+            create: (_) => getIt<ReminderDetailsCubit>()..start(id),
+            child: ReminderDetailsScreen(
+              onClose: context.pop,
+              onOpenDocument: (documentId) =>
+                  context.push(AppRoutes.documentDetailsWith(documentId)),
+            ),
+          );
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -340,6 +363,8 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   create: (_) => getIt<RemindersCubit>()..start(),
                   child: RemindersListScreen(
                     onAddReminder: () => context.push(AppRoutes.reminderManual),
+                    onOpenReminder: (id) =>
+                        context.push(AppRoutes.reminderDetailsWith(id)),
                   ),
                 ),
               ),

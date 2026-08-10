@@ -11,6 +11,7 @@ import '../../../../core/theme/app_typography.dart';
 import '../cubit/reminders_cubit.dart';
 import '../cubit/reminders_state.dart';
 import '../widgets/reminder_list_item.dart';
+import '../widgets/snooze_sheet.dart';
 
 // From `Waraqti.dc.html` → `isReminders`. Mirrors the documents list's own
 // page padding (top already accounts for the status bar SafeArea applies;
@@ -276,9 +277,47 @@ class _List extends StatelessWidget {
           onTap: onOpenReminder == null
               ? null
               : () => onOpenReminder!(reminder.id),
+          onComplete: () => _complete(context, reminder.id),
+          onSnooze: () => _snooze(context, reminder.id),
         );
       },
     );
+  }
+
+  Future<void> _complete(BuildContext context, String id) async {
+    final cubit = context.read<RemindersCubit>();
+    final strings = context.strings;
+    final ok = await cubit.complete(id);
+    if (!context.mounted) return;
+    _showFeedback(
+      context,
+      ok
+          ? strings.reminderCompletedFeedback
+          : strings.reminderActionFailedFeedback,
+    );
+  }
+
+  Future<void> _snooze(BuildContext context, String id) async {
+    final cubit = context.read<RemindersCubit>();
+    final strings = context.strings;
+
+    final newAlertTime = await pickReminderSnoozeTime(context);
+    if (newAlertTime == null || !context.mounted) return;
+
+    final ok = await cubit.snooze(id, newAlertTime);
+    if (!context.mounted) return;
+    _showFeedback(
+      context,
+      ok
+          ? strings.reminderSnoozedFeedback
+          : strings.reminderActionFailedFeedback,
+    );
+  }
+
+  void _showFeedback(BuildContext context, String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

@@ -51,8 +51,12 @@ import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
+import '../../core/reminders/usecases/complete_reminder.dart';
 import '../../core/reminders/usecases/create_manual_reminder.dart';
 import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
+import '../../core/reminders/usecases/delete_reminder.dart';
+import '../../core/reminders/usecases/snooze_reminder.dart';
+import '../../core/reminders/usecases/watch_reminder.dart';
 import '../../core/reminders/usecases/watch_reminders.dart';
 import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
@@ -130,6 +134,7 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
@@ -558,9 +563,16 @@ void _registerReminders() {
       () => LocalNotificationsReminderScheduler(getIt(), getIt(), getIt()),
     )
     ..registerFactory<CreateReminderFromDocumentDate>(
-      () => CreateReminderFromDocumentDate(getIt()),
+      () => CreateReminderFromDocumentDate(getIt(), getIt()),
     )
-    ..registerFactory<CreateManualReminder>(() => CreateManualReminder(getIt()))
+    ..registerFactory<CreateManualReminder>(
+      () => CreateManualReminder(getIt(), getIt()),
+    )
+    ..registerFactory<CompleteReminder>(
+      () => CompleteReminder(getIt(), getIt()),
+    )
+    ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
+    ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
     // F09-T09. Reuses the `PermissionService` singleton `_registerCapture`
     // already set up — one plugin boundary for every runtime permission.
     ..registerLazySingleton<NotificationPermissionRepository>(
@@ -599,7 +611,15 @@ void _registerReminders() {
     // The reminders tab (F09-T11): a fresh cubit per visit, like every other
     // top-level list cubit here.
     ..registerFactory<WatchReminders>(() => WatchReminders(getIt()))
-    ..registerFactory<RemindersCubit>(() => RemindersCubit(getIt()));
+    ..registerFactory<WatchReminder>(() => WatchReminder(getIt()))
+    ..registerFactory<RemindersCubit>(
+      () => RemindersCubit(getIt(), getIt(), getIt()),
+    )
+    // One cubit per opened details screen, parameterised by the reminder's
+    // id — the same shape `DocumentDetailsCubit` uses.
+    ..registerFactory<ReminderDetailsCubit>(
+      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
+    );
 }
 
 void _registerRouting() {

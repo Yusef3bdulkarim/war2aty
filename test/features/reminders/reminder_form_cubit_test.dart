@@ -16,6 +16,7 @@ import '../../support/fakes.dart';
 
 void main() {
   late FakeRemindersRepository repository;
+  late FakeReminderScheduler scheduler;
   late CreateReminderFromDocumentDate createFromDocumentDate;
   late CreateManualReminder createManual;
   late FakeNotificationPermissionRepository notificationPermissionRepository;
@@ -24,8 +25,12 @@ void main() {
 
   setUp(() {
     repository = FakeRemindersRepository();
-    createFromDocumentDate = CreateReminderFromDocumentDate(repository);
-    createManual = CreateManualReminder(repository);
+    scheduler = FakeReminderScheduler();
+    createFromDocumentDate = CreateReminderFromDocumentDate(
+      repository,
+      scheduler,
+    );
+    createManual = CreateManualReminder(repository, scheduler);
     notificationPermissionRepository = FakeNotificationPermissionRepository();
     getNotificationPermission = GetNotificationPermission(
       notificationPermissionRepository,

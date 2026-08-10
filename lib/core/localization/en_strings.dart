@@ -752,4 +752,73 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderListErrorTitle =>
       "We couldn't load your reminders right now.";
+
+  // Reminder details (F09-T12)
+  @override
+  String get reminderDetailsTitle => 'Reminder details';
+  @override
+  String get reminderDetailsDateLabel => 'Date';
+  @override
+  String get reminderDetailsTimeLabel => 'Time';
+  @override
+  String get reminderDetailsAlertLabel => 'Alert time';
+  @override
+  String get reminderDetailsDescriptionLabel => 'Note';
+  @override
+  String get reminderDetailsLinkedDocumentLabel => 'View linked document';
+  @override
+  String get reminderDetailsNotFoundTitle => 'Reminder not found';
+  @override
+  String get reminderDetailsNotFoundMessage =>
+      'This reminder may have been deleted, or the link is invalid.';
+  @override
+  String get reminderDetailsErrorTitle => 'Something went wrong';
+  @override
+  String get reminderDetailsErrorMessage =>
+      "We couldn't show this reminder right now. Please try again.";
+  @override
+  String get reminderDetailsBackToList => 'Back to reminders';
+  @override
+  String get reminderDetailsCompleteAction => 'Mark done';
+  @override
+  String get reminderDetailsSnoozeAction => 'Snooze';
+  @override
+  String get reminderDetailsEditAction => 'Edit';
+  @override
+  String get reminderDetailsDeleteAction => 'Delete';
+
+  // Snooze sheet (F09-T12)
+  @override
+  String get reminderSnoozeSheetTitle => 'Snooze reminder';
+  @override
+  String get reminderSnoozeSheetSubtitle =>
+      'Snoozing changes the alert time only, not the original event date.';
+  @override
+  String get reminderSnoozeOptionOneHour => 'In 1 hour';
+  @override
+  String get reminderSnoozeOptionTomorrow => 'Tomorrow at the same time';
+  @override
+  String get reminderSnoozeOptionCustom => 'Choose a new time';
+
+  // Delete confirmation sheet (F09-T12)
+  @override
+  String get reminderDeleteSheetTitle => 'Delete reminder?';
+  @override
+  String get reminderDeleteSheetMessage =>
+      'This is permanent — you will not be able to get this reminder back.';
+  @override
+  String get reminderDeleteSheetConfirm => 'Delete';
+  @override
+  String get reminderDeleteSheetCancel => 'Cancel';
+
+  // Action feedback (F09-T12)
+  @override
+  String get reminderCompletedFeedback => 'Marked as done.';
+  @override
+  String get reminderSnoozedFeedback => 'Reminder snoozed.';
+  @override
+  String get reminderDeletedFeedback => 'Reminder deleted.';
+  @override
+  String get reminderActionFailedFeedback =>
+      'Something went wrong. Please try again.';
 }

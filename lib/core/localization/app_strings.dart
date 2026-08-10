@@ -633,4 +633,49 @@ abstract interface class AppStrings {
   /// Mirrors [documentsListErrorTitle] for the reminders list's own failed
   /// read.
   String get reminderListErrorTitle;
+
+  // Reminder details screen (F09-T12) — «تفاصيل التذكير».
+  String get reminderDetailsTitle;
+
+  /// Row labels on the details screen.
+  String get reminderDetailsDateLabel;
+  String get reminderDetailsTimeLabel;
+  String get reminderDetailsAlertLabel;
+  String get reminderDetailsDescriptionLabel;
+
+  /// The linked-document button — navigates to the document's details.
+  String get reminderDetailsLinkedDocumentLabel;
+
+  /// The detail screen's own not-found / error states — mirrors the document
+  /// details screen's pair.
+  String get reminderDetailsNotFoundTitle;
+  String get reminderDetailsNotFoundMessage;
+  String get reminderDetailsErrorTitle;
+  String get reminderDetailsErrorMessage;
+  String get reminderDetailsBackToList;
+
+  /// Detail screen actions.
+  String get reminderDetailsCompleteAction;
+  String get reminderDetailsSnoozeAction;
+  String get reminderDetailsEditAction;
+  String get reminderDetailsDeleteAction;
+
+  // Snooze sheet (F09-T12) — «تأجيل التذكير».
+  String get reminderSnoozeSheetTitle;
+  String get reminderSnoozeSheetSubtitle;
+  String get reminderSnoozeOptionOneHour;
+  String get reminderSnoozeOptionTomorrow;
+  String get reminderSnoozeOptionCustom;
+
+  // Delete confirmation sheet (F09-T12) — «حذف التذكير؟».
+  String get reminderDeleteSheetTitle;
+  String get reminderDeleteSheetMessage;
+  String get reminderDeleteSheetConfirm;
+  String get reminderDeleteSheetCancel;
+
+  /// Snackbar feedback after actions.
+  String get reminderCompletedFeedback;
+  String get reminderSnoozedFeedback;
+  String get reminderDeletedFeedback;
+  String get reminderActionFailedFeedback;
 }

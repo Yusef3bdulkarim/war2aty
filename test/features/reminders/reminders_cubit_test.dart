@@ -1,6 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
+import 'package:war2aty/core/reminders/usecases/complete_reminder.dart';
+import 'package:war2aty/core/reminders/usecases/snooze_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/watch_reminders.dart';
+import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminders_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminders_state.dart';
 
@@ -8,11 +12,17 @@ import '../../support/fakes.dart';
 
 void main() {
   late FakeRemindersRepository repository;
+  late FakeReminderScheduler scheduler;
   late RemindersCubit cubit;
 
   setUp(() {
     repository = FakeRemindersRepository();
-    cubit = RemindersCubit(WatchReminders(repository));
+    scheduler = FakeReminderScheduler();
+    cubit = RemindersCubit(
+      WatchReminders(repository),
+      CompleteReminder(repository, scheduler),
+      SnoozeReminder(repository, scheduler),
+    );
   });
   tearDown(() => cubit.close());
 
@@ -137,6 +147,43 @@ void main() {
       await pumpEventQueue();
 
       expect((cubit.state as RemindersAvailable).tab, RemindersTab.missed);
+    });
+  });
+
+  group('complete', () {
+    test('calls through and reports success', () async {
+      final ok = await cubit.complete('r1');
+
+      expect(ok, isTrue);
+      expect(repository.lastCompletedId, 'r1');
+    });
+
+    test('reports failure without crashing', () async {
+      repository.completeOutcome = const Err(LocalDatabaseFailure());
+
+      final ok = await cubit.complete('r1');
+
+      expect(ok, isFalse);
+    });
+  });
+
+  group('snooze', () {
+    test('calls through with the new alert time', () async {
+      final newTime = DateTime.utc(2026, 8, 26, 10);
+
+      final ok = await cubit.snooze('r1', newTime);
+
+      expect(ok, isTrue);
+      expect(repository.lastSnoozedId, 'r1');
+      expect(repository.lastSnoozedTo, newTime);
+    });
+
+    test('reports failure without crashing', () async {
+      repository.snoozeOutcome = const Err(LocalDatabaseFailure());
+
+      final ok = await cubit.snooze('r1', DateTime.utc(2026, 8, 26, 10));
+
+      expect(ok, isFalse);
     });
   });
 }

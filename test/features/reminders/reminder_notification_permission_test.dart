@@ -21,10 +21,12 @@ void main() {
 
   setUp(() {
     remindersRepository = FakeRemindersRepository();
+    final scheduler = FakeReminderScheduler();
     createFromDocumentDate = CreateReminderFromDocumentDate(
       remindersRepository,
+      scheduler,
     );
-    createManual = CreateManualReminder(remindersRepository);
+    createManual = CreateManualReminder(remindersRepository, scheduler);
     notificationPermissionRepository = FakeNotificationPermissionRepository();
     getNotificationPermission = GetNotificationPermission(
       notificationPermissionRepository,

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import '../../error/app_failure.dart';
 import '../../result/result.dart';
 import '../reminder.dart';
+import '../reminder_scheduler.dart';
 import '../reminders_repository.dart';
 
 /// Creates a reminder from a date the analysis found on a paper (F09-T03).
@@ -13,9 +16,10 @@ import '../reminders_repository.dart';
 /// [alertTimes] is never empty by the time this is called — the form
 /// (F09-T02) requires at least one alert before its save button is live.
 final class CreateReminderFromDocumentDate {
-  const CreateReminderFromDocumentDate(this._repository);
+  const CreateReminderFromDocumentDate(this._repository, this._scheduler);
 
   final RemindersRepository _repository;
+  final ReminderScheduler _scheduler;
 
   Future<Result<Reminder, AppFailure>> call({
     String? documentId,
@@ -24,13 +28,20 @@ final class CreateReminderFromDocumentDate {
     required DateTime eventDate,
     int? eventMinuteOfDay,
     required List<DateTime> alertTimes,
-  }) => _repository.createReminder(
-    documentId: documentId,
-    title: title,
-    description: description,
-    eventDate: eventDate,
-    eventMinuteOfDay: eventMinuteOfDay,
-    isManual: false,
-    alertTimes: alertTimes,
-  );
+  }) async {
+    final result = await _repository.createReminder(
+      documentId: documentId,
+      title: title,
+      description: description,
+      eventDate: eventDate,
+      eventMinuteOfDay: eventMinuteOfDay,
+      isManual: false,
+      alertTimes: alertTimes,
+    );
+    // Fire-and-forget, like every other reminder write reconciles (see
+    // `LocalNotificationsReminderScheduler`'s own doc comment) — the new
+    // reminder is saved either way, whether or not the OS side of it takes.
+    if (result.isOk) unawaited(_scheduler.reconcile());
+    return result;
+  }
 }

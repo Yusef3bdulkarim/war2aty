@@ -851,6 +851,14 @@ final class FakeRemindersRepository implements RemindersRepository {
     _reminderControllers[id]?.add(_latestReminder[id]!);
   }
 
+  void emitReminderFailure(
+    String id, [
+    AppFailure failure = const LocalDatabaseFailure(),
+  ]) {
+    _latestReminder[id] = Err(failure);
+    _reminderControllers[id]?.add(_latestReminder[id]!);
+  }
+
   Future<void> dispose() async {
     await _controller.close();
     for (final c in _reminderControllers.values) {
