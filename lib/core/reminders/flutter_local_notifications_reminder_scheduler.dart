@@ -12,6 +12,7 @@ import 'reminder_alert_status.dart';
 import 'reminder_notification_content.dart';
 import 'reminder_scheduler.dart';
 import 'reminders_repository.dart';
+import 'usecases/get_hide_sensitive_notification_details.dart';
 
 /// [ReminderScheduler] driven by a [LocalNotificationsPort] (F09-T10).
 ///
@@ -23,21 +24,20 @@ import 'reminders_repository.dart';
 /// how a document's cascade-deleted reminder (`DriftDocumentsRepository`)
 /// loses its notification without either repository importing the other.
 final class LocalNotificationsReminderScheduler implements ReminderScheduler {
-  LocalNotificationsReminderScheduler(
+  const LocalNotificationsReminderScheduler(
     this._notifications,
     this._repository,
-    this._getSavedLocale, {
-    bool Function() hideSensitiveDetails = _defaultHideSensitiveDetails,
-  }) : _hideSensitiveDetails = hideSensitiveDetails;
+    this._getSavedLocale,
+    this._getHideSensitiveDetails,
+  );
 
   final LocalNotificationsPort _notifications;
   final RemindersRepository _repository;
   final GetSavedLocale _getSavedLocale;
 
-  /// Reads the notification-privacy setting's current value (F09-T14).
-  /// Defaults to always-hidden — the privacy-safe default the setting
-  /// itself defaults to — until that task wires in the real store.
-  final bool Function() _hideSensitiveDetails;
+  /// Reads the notification-privacy setting's current value (F09-T14),
+  /// defaulting on (hidden) until the user explicitly reveals it.
+  final GetHideSensitiveNotificationDetails _getHideSensitiveDetails;
 
   @override
   Future<Result<int, AppFailure>> reconcile() async {
@@ -85,12 +85,16 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
     if (due.isEmpty) return const Ok(0);
 
     final strings = await _currentStrings();
+    // Read once per reconcile, not once per alert — the setting cannot
+    // change mid-batch, and there is no reason to hit the database again
+    // for every alert in it.
+    final hideSensitiveDetails = await _getHideSensitiveDetails();
     var scheduledCount = 0;
     for (final (reminder, alert) in due) {
       final content = reminderNotificationContent(
         reminder,
         strings,
-        hideSensitiveDetails: _hideSensitiveDetails(),
+        hideSensitiveDetails: hideSensitiveDetails,
       );
       try {
         await _notifications.schedule(
@@ -121,6 +125,4 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
     final code = await _getSavedLocale();
     return code == 'en' ? const EnStrings() : const ArStrings();
   }
-
-  static bool _defaultHideSensitiveDetails() => true;
 }

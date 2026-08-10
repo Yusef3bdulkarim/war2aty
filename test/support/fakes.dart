@@ -25,6 +25,7 @@ import 'package:war2aty/core/logging/log_sink.dart';
 import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/local_notifications_port.dart';
+import 'package:war2aty/core/reminders/notification_privacy_store.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/reminder_alert.dart';
 import 'package:war2aty/core/reminders/reminder_alert_status.dart';
@@ -64,6 +65,21 @@ final class FakeLocaleStore implements LocaleStore {
 
   @override
   Future<void> writeLanguageCode(String code) async => _code = code;
+}
+
+/// In-memory [NotificationPrivacyStore] (F09-T14) — no persistence,
+/// seedable. `null` (the default) models a user who has never touched the
+/// setting, the same as [FakeLocaleStore]'s own default.
+final class FakeNotificationPrivacyStore implements NotificationPrivacyStore {
+  FakeNotificationPrivacyStore([this._hide]);
+
+  bool? _hide;
+
+  @override
+  Future<bool?> readHideSensitiveDetails() async => _hide;
+
+  @override
+  Future<void> writeHideSensitiveDetails(bool hide) async => _hide = hide;
 }
 
 /// In-memory [OnboardingRepository]; can be seeded as "already seen" or made

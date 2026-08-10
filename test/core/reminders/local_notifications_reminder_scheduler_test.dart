@@ -8,6 +8,7 @@ import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/reminder_alert.dart';
 import 'package:war2aty/core/reminders/reminder_alert_status.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/result/result.dart';
 
 import '../../support/fakes.dart';
@@ -16,15 +17,18 @@ void main() {
   const ar = ArStrings();
   late FakeRemindersRepository repository;
   late FakeLocalNotificationsPort notifications;
+  late FakeNotificationPrivacyStore privacyStore;
   late LocalNotificationsReminderScheduler scheduler;
 
   setUp(() {
     repository = FakeRemindersRepository();
     notifications = FakeLocalNotificationsPort();
+    privacyStore = FakeNotificationPrivacyStore();
     scheduler = LocalNotificationsReminderScheduler(
       notifications,
       repository,
       GetSavedLocale(FakeLocaleStore()),
+      GetHideSensitiveNotificationDetails(privacyStore),
     );
   });
 
@@ -113,9 +117,8 @@ void main() {
     expect(repository.lastAlertStatus, ReminderAlertStatus.failed);
   });
 
-  test(
-    'hides the reminder\'s title by default (F09-T14 not wired yet)',
-    () async {
+  group('notification privacy (F09-T14)', () {
+    test('hides the reminder\'s title by default', () async {
       final future = DateTime.now().toUtc().add(const Duration(days: 1));
       repository.pendingOutcome = Ok([
         fakeReminder(alertTimes: [future]),
@@ -125,8 +128,34 @@ void main() {
 
       final (title, _) = notifications.scheduled.values.single;
       expect(title, ar.reminderNotificationGenericTitle);
-    },
-  );
+    });
+
+    test('still hides once the setting is explicitly turned on', () async {
+      await privacyStore.writeHideSensitiveDetails(true);
+      final future = DateTime.now().toUtc().add(const Duration(days: 1));
+      repository.pendingOutcome = Ok([
+        fakeReminder(alertTimes: [future]),
+      ]);
+
+      await scheduler.reconcile();
+
+      final (title, _) = notifications.scheduled.values.single;
+      expect(title, ar.reminderNotificationGenericTitle);
+    });
+
+    test('shows the real title once the user turns it off', () async {
+      await privacyStore.writeHideSensitiveDetails(false);
+      final future = DateTime.now().toUtc().add(const Duration(days: 1));
+      repository.pendingOutcome = Ok([
+        fakeReminder(alertTimes: [future]),
+      ]);
+
+      await scheduler.reconcile();
+
+      final (title, _) = notifications.scheduled.values.single;
+      expect(title, 'دفع فاتورة الكهرباء');
+    });
+  });
 
   test(
     'marks a past scheduled alert delivered (best-effort bookkeeping)',
@@ -166,6 +195,7 @@ void main() {
           notifications,
           repository,
           GetSavedLocale(FakeLocaleStore()),
+          GetHideSensitiveNotificationDetails(privacyStore),
         );
 
     test('schedules a reminder the previous process never got to', () async {

@@ -47,6 +47,7 @@ import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
 import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
 import '../../core/reminders/local_notifications_port.dart';
+import '../../core/reminders/notification_privacy_store.dart';
 import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
@@ -55,6 +56,8 @@ import '../../core/reminders/usecases/complete_reminder.dart';
 import '../../core/reminders/usecases/create_manual_reminder.dart';
 import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../core/reminders/usecases/delete_reminder.dart';
+import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import '../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import '../../core/reminders/usecases/snooze_reminder.dart';
 import '../../core/reminders/usecases/watch_reminder.dart';
 import '../../core/reminders/usecases/watch_reminders.dart';
@@ -559,8 +562,23 @@ void _registerReminders() {
       // doc comment for why this one string isn't locale-aware.
       () => FlutterLocalNotificationsPort(getIt(), 'التذكيرات'),
     )
+    // F09-T14. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<NotificationPrivacyStore>(
+      () => DriftNotificationPrivacyStore(getIt()),
+    )
+    ..registerFactory<GetHideSensitiveNotificationDetails>(
+      () => GetHideSensitiveNotificationDetails(getIt()),
+    )
+    ..registerFactory<SetHideSensitiveNotificationDetails>(
+      () => SetHideSensitiveNotificationDetails(getIt()),
+    )
     ..registerLazySingleton<ReminderScheduler>(
-      () => LocalNotificationsReminderScheduler(getIt(), getIt(), getIt()),
+      () => LocalNotificationsReminderScheduler(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
     )
     ..registerFactory<CreateReminderFromDocumentDate>(
       () => CreateReminderFromDocumentDate(getIt(), getIt()),

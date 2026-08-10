@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders` · **Milestone:** M7
 - **Depends on:** F00 (db), F07/F08 (source), notifications core · **Feeds:** Home (upcoming), OS notifications
-- **Progress:** 13 / 14 DONE
+- **Progress:** 14 / 14 DONE
 
 Local reminders (Drift = source of truth, not the scheduled notification). **Decision at start:** exact-alarm behavior + permission timing (Android 13+).
 
@@ -25,7 +25,9 @@ Local reminders (Drift = source of truth, not the scheduled notification). **Dec
 | 11 | F09-T11 | Lists | القادمة/الفائتة/المكتملة | DONE |
 | 12 | F09-T12 | Snooze/complete/delete | actions + confirmations | DONE |
 | 13 | F09-T13 | Reconcile-on-restart | DB ↔ OS scheduled state | DONE |
-| 14 | F09-T14 | Notification privacy | hide sensitive details on lock screen (default on) | TODO |
+| 14 | F09-T14 | Notification privacy | hide sensitive details on lock screen (default on) | DONE |
 
 ## Exit DoD
 Reminder fires at chosen alert; survives restart (reconcile); event time never fabricated; sensitive details hidden on lock screen.
+
+**Note (T14):** the setting (`GetHideSensitiveNotificationDetails`/`SetHideSensitiveNotificationDetails`, Drift-backed, default on) is fully wired into the scheduler — no Settings screen exists yet to expose a toggle for it (that tab is still a placeholder pending its own feature/design), so today it is on, unconditionally, for every user. The read/write use cases are ready for whenever Settings is built.
