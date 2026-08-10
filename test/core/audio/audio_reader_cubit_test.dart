@@ -588,6 +588,68 @@ void main() {
       );
     });
 
+    test('progress never falls back after a resume that restarts from the '
+        'unread remainder (Android\'s own flutter_tts behaviour)', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+      // Most of the way through, then paused.
+      built.tts.emitEvent(TtsProgressed(start: 0, end: length - 2));
+      await Future<void>.delayed(Duration.zero);
+      await built.cubit.pause();
+      await built.cubit.resume();
+
+      // The resumed utterance covers only the unread remainder, so its own
+      // progress event counts from zero again.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 1));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        built.cubit.state,
+        AudioReaderReading(
+          ReadingMode.summaryOnly,
+          progress: (length - 2) / length,
+        ),
+      );
+    });
+
+    test(
+      'an engine failure mid-reading reports it rather than freezing the bar',
+      () async {
+        final built = _cubitFor();
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+        await built.cubit.start(
+          result: _result,
+          mode: ReadingMode.summaryOnly,
+          speed: ReadingSpeed.normal,
+          strings: _ar,
+        );
+
+        built.tts.emitEvent(const TtsFailed());
+        await Future<void>.delayed(Duration.zero);
+
+        expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
+      },
+    );
+
+    test('an engine failure while idle is ignored', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      built.tts.emitEvent(const TtsFailed());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(built.cubit.state, const AudioReaderIdle());
+    });
+
     test(
       'stopping while reading does not leave a stale subscriber behind',
       () async {

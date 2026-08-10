@@ -12,6 +12,7 @@ import '../../features/audio_reader/domain/usecases/stop_reading.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../documents/analysis_result.dart';
 import '../documents/reading_mode.dart';
+import '../error/app_failure.dart';
 import '../localization/app_strings.dart';
 import 'audio_reader_state.dart';
 
@@ -57,6 +58,19 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// itself since the UI only ever needs the fraction, not the raw length.
   int? _totalLength;
 
+  /// The highest [AudioReaderReading.progress] reported so far this reading
+  /// — reset alongside [_totalLength], and never allowed to fall.
+  ///
+  /// `flutter_tts`'s two platforms resume a paused utterance differently:
+  /// iOS continues the same one, so its `TtsProgressed` events keep counting
+  /// against the original text; Android starts a fresh utterance covering
+  /// only the unread remainder, so its events start counting from zero again
+  /// — which, measured against the *original* [_totalLength], would read as
+  /// the bar jumping backward. Never letting reported progress fall below
+  /// its own high-water mark keeps Android honest without `TextToSpeechService`
+  /// having to say which kind of resume the engine actually gave it.
+  double _peakProgress = 0;
+
   /// Starts reading [mode] aloud at [speed], replacing whatever was reading
   /// before — `TextToSpeechService.speak` does that on its own, so this never
   /// stops first.
@@ -99,6 +113,7 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
       outcome.when(
         ok: (length) {
           _totalLength = length;
+          _peakProgress = 0;
           return AudioReaderReading(mode, speed: speed);
         },
         err: AudioReaderFailed.new,
@@ -161,17 +176,19 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
       emit(AudioReaderFailed(failure));
       if (isClosed) return;
     }
-    _totalLength = null;
+    _resetProgress();
     emit(const AudioReaderIdle());
   }
 
   /// Turns the engine's own playback events into [AudioReaderReading.progress]
-  /// (F10-T08), and closes the mini-player when a reading finishes on its
-  /// own — the same way [stop] closes it when the user asks.
+  /// (F10-T08); closes the mini-player when a reading finishes on its own —
+  /// the same way [stop] closes it when the user asks; and reports an engine
+  /// error mid-utterance rather than leaving the bar frozen with no
+  /// explanation (no silent failures, CLAUDE.md §A3).
   ///
-  /// Pause/resume/cancel/error events are not handled here: [pause] and
-  /// [resume] already emit the right state the moment the user asks for it,
-  /// and a cancel the *engine* reports back (rather than one [stop] already
+  /// Pause/resume/cancel events are not handled here: [pause] and [resume]
+  /// already emit the right state the moment the user asks for it, and a
+  /// cancel the *engine* reports back (rather than one [stop] already
   /// caused) is not something anything in F10 yet triggers on its own.
   void _onEvent(TtsEvent event) {
     if (isClosed) return;
@@ -180,29 +197,41 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
         final current = state;
         if (current is! AudioReaderReading) return;
         final total = _totalLength;
-        final progress = total == null || total <= 0
+        final raw = total == null || total <= 0
             ? 0.0
             : (end / total).clamp(0.0, 1.0).toDouble();
+        _peakProgress = raw > _peakProgress ? raw : _peakProgress;
         emit(
           AudioReaderReading(
             current.mode,
             isPaused: current.isPaused,
             speed: current.speed,
-            progress: progress,
+            progress: _peakProgress,
           ),
         );
       case TtsCompleted():
         if (state is AudioReaderReading) {
-          _totalLength = null;
+          _resetProgress();
           emit(const AudioReaderIdle());
+        }
+      case TtsFailed():
+        if (state is AudioReaderReading) {
+          _resetProgress();
+          emit(const AudioReaderFailed(TtsFailure()));
         }
       case TtsStarted():
       case TtsPaused():
       case TtsContinued():
       case TtsCancelled():
-      case TtsFailed():
         break;
     }
+  }
+
+  /// Clears the per-reading bookkeeping [_onEvent] and [start] otherwise have
+  /// to repeat at every place a reading ends, one way or another.
+  void _resetProgress() {
+    _totalLength = null;
+    _peakProgress = 0;
   }
 
   /// Leaving the result page must not leave the device talking on its own,
