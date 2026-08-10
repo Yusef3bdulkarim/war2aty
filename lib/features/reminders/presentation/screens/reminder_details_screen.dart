@@ -320,6 +320,7 @@ class _InfoCard extends StatelessWidget {
     const colors = AppColors.light;
     final strings = context.strings;
     final alert = reminder.nextAlert;
+    final localAlert = alert == null ? null : cairoLocalOf(alert.scheduledAt);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -348,14 +349,14 @@ class _InfoCard extends StatelessWidget {
                     )
                   : strings.reminderEventTimeMissing,
             ),
-            if (alert != null) ...[
+            if (localAlert != null) ...[
               const SizedBox(height: _rowGap),
               _InfoRow(
                 glyph: StrokeGlyph.clock,
                 label: strings.reminderDetailsAlertLabel,
                 value:
-                    '${formatDocumentDate(strings, cairoLocalOf(alert.scheduledAt))}'
-                    ' — ${formatWallClockTime(strings, cairoLocalOf(alert.scheduledAt).hour, cairoLocalOf(alert.scheduledAt).minute)}',
+                    '${formatDocumentDate(strings, localAlert)}'
+                    ' — ${formatWallClockTime(strings, localAlert.hour, localAlert.minute)}',
               ),
             ],
           ],

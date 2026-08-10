@@ -87,7 +87,8 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
     return BlocConsumer<ReminderFormCubit, ReminderFormState>(
       listenWhen: (_, state) =>
           state is ReminderFormSaved ||
-          state is ReminderFormNeedsNotificationPermission,
+          state is ReminderFormNeedsNotificationPermission ||
+          state is ReminderFormSaveFailed,
       listener: (context, state) {
         if (state is ReminderFormSaved) {
           widget.onSaved?.call(state.reminder);
@@ -102,6 +103,17 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
             // back to editing instead of leaving the cubit stuck waiting.
             if (!cubit.isClosed) cubit.cancelNotificationPermissionPrompt();
           });
+        } else if (state is ReminderFormSaveFailed) {
+          // Not spelled out: the user cannot act on a database error, and
+          // its text is English server/driver copy either way — the same
+          // rule `SaveDocumentListener` follows for the equivalent failure.
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(context.strings.reminderActionFailedFeedback),
+              ),
+            );
         }
       },
       builder: (context, state) {

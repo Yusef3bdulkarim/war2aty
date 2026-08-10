@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
@@ -185,6 +186,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(saved?.id, 'r1');
+  });
+
+  testWidgets('a save failure shows feedback and keeps the form usable', (
+    tester,
+  ) async {
+    repository.createOutcome = const Err(LocalDatabaseFailure());
+    final cubit = ReminderFormCubit.fromDocument(
+      createFromDocumentDate: createFromDocumentDate,
+      createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
+      args: ReminderFromDocumentArgs(
+        title: 'دفع فاتورة الكهرباء',
+        eventDate: DateTime(2026, 8, 25),
+        eventMinuteOfDay: 600,
+      ),
+    );
+    addTearDown(cubit.close);
+
+    await pumpScreen(tester, cubit);
+    await tester.tap(find.text(ar.reminderSaveAction));
+    await tester.pumpAndSettle();
+
+    expect(find.text(ar.reminderActionFailedFeedback), findsOneWidget);
+    // The form itself is still there, ready to try again — not swapped for
+    // a dead end.
+    expect(find.text('دفع فاتورة الكهرباء'), findsOneWidget);
   });
 
   testWidgets('cancel calls onClose', (tester) async {
