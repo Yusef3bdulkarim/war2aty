@@ -31,6 +31,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_r
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
@@ -89,6 +90,7 @@ void main() {
       PauseReading(tts),
       ResumeReading(tts),
       SetReadingSpeed(tts),
+      WatchReadingEvents(tts),
     );
   });
 

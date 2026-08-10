@@ -14,6 +14,13 @@ import 'select_voice_for_reading.dart';
 /// case rather than a builder and a service directly (architecture rule:
 /// cubits depend on use cases only). Also applies [SelectVoiceForReading]'s
 /// default voice ahead of speaking (F10-T07).
+///
+/// Answers with the spoken text's length on success, in UTF-16 code units —
+/// the same unit `TtsProgressed`'s own `start`/`end` are measured in — so the
+/// cubit can turn later progress events into a 0-to-1 fraction (F10-T08)
+/// without this use case handing back the text itself (kept out of the
+/// cubit; nothing about a document's content needs to travel further than it
+/// already does to be spoken).
 final class StartReading {
   const StartReading(this._buildReadingText, this._selectVoice, this._tts);
 
@@ -21,7 +28,7 @@ final class StartReading {
   final SelectVoiceForReading _selectVoice;
   final TextToSpeechService _tts;
 
-  Future<Result<void, AppFailure>> call({
+  Future<Result<int, AppFailure>> call({
     required AnalysisResult result,
     required ReadingMode mode,
     required AppStrings strings,
@@ -32,7 +39,7 @@ final class StartReading {
       strings: strings,
     );
     await _applyDefaultVoiceFor(text);
-    return _tts.speak(text);
+    return (await _tts.speak(text)).map((_) => text.length);
   }
 
   /// Best-effort: switches to a voice matching [text]'s script when the

@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../features/audio_reader/domain/entities/reading_speed.dart';
+import '../../features/audio_reader/domain/entities/tts_event.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../documents/analysis_result.dart';
 import '../documents/reading_mode.dart';
 import '../localization/app_strings.dart';
@@ -32,13 +34,28 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     this._pauseReading,
     this._resumeReading,
     this._setReadingSpeed,
-  ) : super(const AudioReaderIdle());
+    this._watchReadingEvents,
+  ) : super(const AudioReaderIdle()) {
+    _eventsSubscription = _watchReadingEvents().listen(_onEvent);
+  }
 
   final StartReading _startReading;
   final StopReading _stopReading;
   final PauseReading _pauseReading;
   final ResumeReading _resumeReading;
   final SetReadingSpeed _setReadingSpeed;
+  final WatchReadingEvents _watchReadingEvents;
+
+  /// Listens for the rest of this cubit's life — one shared engine, one
+  /// subscription — and is cancelled in [close].
+  late final StreamSubscription<TtsEvent> _eventsSubscription;
+
+  /// The length (UTF-16 code units) of whatever [start] most recently began
+  /// reading — `null` before the first [start] and once a reading ends,
+  /// either way. `TtsProgressed` events turn into an `AudioReaderReading`
+  /// `progress` fraction against this (F10-T08); it is not part of the state
+  /// itself since the UI only ever needs the fraction, not the raw length.
+  int? _totalLength;
 
   /// Starts reading [mode] aloud at [speed], replacing whatever was reading
   /// before — `TextToSpeechService.speak` does that on its own, so this never
@@ -80,7 +97,10 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     if (isClosed) return;
     emit(
       outcome.when(
-        ok: (_) => AudioReaderReading(mode, speed: speed),
+        ok: (length) {
+          _totalLength = length;
+          return AudioReaderReading(mode, speed: speed);
+        },
         err: AudioReaderFailed.new,
       ),
     );
@@ -102,6 +122,7 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
           current.mode,
           isPaused: true,
           speed: current.speed,
+          progress: current.progress,
         ),
         err: AudioReaderFailed.new,
       ),
@@ -118,7 +139,11 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     if (isClosed) return;
     emit(
       outcome.when(
-        ok: (_) => AudioReaderReading(current.mode, speed: current.speed),
+        ok: (_) => AudioReaderReading(
+          current.mode,
+          speed: current.speed,
+          progress: current.progress,
+        ),
         err: AudioReaderFailed.new,
       ),
     );
@@ -136,12 +161,56 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
       emit(AudioReaderFailed(failure));
       if (isClosed) return;
     }
+    _totalLength = null;
     emit(const AudioReaderIdle());
   }
 
-  /// Leaving the result page must not leave the device talking on its own.
+  /// Turns the engine's own playback events into [AudioReaderReading.progress]
+  /// (F10-T08), and closes the mini-player when a reading finishes on its
+  /// own — the same way [stop] closes it when the user asks.
+  ///
+  /// Pause/resume/cancel/error events are not handled here: [pause] and
+  /// [resume] already emit the right state the moment the user asks for it,
+  /// and a cancel the *engine* reports back (rather than one [stop] already
+  /// caused) is not something anything in F10 yet triggers on its own.
+  void _onEvent(TtsEvent event) {
+    if (isClosed) return;
+    switch (event) {
+      case TtsProgressed(:final end):
+        final current = state;
+        if (current is! AudioReaderReading) return;
+        final total = _totalLength;
+        final progress = total == null || total <= 0
+            ? 0.0
+            : (end / total).clamp(0.0, 1.0).toDouble();
+        emit(
+          AudioReaderReading(
+            current.mode,
+            isPaused: current.isPaused,
+            speed: current.speed,
+            progress: progress,
+          ),
+        );
+      case TtsCompleted():
+        if (state is AudioReaderReading) {
+          _totalLength = null;
+          emit(const AudioReaderIdle());
+        }
+      case TtsStarted():
+      case TtsPaused():
+      case TtsContinued():
+      case TtsCancelled():
+      case TtsFailed():
+        break;
+    }
+  }
+
+  /// Leaving the result page must not leave the device talking on its own,
+  /// and must not leave [_eventsSubscription] listening past this cubit's
+  /// own life.
   @override
   Future<void> close() {
+    unawaited(_eventsSubscription.cancel());
     if (state is AudioReaderReading) unawaited(_stopReading());
     return super.close();
   }

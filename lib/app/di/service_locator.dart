@@ -90,6 +90,7 @@ import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dar
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
@@ -674,10 +675,19 @@ void _registerAudioReader() {
     ..registerFactory<ResumeReading>(() => ResumeReading(getIt()))
     // F10-T06.
     ..registerFactory<SetReadingSpeed>(() => SetReadingSpeed(getIt()))
+    // F10-T08.
+    ..registerFactory<WatchReadingEvents>(() => WatchReadingEvents(getIt()))
     // One per result screen visit, like `AnalysisResultCubit` and
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
-      () => AudioReaderCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
+      () => AudioReaderCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
     );
 }
 

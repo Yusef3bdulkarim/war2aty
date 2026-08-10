@@ -41,7 +41,10 @@ void main() {
         strings: _ar,
       );
 
-      expect(outcome, const Ok<void, AppFailure>(null));
+      expect(
+        outcome,
+        Ok<int, AppFailure>(invoiceAnalysis().summary.short.length),
+      );
       expect(tts.spoken, [invoiceAnalysis().summary.short]);
     });
 
@@ -76,7 +79,7 @@ void main() {
         strings: _ar,
       );
 
-      expect(outcome, const Err<void, AppFailure>(TtsFailure()));
+      expect(outcome, const Err<int, AppFailure>(TtsFailure()));
     });
   });
 
@@ -133,7 +136,10 @@ void main() {
         strings: _ar,
       );
 
-      expect(outcome, const Ok<void, AppFailure>(null));
+      expect(
+        outcome,
+        Ok<int, AppFailure>(invoiceAnalysis().summary.short.length),
+      );
       expect(tts.voicesSet, isEmpty);
     });
 
@@ -150,7 +156,10 @@ void main() {
         strings: _ar,
       );
 
-      expect(outcome, const Ok<void, AppFailure>(null));
+      expect(
+        outcome,
+        Ok<int, AppFailure>(invoiceAnalysis().summary.short.length),
+      );
       expect(tts.spoken, [invoiceAnalysis().summary.short]);
     });
 
@@ -168,8 +177,31 @@ void main() {
         strings: _ar,
       );
 
-      expect(outcome, const Ok<void, AppFailure>(null));
+      expect(
+        outcome,
+        Ok<int, AppFailure>(invoiceAnalysis().summary.short.length),
+      );
       expect(tts.spoken, [invoiceAnalysis().summary.short]);
+    });
+  });
+
+  group('reported length (F10-T08)', () {
+    test('reports the spoken text\'s own length, not a fixed number', () async {
+      final result = _buildResult(
+        analysis: invoiceAnalysis(),
+        extractedText: '',
+      );
+
+      final outcome = await useCase(
+        result: result,
+        mode: ReadingMode.fullExplanation,
+        strings: _ar,
+      );
+
+      expect(
+        outcome,
+        Ok<int, AppFailure>(invoiceAnalysis().summary.detailed.length),
+      );
     });
   });
 }

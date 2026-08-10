@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/audio-reader` · **Milestone:** M8
 - **Depends on:** F07 (result content), TTS core · **Feeds:** — (leaf)
-- **Progress:** 7 / 8 DONE
+- **Progress:** 8 / 8 DONE
 
 Local TTS reading of the result. Text built on-device; nothing sent to an external voice service.
 
@@ -17,7 +17,7 @@ Local TTS reading of the result. Text built on-device; nothing sent to an extern
 | 5 | F10-T05 | Pause/resume/stop | transport controls | DONE |
 | 6 | F10-T06 | Speed control | «سرعة القراءة» | DONE |
 | 7 | F10-T07 | Voice selection | «صوت القراءة» from device voices | DONE |
-| 8 | F10-T08 | Progress tracking | progress stream reflected in UI | TODO |
+| 8 | F10-T08 | Progress tracking | progress stream reflected in UI | DONE |
 
 **T07 scope note:** `Waraqti.dc.html` only has a voice picker on the Settings
 screen (F11-T07, which explicitly depends on this feature for "audio

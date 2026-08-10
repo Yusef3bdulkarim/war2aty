@@ -7,6 +7,7 @@ import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
@@ -15,6 +16,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_r
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 
 import '../../features/analysis/analysis_fixtures.dart';
 import '../../support/fakes.dart';
@@ -50,6 +52,7 @@ final AnalysisResult _result = _buildResult(
     PauseReading(tts),
     ResumeReading(tts),
     SetReadingSpeed(tts),
+    WatchReadingEvents(tts),
   );
   return (cubit: cubit, tts: tts);
 }
@@ -433,6 +436,175 @@ void main() {
         await expectation;
 
         expect(built.tts.spoken, [invoiceAnalysis().summary.short]);
+      },
+    );
+  });
+
+  group('progress tracking (F10-T08)', () {
+    final length = invoiceAnalysis().summary.short.length;
+
+    test('a fresh reading starts at zero progress', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(ReadingMode.summaryOnly, progress: 0),
+      );
+    });
+
+    test('a progress event turns into a fraction of the spoken text', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(TtsProgressed(start: 0, end: length ~/ 2));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        built.cubit.state,
+        AudioReaderReading(
+          ReadingMode.summaryOnly,
+          progress: (length ~/ 2) / length,
+        ),
+      );
+    });
+
+    test(
+      'progress never reports past 1, even if the engine overshoots',
+      () async {
+        final built = _cubitFor();
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+        await built.cubit.start(
+          result: _result,
+          mode: ReadingMode.summaryOnly,
+          speed: ReadingSpeed.normal,
+          strings: _ar,
+        );
+
+        built.tts.emitEvent(TtsProgressed(start: 0, end: length + 50));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(
+          built.cubit.state,
+          const AudioReaderReading(ReadingMode.summaryOnly, progress: 1),
+        );
+      },
+    );
+
+    test('a progress event is ignored while nothing is reading', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 5));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(built.cubit.state, const AudioReaderIdle());
+    });
+
+    test('a reading finishing on its own hides the mini-player', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsCompleted());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(built.cubit.state, const AudioReaderIdle());
+    });
+
+    test('pausing keeps whatever progress was last reported', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+      built.tts.emitEvent(TtsProgressed(start: 0, end: length ~/ 4));
+      await Future<void>.delayed(Duration.zero);
+      final progressBeforePause =
+          (built.cubit.state as AudioReaderReading).progress;
+
+      await built.cubit.pause();
+
+      expect(
+        built.cubit.state,
+        AudioReaderReading(
+          ReadingMode.summaryOnly,
+          isPaused: true,
+          progress: progressBeforePause,
+        ),
+      );
+    });
+
+    test('a fresh start resets progress back to zero', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+      built.tts.emitEvent(TtsProgressed(start: 0, end: length - 1));
+      await Future<void>.delayed(Duration.zero);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.fullExplanation,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(ReadingMode.fullExplanation, progress: 0),
+      );
+    });
+
+    test(
+      'stopping while reading does not leave a stale subscriber behind',
+      () async {
+        final built = _cubitFor();
+        addTearDown(built.tts.dispose);
+        await built.cubit.start(
+          result: _result,
+          mode: ReadingMode.summaryOnly,
+          speed: ReadingSpeed.normal,
+          strings: _ar,
+        );
+
+        await built.cubit.close();
+        await Future<void>.delayed(Duration.zero);
+        // Nothing should throw from an event delivered after close.
+        built.tts.emitEvent(const TtsProgressed(start: 0, end: 1));
+        await Future<void>.delayed(Duration.zero);
       },
     );
   });

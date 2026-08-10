@@ -23,10 +23,10 @@ const double _optionsFontSize = 12.5;
 /// currently on screen, the same way the design draws it.
 ///
 /// Purely presentational — [isPlaying] and [progress] are handed in rather
-/// than read from a TTS engine. `AudioReaderCubit` (F10-T04) wires the real
-/// reading behind [onOptions]/[onStop]; F10-T05 makes [onTogglePlayPause]'s
-/// pause/resume real; F10-T08 drives [progress] from
-/// `TextToSpeechService.events`.
+/// than read from a TTS engine. `AudioReaderCubit` wires the real reading
+/// behind [onOptions]/[onStop], real pause/resume behind
+/// [onTogglePlayPause], and turns `TextToSpeechService.events` into
+/// [progress] (F10-T04/T05/T08).
 ///
 /// Lives in `core/` rather than the `audio_reader` feature because the result
 /// page (owned by the `analysis` feature) renders it inline in its own

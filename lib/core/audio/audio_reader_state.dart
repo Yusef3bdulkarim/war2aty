@@ -16,17 +16,22 @@ final class AudioReaderIdle extends AudioReaderState {
 /// [isPaused] (F10-T05) — either way the mini-player stays on screen; only
 /// [AudioReaderIdle]/[stop] hides it. [speed] (F10-T06) is whatever the
 /// options sheet was last confirmed with — [ReadingSpeed.normal] for a
-/// reading nothing has changed it away from yet.
+/// reading nothing has changed it away from yet. [progress] (F10-T08) is how
+/// far through the reading the engine has reached, 0 to 1 — `0` for a
+/// reading nothing has reported progress on yet, whether that is a fresh
+/// start or one still paused before its first `TtsProgressed` event.
 final class AudioReaderReading extends AudioReaderState {
   const AudioReaderReading(
     this.mode, {
     this.isPaused = false,
     this.speed = ReadingSpeed.normal,
+    this.progress = 0,
   });
 
   final ReadingMode mode;
   final bool isPaused;
   final ReadingSpeed speed;
+  final double progress;
 
   @override
   bool operator ==(Object other) =>
@@ -34,10 +39,11 @@ final class AudioReaderReading extends AudioReaderState {
       other is AudioReaderReading &&
           other.mode == mode &&
           other.isPaused == isPaused &&
-          other.speed == speed;
+          other.speed == speed &&
+          other.progress == progress;
 
   @override
-  int get hashCode => Object.hash(mode, isPaused, speed);
+  int get hashCode => Object.hash(mode, isPaused, speed, progress);
 }
 
 /// The engine could not start (or stop) speaking. Carries the failure rather

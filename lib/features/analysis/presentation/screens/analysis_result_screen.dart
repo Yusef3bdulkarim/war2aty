@@ -143,7 +143,13 @@ class _ResultBodyState extends State<_ResultBody> {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    return BlocConsumer<AudioReaderCubit, AudioReaderState>(
+    // A `BlocListener` rather than a `BlocConsumer` around the whole page: a
+    // reading in progress emits a fresh state on every `TtsProgressed` tick
+    // (F10-T08), and a `builder` up here would rebuild the top bar, every
+    // result card and the action bar on each one. Only `_MiniPlayerSlot`
+    // below needs to watch the state at all (CLAUDE.md §B8: `BlocBuilder` on
+    // the smallest Widget that needs it).
+    return BlocListener<AudioReaderCubit, AudioReaderState>(
       listenWhen: (previous, current) => current is AudioReaderFailed,
       listener: (context, state) {
         ScaffoldMessenger.of(context)
@@ -152,7 +158,7 @@ class _ResultBodyState extends State<_ResultBody> {
             SnackBar(content: Text(strings.audioReaderFailedFeedback)),
           );
       },
-      builder: (context, audioState) => Column(
+      child: Column(
         children: [
           _TopBar(onClose: widget.onClose),
           Expanded(
@@ -176,23 +182,7 @@ class _ResultBodyState extends State<_ResultBody> {
               ),
             ),
           ),
-          if (audioState case AudioReaderReading(:final mode, :final isPaused))
-            AudioMiniPlayerBar(
-              modeLabel: readingModeLabel(strings, mode),
-              isPlaying: !isPaused,
-              // Static until F10-T08 wires the real progress stream.
-              progress: 0.42,
-              onTogglePlayPause: () {
-                final cubit = context.read<AudioReaderCubit>();
-                if (isPaused) {
-                  cubit.resume();
-                } else {
-                  cubit.pause();
-                }
-              },
-              onOptions: _openAudioSheet,
-              onStop: () => context.read<AudioReaderCubit>().stop(),
-            ),
+          _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
           // Pinned below the scroll: these three are what the page is *for*,
           // and the design keeps them in reach without scrolling to the end.
           ResultActionBar(
@@ -285,6 +275,42 @@ class _ResultBodyState extends State<_ResultBody> {
         onListen: _openAudioSheet,
       ),
     };
+  }
+}
+
+/// Watches [AudioReaderCubit] on its own, scoped to just the mini-player —
+/// see the comment on `_ResultBodyState.build` for why this is split out
+/// rather than folded into the page's own `builder` (F10-T08).
+class _MiniPlayerSlot extends StatelessWidget {
+  const _MiniPlayerSlot({required this.onOpenAudioSheet});
+
+  final VoidCallback onOpenAudioSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return BlocBuilder<AudioReaderCubit, AudioReaderState>(
+      builder: (context, audioState) => switch (audioState) {
+        AudioReaderReading(:final mode, :final isPaused, :final progress) =>
+          AudioMiniPlayerBar(
+            modeLabel: readingModeLabel(strings, mode),
+            isPlaying: !isPaused,
+            progress: progress,
+            onTogglePlayPause: () {
+              final cubit = context.read<AudioReaderCubit>();
+              if (isPaused) {
+                cubit.resume();
+              } else {
+                cubit.pause();
+              }
+            },
+            onOptions: onOpenAudioSheet,
+            onStop: () => context.read<AudioReaderCubit>().stop(),
+          ),
+        AudioReaderIdle() || AudioReaderFailed() => const SizedBox.shrink(),
+      },
+    );
   }
 }
 
