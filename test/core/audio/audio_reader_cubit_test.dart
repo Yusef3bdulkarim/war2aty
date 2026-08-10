@@ -7,9 +7,11 @@ import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
@@ -32,6 +34,7 @@ final AnalysisResult _result = _buildResult(
   bool pauseFails = false,
   bool resumeFails = false,
   bool setSpeechRateFails = false,
+  List<TtsVoice> voices = const [],
 }) {
   final tts = FakeTextToSpeechService(
     speakFails: speakFails,
@@ -39,9 +42,10 @@ final AnalysisResult _result = _buildResult(
     pauseFails: pauseFails,
     resumeFails: resumeFails,
     setSpeechRateFails: setSpeechRateFails,
+    voices: voices,
   );
   final cubit = AudioReaderCubit(
-    StartReading(const BuildReadingText(), tts),
+    StartReading(const BuildReadingText(), const SelectVoiceForReading(), tts),
     StopReading(tts),
     PauseReading(tts),
     ResumeReading(tts),

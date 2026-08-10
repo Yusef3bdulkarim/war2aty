@@ -5,29 +5,49 @@ import '../../../../core/localization/app_strings.dart';
 import '../../../../core/result/result.dart';
 import '../services/text_to_speech_service.dart';
 import 'build_reading_text.dart';
+import 'select_voice_for_reading.dart';
 
 /// Starts reading one [ReadingMode] of a result aloud (F10-T04).
 ///
 /// Combines [BuildReadingText] — which turns the mode into the text — with
 /// [TextToSpeechService.speak], so the mini-player's cubit depends on one use
 /// case rather than a builder and a service directly (architecture rule:
-/// cubits depend on use cases only).
+/// cubits depend on use cases only). Also applies [SelectVoiceForReading]'s
+/// default voice ahead of speaking (F10-T07).
 final class StartReading {
-  const StartReading(this._buildReadingText, this._tts);
+  const StartReading(this._buildReadingText, this._selectVoice, this._tts);
 
   final BuildReadingText _buildReadingText;
+  final SelectVoiceForReading _selectVoice;
   final TextToSpeechService _tts;
 
   Future<Result<void, AppFailure>> call({
     required AnalysisResult result,
     required ReadingMode mode,
     required AppStrings strings,
-  }) {
+  }) async {
     final text = _buildReadingText(
       result: result,
       mode: mode,
       strings: strings,
     );
+    await _applyDefaultVoiceFor(text);
     return _tts.speak(text);
+  }
+
+  /// Best-effort: switches to a voice matching [text]'s script when the
+  /// device has one.
+  ///
+  /// Nothing here is surfaced as a failure — unlike the speed the user
+  /// explicitly chooses in the options sheet (`SetReadingSpeed`), picking a
+  /// *default* voice is not something the user asked for, so a device with
+  /// no matching voice, or a `getVoices`/`setVoice` call that fails, should
+  /// not stop — or interrupt — the reading; it proceeds on whatever voice
+  /// the engine already had.
+  Future<void> _applyDefaultVoiceFor(String text) async {
+    final voices = (await _tts.getVoices()).valueOrNull;
+    if (voices == null) return;
+    final voice = _selectVoice(text, voices);
+    if (voice != null) await _tts.setVoice(voice);
   }
 }

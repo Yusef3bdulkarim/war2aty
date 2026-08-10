@@ -86,6 +86,7 @@ import '../../features/audio_reader/domain/services/text_to_speech_service.dart'
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
+import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
@@ -661,8 +662,12 @@ void _registerAudioReader() {
     )
     // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
     ..registerFactory<BuildReadingText>(BuildReadingText.new)
+    // F10-T07. Stateless and total, the same shape as `BuildReadingText`.
+    ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
     // F10-T04.
-    ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))
+    ..registerFactory<StartReading>(
+      () => StartReading(getIt(), getIt(), getIt()),
+    )
     ..registerFactory<StopReading>(() => StopReading(getIt()))
     // F10-T05.
     ..registerFactory<PauseReading>(() => PauseReading(getIt()))

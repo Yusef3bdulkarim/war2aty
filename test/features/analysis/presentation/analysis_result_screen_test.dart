@@ -27,6 +27,7 @@ import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_on
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
@@ -79,7 +80,11 @@ void main() {
     );
     tts = FakeTextToSpeechService();
     audioReaderCubit = AudioReaderCubit(
-      StartReading(const BuildReadingText(), tts),
+      StartReading(
+        const BuildReadingText(),
+        const SelectVoiceForReading(),
+        tts,
+      ),
       StopReading(tts),
       PauseReading(tts),
       ResumeReading(tts),

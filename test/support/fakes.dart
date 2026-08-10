@@ -1086,6 +1086,9 @@ final class FakeTextToSpeechService implements TextToSpeechService {
     this.pauseFails = false,
     this.resumeFails = false,
     this.setSpeechRateFails = false,
+    this.voices = const [],
+    this.getVoicesFails = false,
+    this.setVoiceFails = false,
   });
 
   bool speakFails;
@@ -1093,6 +1096,12 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   bool pauseFails;
   bool resumeFails;
   bool setSpeechRateFails;
+
+  /// What [getVoices] answers with (F10-T07) — empty by default, the same as
+  /// a device the app has not yet asked, or one with nothing installed.
+  List<TtsVoice> voices;
+  bool getVoicesFails;
+  bool setVoiceFails;
 
   final List<String> spoken = [];
   int stopCount = 0;
@@ -1103,7 +1112,16 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   /// assert the chosen `ReadingSpeed` actually reached the engine.
   final List<double> speechRates = [];
 
+  /// Every voice handed to [setVoice], in order (F10-T07) — so a test can
+  /// assert which default voice actually reached the engine.
+  final List<TtsVoice> voicesSet = [];
+
   final _events = StreamController<TtsEvent>.broadcast();
+
+  /// Pushes [event] to whatever is listening on [events] — lets a test drive
+  /// playback lifecycle notifications (F10-T08) the same way a real engine's
+  /// native handlers would.
+  void emitEvent(TtsEvent event) => _events.add(event);
 
   @override
   Future<Result<void, AppFailure>> speak(String text) async {
@@ -1136,11 +1154,14 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   }
 
   @override
-  Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async =>
-      const Ok(null);
+  Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async {
+    voicesSet.add(voice);
+    return setVoiceFails ? const Err(TtsFailure()) : const Ok(null);
+  }
 
   @override
-  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async => const Ok([]);
+  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async =>
+      getVoicesFails ? const Err(TtsFailure()) : Ok(voices);
 
   @override
   Stream<TtsEvent> get events => _events.stream;
