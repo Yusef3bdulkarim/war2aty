@@ -719,4 +719,37 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderNotificationGenericTitle =>
       'You have an upcoming reminder';
+  @override
+  String get reminderListTitle => 'Reminders';
+  @override
+  String get reminderTabUpcoming => 'Upcoming';
+  @override
+  String get reminderTabMissed => 'Missed';
+  @override
+  String get reminderTabCompleted => 'Completed';
+  @override
+  String get reminderEmptyTitle => 'No reminders yet';
+  @override
+  String get reminderEmptySubtitle =>
+      'Add one by hand, or create one from a date already on a document.';
+  @override
+  String get reminderEmptyScanCta => 'Photograph a paper';
+  @override
+  String get reminderEmptyMissedTitle => 'No missed reminders.';
+  @override
+  String get reminderEmptyCompletedTitle =>
+      'Reminders you complete will show up here.';
+  @override
+  String get reminderStatusUpcoming => 'Upcoming';
+  @override
+  String get reminderStatusMissed => 'Missed';
+  @override
+  String get reminderStatusCompleted => 'Done';
+  @override
+  String get reminderCompleteAction => 'Mark done';
+  @override
+  String get reminderSnoozeAction => 'Snooze';
+  @override
+  String get reminderListErrorTitle =>
+      "We couldn't load your reminders right now.";
 }

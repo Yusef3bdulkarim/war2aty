@@ -53,6 +53,7 @@ import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
 import '../../core/reminders/usecases/create_manual_reminder.dart';
 import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
+import '../../core/reminders/usecases/watch_reminders.dart';
 import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
 import '../../core/storage/analysis_session.dart';
@@ -130,6 +131,7 @@ import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
@@ -593,7 +595,11 @@ void _registerReminders() {
         requestNotificationPermission: getIt(),
       ),
       instanceName: manualReminderFormInstanceName,
-    );
+    )
+    // The reminders tab (F09-T11): a fresh cubit per visit, like every other
+    // top-level list cubit here.
+    ..registerFactory<WatchReminders>(() => WatchReminders(getIt()))
+    ..registerFactory<RemindersCubit>(() => RemindersCubit(getIt()));
 }
 
 void _registerRouting() {

@@ -602,4 +602,35 @@ abstract interface class AppStrings {
   /// sensitive details are hidden (F09-T14, default on) — never a specific
   /// amount, account number or name, whatever the reminder is about.
   String get reminderNotificationGenericTitle;
+
+  // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
+  String get reminderListTitle;
+  String get reminderTabUpcoming;
+  String get reminderTabMissed;
+  String get reminderTabCompleted;
+
+  String get reminderEmptyTitle;
+  String get reminderEmptySubtitle;
+
+  /// The way out of [reminderEmptyTitle] besides [reminderAddAction] —
+  /// mirrors the scan action Home and the documents list offer for the
+  /// same "nothing yet" moment.
+  String get reminderEmptyScanCta;
+
+  String get reminderEmptyMissedTitle;
+  String get reminderEmptyCompletedTitle;
+
+  /// The list card's own status pill — also the details screen's (F09-T12).
+  String get reminderStatusUpcoming;
+  String get reminderStatusMissed;
+  String get reminderStatusCompleted;
+
+  /// The list card's own quick actions — wired in F09-T12; the card widget
+  /// (F09-T11) already draws them whenever a callback is given.
+  String get reminderCompleteAction;
+  String get reminderSnoozeAction;
+
+  /// Mirrors [documentsListErrorTitle] for the reminders list's own failed
+  /// read.
+  String get reminderListErrorTitle;
 }

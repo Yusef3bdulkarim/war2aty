@@ -31,9 +31,11 @@ import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/onboarding/presentation/screens/privacy_screen.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/reminders/presentation/screens/reminder_form_screen.dart';
 import '../../features/reminders/presentation/screens/reminder_success_screen.dart';
+import '../../features/reminders/presentation/screens/reminders_list_screen.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_state.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
@@ -280,9 +282,10 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
 
           return ReminderSuccessScreen(
             reminder: reminder,
-            // Both destinations land wherever F09-T11/T12 build them; for
-            // now the success screen's own buttons just leave the flow.
-            onViewReminder: () => context.go(AppRoutes.home),
+            // The reminders tab now exists (F09-T11); "close" still just
+            // leaves the flow for Home, matching every other save-confirm
+            // screen in the app.
+            onViewReminder: () => context.go(AppRoutes.reminders),
             onClose: () => context.go(AppRoutes.home),
           );
         },
@@ -329,10 +332,18 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               ),
             ],
           ),
-          _branch(
-            AppRoutes.reminders,
-            (c) => c.strings.navReminders,
-            Icons.notifications,
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.reminders,
+                builder: (context, state) => BlocProvider<RemindersCubit>(
+                  create: (_) => getIt<RemindersCubit>()..start(),
+                  child: RemindersListScreen(
+                    onAddReminder: () => context.push(AppRoutes.reminderManual),
+                  ),
+                ),
+              ),
+            ],
           ),
           _branch(
             AppRoutes.settings,

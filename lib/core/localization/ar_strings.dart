@@ -717,4 +717,35 @@ final class ArStrings implements AppStrings {
   String get reminderNotificationChannelName => 'التذكيرات';
   @override
   String get reminderNotificationGenericTitle => 'عندك تذكير بموعد قريب';
+  @override
+  String get reminderListTitle => 'التذكيرات';
+  @override
+  String get reminderTabUpcoming => 'القادمة';
+  @override
+  String get reminderTabMissed => 'الفائتة';
+  @override
+  String get reminderTabCompleted => 'المكتملة';
+  @override
+  String get reminderEmptyTitle => 'مافيش تذكيرات لسه';
+  @override
+  String get reminderEmptySubtitle =>
+      'اعمل تذكير يدوي، أو أنشئ تذكير من تاريخ موجود في ورقة.';
+  @override
+  String get reminderEmptyScanCta => 'صوّر ورقة';
+  @override
+  String get reminderEmptyMissedTitle => 'مافيش تذكيرات فائتة.';
+  @override
+  String get reminderEmptyCompletedTitle => 'التذكيرات اللي تنفذها هتظهر هنا.';
+  @override
+  String get reminderStatusUpcoming => 'قادم';
+  @override
+  String get reminderStatusMissed => 'فائت';
+  @override
+  String get reminderStatusCompleted => 'تم';
+  @override
+  String get reminderCompleteAction => 'تم التنفيذ';
+  @override
+  String get reminderSnoozeAction => 'تأجيل';
+  @override
+  String get reminderListErrorTitle => 'مقدرناش نجيب تذكيراتك دلوقتي.';
 }
