@@ -80,6 +80,8 @@ import '../../features/analysis/data/repositories/default_analysis_repository.da
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
+import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
@@ -167,6 +169,7 @@ Future<void> configureDependencies(
   _registerAnalysis(env);
   _registerSavedPapers();
   _registerReminders();
+  _registerAudioReader();
   _registerRouting();
 }
 
@@ -638,6 +641,16 @@ void _registerReminders() {
     ..registerFactory<ReminderDetailsCubit>(
       () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
     );
+}
+
+void _registerAudioReader() {
+  // F10-T01. `FlutterTtsTextToSpeechService` is the only file allowed to
+  // import `flutter_tts` — everything above it speaks `TextToSpeechService`,
+  // the same boundary `TesseractOcrEngine` keeps for its own plugin. One
+  // instance app-wide: the OS TTS engine is itself a single shared resource.
+  getIt.registerLazySingleton<TextToSpeechService>(
+    FlutterTtsTextToSpeechService.new,
+  );
 }
 
 void _registerRouting() {
