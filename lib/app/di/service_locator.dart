@@ -82,6 +82,7 @@ import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
+import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
@@ -648,9 +649,12 @@ void _registerAudioReader() {
   // import `flutter_tts` — everything above it speaks `TextToSpeechService`,
   // the same boundary `TesseractOcrEngine` keeps for its own plugin. One
   // instance app-wide: the OS TTS engine is itself a single shared resource.
-  getIt.registerLazySingleton<TextToSpeechService>(
-    FlutterTtsTextToSpeechService.new,
-  );
+  getIt
+    ..registerLazySingleton<TextToSpeechService>(
+      FlutterTtsTextToSpeechService.new,
+    )
+    // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
+    ..registerFactory<BuildReadingText>(BuildReadingText.new);
 }
 
 void _registerRouting() {
