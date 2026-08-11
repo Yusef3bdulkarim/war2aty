@@ -66,3 +66,20 @@ Deno.test("reference: extracts multiple different references", () => {
 Deno.test("reference: does not extract bare numbers without keywords", () => {
   assertEquals(extractReferences("المبلغ 250.50"), []);
 });
+
+// Regression: "Ref" previously matched as a bare prefix inside "Reference",
+// capturing the leftover "erence" as the value instead of the real
+// reference number after "Number:".
+Deno.test('reference: does not match "Ref" as a prefix inside "Reference"', () => {
+  const results = extractReferences("Reference Number: REF-9948271");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "9948271");
+});
+
+// Regression: "Account" followed by the common "Number:" label word
+// previously captured "Number" itself as the value.
+Deno.test('reference: skips the "Number" label after an English keyword', () => {
+  const results = extractReferences("Account Number: 8827-4419-02");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "8827-4419-02");
+});
