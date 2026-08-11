@@ -53,9 +53,23 @@ final class ReferenceExtractor {
     'Transaction',
   ];
 
+  // `(?![A-Za-z])` after the keyword alternation stops a short keyword like
+  // "Ref"/"Account" from matching as a bare prefix inside a longer word (e.g.
+  // "Ref" inside "Reference"), which previously left the rest of that word
+  // ("erence") to be captured as the value.
+  //
+  // The optional `(?:Number|No\.?|ID)` group absorbs the common English
+  // "<Keyword> Number:" phrasing ("Account Number:", "Reference Number:") —
+  // without it, "Number" itself was captured as the value instead of the
+  // number that follows it. Arabic keywords already embed "رقم" (number)
+  // in the phrase itself, so this group is a no-op for them.
+  //
+  // `-` joins `[\s:#]` as a separator character so a directly-attached
+  // reference like "REF-9948271" is still captured (previously the hyphen
+  // stopped the match before it ever reached the digits).
   static final _referencePattern = RegExp(
-    '(?:${_keywords.join('|')})'
-    r'[\s:#]*'
+    '(?:${_keywords.join('|')})(?![A-Za-z])'
+    r'[\s:#\-]*(?:(?:Number|No\.?|ID)[\s:#\-]*)?'
     r'([A-Za-z0-9][\w\-/]*[A-Za-z0-9]|\d{4,})',
     caseSensitive: false,
   );

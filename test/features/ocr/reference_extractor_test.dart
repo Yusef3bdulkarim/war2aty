@@ -68,5 +68,22 @@ void main() {
       final results = extractor.extract('المبلغ 250.50');
       expect(results, isEmpty);
     });
+
+    // Regression: "Ref" previously matched as a bare prefix inside
+    // "Reference", capturing the leftover "erence" as the value instead of
+    // the real reference number after "Number:".
+    test('does not match "Ref" as a prefix inside "Reference"', () {
+      final results = extractor.extract('Reference Number: REF-9948271');
+      expect(results, hasLength(1));
+      expect(results.first.value, equals('9948271'));
+    });
+
+    // Regression: "Account" followed by the common "Number:" label word
+    // previously captured "Number" itself as the value.
+    test('skips the "Number" label after an English keyword', () {
+      final results = extractor.extract('Account Number: 8827-4419-02');
+      expect(results, hasLength(1));
+      expect(results.first.value, equals('8827-4419-02'));
+    });
   });
 }
