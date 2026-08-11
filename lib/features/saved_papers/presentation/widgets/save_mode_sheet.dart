@@ -45,7 +45,7 @@ const double _buttonFontSize = 17;
 Future<DocumentStorageMode?> showSaveModeSheet(BuildContext context) {
   return showModalBottomSheet<DocumentStorageMode>(
     context: context,
-    backgroundColor: AppColors.light.card,
+    backgroundColor: AppColors.of(context).card,
     isScrollControlled: true,
     constraints: BoxConstraints(
       maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor,
@@ -74,7 +74,7 @@ class _SaveModeSheetState extends State<SaveModeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SafeArea(
@@ -179,7 +179,7 @@ class _ModeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Material(
       color: selected ? colors.surfaceTeal : colors.card,

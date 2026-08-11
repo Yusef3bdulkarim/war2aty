@@ -46,7 +46,7 @@ class UsageIndicator extends StatelessWidget {
     if (remaining == null) return const SizedBox.shrink();
 
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       // Its own spacing, so the screen above does not have to know whether

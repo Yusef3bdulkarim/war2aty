@@ -38,8 +38,8 @@ class DocumentListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
-    final style = DocumentCategoryStyle.of(document.category);
+    final colors = AppColors.of(context);
+    final style = DocumentCategoryStyle.of(context, document.category);
     final radius = BorderRadius.circular(AppRadii.xl);
     final categoryName = _categoryName(s, document.category);
     final savedOn = formatDayMonth(s, document.savedAt);

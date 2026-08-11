@@ -71,7 +71,7 @@ Future<AnalysisDate?> showDateSelectionSheet(
   required List<AnalysisDate> dates,
 }) => showModalBottomSheet<AnalysisDate>(
   context: context,
-  backgroundColor: AppColors.light.card,
+  backgroundColor: AppColors.of(context).card,
   // Sized by its content up to the design's cap, so two dates do not get the
   // same tall sheet as eight.
   isScrollControlled: true,
@@ -96,7 +96,7 @@ class DateSelectionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SafeArea(
@@ -164,7 +164,7 @@ class _DateOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return Material(

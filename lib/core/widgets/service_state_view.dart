@@ -81,7 +81,7 @@ class ServiceStateView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     // The design's arrow points towards the start of an Arabic line; in an
     // English layout that is the other way round.

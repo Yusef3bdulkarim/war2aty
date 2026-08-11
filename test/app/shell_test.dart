@@ -7,6 +7,16 @@ import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/app/shell/scaffold_with_nav_bar.dart';
+import 'package:war2aty/core/accessibility/high_contrast_cubit.dart';
+import 'package:war2aty/core/accessibility/text_size_cubit.dart';
+import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
+import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
+import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
+import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
+import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
+import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
+import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -29,6 +39,7 @@ import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:war2aty/features/settings/presentation/screens/settings_screen.dart';
 
 import '../support/fakes.dart';
@@ -96,6 +107,30 @@ void main() {
           ),
         ),
       )
+      ..registerFactory<TextSizeCubit>(() {
+        final store = FakeTextSizeStore();
+        return TextSizeCubit(
+          getTextSize: GetTextSize(store),
+          setTextSize: SetTextSize(store),
+        );
+      })
+      ..registerFactory<HighContrastCubit>(() {
+        final store = FakeHighContrastStore();
+        return HighContrastCubit(
+          getHighContrast: GetHighContrast(store),
+          setHighContrast: SetHighContrast(store),
+        );
+      })
+      ..registerFactory<SettingsCubit>(() {
+        final consentStore = FakeAnalysisConsentStore();
+        final modeStore = FakeProcessingModeStore();
+        return SettingsCubit(
+          getAnalysisConsent: GetAnalysisConsent(consentStore),
+          setAnalysisConsent: SetAnalysisConsent(consentStore),
+          getProcessingMode: GetProcessingMode(modeStore),
+          setProcessingMode: SetProcessingMode(modeStore),
+        );
+      })
       ..registerLazySingleton<GoRouter>(
         () => createAppRouter(onboardingGate: getIt()),
       );

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/documents/analysis_section.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -15,6 +16,7 @@ import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_sta
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
+import '../../../support/fakes.dart';
 import '../analysis_fixtures.dart';
 
 const _session = AnalysisSession(id: 'session-1', imagePath: '/tmp/paper.jpg');
@@ -51,12 +53,17 @@ final class FakeAnalysisRepository implements AnalysisRepository {
 
 void main() {
   late FakeAnalysisRepository repository;
+  late FakeAnalysisConsentStore consentStore;
 
-  setUp(() => repository = FakeAnalysisRepository());
+  setUp(() {
+    repository = FakeAnalysisRepository();
+    consentStore = FakeAnalysisConsentStore();
+  });
 
   AnalysisResultCubit buildCubit() => AnalysisResultCubit(
     session: _session,
     extraction: _extraction,
+    getAnalysisConsent: GetAnalysisConsent(consentStore),
     analyzeDocument: AnalyzeDocument(repository),
     buildResult: const BuildAnalysisResult(),
   );
@@ -142,6 +149,40 @@ void main() {
       expect(emitted.whereType<AnalysisResultReady>(), isEmpty);
       expect(cubit.state, const AnalysisResultAnalyzing());
       await subscription.cancel();
+    });
+
+    group('analysis consent (F11-T02)', () {
+      test('proceeds when the user has never touched the setting', () async {
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        expect(repository.requests, hasLength(1));
+        expect(cubit.state, isA<AnalysisResultReady>());
+      });
+
+      test('never sends the text when consent is declined', () async {
+        await consentStore.writeConsent(false);
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        expect(repository.requests, isEmpty);
+        expect(
+          cubit.state,
+          AnalysisResultFailed(
+            const AnalysisConsentDeclinedFailure(),
+            _extraction.text.cleanedText,
+          ),
+        );
+      });
+
+      test('proceeds once consent is explicitly on', () async {
+        await consentStore.writeConsent(true);
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        expect(repository.requests, hasLength(1));
+        expect(cubit.state, isA<AnalysisResultReady>());
+      });
     });
   });
 }

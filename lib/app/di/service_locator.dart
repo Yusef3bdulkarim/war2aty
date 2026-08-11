@@ -5,6 +5,20 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../core/accessibility/high_contrast_cubit.dart';
+import '../../core/accessibility/high_contrast_store.dart';
+import '../../core/accessibility/text_size_cubit.dart';
+import '../../core/accessibility/text_size_store.dart';
+import '../../core/accessibility/usecases/get_high_contrast.dart';
+import '../../core/accessibility/usecases/get_text_size.dart';
+import '../../core/accessibility/usecases/set_high_contrast.dart';
+import '../../core/accessibility/usecases/set_text_size.dart';
+import '../../core/analysis/analysis_consent_store.dart';
+import '../../core/analysis/processing_mode_store.dart';
+import '../../core/analysis/usecases/get_analysis_consent.dart';
+import '../../core/analysis/usecases/get_processing_mode.dart';
+import '../../core/analysis/usecases/set_analysis_consent.dart';
+import '../../core/analysis/usecases/set_processing_mode.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
@@ -144,6 +158,7 @@ import '../../features/reminders/presentation/models/reminder_from_document_args
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/settings/presentation/cubit/settings_cubit.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -157,6 +172,7 @@ Future<void> configureDependencies(
   _registerCore(env);
   _registerDatabase(database);
   _registerLocalization();
+  _registerAccessibility();
   _registerIdentity(env);
   _registerNetwork(env);
   _registerLaunch(env);
@@ -167,6 +183,7 @@ Future<void> configureDependencies(
   _registerAnalysis(env);
   _registerSavedPapers();
   _registerReminders();
+  _registerSettings();
   _registerRouting();
 }
 
@@ -192,6 +209,26 @@ void _registerLocalization() {
     ..registerFactory<SetLocale>(() => SetLocale(getIt()))
     ..registerFactory<LocaleCubit>(
       () => LocaleCubit(getSavedLocale: getIt(), setLocale: getIt()),
+    );
+}
+
+void _registerAccessibility() {
+  getIt
+    ..registerLazySingleton<TextSizeStore>(() => DriftTextSizeStore(getIt()))
+    ..registerFactory<GetTextSize>(() => GetTextSize(getIt()))
+    ..registerFactory<SetTextSize>(() => SetTextSize(getIt()))
+    ..registerFactory<TextSizeCubit>(
+      () => TextSizeCubit(getTextSize: getIt(), setTextSize: getIt()),
+    )
+    // F11-T06. Same `app_settings` table.
+    ..registerLazySingleton<HighContrastStore>(
+      () => DriftHighContrastStore(getIt()),
+    )
+    ..registerFactory<GetHighContrast>(() => GetHighContrast(getIt()))
+    ..registerFactory<SetHighContrast>(() => SetHighContrast(getIt()))
+    ..registerFactory<HighContrastCubit>(
+      () =>
+          HighContrastCubit(getHighContrast: getIt(), setHighContrast: getIt()),
     );
 }
 
@@ -453,6 +490,18 @@ void _registerAnalysis(AppEnvironment env) {
   final useMock = env.isDev && _useMockAnalysis;
 
   getIt
+    // F11-T02. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<AnalysisConsentStore>(
+      () => DriftAnalysisConsentStore(getIt()),
+    )
+    ..registerFactory<GetAnalysisConsent>(() => GetAnalysisConsent(getIt()))
+    ..registerFactory<SetAnalysisConsent>(() => SetAnalysisConsent(getIt()))
+    // F11-T03. Same `app_settings` table.
+    ..registerLazySingleton<ProcessingModeStore>(
+      () => DriftProcessingModeStore(getIt()),
+    )
+    ..registerFactory<GetProcessingMode>(() => GetProcessingMode(getIt()))
+    ..registerFactory<SetProcessingMode>(() => SetProcessingMode(getIt()))
     // The real Edge Function client (F06-T14). An unconfigured build refuses
     // outright rather than falling back to fixtures: showing invented amounts
     // and deadlines to a real user would be worse than showing nothing, which
@@ -482,6 +531,7 @@ void _registerAnalysis(AppEnvironment env) {
       (session, extraction) => AnalysisResultCubit(
         session: session,
         extraction: extraction,
+        getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
         buildResult: getIt(),
       ),
@@ -638,6 +688,20 @@ void _registerReminders() {
     ..registerFactory<ReminderDetailsCubit>(
       () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
     );
+}
+
+void _registerSettings() {
+  // F11-T02/T03. Reuses the store/use cases `_registerAnalysis` already
+  // registered — Settings reads and writes the same consent and processing-
+  // mode flags the analysis flow gates itself on.
+  getIt.registerFactory<SettingsCubit>(
+    () => SettingsCubit(
+      getAnalysisConsent: getIt(),
+      setAnalysisConsent: getIt(),
+      getProcessingMode: getIt(),
+      setProcessingMode: getIt(),
+    ),
+  );
 }
 
 void _registerRouting() {

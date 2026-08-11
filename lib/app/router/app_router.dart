@@ -47,6 +47,7 @@ import '../../features/saved_papers/presentation/screens/document_details_screen
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
+import '../../features/settings/presentation/cubit/settings_cubit.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../di/service_locator.dart';
 import '../shell/scaffold_with_nav_bar.dart';
@@ -212,6 +213,8 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   onSave: () => unawaited(_saveResult(context, session)),
                   onCreateReminder: (date) =>
                       _startReminderFromDate(context, date),
+                  // The way out of a declined analysis consent (F11-T02).
+                  onOpenSettings: () => context.go(AppRoutes.settings),
                 ),
               ),
             ),
@@ -374,7 +377,10 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             routes: [
               GoRoute(
                 path: AppRoutes.settings,
-                builder: (context, state) => const SettingsScreen(),
+                builder: (context, state) => BlocProvider<SettingsCubit>(
+                  create: (_) => getIt<SettingsCubit>()..load(),
+                  child: const SettingsScreen(),
+                ),
               ),
             ],
           ),

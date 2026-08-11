@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -18,6 +19,7 @@ import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_on
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
+import '../../../support/fakes.dart';
 import '../../../support/pump_app.dart';
 import '../analysis_fixtures.dart';
 
@@ -47,13 +49,16 @@ final class _FakeRepository implements AnalysisRepository {
 
 void main() {
   late _FakeRepository repository;
+  late FakeAnalysisConsentStore consentStore;
   late AnalysisResultCubit cubit;
 
   setUp(() {
     repository = _FakeRepository();
+    consentStore = FakeAnalysisConsentStore();
     cubit = AnalysisResultCubit(
       session: _session,
       extraction: _extraction,
+      getAnalysisConsent: GetAnalysisConsent(consentStore),
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
     );
@@ -67,6 +72,7 @@ void main() {
     VoidCallback? onClose,
     VoidCallback? onListen,
     VoidCallback? onCaptureAnother,
+    VoidCallback? onOpenSettings,
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
   }) async {
@@ -80,10 +86,29 @@ void main() {
           onClose: onClose,
           onListen: onListen,
           onCaptureAnother: onCaptureAnother,
+          onOpenSettings: onOpenSettings,
         ),
       ),
       locale: locale,
       textScaler: textScaler,
+    );
+  }
+
+  /// Pumps the declined-consent state directly, bypassing [pumpFailure]'s
+  /// `repository.answer` — the cubit itself never calls the repository once
+  /// consent is off, so there is nothing for that field to script.
+  Future<void> pumpConsentDeclined(
+    WidgetTester tester, {
+    VoidCallback? onOpenSettings,
+  }) async {
+    await consentStore.writeConsent(false);
+    await cubit.analyze();
+    await pumpApp(
+      tester,
+      BlocProvider<AnalysisResultCubit>.value(
+        value: cubit,
+        child: AnalysisResultScreen(onOpenSettings: onOpenSettings),
+      ),
     );
   }
 
@@ -189,6 +214,68 @@ void main() {
       await pumpFailure(tester, const AnalysisServiceFailure());
 
       expect(find.text(_strings.actionRetry), findsOneWidget);
+      expect(find.text(_strings.resultShowExtractedText), findsOneWidget);
+    });
+  });
+
+  group('a declined analysis consent (F11-T02)', () {
+    testWidgets('says analysis is off, not a generic failure', (tester) async {
+      await pumpConsentDeclined(tester);
+
+      expect(find.text(_strings.analysisConsentDeclinedTitle), findsOneWidget);
+      expect(
+        find.text(_strings.analysisConsentDeclinedMessage),
+        findsOneWidget,
+      );
+      expect(find.text(_strings.analysisFailedTitle), findsNothing);
+    });
+
+    testWidgets('never asked the repository for anything', (tester) async {
+      await pumpConsentDeclined(tester);
+
+      expect(repository.calls, 0);
+    });
+
+    testWidgets('offers no retry that would only fail the same way', (
+      tester,
+    ) async {
+      await pumpConsentDeclined(tester);
+
+      expect(find.text(_strings.actionRetry), findsNothing);
+    });
+
+    testWidgets('leads with Settings when it can open it', (tester) async {
+      var opened = 0;
+      await pumpConsentDeclined(tester, onOpenSettings: () => opened++);
+
+      await tester.tap(find.text(_strings.analysisConsentDeclinedOpenSettings));
+      await tester.pumpAndSettle();
+
+      expect(opened, 1);
+    });
+
+    testWidgets('still offers the text the phone already read', (tester) async {
+      var opened = 0;
+      await pumpConsentDeclined(tester, onOpenSettings: () => opened++);
+
+      await tester.tap(find.text(_strings.resultShowExtractedText));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExtractedTextOnlyView), findsOneWidget);
+      expect(find.text(_extraction.text.cleanedText), findsOneWidget);
+    });
+
+    testWidgets('falls back to the text when Settings has nowhere to open', (
+      tester,
+    ) async {
+      // No `onOpenSettings` wired (e.g. reached outside the router) — the
+      // page still leads somewhere useful rather than a dead button.
+      await pumpConsentDeclined(tester);
+
+      expect(
+        find.text(_strings.analysisConsentDeclinedOpenSettings),
+        findsNothing,
+      );
       expect(find.text(_strings.resultShowExtractedText), findsOneWidget);
     });
   });

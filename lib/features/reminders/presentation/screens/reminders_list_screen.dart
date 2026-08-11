@@ -47,7 +47,7 @@ class RemindersListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -87,7 +87,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     // `Wrap`, not `Row`: at large text scale the button's own label can grow
@@ -181,7 +181,7 @@ class _Tabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     final tabs = [
@@ -227,7 +227,7 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Semantics(
       button: true,
@@ -390,7 +390,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -465,7 +465,7 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: CircularProgressIndicator(
-        color: AppColors.light.brandPrimary,
+        color: AppColors.of(context).brandPrimary,
         semanticsLabel: context.strings.stateLoading,
       ),
     );
@@ -477,7 +477,7 @@ class _LoadFailed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(

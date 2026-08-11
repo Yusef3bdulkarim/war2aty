@@ -2,6 +2,12 @@ import 'dart:async';
 
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
+import 'package:war2aty/core/accessibility/high_contrast_store.dart';
+import 'package:war2aty/core/accessibility/text_size.dart';
+import 'package:war2aty/core/accessibility/text_size_store.dart';
+import 'package:war2aty/core/analysis/analysis_consent_store.dart';
+import 'package:war2aty/core/analysis/processing_mode.dart';
+import 'package:war2aty/core/analysis/processing_mode_store.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/documents/analysis_amount.dart';
 import 'package:war2aty/core/documents/analysis_date.dart';
@@ -80,6 +86,66 @@ final class FakeNotificationPrivacyStore implements NotificationPrivacyStore {
 
   @override
   Future<void> writeHideSensitiveDetails(bool hide) async => _hide = hide;
+}
+
+/// In-memory [TextSizeStore] (F11-T05) — no persistence, seedable.
+/// `null` (the default) models a user who has never touched the setting, the
+/// same as [FakeLocaleStore]'s own default.
+final class FakeTextSizeStore implements TextSizeStore {
+  FakeTextSizeStore([this._size]);
+
+  TextSize? _size;
+
+  @override
+  Future<TextSize?> readSize() async => _size;
+
+  @override
+  Future<void> writeSize(TextSize size) async => _size = size;
+}
+
+/// In-memory [HighContrastStore] (F11-T06) — no persistence, seedable.
+/// `null` (the default) models a user who has never touched the setting, the
+/// same as [FakeTextSizeStore]'s own default.
+final class FakeHighContrastStore implements HighContrastStore {
+  FakeHighContrastStore([this._enabled]);
+
+  bool? _enabled;
+
+  @override
+  Future<bool?> readEnabled() async => _enabled;
+
+  @override
+  Future<void> writeEnabled(bool enabled) async => _enabled = enabled;
+}
+
+/// In-memory [AnalysisConsentStore] (F11-T02) — no persistence, seedable.
+/// `null` (the default) models a user who has never touched the setting, the
+/// same as [FakeLocaleStore]'s own default.
+final class FakeAnalysisConsentStore implements AnalysisConsentStore {
+  FakeAnalysisConsentStore([this._consent]);
+
+  bool? _consent;
+
+  @override
+  Future<bool?> readConsent() async => _consent;
+
+  @override
+  Future<void> writeConsent(bool consent) async => _consent = consent;
+}
+
+/// In-memory [ProcessingModeStore] (F11-T03) — no persistence, seedable.
+/// `null` (the default) models a user who has never touched the setting, the
+/// same as [FakeAnalysisConsentStore]'s own default.
+final class FakeProcessingModeStore implements ProcessingModeStore {
+  FakeProcessingModeStore([this._mode]);
+
+  ProcessingMode? _mode;
+
+  @override
+  Future<ProcessingMode?> readMode() async => _mode;
+
+  @override
+  Future<void> writeMode(ProcessingMode mode) async => _mode = mode;
 }
 
 /// In-memory [OnboardingRepository]; can be seeded as "already seen" or made

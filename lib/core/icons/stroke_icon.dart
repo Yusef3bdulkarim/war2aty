@@ -115,6 +115,18 @@ enum StrokeGlyph {
   /// (F08-T06).
   search,
 
+  /// A paper airplane — «السماح بإرسال النص للتحليل» in Settings (F11-T02).
+  send,
+
+  /// A globe — the language switch in Settings (F11-T04).
+  globe,
+
+  /// A large "A" beside a smaller one — the text-size setting (F11-T05).
+  textSize,
+
+  /// A circle, half solid — «تباين عالي» in Settings (F11-T06).
+  contrast,
+
   navHome,
   navDocuments,
   navReminders,
@@ -200,6 +212,15 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   // `<circle cx=11 cy=11 r=7/>` plus the handle.
   StrokeGlyph.plus: 'M12 5v14M5 12h14',
   StrokeGlyph.search: '${_circle(11, 11, 7)} M21 21l-4-4',
+  StrokeGlyph.send: 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  // Large A (left) + small A (right) — the universal text-size icon.
+  StrokeGlyph.textSize:
+      'M3 20L9 4L15 20 M6 14h6 M16 20L19.5 12L23 20 M17.5 17h4',
+  // The outline only — [_glyphFillPaths] paints the solid left half on top.
+  StrokeGlyph.contrast: _circle(12, 12, 9),
+  // `<circle cx=12 cy=12 r=10/>`, the equator, and a meridian ellipse.
+  StrokeGlyph.globe:
+      '${_circle(12, 12, 10)} M2 12h20 M12 2a7 10 0 0 1 0 20a7 10 0 0 1 0-20',
   // `<circle cx=12 cy=12 r=9/>`, the stem, and the dot — which the design
   // draws as a hairline `h.01` with a round cap.
   StrokeGlyph.info: '${_circle(12, 12, 9)} M12 8v4 M12 16h.01',
@@ -245,9 +266,17 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       '1.6 0 0 0-1.5 1z M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
 };
 
+/// Extra path data painted **filled**, on top of a glyph's own stroked
+/// outline — currently only [StrokeGlyph.contrast]'s solid left half, which
+/// an outline-only stroke (every other glyph) cannot express.
+final Map<StrokeGlyph, String> _glyphFillPaths = {
+  StrokeGlyph.contrast: 'M12 3a9 9 0 0 0 0 18z',
+};
+
 /// Parsed once per glyph — [Path] construction is not free, and these are
 /// rebuilt on every frame of a scrolling list otherwise.
 final Map<StrokeGlyph, Path> _pathCache = {};
+final Map<StrokeGlyph, Path> _fillPathCache = {};
 
 /// The parsed outline of [glyph], in the design's 24×24 coordinate space.
 ///
@@ -255,6 +284,13 @@ final Map<StrokeGlyph, Path> _pathCache = {};
 /// data is otherwise invisible until someone looks at the running app.
 Path strokeGlyphPath(StrokeGlyph glyph) =>
     _pathCache[glyph] ??= _fitToViewBox(parseSvgPath(_glyphPaths[glyph]!));
+
+/// The parsed fill region of [glyph], if it has one — see [_glyphFillPaths].
+Path? strokeGlyphFillPath(StrokeGlyph glyph) {
+  final data = _glyphFillPaths[glyph];
+  if (data == null) return null;
+  return _fillPathCache[glyph] ??= _fitToViewBox(parseSvgPath(data));
+}
 
 /// Shrinks a glyph that is drawn larger than the viewBox so it fits inside it.
 ///
@@ -358,6 +394,17 @@ class _StrokeIconPainter extends CustomPainter {
     canvas
       ..save()
       ..scale(size.shortestSide / _viewBox);
+
+    final fillPath = strokeGlyphFillPath(glyph);
+    if (fillPath != null) {
+      canvas.drawPath(
+        fillPath,
+        Paint()
+          ..style = PaintingStyle.fill
+          ..color = color
+          ..isAntiAlias = true,
+      );
+    }
 
     canvas.drawPath(
       strokeGlyphPath(glyph),

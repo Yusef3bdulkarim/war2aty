@@ -21,6 +21,7 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   NotificationPermissionFailure() => 'NOTIFICATION_PERMISSION',
   NotificationSchedulingFailure() => 'NOTIFICATION_SCHEDULING',
   TtsFailure() => 'TTS',
+  AnalysisConsentDeclinedFailure() => 'ANALYSIS_CONSENT_DECLINED',
   // Network
   NoInternetFailure() => 'NO_INTERNET',
   RequestTimeoutFailure() => 'REQUEST_TIMEOUT',

@@ -24,7 +24,7 @@ const double _buttonRadius = AppRadii.md;
 Future<bool> showDeleteReminderSheet(BuildContext context) async {
   final confirmed = await showModalBottomSheet<bool>(
     context: context,
-    backgroundColor: AppColors.light.card,
+    backgroundColor: AppColors.of(context).card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
     ),
@@ -38,7 +38,7 @@ class _DeleteReminderSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SafeArea(

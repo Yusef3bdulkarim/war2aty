@@ -64,7 +64,7 @@ class DocumentDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -107,7 +107,7 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: CircularProgressIndicator(
-        color: AppColors.light.brandPrimary,
+        color: AppColors.of(context).brandPrimary,
         semanticsLabel: context.strings.stateLoading,
       ),
     );
@@ -188,7 +188,8 @@ class _DetailsBody extends StatelessWidget {
                 // fully understood one, whatever it managed to fill in — the
                 // same rule the result screen follows for the same status.
                 if (document.analysis.isPartial) const PartialResultBanner(),
-                for (final section in sections) _section(section, strings),
+                for (final section in sections)
+                  _section(context, section, strings),
                 // «ملاحظتي» lives between the analysis sections and the
                 // explanation/extracted-text panels — the same position the
                 // design draws it in, after the paper's own content and
@@ -208,8 +209,12 @@ class _DetailsBody extends StatelessWidget {
   /// there is no reader yet, and a button that does nothing is worse than
   /// none (F10). `dates` now offers the reminder action (F09) same as the
   /// result screen's.
-  Widget _section(AnalysisSection section, AppStrings strings) {
-    const colors = AppColors.light;
+  Widget _section(
+    BuildContext context,
+    AnalysisSection section,
+    AppStrings strings,
+  ) {
+    final colors = AppColors.of(context);
     final analysis = document.analysis;
 
     return switch (section) {
@@ -351,7 +356,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     // The design's arrow points towards the start of an Arabic line; in an
     // English layout that is the other way round.
@@ -427,7 +432,7 @@ class _OverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SizedBox.square(
@@ -523,7 +528,7 @@ class _OverflowMenu extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(
               strings.actionDelete,
-              style: TextStyle(color: AppColors.light.error),
+              style: TextStyle(color: AppColors.of(context).error),
             ),
           ),
         ],

@@ -75,7 +75,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final radius = BorderRadius.circular(AppRadii.pill);
 
     return Semantics(

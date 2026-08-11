@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -24,6 +25,7 @@ import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_on
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
+import '../../../support/fakes.dart';
 import '../../../support/pump_app.dart';
 import '../analysis_fixtures.dart';
 
@@ -62,6 +64,7 @@ void main() {
     cubit = AnalysisResultCubit(
       session: _session,
       extraction: _extraction,
+      getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
     );

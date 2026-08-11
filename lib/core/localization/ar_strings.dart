@@ -461,10 +461,72 @@ final class ArStrings implements AppStrings {
   String get navSettings => 'الإعدادات';
 
   @override
+  String get settingsGeneralSection => 'عام';
+
+  @override
+  String get settingsLanguageLabel => 'لغة التطبيق';
+
+  @override
   String get languageArabic => 'العربية';
 
   @override
   String get languageEnglish => 'الإنجليزية';
+
+  @override
+  String get settingsPrivacySection => 'الخصوصية';
+
+  @override
+  String get settingsAnalysisConsentLabel => 'السماح بإرسال النص للتحليل';
+
+  @override
+  String get settingsProcessingModeLabel => 'طريقة معالجة الأوراق';
+
+  @override
+  String get settingsProcessingModeSmartAnalysis => 'تحليل ذكي';
+
+  @override
+  String get settingsProcessingModeTextOnly => 'استخراج النص فقط';
+
+  @override
+  String get settingsProcessingModeSmartAnalysisDescription =>
+      'الورقة تتقرأ وتتحلل عشان تفهم المهم فيها';
+
+  @override
+  String get settingsProcessingModeTextOnlyDescription =>
+      'بس يطلع النص من الورقة من غير تحليل — كل حاجة تفضل على الموبايل';
+
+  // Display / Accessibility (F11-T05)
+  @override
+  String get settingsDisplaySection => 'العرض';
+
+  @override
+  String get settingsTextSizeLabel => 'حجم الخط';
+
+  @override
+  String get settingsTextSizeNormal => 'عادي';
+
+  @override
+  String get settingsTextSizeLarge => 'كبير';
+
+  @override
+  String get settingsTextSizeVeryLarge => 'كبير جدًا';
+
+  @override
+  String get settingsTextSizeNormalDescription => 'الحجم الأصلي للتطبيق';
+
+  @override
+  String get settingsTextSizeLargeDescription => 'أكبر شوية — أسهل في القراءة';
+
+  @override
+  String get settingsTextSizeVeryLargeDescription =>
+      'أكبر حجم — مناسب لو محتاج خط واضح جدًا';
+
+  // Accessibility (F11-T06)
+  @override
+  String get settingsAccessibilitySection => 'إمكانية الوصول';
+
+  @override
+  String get settingsHighContrastLabel => 'تباين عالي';
 
   // OCR processing
   @override
@@ -602,6 +664,14 @@ final class ArStrings implements AppStrings {
   String get analysisUnsupportedMessage =>
       'نقدر نعرض لك النص المستخرج ونقراه بصوت، لكن مانقدرش نقدم شرح موثوق '
       'للنوع ده من المستندات.';
+  @override
+  String get analysisConsentDeclinedTitle => 'التحليل الذكي متوقف';
+  @override
+  String get analysisConsentDeclinedMessage =>
+      'إنت قافل «السماح بإرسال النص للتحليل» من الإعدادات، فمقدرناش نشرحلك '
+      'الورقة. النص اللي اتقرا منها لسه متاح تحت.';
+  @override
+  String get analysisConsentDeclinedOpenSettings => 'افتح الإعدادات';
   @override
   String get resultListenToExtractedText => 'الاستماع للنص';
   @override

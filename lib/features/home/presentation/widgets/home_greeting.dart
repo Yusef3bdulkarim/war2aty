@@ -16,7 +16,7 @@ class HomeGreeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

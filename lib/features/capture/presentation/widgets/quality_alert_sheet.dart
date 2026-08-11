@@ -42,7 +42,7 @@ class QualityAlertSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return SingleChildScrollView(
       child: Container(
@@ -122,7 +122,7 @@ class _GrabHandle extends StatelessWidget {
         height: _handleHeight,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.light.border,
+            color: AppColors.of(context).border,
             borderRadius: const BorderRadius.all(Radius.circular(3)),
           ),
         ),
@@ -136,7 +136,7 @@ class _WarningBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Container(
       width: _iconBox,
