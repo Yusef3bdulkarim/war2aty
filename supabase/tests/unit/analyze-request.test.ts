@@ -9,13 +9,18 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
-import { parseAnalyzeRequest } from "../../functions/_shared/analyze/analyze-request.ts";
+import {
+  parseAnalyzeImageRequest,
+  parseAnalyzeRequest,
+} from "../../functions/_shared/analyze/analyze-request.ts";
 import {
   INSTALLATION_ID,
   OCR_TEXT,
   SESSION_ID,
   testConfig,
+  VALID_IMAGE_BASE64,
   validCandidates,
+  validImageRequestBody,
   validRequestBody,
 } from "../fixtures/analyze-fixtures.ts";
 
@@ -52,7 +57,16 @@ Deno.test("a non-object body is rejected", () => {
 Deno.test("an unknown schema version is UNSUPPORTED_SCHEMA, not INVALID_REQUEST", () => {
   // The client maps these to different failures; conflating them would tell a
   // user their request was malformed when their app is simply out of date.
-  assertCode("UNSUPPORTED_SCHEMA", validRequestBody({ schema_version: "2.0" }));
+  // "1.0" is deliberate here: a real pre-F13-T09 client, not a made-up string.
+  assertCode("UNSUPPORTED_SCHEMA", validRequestBody({ schema_version: "1.0" }));
+});
+
+Deno.test('input_type must be exactly "text" on the text shape (§29 v2)', () => {
+  assertCode("INVALID_REQUEST", validRequestBody({ input_type: "image" }));
+  assertCode(
+    "INVALID_REQUEST",
+    validRequestBody({ input_type: undefined as unknown as string }),
+  );
 });
 
 Deno.test("an unknown property is rejected outright", () => {
@@ -228,4 +242,91 @@ Deno.test("an absent optional candidate field reads as null", () => {
   assertEquals(parsed.candidates.amounts[0].value, null);
   assertEquals(parsed.candidates.amounts[0].currency, null);
   assertEquals(parsed.droppedCandidates, 0);
+});
+
+// ── image-intake path (§29b, F13-T09) ──────────────────────────────────────
+// Not yet routed from analyze-handler.ts (F13-T11) — these test the contract
+// in isolation, same as F13-T06's field-verification tests did ahead of T08.
+
+function assertImageCode(code: string, body: unknown, config = CONFIG): void {
+  const error = assertThrows(
+    () => parseAnalyzeImageRequest(body, config),
+    ApiError,
+  ) as ApiError;
+  assertEquals(error.code, code);
+}
+
+Deno.test("a valid image body parses into the typed request", () => {
+  const parsed = parseAnalyzeImageRequest(validImageRequestBody(), CONFIG);
+
+  assertEquals(parsed.inputType, "image");
+  assertEquals(parsed.sessionId, SESSION_ID);
+  assertEquals(parsed.installationId, INSTALLATION_ID);
+  assertEquals(parsed.image.mimeType, "image/jpeg");
+  assertEquals(parsed.image.data instanceof Uint8Array, true);
+  assertEquals(parsed.image.data.length > 0, true);
+});
+
+Deno.test("image/png is accepted alongside image/jpeg", () => {
+  const parsed = parseAnalyzeImageRequest(
+    validImageRequestBody({ image: { data: VALID_IMAGE_BASE64, mime_type: "image/png" } }),
+    CONFIG,
+  );
+  assertEquals(parsed.image.mimeType, "image/png");
+});
+
+Deno.test('input_type must be exactly "image" on the image shape', () => {
+  assertImageCode("INVALID_REQUEST", validImageRequestBody({ input_type: "text" }));
+});
+
+Deno.test("a text-shaped field on the image body is rejected outright", () => {
+  // Each shape has its own closed allow-list — an image body can never
+  // smuggle ocr_text/candidates alongside the image.
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody({ ocr_text: "hello" }),
+  );
+});
+
+Deno.test("an unsupported mime type is rejected", () => {
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody({ image: { data: VALID_IMAGE_BASE64, mime_type: "image/gif" } }),
+  );
+});
+
+Deno.test("an unknown key inside image is rejected", () => {
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody({
+      image: { data: VALID_IMAGE_BASE64, mime_type: "image/jpeg", gps: "30.0,31.2" },
+    }),
+  );
+});
+
+Deno.test("malformed base64 is rejected", () => {
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody({ image: { data: "not-base64!!", mime_type: "image/jpeg" } }),
+  );
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody({ image: { data: "", mime_type: "image/jpeg" } }),
+  );
+});
+
+Deno.test("a decoded image over maxImageBytes is rejected", () => {
+  const config = testConfig({ maxImageBytes: 100 });
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody(),
+    config,
+  );
+});
+
+Deno.test("session and installation ids must be uuids on the image shape too", () => {
+  assertImageCode(
+    "INVALID_REQUEST",
+    validImageRequestBody({ session_id: "not-a-uuid" }),
+  );
 });

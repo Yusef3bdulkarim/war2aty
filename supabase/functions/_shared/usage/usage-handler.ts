@@ -41,6 +41,15 @@ export interface UsageResponseBody {
   readonly resets_at: string;
   /** The kill switch, so the app can explain a disabled service before it tries. */
   readonly analysis_enabled: boolean;
+  /**
+   * Whether the online Azure/Google image pipeline is live (F13). Read by
+   * the client's `DecideAnalysisRoute` before routing a capture online —
+   * connectivity alone is not a safe signal, since a client that ignored
+   * this would route every connected user into a request the server
+   * rejects outright while the flag is off (its default), with no fallback
+   * (F13 locked decision #2).
+   */
+  readonly azure_ocr_enabled: boolean;
 }
 
 export interface UsageDependencies {
@@ -79,6 +88,7 @@ export function createUsageHandler(
       remaining_today: decision.remainingToday,
       resets_at: decision.resetsAt,
       analysis_enabled: config.analysisEnabled,
+      azure_ocr_enabled: config.azureOcrEnabled,
     };
 
     logEvent("usage.read", {

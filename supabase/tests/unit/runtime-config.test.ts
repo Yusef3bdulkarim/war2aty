@@ -23,7 +23,9 @@ const SEEDED: RuntimeConfigRow[] = [
   { key: "analysis_enabled", value: true },
   { key: "max_ocr_characters", value: 12000 },
   { key: "minimum_app_version", value: "1.0.0" },
-  { key: "schema_version", value: "1.0" },
+  // F13-T09 bumped this; the migration that seeded "1.0" is followed by one
+  // that updates it to "2.0" (20260801120000_bump_schema_version_v2.sql).
+  { key: "schema_version", value: "2.0" },
   { key: "maintenance_message", value: null },
 ];
 
@@ -36,7 +38,7 @@ Deno.test("the seeded rows parse to the documented defaults", () => {
   assertEquals(config.dailyLimit, 3);
   assertEquals(config.maxOcrCharacters, 12000);
   assertEquals(config.minimumAppVersion, "1.0.0");
-  assertEquals(config.schemaVersion, "1.0");
+  assertEquals(config.schemaVersion, "2.0");
   assertEquals(config.maintenanceMessage, null);
 });
 
@@ -145,6 +147,114 @@ Deno.test("a fractional limit is floored", () => {
     parseRuntimeConfig([{ key: "daily_limit", value: 4.9 }], env()).dailyLimit,
     4,
   );
+});
+
+// ── the global capacity breaker (F13-T02) ─────────────────────────────────
+
+Deno.test("no global cap key means unlimited, not zero", () => {
+  // The breaker is dark-launched: before an operator sets a number it must be
+  // completely inert. A 0 here would block every request in production.
+  assertEquals(parseRuntimeConfig(SEEDED, env()).globalDailyCallCap, null);
+  assertEquals(parseRuntimeConfig([], env()).globalDailyCallCap, null);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.globalDailyCallCap, null);
+});
+
+Deno.test("an operator can set the global cap without an app release", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: 500 }], env())
+      .globalDailyCallCap,
+    500,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: "500" }], env())
+      .globalDailyCallCap,
+    500,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: 500.9 }], env())
+      .globalDailyCallCap,
+    500,
+  );
+});
+
+Deno.test("a malformed global cap fails OPEN, the opposite of daily_limit", () => {
+  // This is the asymmetry worth pinning. daily_limit is a mandatory product
+  // rule, so a typo falls back to a real number (3). This cap is an optional
+  // spend valve, so a typo must switch it OFF rather than invent a limit
+  // nobody configured and lock out every user of the service.
+  for (const value of ["abc", null, -5, 0, 0.5, {}, [], true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "global_daily_call_cap", value }], env())
+        .globalDailyCallCap,
+      null,
+      `${JSON.stringify(value)} should mean unlimited`,
+    );
+  }
+
+  // Same input shape, opposite direction, in one place so the contrast cannot
+  // be edited away by accident.
+  assertEquals(
+    parseRuntimeConfig([{ key: "daily_limit", value: 0 }], env()).dailyLimit,
+    3,
+  );
+});
+
+Deno.test("a cap of 1 is honoured, not rounded away as falsy", () => {
+  // The tightest real setting an operator might use in an incident.
+  assertEquals(
+    parseRuntimeConfig([{ key: "global_daily_call_cap", value: 1 }], env())
+      .globalDailyCallCap,
+    1,
+  );
+});
+
+// ── azureOcrEnabled — dark-launched (F13-T03) ────────────────────────────
+
+Deno.test("azureOcrEnabled is off until an operator explicitly turns it on", () => {
+  assertEquals(parseRuntimeConfig(SEEDED, env()).azureOcrEnabled, false);
+  assertEquals(parseRuntimeConfig([], env()).azureOcrEnabled, false);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.azureOcrEnabled, false);
+});
+
+Deno.test("an operator can turn azureOcrEnabled on without an app release", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "azure_ocr_enabled", value: true }], env())
+      .azureOcrEnabled,
+    true,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "azure_ocr_enabled", value: "true" }], env())
+      .azureOcrEnabled,
+    true,
+  );
+});
+
+Deno.test("azureOcrEnabled tolerates hand-edited 'on' spellings", () => {
+  for (const value of ["true", "TRUE", " on ", "yes", "1", 1, true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "azure_ocr_enabled", value }], env())
+        .azureOcrEnabled,
+      true,
+      `${JSON.stringify(value)} should enable`,
+    );
+  }
+});
+
+Deno.test("anything short of an explicit 'on' leaves azureOcrEnabled off — the opposite of the kill switch", () => {
+  // analysisEnabled fails toward "stopped" because its only reason to be
+  // touched is halting a live service. This flag is the mirror image: nothing
+  // has been approved as safe to call yet, so even the documented "off"
+  // spellings and outright garbage all land on the same disabled default.
+  for (
+    const value of ["false", "FALSE", "off", "no", "0", 0, false, { nonsense: true }, [], "maybe"]
+  ) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "azure_ocr_enabled", value }], env())
+        .azureOcrEnabled,
+      false,
+      `${JSON.stringify(value)} should stay off`,
+    );
+  }
 });
 
 Deno.test("a blank version falls back to the default", () => {

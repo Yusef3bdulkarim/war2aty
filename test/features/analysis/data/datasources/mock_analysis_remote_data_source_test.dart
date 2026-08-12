@@ -5,6 +5,7 @@ import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/features/analysis/data/datasources/analysis_fixture.dart';
 import 'package:war2aty/features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
+import 'package:war2aty/features/analysis/data/models/analysis_image_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/candidates_dto.dart';
 import 'package:war2aty/features/analysis/data/validators/analysis_response_validator.dart';
@@ -20,6 +21,15 @@ AnalysisRequestDto _request(String ocrText) => AnalysisRequestDto(
   ocrText: ocrText,
   detectedLanguages: const ['ar'],
   candidates: const CandidatesDto(),
+);
+
+const _imageRequest = AnalysisImageRequestDto(
+  schemaVersion: '2.0',
+  sessionId: 'session-1',
+  installationId: 'install-1',
+  appVersion: '1.0.0',
+  imageBase64: 'YWJj',
+  mimeType: 'image/jpeg',
 );
 
 MockAnalysisRemoteDataSource _source({AnalysisFixture? forced}) =>
@@ -111,6 +121,26 @@ void main() {
       watch.stop();
 
       expect(watch.elapsedMilliseconds, greaterThanOrEqualTo(40));
+    });
+  });
+
+  group('analyzeImage (F13-T14)', () {
+    test('answers 200 with a body the validator accepts', () async {
+      final response = await _source().analyzeImage(_imageRequest);
+
+      expect(response.statusCode, 200);
+      const validator = AnalysisResponseValidator();
+      expect(validator.validate(response.body).isOk, isTrue);
+    });
+
+    test('honours a forced fixture, having no text to match against', () async {
+      final response = await _source(
+        forced: AnalysisFixture.appointment,
+      ).analyzeImage(_imageRequest);
+
+      const validator = AnalysisResponseValidator();
+      final analysis = validator.validate(response.body).valueOrNull!;
+      expect(analysis.kind, DocumentKind.appointment);
     });
   });
 }

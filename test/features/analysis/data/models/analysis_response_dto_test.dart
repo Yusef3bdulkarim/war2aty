@@ -33,7 +33,8 @@ const _fullResponse = '''
       "time": "14:30",
       "role": "deadline",
       "is_reminder_worthy": true,
-      "confidence": "high"
+      "confidence": "high",
+      "rawValue": "15/4/2024"
     },
     {
       "label": "تاريخ الإصدار",
@@ -41,12 +42,19 @@ const _fullResponse = '''
       "time": null,
       "role": "issued",
       "is_reminder_worthy": false,
-      "confidence": "medium"
+      "confidence": "medium",
+      "rawValue": null
     }
   ],
   "amounts": [
-    { "label": "إجمالي المبلغ", "value": 850.50, "currency": "EGP", "confidence": "high" },
-    { "label": "رسوم", "value": 12, "currency": "EGP", "confidence": "low" }
+    { "label": "إجمالي المبلغ", "value": 850.50, "currency": "EGP", "confidence": "high", "rawValue": "850.50 جنيه" },
+    { "label": "رسوم", "value": 12, "currency": "EGP", "confidence": "low", "rawValue": null }
+  ],
+  "phones": [
+    { "rawValue": "0100-123-4567", "value": "01001234567", "needsUserReview": false }
+  ],
+  "references": [
+    { "rawValue": "رقم الفاتورة 12345678", "value": "12345678", "needsUserReview": true }
   ],
   "actions_required": [
     { "description": "سدد الفاتورة قبل 15 أبريل 2024.", "basis": "explicit", "priority": "high" }
@@ -107,6 +115,28 @@ void main() {
       expect(dto.amounts.last.value, 12.0);
     });
 
+    // F13-T17: rawValue is camelCase on the wire, the one field that breaks
+    // the rest of the body's snake_case convention (API_CONTRACT §30 v2).
+    test('reads rawValue for dates and amounts, null included', () {
+      final dto = AnalysisResponseDto.fromJson(_decode(_fullResponse));
+
+      expect(dto.dates.first.rawValue, '15/4/2024');
+      expect(dto.dates.last.rawValue, isNull);
+      expect(dto.amounts.first.rawValue, '850.50 جنيه');
+      expect(dto.amounts.last.rawValue, isNull);
+    });
+
+    test('reads phones and references, camelCase keys included', () {
+      final dto = AnalysisResponseDto.fromJson(_decode(_fullResponse));
+
+      expect(dto.phones.single.rawValue, '0100-123-4567');
+      expect(dto.phones.single.value, '01001234567');
+      expect(dto.phones.single.needsUserReview, isFalse);
+      expect(dto.references.single.rawValue, 'رقم الفاتورة 12345678');
+      expect(dto.references.single.value, '12345678');
+      expect(dto.references.single.needsUserReview, isTrue);
+    });
+
     test('defaults every optional array to empty when absent', () {
       final dto = AnalysisResponseDto.fromJson(_decode(_minimalResponse));
 
@@ -114,6 +144,8 @@ void main() {
       expect(dto.keyInformation, isEmpty);
       expect(dto.dates, isEmpty);
       expect(dto.amounts, isEmpty);
+      expect(dto.phones, isEmpty);
+      expect(dto.references, isEmpty);
       expect(dto.actionsRequired, isEmpty);
       expect(dto.requiredDocuments, isEmpty);
       expect(dto.instructions, isEmpty);
@@ -131,6 +163,46 @@ void main() {
       );
       expect(roundTripped['session_id'], original['session_id']);
       expect(roundTripped['missing_fields'], original['missing_fields']);
+      expect(roundTripped['phones'], original['phones']);
+      expect(roundTripped['references'], original['references']);
+    });
+  });
+
+  group('verificationStatus never crosses the wire (F13-T17)', () {
+    // Mirrors the backend's own guarantee (supabase field-verification.test.ts
+    // "verificationStatus never appears anywhere in the built §30 response
+    // body") — proves the Flutter-facing DTOs can't carry it either, even if
+    // a future backend regression started sending it.
+    bool containsKeyDeep(Object? value, String key) {
+      if (value is List) return value.any((e) => containsKeyDeep(e, key));
+      if (value is! Map) return false;
+      for (final entry in value.entries) {
+        if ((entry.key as String).toLowerCase() == key.toLowerCase()) {
+          return true;
+        }
+        if (containsKeyDeep(entry.value, key)) return true;
+      }
+      return false;
+    }
+
+    test('toJson never emits a verificationStatus key anywhere', () {
+      final dto = AnalysisResponseDto.fromJson(_decode(_fullResponse));
+
+      expect(containsKeyDeep(dto.toJson(), 'verificationStatus'), isFalse);
+    });
+
+    test('fromJson ignores an unexpected verificationStatus key rather than '
+        'surfacing it', () {
+      final tampered = _decode(_fullResponse);
+      (tampered['phones'] as List)[0] = {
+        ...(tampered['phones'] as List)[0] as Map<String, dynamic>,
+        'verificationStatus': 'verified',
+      };
+
+      final dto = AnalysisResponseDto.fromJson(tampered);
+
+      expect(containsKeyDeep(dto.toJson(), 'verificationStatus'), isFalse);
+      expect(dto.phones.single.needsUserReview, isFalse);
     });
   });
 

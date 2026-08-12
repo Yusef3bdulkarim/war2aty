@@ -74,7 +74,7 @@ final class ImagePreviewCreatingSession extends ImagePreviewState {
   const ImagePreviewCreatingSession();
 }
 
-/// Terminal: the session is ready for F04 (OCR + analysis).
+/// Terminal, offline route: the session is ready for F04 (OCR + analysis).
 final class ImagePreviewSessionCreated extends ImagePreviewState {
   const ImagePreviewSessionCreated(this.session);
 
@@ -83,6 +83,23 @@ final class ImagePreviewSessionCreated extends ImagePreviewState {
   @override
   bool operator ==(Object other) =>
       other is ImagePreviewSessionCreated && other.session == session;
+
+  @override
+  int get hashCode => session.hashCode;
+}
+
+/// Terminal, online route (F13): the image is perspective-corrected and
+/// handed to the analysis feature — OCR is skipped entirely. The corrected
+/// photo itself does not travel in this state; it is already in the
+/// `ImageAnalysisSessionHolder` the result route reads from.
+final class ImagePreviewOnlineReady extends ImagePreviewState {
+  const ImagePreviewOnlineReady(this.session);
+
+  final AnalysisSession session;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImagePreviewOnlineReady && other.session == session;
 
   @override
   int get hashCode => session.hashCode;

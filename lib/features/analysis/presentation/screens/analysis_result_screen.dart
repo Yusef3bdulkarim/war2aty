@@ -392,10 +392,13 @@ class _TopBar extends StatelessWidget {
 
 /// The analysis did not come back.
 ///
-/// Each failure gets its own words and its own way forward, and every one of
-/// them can fall through to the text the phone already read — which is why
-/// this is stateful: showing that text is a branch of this page rather than a
-/// place the user navigates away to and has to find their way back from.
+/// Each failure gets its own words and its own way forward. On the offline
+/// route, every one of them can also fall through to the text the phone
+/// already read — which is why this is stateful: showing that text is a
+/// branch of this page rather than a place the user navigates away to and
+/// has to find their way back from. On the online route (F13) there is no
+/// such text, and retrying is the only way forward (never a fallback to
+/// on-device OCR — F13-T16).
 class _FailureBody extends StatefulWidget {
   const _FailureBody({
     required this.state,
@@ -499,8 +502,10 @@ class _FailureBodyState extends State<_FailureBody> {
 
   /// Whether there is any text to fall back to.
   ///
-  /// There nearly always is — the OCR ran on the phone before any of this, so
-  /// the fallback costs nothing and uses none of the daily allowance.
+  /// True on the offline route — the OCR ran on the phone before any of
+  /// this, so the fallback costs nothing and uses none of the daily
+  /// allowance. Always false on the online route (F13): there is no local
+  /// OCR text, so the section and its actions simply drop themselves.
   bool get _hasText => widget.state.extractedText.trim().isNotEmpty;
 
   bool get _canRetry =>

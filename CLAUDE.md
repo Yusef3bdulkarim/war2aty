@@ -8,13 +8,13 @@ When this file and the master plan disagree, the master plan wins.
 -->
 
 # Project Context
-- **App:** «ورقتي بتقول إيه؟» (War2aty) — يصوّر المستخدم ورقة مطبوعة، فيستخرج التطبيق النص محليًا (OCR) ويشرح له: نوع الورقة، أهم ما فيها، المطلوب منه، والمواعيد التي تحتاج تذكيرًا.
+- **App:** «ورقتي بتقول إيه؟» (War2aty) — يصوّر المستخدم ورقة مطبوعة، فيستخرج التطبيق نصّها (محليًا عند تعذّر الاتصال، أو بمعالجة آمنة أونلاين عند توفره) ويشرح له: نوع الورقة، أهم ما فيها، المطلوب منه، والمواعيد التي تحتاج تذكيرًا.
 - **Market / Users:** مصر — المستخدم المصري العادي (مع مراعاة كبار السن وضعاف القراءة/البصر). اللهجة المصرية البسيطة.
 - **Platforms:** Android + iOS فقط. Portrait فقط. لا Tablet/Web في الـMVP.
 - **Language / Direction:** واجهة عربية بالكامل، **RTL** بالكامل. المستند نفسه قد يكون عربي/إنجليزي/مختلط.
-- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** الذكاء الاصطناعي: Groq Structured Output خلف الـEdge Function.
+- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** OCR: Azure AI Document Intelligence (أساسي، أونلاين فقط) + Google Document AI (رأي ثانٍ شرطي) خلف الـEdge Function؛ Tesseract محلي كـfallback offline فقط (F13). التصنيف والشرح النهائي: Groq Structured Output خلف الـEdge Function — Groq لا يرى الصورة أبدًا.
 - **Auth:** Supabase **Anonymous Auth** — لا توجد شاشة تسجيل دخول ظاهرة. هوية تقنية فقط لحماية الخدمة + `installationId` في `flutter_secure_storage`.
-- **Privacy (non-negotiable):** صورة الورقة **لا تخرج من الهاتف أبدًا**. يُرسَل النص المستخرج فقط. الحفظ الافتراضي = «النتيجة فقط». لا تذكير تلقائي بدون مراجعة المستخدم. لا تُسجَّل محتويات المستند في أي Log.
+- **Privacy (non-negotiable):** بنقرا نص الورقة بمعالجة آمنة، لكن **صورتها نفسها متتحفظش خالص ومحدش بيشوفها** — لا تُخزَّن على أي سيرفر، وتتمسح فورًا بعد قراءتها. الحفظ الافتراضي على الجهاز = «النتيجة فقط». لا تذكير تلقائي بدون مراجعة المستخدم. لا تُسجَّل محتويات المستند في أي Log. النصوص اللي بتظهر للمستخدم متسميش أي مزوّد خدمة (Azure/Google/Groq) — راجع `docs/features/F13-ocr-provider-migration.md`.
 - **Local data:** Drift + SQLite (مصدر الحقيقة المحلي)، صور اختيارية مشفّرة (AES-256-GCM) داخل Application Private Directory، Local Notifications، Local TTS.
 - **Usage limit:** 3 تحليلات ذكية ناجحة يوميًا (قابلة للتعديل من Backend runtime config)، بحساب يوم `Africa/Cairo`.
 - **Status:** MVP جديد من الصفر. التنفيذ **Vertical-Slice-first** (مسار فاتورة كهرباء كامل)، ثم توسعة الميزات. لا تُبنى كل الشاشات دفعة واحدة.
@@ -77,10 +77,12 @@ features/{feature_name}/
 - Cubits/UseCases/Repositories تُحلّ عبر `get_it` لا يدويًا.
 
 ## 7) Privacy & Security (hard rules)
-- لا تُرسِل صورة/Thumbnail/EXIF/GPS للـBackend — **نص OCR + candidates فقط**.
-- لا Secrets داخل Flutter/Git (Groq key وService Role داخل Supabase Secrets فقط؛ الـPublishable key فقط هو المسموح في التطبيق).
+- **Offline pipeline** (لا اتصال — الوضع الافتراضي القديم): لا تُرسِل غير **نص OCR + candidates** للـBackend — لا صورة، لا Thumbnail، لا EXIF/GPS.
+- **Online pipeline** (خلف `azureOcrEnabled`، F13): الصورة نفسها فقط (بدون Thumbnail/EXIF/GPS) تُرسَل للـEdge Function لمعالجة آمنة تقرأ النص منها، وتُحذف فورًا بعد القراءة — لا تُخزَّن على أي سيرفر لأكثر من مدة القراءة نفسها. فشل أونلاين لا يرجع صامت لـTesseract أبدًا — المستخدم يعيد المحاولة.
+- أي نص يظهر للمستخدم (شاشات الخصوصية، رسائل الخطأ...) متسميش مزوّد خدمة (Azure/Google/Groq) ومتدّعيش إن الصورة "متطلعش من الموبايل خالص" — الصياغة المعتمدة: «بنقرا النص بمعالجة آمنة، لكن مانحفظش الصورة، ومحدش بيشوفها».
+- لا Secrets داخل Flutter/Git (كل الـAPI keys داخل Supabase Secrets فقط؛ الـPublishable key فقط هو المسموح في التطبيق).
 - لا تُسجِّل OCR text أو Prompt أو AI response أو أرقام/مبالغ/أسماء في الـLogs.
-- الصور المحفوظة مشفّرة؛ تُحذف النسخة غير المشفّرة والملفات المؤقتة بعد الانتهاء.
+- الصور المحفوظة محليًا (باختيار المستخدم بعد التحليل) مشفّرة؛ تُحذف النسخة غير المشفّرة والملفات المؤقتة بعد الانتهاء.
 - لا تعرض تاريخًا/مبلغًا/رقمًا غير مؤكد كأنه حقيقة — استخدم «راجع المعلومة / قراءة غير مؤكدة». الثقة على مستوى المعلومة لا المستند.
 
 ## 8) Build Method Discipline

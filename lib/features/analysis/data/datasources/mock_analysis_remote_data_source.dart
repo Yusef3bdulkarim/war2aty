@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart' show rootBundle;
 
+import '../models/analysis_image_request_dto.dart';
 import '../models/analysis_request_dto.dart';
 import 'analysis_fixture.dart';
 import 'analysis_remote_data_source.dart';
@@ -37,6 +38,21 @@ final class MockAnalysisRemoteDataSource implements AnalysisRemoteDataSource {
     if (latency > Duration.zero) await Future<void>.delayed(latency);
 
     final fixture = forcedFixture ?? fixtureForText(request.ocrText);
+    final json = await _loadAsset(fixture.assetPath);
+
+    return AnalysisApiResponse(statusCode: 200, body: jsonDecode(json));
+  }
+
+  /// No OCR text to keyword-match against an image, so this always answers
+  /// with [forcedFixture] or the invoice fixture — enough to demo the online
+  /// route's loading/result states before Azure/Google are wired (F13-T14).
+  @override
+  Future<AnalysisApiResponse> analyzeImage(
+    AnalysisImageRequestDto request,
+  ) async {
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+
+    final fixture = forcedFixture ?? AnalysisFixture.invoice;
     final json = await _loadAsset(fixture.assetPath);
 
     return AnalysisApiResponse(statusCode: 200, body: jsonDecode(json));

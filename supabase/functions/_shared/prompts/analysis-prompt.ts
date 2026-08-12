@@ -1,5 +1,5 @@
 /**
- * F06-T10 · The per-document analysis prompt.
+ * F06-T10 / F13-T10 · The per-document analysis prompt.
  *
  * Assembles the user message from the OCR text and the rule-based candidates
  * the app extracted on-device (§29).
@@ -9,11 +9,30 @@
  * "Candidates are hints"). Presenting them as findings would let a bad regex
  * become a confident wrong deadline.
  *
+ * ── Verification hints (locked decision #5) ───────────────────────────────
+ * `verification`, when the online Azure/Google pipeline supplied one (T08),
+ * names exactly the candidates a second, independent reading could not
+ * confirm. It is surfaced as a note attached to those candidates — never as a
+ * value the model can act on. The PIPELINE's own `needsUserReview` is what
+ * actually drives the UI (T08's merge, wired to the client in T09/T11);
+ * nothing Groq does with this note is trusted for that decision. All it asks
+ * the model to do is hedge its OWN "confidence"/wording on the same fact —
+ * never invent a fix for an unconfirmed reading, and never treat "confirmed"
+ * as license to sound more certain than the text itself supports.
+ *
+ * `null`/omitted (every offline request — the online path always supplies one,
+ * F13-T11) leaves the section out entirely rather than implying either
+ * "confirmed" or "unconfirmed" for candidates nothing has checked.
+ *
  * PRIVACY: everything here is the user's document. Never log the returned
  * messages, in whole or in part (§51).
  */
 
 import type { GroqMessage } from "../groq/groq-client.ts";
+import type {
+  CrossProviderFieldVerdict,
+  CrossProviderVerification,
+} from "../verification/cross-provider-validator.ts";
 import { SYSTEM_PROMPT } from "./system-prompt.ts";
 
 // ── the candidate shapes the app sends (§29) ──────────────────────────────
@@ -62,6 +81,13 @@ export interface AnalysisPromptInput {
   readonly ocrText: string;
   readonly detectedLanguages: readonly string[];
   readonly candidates: ExtractedCandidates;
+  /**
+   * Cross-provider verification for `candidates` (F13-T08), index-aligned
+   * with it. Optional and `null`-able so every caller that predates this
+   * field — the whole offline path, and the online path until T11 — keeps
+   * compiling and simply gets no verification section in the prompt.
+   */
+  readonly verification?: CrossProviderVerification | null;
 }
 
 /**
@@ -101,6 +127,68 @@ function candidateSection(candidates: ExtractedCandidates): string {
   return JSON.stringify(candidates, null, 2);
 }
 
+/** Every candidate type in `ExtractedCandidates` already has this shape. */
+interface RawTextCandidate {
+  readonly raw_text: string;
+}
+
+/**
+ * `"<kind>: \"<raw_text>\""` for every candidate T08 flagged `needsUserReview`.
+ * Order follows `ExtractedCandidates`' own field order, same as `candidateSection`.
+ */
+function flaggedCandidateLines(
+  candidates: ExtractedCandidates,
+  verification: CrossProviderVerification,
+): string[] {
+  const lines: string[] = [];
+
+  const group = (
+    kind: string,
+    items: readonly RawTextCandidate[],
+    verdicts: readonly CrossProviderFieldVerdict[],
+  ) => {
+    items.forEach((item, i) => {
+      if (verdicts[i]?.needsUserReview) lines.push(`- ${kind}: "${item.raw_text}"`);
+    });
+  };
+
+  group("date", candidates.dates, verification.dates);
+  group("time", candidates.times, verification.times);
+  group("amount", candidates.amounts, verification.amounts);
+  group("phone", candidates.phones, verification.phones);
+  group("reference", candidates.references, verification.references);
+
+  return lines;
+}
+
+/**
+ * The `## Verification` block, or `""` when there is nothing to say: no
+ * verification was supplied, or every candidate it covered was confirmed.
+ * Silence here is safe in a way silence on the candidate list is not (see
+ * `candidateSection`) — omitting a note that nothing needs review does not
+ * make the model assume the opposite, because §33's rules already require it
+ * to judge every fact on the text alone by default.
+ */
+function verificationSection(
+  candidates: ExtractedCandidates,
+  verification: CrossProviderVerification | null | undefined,
+): string {
+  if (!verification) return "";
+
+  const flagged = flaggedCandidateLines(candidates, verification);
+  if (flagged.length === 0) return "";
+
+  return `
+
+## Verification
+
+A second, independent reading could not confirm these candidates:
+
+${flagged.join("\n")}
+
+This is a note about how CLEAR the reading is, not about whether the value is right or wrong, and it changes nothing about the document text below. Do not raise your confidence for a fact built on one of these beyond what you can support by reading the text yourself. Do not invent a different value to "fix" one, either. Report exactly what you read, at "confidence": "low" or "medium", or omit it — same as any other unclear reading.`;
+}
+
 /**
  * Builds the messages for one analysis.
  *
@@ -132,6 +220,7 @@ These were found by simple pattern matching on the same text. They are HINTS ONL
 - Read the document text yourself. Never report a candidate you cannot find in the text.
 
 ${candidateSection(input.candidates)}
+${verificationSection(input.candidates, input.verification)}
 
 ## Document text
 

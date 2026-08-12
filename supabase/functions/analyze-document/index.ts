@@ -11,8 +11,13 @@
  */
 
 import { createAnalyzeHandler } from "../_shared/analyze/analyze-handler.ts";
+import { createImageAnalysisPipeline } from "../_shared/analyze/image-analysis-pipeline.ts";
 import { createSupabaseTokenVerifier } from "../_shared/auth/supabase-token-verifier.ts";
+import { azureOptionsFromEnv } from "../_shared/azure/azure-config.ts";
+import { createAzureDocumentIntelligenceClient } from "../_shared/azure/azure-client.ts";
 import { loadRuntimeConfig } from "../_shared/config/supabase-runtime-config.ts";
+import { googleDocumentAiOptionsFromEnv } from "../_shared/google/google-config.ts";
+import { createGoogleDocumentAiClient } from "../_shared/google/google-client.ts";
 import { createGroqClient, groqOptionsFromEnv } from "../_shared/groq/groq-client.ts";
 import { createGroqAnalysisProvider } from "../_shared/groq/groq-provider.ts";
 import { createEndpoint } from "../_shared/http/endpoint.ts";
@@ -35,6 +40,21 @@ Deno.serve(
       createAnalyser: (timeoutSeconds) =>
         createGroqAnalysisProvider({
           client: createGroqClient(groqOptionsFromEnv(timeoutSeconds)),
+        }),
+      // Azure/Google env vars are read here, not at module load, so a
+      // deployment that never sees an image request (azureOcrEnabled dark)
+      // never has to have them configured — same contract as
+      // `azureOptionsFromEnv`/`googleDocumentAiOptionsFromEnv` document.
+      createImagePipeline: (timeoutSeconds) =>
+        createImageAnalysisPipeline({
+          azureClient: createAzureDocumentIntelligenceClient({
+            ...azureOptionsFromEnv(),
+            timeoutSeconds,
+          }),
+          googleClient: createGoogleDocumentAiClient({
+            ...googleDocumentAiOptionsFromEnv(),
+            timeoutSeconds,
+          }),
         }),
       hashInstallation: installationHasherFromEnv(),
       now: () => new Date(),

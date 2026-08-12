@@ -34,6 +34,7 @@ class ImagePreviewScreen extends StatelessWidget {
   const ImagePreviewScreen({
     required this.imagePath,
     required this.onSessionCreated,
+    required this.onOnlineReady,
     required this.onRetake,
     super.key,
   });
@@ -41,8 +42,13 @@ class ImagePreviewScreen extends StatelessWidget {
   /// The acquired image to preview, before any rotation.
   final String imagePath;
 
-  /// Hands the created analysis session to the next stage (F04).
+  /// Offline route: hands the created analysis session to the next stage
+  /// (F04's OCR screen).
   final void Function(AnalysisSession session) onSessionCreated;
+
+  /// Online route (F13): the perspective-corrected image is ready and
+  /// handed off via `ImageAnalysisSessionHolder` — OCR is skipped entirely.
+  final void Function(AnalysisSession session) onOnlineReady;
 
   /// Backs out to re-acquire the image (camera or gallery).
   final VoidCallback onRetake;
@@ -72,13 +78,16 @@ class ImagePreviewScreen extends StatelessWidget {
         listenWhen: (_, s) =>
             s is ImagePreviewConfirmed ||
             s is ImagePreviewFailed ||
-            s is ImagePreviewSessionCreated,
+            s is ImagePreviewSessionCreated ||
+            s is ImagePreviewOnlineReady,
         listener: (context, state) {
           switch (state) {
             case ImagePreviewConfirmed(:final quality):
               unawaited(_onQualityKnown(context, quality));
             case ImagePreviewSessionCreated(:final session):
               onSessionCreated(session);
+            case ImagePreviewOnlineReady(:final session):
+              onOnlineReady(session);
             case ImagePreviewFailed():
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()

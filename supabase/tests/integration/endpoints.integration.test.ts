@@ -243,7 +243,7 @@ Deno.test({
     const body = await response.json();
     // Shape only. The model's wording is not a contract and must never be
     // asserted; the fields are.
-    assertEquals(body.schema_version, "1.0");
+    assertEquals(body.schema_version, "2.0");
     assert(["success", "partial", "unsupported"].includes(body.status));
     assert(typeof body.document_type.title === "string");
     assert(Array.isArray(body.dates));

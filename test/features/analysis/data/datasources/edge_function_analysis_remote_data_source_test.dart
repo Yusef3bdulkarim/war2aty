@@ -3,9 +3,19 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
+import 'package:war2aty/features/analysis/data/models/analysis_image_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/candidates_dto.dart';
 import 'package:war2aty/features/analysis/data/models/date_candidate_dto.dart';
+
+const _imageRequest = AnalysisImageRequestDto(
+  schemaVersion: '2.0',
+  sessionId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+  installationId: '9c858901-8a57-4791-81fe-4c455b099bc9',
+  appVersion: '1.0.0',
+  imageBase64: 'YWJj',
+  mimeType: 'image/jpeg',
+);
 
 const _request = AnalysisRequestDto(
   schemaVersion: '1.0',
@@ -97,6 +107,7 @@ void main() {
         'session_id',
         'installation_id',
         'app_version',
+        'input_type',
         'ocr_text',
         'detected_languages',
         'candidates',
@@ -155,6 +166,57 @@ void main() {
       final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
 
       await expectLater(source.analyze(_request), throwsA(isA<DioException>()));
+    });
+  });
+
+  group('EdgeFunctionAnalysisRemoteDataSource — analyzeImage (F13-T14)', () {
+    test('posts the §29b body to the same endpoint', () async {
+      final adapter = _StubAdapter((_) => _json(200, '{"status":"success"}'));
+      final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
+
+      await source.analyzeImage(_imageRequest);
+
+      expect(adapter.lastRequest!.method, 'POST');
+      expect(adapter.lastRequest!.path, kAnalyzeDocumentPath);
+
+      final body = adapter.lastBody! as Map<String, dynamic>;
+      expect(body['input_type'], 'image');
+      expect(body['image'], {'data': 'YWJj', 'mime_type': 'image/jpeg'});
+      expect(body.keys.toSet(), {
+        'schema_version',
+        'session_id',
+        'installation_id',
+        'app_version',
+        'input_type',
+        'image',
+      });
+    });
+
+    test('a §31 error body survives as a response, not an exception', () async {
+      final adapter = _StubAdapter(
+        (_) => _json(400, '{"error":{"code":"INVALID_REQUEST","message":"x"}}'),
+      );
+      final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
+
+      final response = await source.analyzeImage(_imageRequest);
+
+      expect(response.isSuccess, isFalse);
+      expect(response.statusCode, 400);
+    });
+
+    test('a transport failure is left to propagate', () async {
+      final adapter = _StubAdapter((options) {
+        throw DioException(
+          requestOptions: options,
+          type: DioExceptionType.connectionError,
+        );
+      });
+      final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
+
+      await expectLater(
+        source.analyzeImage(_imageRequest),
+        throwsA(isA<DioException>()),
+      );
     });
   });
 }

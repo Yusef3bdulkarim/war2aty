@@ -65,6 +65,7 @@ final class AnalysisDate {
     required this.role,
     required this.isReminderWorthy,
     required this.confidence,
+    this.rawValue,
   });
 
   /// Arabic label, e.g. «آخر موعد للسداد».
@@ -91,6 +92,10 @@ final class AnalysisDate {
 
   final ConfidenceBand confidence;
 
+  /// The literal text this date was matched from, or `null` when the value
+  /// was inferred rather than read verbatim (API_CONTRACT §30 v2, F13-T17).
+  final String? rawValue;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -100,11 +105,19 @@ final class AnalysisDate {
           other.time == time &&
           other.role == role &&
           other.isReminderWorthy == isReminderWorthy &&
-          other.confidence == confidence;
+          other.confidence == confidence &&
+          other.rawValue == rawValue;
 
   @override
-  int get hashCode =>
-      Object.hash(label, date, time, role, isReminderWorthy, confidence);
+  int get hashCode => Object.hash(
+    label,
+    date,
+    time,
+    role,
+    isReminderWorthy,
+    confidence,
+    rawValue,
+  );
 
   // Label, date and time all omitted: the label is AI-generated text about
   // this document, not a fixed field name, so it is content too (§7).

@@ -33,6 +33,7 @@ String _describe(AppFailure failure) => switch (failure) {
   RequestTimeoutFailure() => 'timeout',
   UnauthorizedFailure() => 'unauthorized',
   DailyLimitReachedFailure() => 'daily-limit',
+  GlobalCapacityReachedFailure() => 'global-capacity',
   AnalysisDisabledFailure() => 'analysis-disabled',
   UnsupportedAppVersionFailure() => 'unsupported-app-version',
   InvalidRequestFailure() => 'invalid-request',
@@ -68,6 +69,7 @@ void main() {
     const RequestTimeoutFailure(),
     const UnauthorizedFailure(),
     DailyLimitReachedFailure(DateTime(2026, 7, 21)),
+    const GlobalCapacityReachedFailure(),
     const AnalysisDisabledFailure(),
     const UnsupportedAppVersionFailure(),
     const InvalidRequestFailure(),
@@ -83,9 +85,9 @@ void main() {
   ];
 
   group('taxonomy shape', () {
-    test('has 14 local + 10 network + 4 business leaves', () {
+    test('has 14 local + 11 network + 4 business leaves', () {
       expect(localLeaves, hasLength(14));
-      expect(networkLeaves, hasLength(10));
+      expect(networkLeaves, hasLength(11));
       expect(businessLeaves, hasLength(4));
     });
   });
@@ -111,10 +113,10 @@ void main() {
   });
 
   group('leaf-level exhaustiveness', () {
-    test('all 28 leaves describe to distinct labels', () {
+    test('all 29 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(28));
+      expect(labels, hasLength(29));
     });
   });
 

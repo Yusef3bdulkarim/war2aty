@@ -32,7 +32,8 @@ port = 54323
 enabled = false
 
 [storage]
-# The app never uploads images or files — the paper never leaves the phone (§6).
+# No images or files are ever persisted server-side. Online-path photos (F13)
+# transit the Edge Function for OCR only and are deleted immediately after (§7).
 enabled = false
 
 [realtime]

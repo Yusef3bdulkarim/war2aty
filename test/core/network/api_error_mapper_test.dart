@@ -20,6 +20,7 @@ void main() {
         'TIMEOUT': RequestTimeoutFailure,
         'DAILY_LIMIT_REACHED': DailyLimitReachedFailure,
         'AI_RATE_LIMITED': AiProviderRateLimitFailure,
+        'GLOBAL_CAPACITY_REACHED': GlobalCapacityReachedFailure,
         'ANALYSIS_FAILED': AnalysisServiceFailure,
         'INTERNAL_ERROR': AnalysisServiceFailure,
         'ANALYSIS_DISABLED': AnalysisDisabledFailure,
@@ -79,6 +80,32 @@ void main() {
               as DailyLimitReachedFailure;
 
       expect(failure.resetAtCairo, DateTime.utc(2024, 3, 15, 22));
+    });
+  });
+
+  group('GLOBAL_CAPACITY_REACHED', () {
+    test("is never collapsed into the caller's own daily limit", () {
+      // Same 429, different meaning: the caller's quota is untouched. Treating
+      // it as DailyLimitReachedFailure would show someone who has analysed
+      // nothing today a "you are out of analyses until midnight" screen.
+      final failure = failureFromErrorBody(_body('GLOBAL_CAPACITY_REACHED'));
+
+      expect(failure, isA<GlobalCapacityReachedFailure>());
+      expect(failure, isNot(isA<DailyLimitReachedFailure>()));
+    });
+
+    test('ignores a reset_at the server should not be sending', () {
+      // Tolerating the field costs nothing; treating its presence as a reason
+      // to switch failure types would let the server change the UI by accident.
+      expect(
+        failureFromErrorBody(
+          _body(
+            'GLOBAL_CAPACITY_REACHED',
+            details: '{"reset_at":"2024-03-16T00:00:00+02:00"}',
+          ),
+        ),
+        isA<GlobalCapacityReachedFailure>(),
+      );
     });
   });
 
