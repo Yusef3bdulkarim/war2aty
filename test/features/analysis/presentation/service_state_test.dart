@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
+import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -16,6 +17,14 @@ import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart'
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
@@ -52,6 +61,9 @@ void main() {
   late FakeAnalysisConsentStore consentStore;
   late AnalysisResultCubit cubit;
 
+  late FakeTextToSpeechService tts;
+  late AudioReaderCubit audioReaderCubit;
+
   setUp(() {
     repository = _FakeRepository();
     consentStore = FakeAnalysisConsentStore();
@@ -62,9 +74,26 @@ void main() {
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
     );
+    tts = FakeTextToSpeechService();
+    audioReaderCubit = AudioReaderCubit(
+      StartReading(
+        const BuildReadingText(),
+        const SelectVoiceForReading(),
+        tts,
+      ),
+      StopReading(tts),
+      PauseReading(tts),
+      ResumeReading(tts),
+      SetReadingSpeed(tts),
+      WatchReadingEvents(tts),
+    );
   });
 
-  tearDown(() => cubit.close());
+  tearDown(() async {
+    await cubit.close();
+    await audioReaderCubit.close();
+    await tts.dispose();
+  });
 
   Future<void> pumpFailure(
     WidgetTester tester,
@@ -80,8 +109,11 @@ void main() {
     await cubit.analyze();
     await pumpApp(
       tester,
-      BlocProvider<AnalysisResultCubit>.value(
-        value: cubit,
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AnalysisResultCubit>.value(value: cubit),
+          BlocProvider<AudioReaderCubit>.value(value: audioReaderCubit),
+        ],
         child: AnalysisResultScreen(
           onClose: onClose,
           onListen: onListen,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/documents/analysis_date.dart';
 import '../../core/documents/recent_document.dart';
 import '../../core/localization/app_localizations.dart';
@@ -197,6 +198,9 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               ),
               BlocProvider<SaveDocumentCubit>(
                 create: (_) => getIt<SaveDocumentCubit>(),
+              ),
+              BlocProvider<AudioReaderCubit>(
+                create: (_) => getIt<AudioReaderCubit>(),
               ),
             ],
             child: SaveDocumentListener(

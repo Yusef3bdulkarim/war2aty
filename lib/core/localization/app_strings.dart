@@ -733,4 +733,42 @@ abstract interface class AppStrings {
   String get reminderSnoozedFeedback;
   String get reminderDeletedFeedback;
   String get reminderActionFailedFeedback;
+
+  // Audio reader mini-player (F10-T03) — «الاستماع للورقة».
+  String get audioReaderSheetTitle;
+
+  /// The three modes offered from the result page. A fourth
+  /// (`ReadingMode.extractedText`) exists too, but is only reached from the
+  /// OCR-only fallback screens, which read it straight away rather than
+  /// asking — there is no analysis there to summarise.
+  String get audioReaderModeSummary;
+  String get audioReaderModeSummaryAndKeyInformation;
+  String get audioReaderModeFull;
+
+  /// The fourth mode's own label, for the mini-player's «بيقرأ: …» line when
+  /// reading [ReadingMode.extractedText] from a fallback screen — never
+  /// offered as a choice in the sheet above.
+  String get audioReaderModeExtractedText;
+
+  /// Reopens the sheet above to change what is being read.
+  String get audioReaderOptions;
+
+  /// The mini-player's own line — «بيقرأ: {mode}».
+  String audioReaderNowReading(String mode);
+
+  /// Accessibility labels for the mini-player's icon-only controls.
+  String get audioReaderStartLabel;
+  String get audioReaderPauseLabel;
+  String get audioReaderResumeLabel;
+  String get audioReaderStopLabel;
+
+  /// Snackbar feedback when the engine could not start or stop speaking
+  /// (F10-T04). Not spelled out further — the same reasoning
+  /// [reminderActionFailedFeedback] documents for itself.
+  String get audioReaderFailedFeedback;
+
+  /// The options sheet's speed row (F10-T06) — «سرعة القراءة». The pill
+  /// labels themselves (`0.75x`, `1x`, …) are not localized; see
+  /// `ReadingSpeed.label`.
+  String get audioReaderSpeedLabel;
 }

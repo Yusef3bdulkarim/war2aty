@@ -46,6 +46,9 @@ import 'package:war2aty/core/storage/analysis_session_storage.dart';
 import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
+import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
@@ -1135,4 +1138,99 @@ final class FakeReminderScheduler implements ReminderScheduler {
     reconcileCount++;
     return outcome;
   }
+}
+
+/// Scriptable [TextToSpeechService] — no plugin, no OS engine (F10).
+///
+/// [speakFails] / [stopFails] drive the two error paths a cubit test needs;
+/// [spoken] records every text handed to [speak], in order, so a test can
+/// assert what was actually read without re-implementing `BuildReadingText`.
+final class FakeTextToSpeechService implements TextToSpeechService {
+  FakeTextToSpeechService({
+    this.speakFails = false,
+    this.stopFails = false,
+    this.pauseFails = false,
+    this.resumeFails = false,
+    this.setSpeechRateFails = false,
+    this.voices = const [],
+    this.getVoicesFails = false,
+    this.setVoiceFails = false,
+  });
+
+  bool speakFails;
+  bool stopFails;
+  bool pauseFails;
+  bool resumeFails;
+  bool setSpeechRateFails;
+
+  /// What [getVoices] answers with (F10-T07) — empty by default, the same as
+  /// a device the app has not yet asked, or one with nothing installed.
+  List<TtsVoice> voices;
+  bool getVoicesFails;
+  bool setVoiceFails;
+
+  final List<String> spoken = [];
+  int stopCount = 0;
+  int pauseCount = 0;
+  int resumeCount = 0;
+
+  /// Every rate handed to [setSpeechRate], in order (F10-T06) — so a test can
+  /// assert the chosen `ReadingSpeed` actually reached the engine.
+  final List<double> speechRates = [];
+
+  /// Every voice handed to [setVoice], in order (F10-T07) — so a test can
+  /// assert which default voice actually reached the engine.
+  final List<TtsVoice> voicesSet = [];
+
+  final _events = StreamController<TtsEvent>.broadcast();
+
+  /// Pushes [event] to whatever is listening on [events] — lets a test drive
+  /// playback lifecycle notifications (F10-T08) the same way a real engine's
+  /// native handlers would.
+  void emitEvent(TtsEvent event) => _events.add(event);
+
+  @override
+  Future<Result<void, AppFailure>> speak(String text) async {
+    spoken.add(text);
+    return speakFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> pause() async {
+    pauseCount++;
+    return pauseFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> resume() async {
+    resumeCount++;
+    return resumeFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> stop() async {
+    stopCount++;
+    return stopFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> setSpeechRate(double rate) async {
+    speechRates.add(rate);
+    return setSpeechRateFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async {
+    voicesSet.add(voice);
+    return setVoiceFails ? const Err(TtsFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async =>
+      getVoicesFails ? const Err(TtsFailure()) : Ok(voices);
+
+  @override
+  Stream<TtsEvent> get events => _events.stream;
+
+  Future<void> dispose() => _events.close();
 }

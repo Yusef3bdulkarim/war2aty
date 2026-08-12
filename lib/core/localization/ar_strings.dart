@@ -886,4 +886,33 @@ final class ArStrings implements AppStrings {
   String get reminderDeletedFeedback => 'تم حذف التذكير.';
   @override
   String get reminderActionFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
+
+  // Audio reader mini-player (F10-T03)
+  @override
+  String get audioReaderSheetTitle => 'الاستماع للورقة';
+  @override
+  String get audioReaderModeSummary => 'الخلاصة فقط';
+  @override
+  String get audioReaderModeSummaryAndKeyInformation =>
+      'الخلاصة وأهم المعلومات';
+  @override
+  String get audioReaderModeFull => 'الشرح كامل';
+  @override
+  String get audioReaderModeExtractedText => 'النص المستخرج';
+  @override
+  String get audioReaderOptions => 'خيارات';
+  @override
+  String audioReaderNowReading(String mode) => 'بيقرأ: $mode';
+  @override
+  String get audioReaderStartLabel => 'ابدأ الاستماع';
+  @override
+  String get audioReaderPauseLabel => 'إيقاف مؤقت';
+  @override
+  String get audioReaderResumeLabel => 'استكمال القراءة';
+  @override
+  String get audioReaderStopLabel => 'إيقاف القراءة';
+  @override
+  String get audioReaderFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
+  @override
+  String get audioReaderSpeedLabel => 'سرعة القراءة';
 }
