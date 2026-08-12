@@ -3,8 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
+import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
+import 'package:war2aty/core/documents/usecases/save_document.dart';
+import 'package:war2aty/core/documents/usecases/save_document_with_image.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -23,6 +26,14 @@ import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart'
 import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
@@ -40,6 +51,7 @@ import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/saved_papers/presentation/cubit/save_document_cubit.dart';
 
 import '../support/fakes.dart';
 
@@ -168,6 +180,31 @@ void main() {
           buildResult: getIt(),
         ),
       )
+      // The result route also mounts these two (F09 save, F10 audio reader) —
+      // not this suite's concern, but the router builds them unconditionally,
+      // so they must resolve for the failure page underneath to render at all.
+      ..registerFactory<SaveDocumentCubit>(() {
+        final documents = FakeDocumentsRepository();
+        return SaveDocumentCubit(
+          SaveDocument(documents),
+          SaveDocumentWithImage(documents),
+        );
+      })
+      ..registerFactory<AudioReaderCubit>(() {
+        final tts = FakeTextToSpeechService();
+        return AudioReaderCubit(
+          StartReading(
+            const BuildReadingText(),
+            const SelectVoiceForReading(),
+            tts,
+          ),
+          StopReading(tts),
+          PauseReading(tts),
+          ResumeReading(tts),
+          SetReadingSpeed(tts),
+          WatchReadingEvents(tts),
+        );
+      })
       // Poisoned (F13-T16): the online route must never reach either of
       // these, whether on the first attempt or on any retry.
       ..registerLazySingleton<OcrEngine>(() {
