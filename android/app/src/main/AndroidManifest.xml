@@ -1,8 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The user photographs a paper; the image never leaves the device. -->
+    <!-- The user photographs a paper to read its text. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Required from F06-T14: the app calls Supabase Anonymous Auth and the
-         analysis Edge Function. Only extracted TEXT is ever sent (§7). -->
+         analysis Edge Function. Offline, only extracted text is ever sent;
+         online, the photo itself transits the Edge Function for secure
+         processing and is never stored server-side (§7, F13). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- The app is usable without a camera (gallery fallback), so a device
          without one must still be able to install it. -->

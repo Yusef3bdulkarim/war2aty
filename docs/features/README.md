@@ -30,7 +30,7 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F12 | Hardening & release | [F12-hardening-release.md](F12-hardening-release.md) | `feature/hardening` | M9 | 12 |
 | F13 | OCR provider migration | [F13-ocr-provider-migration.md](F13-ocr-provider-migration.md) | `feature/ocr-provider-migration` | post-M6 | 19 |
 
-**Total: 164 tasks across 14 features.**
+**Total: 174 tasks across 14 features.**
 
 ## Critical path
 `F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11.
