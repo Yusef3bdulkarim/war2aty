@@ -473,5 +473,46 @@ void main() {
       expect(cleanup.deleteCalls.first, [_source.path]);
     });
 
+    test('close after online route deletes the corrected file too', () async {
+      const corrected = CapturedPhoto('/tmp/corrected.jpg');
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cleanup: cleanup,
+        connectivity: FakeConnectivityService(),
+        perspectiveCorrector: FakePerspectiveCorrector(output: corrected),
+      );
+
+      await cubit.confirm();
+      await cubit.proceed();
+      await cubit.close();
+
+      expect(cleanup.deleteCalls, hasLength(1));
+      expect(
+        cleanup.deleteCalls.first,
+        unorderedEquals([_source.path, corrected.path]),
+      );
+    });
+
+    test('close after online route with no-op correction '
+        'does not duplicate source in cleanup', () async {
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cleanup: cleanup,
+        connectivity: FakeConnectivityService(),
+        perspectiveCorrector: FakePerspectiveCorrector(),
+      );
+
+      await cubit.confirm();
+      await cubit.proceed();
+      await cubit.close();
+
+      expect(cleanup.deleteCalls, hasLength(1));
+      // FakePerspectiveCorrector with no output echoes the input — corrected
+      // path equals source, so _correctedPath stays null and only source is
+      // cleaned.
+      expect(cleanup.deleteCalls.first, [_source.path]);
+    });
   });
 }

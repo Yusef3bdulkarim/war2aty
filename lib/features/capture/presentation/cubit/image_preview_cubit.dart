@@ -58,6 +58,12 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// from the source. Tracked so [close] can delete it alongside the source.
   String? _rotatedPath;
 
+  /// Path of the perspective-corrected file produced by [proceed] on the
+  /// online route, when it differs from the confirmed photo. Tracked for the
+  /// same reason as [_rotatedPath] — an unencrypted temp copy of the user's
+  /// document must not survive past this screen (CLAUDE.md §7).
+  String? _correctedPath;
+
   /// Turns the image 90° clockwise. Ignored while a confirm is in flight so the
   /// rotation cannot change under the export.
   void rotateClockwise() {
@@ -145,6 +151,11 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
       return;
     }
 
+    // Same reasoning as the rotated file: doclens may hand back the input
+    // unchanged (no quad detected), in which case there is nothing new to
+    // clean up — only a genuinely new file is tracked.
+    if (corrected.path != current.photo.path) _correctedPath = corrected.path;
+
     _onlineHandoff.set(session, corrected);
     emit(ImagePreviewOnlineReady(session));
   }
@@ -154,6 +165,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     final paths = <String>{_source.path};
     final rotated = _rotatedPath;
     if (rotated != null) paths.add(rotated);
+    final corrected = _correctedPath;
+    if (corrected != null) paths.add(corrected);
     unawaited(_cleanupFiles(paths.toList()));
     return super.close();
   }
