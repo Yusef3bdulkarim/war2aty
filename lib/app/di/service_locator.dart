@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
@@ -80,6 +81,16 @@ import '../../features/analysis/data/repositories/default_analysis_repository.da
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
+import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
+import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
+import '../../features/audio_reader/domain/usecases/pause_reading.dart';
+import '../../features/audio_reader/domain/usecases/resume_reading.dart';
+import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
+import '../../features/audio_reader/domain/usecases/start_reading.dart';
+import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
@@ -167,6 +178,7 @@ Future<void> configureDependencies(
   _registerAnalysis(env);
   _registerSavedPapers();
   _registerReminders();
+  _registerAudioReader();
   _registerRouting();
 }
 
@@ -637,6 +649,45 @@ void _registerReminders() {
     // id — the same shape `DocumentDetailsCubit` uses.
     ..registerFactory<ReminderDetailsCubit>(
       () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
+    );
+}
+
+void _registerAudioReader() {
+  // F10-T01. `FlutterTtsTextToSpeechService` is the only file allowed to
+  // import `flutter_tts` — everything above it speaks `TextToSpeechService`,
+  // the same boundary `TesseractOcrEngine` keeps for its own plugin. One
+  // instance app-wide: the OS TTS engine is itself a single shared resource.
+  getIt
+    ..registerLazySingleton<TextToSpeechService>(
+      FlutterTtsTextToSpeechService.new,
+    )
+    // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
+    ..registerFactory<BuildReadingText>(BuildReadingText.new)
+    // F10-T07. Stateless and total, the same shape as `BuildReadingText`.
+    ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
+    // F10-T04.
+    ..registerFactory<StartReading>(
+      () => StartReading(getIt(), getIt(), getIt()),
+    )
+    ..registerFactory<StopReading>(() => StopReading(getIt()))
+    // F10-T05.
+    ..registerFactory<PauseReading>(() => PauseReading(getIt()))
+    ..registerFactory<ResumeReading>(() => ResumeReading(getIt()))
+    // F10-T06.
+    ..registerFactory<SetReadingSpeed>(() => SetReadingSpeed(getIt()))
+    // F10-T08.
+    ..registerFactory<WatchReadingEvents>(() => WatchReadingEvents(getIt()))
+    // One per result screen visit, like `AnalysisResultCubit` and
+    // `SaveDocumentCubit` beside it.
+    ..registerFactory<AudioReaderCubit>(
+      () => AudioReaderCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
     );
 }
 

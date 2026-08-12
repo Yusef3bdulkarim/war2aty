@@ -821,4 +821,33 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderActionFailedFeedback =>
       'Something went wrong. Please try again.';
+
+  // Audio reader mini-player (F10-T03)
+  @override
+  String get audioReaderSheetTitle => 'Listen to this paper';
+  @override
+  String get audioReaderModeSummary => 'Summary only';
+  @override
+  String get audioReaderModeSummaryAndKeyInformation =>
+      'Summary and key information';
+  @override
+  String get audioReaderModeFull => 'Full explanation';
+  @override
+  String get audioReaderModeExtractedText => 'Extracted text';
+  @override
+  String get audioReaderOptions => 'Options';
+  @override
+  String audioReaderNowReading(String mode) => 'Reading: $mode';
+  @override
+  String get audioReaderStartLabel => 'Start listening';
+  @override
+  String get audioReaderPauseLabel => 'Pause';
+  @override
+  String get audioReaderResumeLabel => 'Resume reading';
+  @override
+  String get audioReaderStopLabel => 'Stop reading';
+  @override
+  String get audioReaderFailedFeedback => 'Something went wrong. Try again.';
+  @override
+  String get audioReaderSpeedLabel => 'Reading speed';
 }
