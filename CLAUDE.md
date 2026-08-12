@@ -8,16 +8,16 @@ When this file and the master plan disagree, the master plan wins.
 -->
 
 # Project Context
-- **App:** "What Does My Paper Say?" (War2aty) — the user photographs a printed document, and the app extracts the text locally (OCR) and explains it to them: the document type, its key points, what's required of them, and any dates that need a reminder.
-- **Market / Users:** Egypt — the average Egyptian user (with consideration for the elderly and those with reading/vision difficulties). Simple Egyptian dialect.
-- **Platforms:** Android + iOS only. Portrait only. No Tablet/Web in the MVP.
-- **Language / Direction:** Fully Arabic UI, fully **RTL**. The document itself may be Arabic/English/mixed.
-- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (usage counter only). **No Firebase.** AI: Groq Structured Output behind the Edge Function.
-- **Auth:** Supabase **Anonymous Auth** — no visible login screen. Technical identity only, to protect the service + `installationId` in `flutter_secure_storage`.
-- **Privacy (non-negotiable):** The document photo **never leaves the phone**. Only the extracted text is sent. Default save = "result only". No automatic reminders without user review. Document contents are never logged.
-- **Local data:** Drift + SQLite (local source of truth), optional encrypted images (AES-256-GCM) inside the Application Private Directory, Local Notifications, Local TTS.
-- **Usage limit:** 3 successful smart analyses per day (configurable from Backend runtime config), calculated per `Africa/Cairo` day.
-- **Status:** Brand-new MVP from scratch. Implementation is **Vertical-Slice-first** (a complete electricity-bill path), then feature expansion. Not all screens are built at once.
+- **App:** «ورقتي بتقول إيه؟» (War2aty) — يصوّر المستخدم ورقة مطبوعة، فيستخرج التطبيق نصّها (محليًا عند تعذّر الاتصال، أو بمعالجة آمنة أونلاين عند توفره) ويشرح له: نوع الورقة، أهم ما فيها، المطلوب منه، والمواعيد التي تحتاج تذكيرًا.
+- **Market / Users:** مصر — المستخدم المصري العادي (مع مراعاة كبار السن وضعاف القراءة/البصر). اللهجة المصرية البسيطة.
+- **Platforms:** Android + iOS فقط. Portrait فقط. لا Tablet/Web في الـMVP.
+- **Language / Direction:** واجهة عربية بالكامل، **RTL** بالكامل. المستند نفسه قد يكون عربي/إنجليزي/مختلط.
+- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** OCR: Azure AI Document Intelligence (أساسي، أونلاين فقط) + Google Document AI (رأي ثانٍ شرطي) خلف الـEdge Function؛ Tesseract محلي كـfallback offline فقط (F13). التصنيف والشرح النهائي: Groq Structured Output خلف الـEdge Function — Groq لا يرى الصورة أبدًا.
+- **Auth:** Supabase **Anonymous Auth** — لا توجد شاشة تسجيل دخول ظاهرة. هوية تقنية فقط لحماية الخدمة + `installationId` في `flutter_secure_storage`.
+- **Privacy (non-negotiable):** بنقرا نص الورقة بمعالجة آمنة، لكن **صورتها نفسها متتحفظش خالص ومحدش بيشوفها** — لا تُخزَّن على أي سيرفر، وتتمسح فورًا بعد قراءتها. الحفظ الافتراضي على الجهاز = «النتيجة فقط». لا تذكير تلقائي بدون مراجعة المستخدم. لا تُسجَّل محتويات المستند في أي Log. النصوص اللي بتظهر للمستخدم متسميش أي مزوّد خدمة (Azure/Google/Groq) — راجع `docs/features/F13-ocr-provider-migration.md`.
+- **Local data:** Drift + SQLite (مصدر الحقيقة المحلي)، صور اختيارية مشفّرة (AES-256-GCM) داخل Application Private Directory، Local Notifications، Local TTS.
+- **Usage limit:** 3 تحليلات ذكية ناجحة يوميًا (قابلة للتعديل من Backend runtime config)، بحساب يوم `Africa/Cairo`.
+- **Status:** MVP جديد من الصفر. التنفيذ **Vertical-Slice-first** (مسار فاتورة كهرباء كامل)، ثم توسعة الميزات. لا تُبنى كل الشاشات دفعة واحدة.
 
 ---
 
@@ -77,11 +77,14 @@ features/{feature_name}/
 - Cubits/UseCases/Repositories are resolved via `get_it`, never manually.
 
 ## 7) Privacy & Security (hard rules)
-- Never send an image/thumbnail/EXIF/GPS to the Backend — **OCR text + candidates only**.
-- No secrets inside Flutter/Git (Groq key and Service Role live only in Supabase Secrets; only the Publishable key is allowed in the app).
-- Never log OCR text, prompts, AI responses, or numbers/amounts/names.
-- Saved images are encrypted; unencrypted copies and temp files are deleted once processing finishes.
-- Never present an unconfirmed date/amount/number as fact — use "verify this info / unconfirmed reading". Confidence is per-field, not per-document.
+- **Offline pipeline** (لا اتصال — الوضع الافتراضي القديم): لا تُرسِل غير **نص OCR + candidates** للـBackend — لا صورة، لا Thumbnail، لا EXIF/GPS.
+- **Online pipeline** (خلف `azureOcrEnabled`، F13): الصورة نفسها فقط (بدون Thumbnail/EXIF/GPS) تُرسَل للـEdge Function لمعالجة آمنة تقرأ النص منها، وتُحذف فورًا بعد القراءة — لا تُخزَّن على أي سيرفر لأكثر من مدة القراءة نفسها. فشل أونلاين لا يرجع صامت لـTesseract أبدًا — المستخدم يعيد المحاولة.
+- أي نص يظهر للمستخدم (شاشات الخصوصية، رسائل الخطأ...) متسميش مزوّد خدمة (Azure/Google/Groq) ومتدّعيش إن الصورة "متطلعش من الموبايل خالص" — الصياغة المعتمدة: «بنقرا النص بمعالجة آمنة، لكن مانحفظش الصورة، ومحدش بيشوفها».
+- لا Secrets داخل Flutter/Git (كل الـAPI keys داخل Supabase Secrets فقط؛ الـPublishable key فقط هو المسموح في التطبيق).
+- لا تُسجِّل OCR text أو Prompt أو AI response أو أرقام/مبالغ/أسماء في الـLogs.
+- الصور المحفوظة محليًا (باختيار المستخدم بعد التحليل) مشفّرة؛ تُحذف النسخة غير المشفّرة والملفات المؤقتة بعد الانتهاء.
+- لا تعرض تاريخًا/مبلغًا/رقمًا غير مؤكد كأنه حقيقة — استخدم «راجع المعلومة / قراءة غير مؤكدة». الثقة على مستوى المعلومة لا المستند.
+- المستخدم يتحكم في السماح للتحليل عبر إعداد «السماح بإرسال النص للتحليل» (F11-T02) — عند رفض الإذن لا تُرسَل أي بيانات (F11 consent gate).
 
 ## 8) Build Method Discipline
 - Prefer `const`. Don't create `TextEditingController`/`AnimationController`/`FocusNode` inside `build()`; dispose of them in `dispose()`.

@@ -15,7 +15,40 @@ export interface RuntimeConfig {
   /** Kill switch. `false` → analyze-document answers 503 ANALYSIS_DISABLED. */
   readonly analysisEnabled: boolean;
   readonly dailyLimit: number;
+  /**
+   * Cross-user cap on total AI-provider calls per Cairo day (F13-T02).
+   * `null` means UNLIMITED — the breaker is off.
+   *
+   * Server-side only, and deliberately absent from the Flutter
+   * `RuntimeConfig`: it is an operational spend valve, not a product rule the
+   * app should show, predict or count against.
+   *
+   * Note the fail direction is the OPPOSITE of {@link dailyLimit}. That one is
+   * a mandatory product decision, so an unreadable value falls back to a real
+   * number. This one is an optional safety valve dark-launched with no cap
+   * configured, so anything unreadable means "off" — a typo in this row must
+   * not block every user of the service.
+   */
+  readonly globalDailyCallCap: number | null;
+  /**
+   * Whether the online Azure/Google image pipeline may run at all (F13-T03).
+   *
+   * Dark-launched: `false` until an operator explicitly flips it, so every
+   * task before the pipeline is actually wired (T04–T17) ships with it
+   * inert. Once wired, `false` means the offline Tesseract path runs
+   * unconditionally, same as today.
+   */
+  readonly azureOcrEnabled: boolean;
   readonly maxOcrCharacters: number;
+  /**
+   * Upper bound on a decoded `image.data` payload, in bytes (F13-T09).
+   *
+   * Only enforced on the image-intake request shape — the text shape has no
+   * image field to bound. Sized around a compressed phone-camera photo after
+   * the existing capture-quality gate (F04), with headroom; a base64 body
+   * this large is still cheap to reject before it is ever handed to Azure.
+   */
+  readonly maxImageBytes: number;
   /** Clients below this are refused with 400 UNSUPPORTED_APP_VERSION. */
   readonly minimumAppVersion: string;
   /** Contract version the server speaks; requests must match. */
@@ -34,9 +67,19 @@ export interface RuntimeConfig {
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   analysisEnabled: true,
   dailyLimit: 3,
+  // Dark by default (F13-T03): no cap until an operator sets one, so today's
+  // Groq-only pipeline behaves exactly as it did before this key existed.
+  globalDailyCallCap: null,
+  // Dark by default (F13-T03): off until an operator explicitly enables it.
+  azureOcrEnabled: false,
   maxOcrCharacters: 12000,
+  // ~8MB decoded — comfortably above a compressed capture-quality-gated photo,
+  // small enough that an oversized body is still cheap to reject on parse.
+  maxImageBytes: 8_000_000,
   minimumAppVersion: "1.0.0",
-  schemaVersion: "1.0",
+  // F13-T09: bumped for the image-intake request shape, `rawValue` on
+  // dates/amounts, and the new phones[]/references[] response arrays.
+  schemaVersion: "2.0",
   maintenanceMessage: null,
   aiTimeoutSeconds: 25,
 });
@@ -55,6 +98,25 @@ function positiveInteger(value: unknown, fallback: number): number {
     : Number.NaN;
 
   if (!Number.isFinite(parsed) || parsed < 1) return fallback;
+  return Math.floor(parsed);
+}
+
+/**
+ * A cap that may be switched off, for values where "no limit" is a valid state.
+ *
+ * Everything unusable — absent, `null`, `0`, negative, fractional-below-one,
+ * `"abc"`, an object — reads as `null`/unlimited. That is the whole point:
+ * unlike {@link positiveInteger}, there is no safe number to fall back to, and
+ * inventing one would impose a limit nobody configured.
+ */
+function nullablePositiveInteger(value: unknown): number | null {
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string"
+    ? Number(value)
+    : Number.NaN;
+
+  if (!Number.isFinite(parsed) || parsed < 1) return null;
   return Math.floor(parsed);
 }
 
@@ -89,6 +151,28 @@ function killSwitch(value: unknown, keyPresent: boolean): boolean {
 }
 
 /**
+ * Reads an opt-in feature flag — the mirror image of {@link killSwitch}.
+ *
+ * A kill switch's only reason to be touched is to stop something already
+ * running, so it fails toward "stopped". A brand-new, dark-launched provider
+ * integration (F13-T03) is the opposite: nobody has approved it as safe to
+ * call yet, so an **absent** key, a genuinely uninterpretable value, AND the
+ * documented "off" spellings all mean disabled. Only an explicit
+ * `true`/`"true"`/`1`/`"on"` turns it on.
+ */
+function optInFlag(value: unknown, keyPresent: boolean): boolean {
+  if (!keyPresent) return false;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value === 1;
+
+  if (typeof value === "string") {
+    return ["true", "1", "yes", "on"].includes(value.trim().toLowerCase());
+  }
+
+  return false;
+}
+
+/**
  * Builds the config from table rows, falling back per key.
  *
  * Per-key fallback is deliberate: one malformed row must not take the service
@@ -114,9 +198,18 @@ export function parseRuntimeConfig(
       read("daily_limit"),
       DEFAULT_RUNTIME_CONFIG.dailyLimit,
     ),
+    globalDailyCallCap: nullablePositiveInteger(read("global_daily_call_cap")),
+    azureOcrEnabled: optInFlag(
+      read("azure_ocr_enabled"),
+      has("azure_ocr_enabled"),
+    ),
     maxOcrCharacters: positiveInteger(
       read("max_ocr_characters"),
       DEFAULT_RUNTIME_CONFIG.maxOcrCharacters,
+    ),
+    maxImageBytes: positiveInteger(
+      read("max_image_bytes"),
+      DEFAULT_RUNTIME_CONFIG.maxImageBytes,
     ),
     minimumAppVersion: nonEmptyString(
       read("minimum_app_version"),

@@ -1,3 +1,4 @@
+import '../models/analysis_image_request_dto.dart';
 import '../models/analysis_request_dto.dart';
 
 /// A raw analyze-document response: the HTTP status and the decoded body.
@@ -24,4 +25,8 @@ abstract interface class AnalysisRemoteDataSource {
   /// May throw on transport problems (no connection, timeout); the repository
   /// translates those into failures.
   Future<AnalysisApiResponse> analyze(AnalysisRequestDto request);
+
+  /// Online counterpart of [analyze] (F13-T14/§29b) — same endpoint, image
+  /// shape instead of OCR text.
+  Future<AnalysisApiResponse> analyzeImage(AnalysisImageRequestDto request);
 }

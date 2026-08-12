@@ -23,7 +23,7 @@ void main() {
       const defaults = RuntimeConfig.defaults;
       expect(defaults.analysisEnabled, isTrue);
       expect(defaults.dailyAnalysisLimit, 3);
-      expect(defaults.schemaVersion, '1.0');
+      expect(defaults.schemaVersion, '2.0');
       expect(defaults.maintenanceMessage, isNull);
       expect(defaults.analysisTimeout, const Duration(seconds: 30));
     });

@@ -131,6 +131,19 @@ final class DailyLimitReachedFailure extends NetworkFailure {
   int get hashCode => resetAtCairo.hashCode;
 }
 
+/// The service-wide daily analysis capacity is spent (F13-T02).
+///
+/// Not the user's own quota — [DailyLimitReachedFailure] is that. This one is a
+/// shared spend cap the user cannot influence and has not used up, so the two
+/// must stay distinct: telling someone who has analysed nothing today that they
+/// are out of analyses would be a lie they cannot act on.
+///
+/// Carries no reset instant: capacity also returns when an operator raises the
+/// cap, so any promised time would be a guess.
+final class GlobalCapacityReachedFailure extends NetworkFailure {
+  const GlobalCapacityReachedFailure();
+}
+
 final class AnalysisDisabledFailure extends NetworkFailure {
   const AnalysisDisabledFailure();
 }

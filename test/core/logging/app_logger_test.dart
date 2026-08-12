@@ -124,6 +124,7 @@ void main() {
       const RequestTimeoutFailure(),
       const UnauthorizedFailure(),
       DailyLimitReachedFailure(DateTime(2026, 7, 21)),
+      const GlobalCapacityReachedFailure(),
       const AnalysisDisabledFailure(),
       const UnsupportedAppVersionFailure(),
       const InvalidRequestFailure(),
@@ -136,10 +137,10 @@ void main() {
       const MissingReminderTimeFailure(),
     ];
 
-    test('maps all 27 failures to distinct non-empty codes', () {
+    test('maps all 28 failures to distinct non-empty codes', () {
       final codes = all.map(errorCodeOf).toList();
-      expect(codes, hasLength(27));
-      expect(codes.toSet(), hasLength(27));
+      expect(codes, hasLength(28));
+      expect(codes.toSet(), hasLength(28));
       expect(codes.every((c) => c.isNotEmpty), isTrue);
     });
   });

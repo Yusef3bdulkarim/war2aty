@@ -53,7 +53,7 @@ Deno.test({
     assertEquals(config.dailyLimit, 3);
     assertEquals(config.maxOcrCharacters, 12000);
     assertEquals(config.minimumAppVersion, "1.0.0");
-    assertEquals(config.schemaVersion, "1.0");
+    assertEquals(config.schemaVersion, "2.0");
     // JSONB null must arrive as "operating normally", not the string "null".
     assertEquals(config.maintenanceMessage, null);
   },

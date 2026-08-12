@@ -2,7 +2,9 @@
     <!-- The user photographs a paper; the image never leaves the device. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Required from F06-T14: the app calls Supabase Anonymous Auth and the
-         analysis Edge Function. Only extracted TEXT is ever sent (§7). -->
+         analysis Edge Function. Offline, only extracted text is ever sent;
+         online, the photo itself transits the Edge Function for secure
+         processing and is never stored server-side (§7, F13). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+ (API 33) requires this as a runtime permission before any
          notification can show — requested once, right before the first

@@ -71,6 +71,7 @@ function input(userId: string, requestId: string, dailyLimit = 3): ReserveInput 
     requestId,
     installationHash: "test-hash",
     dailyLimit,
+    globalDailyCallCap: null,
     ttlSeconds: 60,
   };
 }
@@ -236,6 +237,243 @@ Deno.test({
   },
 });
 
+// ── the global capacity breaker (F13-T02) ─────────────────────────────────
+//
+// Each of these owns its own `usage_date`. global_analysis_usage_daily is keyed
+// on the day ALONE, so two tests sharing one would read each other's counters —
+// and the row is cleared up front so a re-run starts from zero instead of
+// inheriting the previous run's total.
+
+interface GlobalUsage {
+  readonly successful: number;
+  readonly reserved: number;
+}
+
+async function globalUsage(
+  client: SupabaseClient,
+  day: string,
+): Promise<GlobalUsage> {
+  const { data, error } = await client
+    .from("global_analysis_usage_daily")
+    .select("successful_count, reserved_count")
+    .eq("usage_date", day)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  // No row is the correct reading of "nothing has been counted today".
+  return {
+    successful: data?.successful_count ?? 0,
+    reserved: data?.reserved_count ?? 0,
+  };
+}
+
+/**
+ * Zeroes a day's counters.
+ *
+ * An UPDATE rather than a DELETE on purpose: the service role has SELECT,
+ * INSERT and UPDATE on this table and deliberately no DELETE, and widening a
+ * production grant to make a test tidier would be the wrong trade. Matching no
+ * row is success — {@link globalUsage} already reads absence as zero.
+ */
+async function resetGlobalDay(client: SupabaseClient, day: string): Promise<void> {
+  const { error } = await client
+    .from("global_analysis_usage_daily")
+    .update({ successful_count: 0, reserved_count: 0 })
+    .eq("usage_date", day);
+
+  if (error) throw error;
+}
+
+/** A reservation on its own day, with the breaker set to `cap`. */
+function capped(
+  userId: string,
+  requestId: string,
+  day: string,
+  cap: number | null,
+  dailyLimit = 100,
+): ReserveInput {
+  return {
+    ...input(userId, requestId, dailyLimit),
+    day,
+    globalDailyCallCap: cap,
+  };
+}
+
+Deno.test({
+  name: "[integration] concurrent reservations never exceed the global cap",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const store = createSupabaseSlotStore(client);
+    const day = "2026-07-20";
+    await resetGlobalDay(client, day);
+    const userId = await newUser();
+
+    // The per-user limit is set high enough to be irrelevant, so the breaker is
+    // the only thing that can refuse any of these. Ten at once against a cap of
+    // three: a read-then-check implementation would admit most of them.
+    const results = await Promise.all(
+      Array.from(
+        { length: 10 },
+        () => store.reserve(capped(userId, crypto.randomUUID(), day, 3)),
+      ),
+    );
+
+    assertEquals(
+      results.filter((r) => r.outcome === "reserved").length,
+      3,
+      "exactly three calls may be granted",
+    );
+    assertEquals(
+      results.filter((r) => r.outcome === "global_capacity_reached").length,
+      7,
+    );
+
+    assertEquals((await globalUsage(client, day)).reserved, 3);
+
+    // The refused seven each took a per-user slot before the breaker judged
+    // them, and must have rolled it back. Leaking those would spend the user's
+    // own quota on analyses that never ran.
+    const usage = await createSupabaseUsageReader(client)(userId, day);
+    assertEquals(usage.reservedCount, 3, "rolled-back slots must not be held");
+  },
+});
+
+Deno.test({
+  name: "[integration] the global cap counts across users, unlike the daily quota",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const store = createSupabaseSlotStore(client);
+    const day = "2026-07-21";
+    await resetGlobalDay(client, day);
+
+    // The abuse this exists to stop: fresh anonymous installs, each with an
+    // untouched personal quota, drawing on one shared budget.
+    const outcomes: string[] = [];
+    for (const _ of [0, 1, 2]) {
+      const result = await store.reserve(
+        capped(await newUser(), crypto.randomUUID(), day, 2),
+      );
+      outcomes.push(result.outcome);
+    }
+
+    assertEquals(outcomes, ["reserved", "reserved", "global_capacity_reached"]);
+  },
+});
+
+Deno.test({
+  name: "[integration] a failed analysis returns the global slot too",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const store = createSupabaseSlotStore(client);
+    const day = "2026-07-22";
+    await resetGlobalDay(client, day);
+    const userId = await newUser();
+    const requestId = crypto.randomUUID();
+
+    await store.reserve(capped(userId, requestId, day, 1));
+    assertEquals((await globalUsage(client, day)).reserved, 1);
+
+    await store.finalize(requestId, false, "TIMEOUT");
+
+    const after = await globalUsage(client, day);
+    assertEquals(after.reserved, 0, "the global slot must be handed back");
+    assertEquals(after.successful, 0, "a failure must not be charged globally");
+
+    // At a cap of one, the next call only fits if that release was real.
+    const next = await store.reserve(capped(userId, crypto.randomUUID(), day, 1));
+    assertEquals(next.outcome, "reserved");
+  },
+});
+
+Deno.test({
+  name: "[integration] a success is counted globally exactly once",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const store = createSupabaseSlotStore(client);
+    const day = "2026-07-23";
+    await resetGlobalDay(client, day);
+    const requestId = crypto.randomUUID();
+
+    await store.reserve(capped(await newUser(), requestId, day, 5));
+    assertEquals((await store.finalize(requestId, true)).outcome, "succeeded");
+    // A duplicate finalize must be inert here too, or the day's spend would be
+    // overstated and the breaker would trip early.
+    assertEquals((await store.finalize(requestId, true)).outcome, "not_reserved");
+
+    const after = await globalUsage(client, day);
+    assertEquals(after.successful, 1);
+    assertEquals(after.reserved, 0);
+  },
+});
+
+Deno.test({
+  name: "[integration] an attempt reserved before a cap existed leaves the global counter alone",
+  ignore: skip,
+  fn: async () => {
+    // Why analysis_attempts.counted_globally exists. If an operator turns the
+    // breaker on while a request is in flight, that request's finalize must not
+    // decrement a global row its reserve never incremented — which would drift
+    // the day's total below reality and hand out capacity that was spent.
+    const client = serviceClient();
+    const store = createSupabaseSlotStore(client);
+    const day = "2026-07-24";
+    await resetGlobalDay(client, day);
+
+    // Someone else's counted call puts the day's total at one.
+    const counted = crypto.randomUUID();
+    await store.reserve(capped(await newUser(), counted, day, 10));
+    await store.finalize(counted, true);
+    assertEquals((await globalUsage(client, day)).successful, 1);
+
+    // This one reserved with the breaker off, then settles.
+    const uncounted = crypto.randomUUID();
+    await store.reserve(capped(await newUser(), uncounted, day, null));
+    await store.finalize(uncounted, true);
+
+    const after = await globalUsage(client, day);
+    assertEquals(after.successful, 1, "an uncounted attempt must not be added");
+    assertEquals(after.reserved, 0, "nor may it decrement below reality");
+  },
+});
+
+Deno.test({
+  name: "[integration] an expired reservation releases the global slot it held",
+  ignore: skip,
+  fn: async () => {
+    // The stranded-capacity failure mode: nothing but a reserve ever sweeps, so
+    // if an abandoned global slot were not reclaimed here it would be held
+    // against every user until Cairo midnight.
+    const client = serviceClient();
+    const store = createSupabaseSlotStore(client);
+    const day = "2026-07-25";
+    await resetGlobalDay(client, day);
+
+    // A one-second slot from a user who never comes back: the caller crashed.
+    const abandoned = await newUser();
+    await store.reserve({
+      ...capped(abandoned, crypto.randomUUID(), day, 1),
+      ttlSeconds: 1,
+    });
+    assertEquals((await globalUsage(client, day)).reserved, 1);
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    // A DIFFERENT user, because that is the case a per-user sweep would miss.
+    // At a cap of one this only fits if the sweep crossed the user boundary.
+    const next = await store.reserve(
+      capped(await newUser(), crypto.randomUUID(), day, 1),
+    );
+
+    assertEquals(next.outcome, "reserved");
+    assertEquals((await globalUsage(client, day)).reserved, 1);
+  },
+});
+
 Deno.test({
   name: "[integration] anon cannot call the reservation RPC",
   ignore: skip,
@@ -252,6 +490,10 @@ Deno.test({
       p_installation_hash: "x",
       p_daily_limit: 999,
       p_ttl_seconds: 60,
+      // The full current signature on purpose: with an argument missing this
+      // would fail as "function not found" and pass for the wrong reason,
+      // proving nothing about who may execute it.
+      p_global_daily_cap: null,
     });
 
     assert(error !== null, "anon must not be able to grant itself slots");

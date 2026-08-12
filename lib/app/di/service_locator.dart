@@ -23,6 +23,8 @@ import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
+import '../../core/connectivity/connectivity_plus_service.dart';
+import '../../core/connectivity/connectivity_service.dart';
 import '../../core/crypto/aes_gcm_file_encryptor.dart';
 import '../../core/crypto/document_encryption_key_store.dart';
 import '../../core/crypto/file_encryptor.dart';
@@ -92,9 +94,12 @@ import '../../features/analysis/data/datasources/disabled_analysis_remote_data_s
 import '../../features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
+import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
+import '../../features/analysis/domain/usecases/analyze_image.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
@@ -114,6 +119,7 @@ import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
+import '../../features/capture/data/services/doclens_perspective_corrector.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
 import '../../features/capture/data/services/platform_camera_service.dart';
@@ -124,10 +130,13 @@ import '../../features/capture/domain/services/capture_file_cleanup.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
+import '../../features/capture/domain/services/perspective_corrector.dart';
 import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
+import '../../features/capture/domain/usecases/correct_perspective.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
+import '../../features/capture/domain/usecases/decide_analysis_route.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
 import '../../features/capture/domain/usecases/initialize_camera.dart';
@@ -143,7 +152,6 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
 import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
-import '../../features/ocr/domain/entities/extraction_result.dart';
 import '../../features/ocr/domain/repositories/ocr_repository.dart';
 import '../../features/ocr/domain/services/amount_extractor.dart';
 import '../../features/ocr/domain/services/date_extractor.dart';
@@ -443,6 +451,16 @@ void _registerCapture() {
     )
     ..registerLazySingleton<CaptureFileCleanup>(IOCaptureFileCleanup.new)
     ..registerFactory<CleanupCaptureFiles>(() => CleanupCaptureFiles(getIt()))
+    ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
+    ..registerFactory<DecideAnalysisRoute>(
+      () => DecideAnalysisRoute(getIt(), getIt()),
+    )
+    // `doclens`'s pure file operations only — never its camera UI (F13
+    // locked decision #10).
+    ..registerLazySingleton<PerspectiveCorrector>(
+      DoclensPerspectiveCorrector.new,
+    )
+    ..registerFactory<CorrectPerspective>(() => CorrectPerspective(getIt()))
     // Parameterised by the acquired image's path — the cubit rotates,
     // assesses quality, and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
@@ -450,7 +468,11 @@ void _registerCapture() {
         source: CapturedPhoto(path),
         rotate: getIt(),
         assessQuality: getIt(),
+        decideRoute: getIt(),
+        correctPerspective: getIt(),
         createSession: getIt(),
+        onlineHandoff: getIt(),
+        ocrHandoff: getIt(),
         cleanupFiles: getIt(),
       ),
     );
@@ -534,17 +556,26 @@ void _registerAnalysis(AppEnvironment env) {
       ),
     )
     ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
+    // Online-route counterpart (F13-T14), wired into the capture flow by
+    // F13-T15's `ImageAnalysisSource`.
+    ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
     ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
+    // The online route's handoff (F13-T15) — the counterpart of
+    // `OcrSessionHolder`, registered with F04's OCR feature below.
+    ..registerLazySingleton<ImageAnalysisSessionHolder>(
+      ImageAnalysisSessionHolder.new,
+    )
     ..registerFactoryParam<
       AnalysisResultCubit,
       AnalysisSession,
-      ExtractionResult
+      AnalysisSource
     >(
-      (session, extraction) => AnalysisResultCubit(
+      (session, source) => AnalysisResultCubit(
         session: session,
-        extraction: extraction,
+        source: source,
         getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
+        analyzeImage: getIt(),
         buildResult: getIt(),
       ),
     );

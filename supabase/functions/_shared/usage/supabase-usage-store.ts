@@ -59,6 +59,7 @@ const RESERVE_OUTCOMES: readonly string[] = [
   "reserved",
   "duplicate",
   "limit_reached",
+  "global_capacity_reached",
 ];
 
 const FINALIZE_OUTCOMES: readonly string[] = [
@@ -97,6 +98,10 @@ export function createSupabaseSlotStore(client: SupabaseClient): SlotStore {
         p_installation_hash: input.installationHash,
         p_daily_limit: input.dailyLimit,
         p_ttl_seconds: input.ttlSeconds,
+        // Explicit null, never omitted: the SQL parameter defaults to null, but
+        // relying on that would make a future rename of this key fail silently
+        // as "breaker off" rather than as an error.
+        p_global_daily_cap: input.globalDailyCallCap,
       });
 
       if (error) throw error;

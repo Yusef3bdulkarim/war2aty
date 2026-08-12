@@ -1,0 +1,98 @@
+/**
+ * F13-T05 · Tests for the reference extractor.
+ *
+ * Mirrors `test/features/ocr/reference_extractor_test.dart` case-for-case.
+ */
+
+import { assertEquals } from "jsr:@std/assert@1";
+
+import { extractReferences } from "../../functions/_shared/extractors/reference-extractor.ts";
+
+Deno.test("reference: رقم الحساب + digits", () => {
+  const results = extractReferences("رقم الحساب 1234567890");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "1234567890");
+  assertEquals(results[0].is_ambiguous, true);
+});
+
+Deno.test("reference: رقم الفاتورة: digits", () => {
+  const results = extractReferences("رقم الفاتورة: 98765");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "98765");
+});
+
+Deno.test("reference: رقم مرجعي # alphanumeric", () => {
+  const results = extractReferences("رقم مرجعي# ABC-1234");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "ABC-1234");
+});
+
+Deno.test("reference: رقم الحجز with mixed case", () => {
+  const results = extractReferences("رقم الحجز BK2026XY");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "BK2026XY");
+});
+
+Deno.test("reference: كود keyword", () => {
+  const results = extractReferences("كود 5678");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "5678");
+});
+
+Deno.test("reference: English Ref keyword", () => {
+  const results = extractReferences("Ref: INV-2026-001");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "INV-2026-001");
+});
+
+Deno.test("reference: Invoice keyword", () => {
+  assertEquals(extractReferences("Invoice 12345").length, 1);
+});
+
+Deno.test("reference: rejects values shorter than 4 characters", () => {
+  assertEquals(extractReferences("رقم الحساب 123"), []);
+});
+
+Deno.test("reference: deduplicates same reference value", () => {
+  const results = extractReferences("رقم الفاتورة 12345\nرقم الحساب 12345");
+  assertEquals(results.length, 1);
+});
+
+Deno.test("reference: extracts multiple different references", () => {
+  const results = extractReferences("رقم الفاتورة 98765\nرقم الحساب 1234567890");
+  assertEquals(results.length, 2);
+});
+
+Deno.test("reference: does not extract bare numbers without keywords", () => {
+  assertEquals(extractReferences("المبلغ 250.50"), []);
+});
+
+// Regression: "Ref" previously matched as a bare prefix inside "Reference",
+// capturing the leftover "erence" as the value instead of the real
+// reference number after "Number:". "Reference" is now its own keyword, so
+// it matches directly and the full "REF-9948271" becomes the value (rather
+// than the earlier, more lossy fix that only kept the digits after "REF").
+Deno.test('reference: does not match "Ref" as a prefix inside "Reference"', () => {
+  const results = extractReferences("Reference Number: REF-9948271");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "REF-9948271");
+});
+
+// Regression (found in code review of the fix above): adding the
+// `(?![A-Za-z])` guard, without giving "Reference" its own keyword entry,
+// meant a document spelling the label out in full with no separate bare
+// "REF"/"Ref" token anywhere else matched nothing at all — the reference
+// number was silently dropped.
+Deno.test('reference: matches "Reference" spelled out with no separate bare "REF" elsewhere', () => {
+  const results = extractReferences("Reference Number: 8821345");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "8821345");
+});
+
+// Regression: "Account" followed by the common "Number:" label word
+// previously captured "Number" itself as the value.
+Deno.test('reference: skips the "Number" label after an English keyword', () => {
+  const results = extractReferences("Account Number: 8827-4419-02");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "8827-4419-02");
+});

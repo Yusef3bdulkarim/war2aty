@@ -109,7 +109,8 @@ final class ArStrings implements AppStrings {
   String get privacyPointExtractText => 'بنستخرج النص من الصورة علشان نحلله.';
 
   @override
-  String get privacyPointTextOnly => 'بنرسل النص المستخرج فقط، مش صورة الورقة.';
+  String get privacyPointTextOnly =>
+      'بنقرا الكلام اللي في ورقتك بمعالجة آمنة، لكن مانحفظش صورتها أبدًا — ومحدش بيشوفها.';
 
   @override
   String get privacyPointImageOptIn => 'الصورة مش هتتحفظ إلا بعد موافقتك.';

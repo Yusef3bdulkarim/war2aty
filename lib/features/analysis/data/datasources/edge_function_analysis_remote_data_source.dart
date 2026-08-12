@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../models/analysis_image_request_dto.dart';
 import '../models/analysis_request_dto.dart';
 import 'analysis_remote_data_source.dart';
 
@@ -18,10 +19,12 @@ const String kAnalyzeDocumentPath = '/analyze-document';
 /// §31-rule-5 distinction between "offline" and "too slow". Swallowing them
 /// here would flatten that into one indistinguishable error.
 ///
-/// PRIVACY: the request carries OCR text and candidates only — no image, no
+/// PRIVACY: [analyze] carries OCR text and candidates only — no image, no
 /// thumbnail, no EXIF, no GPS. `AnalysisRequestDto` has no field that could
 /// hold one (§7), which is what makes that guarantee structural rather than a
-/// promise this class has to keep.
+/// promise this class has to keep. [analyzeImage] is the one deliberate
+/// exception (F13 locked decisions, §29b) — it exists specifically to send
+/// the image, gated server-side behind `azureOcrEnabled`.
 final class EdgeFunctionAnalysisRemoteDataSource
     implements AnalysisRemoteDataSource {
   const EdgeFunctionAnalysisRemoteDataSource(this._dio);
@@ -43,6 +46,21 @@ final class EdgeFunctionAnalysisRemoteDataSource
       // Whatever came back. Not assumed to be a JSON object: a gateway can
       // answer with an HTML error page (§31 rule 4), and the repository is
       // built to expect that.
+      body: response.data,
+    );
+  }
+
+  @override
+  Future<AnalysisApiResponse> analyzeImage(
+    AnalysisImageRequestDto request,
+  ) async {
+    final response = await _dio.post<dynamic>(
+      kAnalyzeDocumentPath,
+      data: request.toJson(),
+    );
+
+    return AnalysisApiResponse(
+      statusCode: response.statusCode ?? 0,
       body: response.data,
     );
   }

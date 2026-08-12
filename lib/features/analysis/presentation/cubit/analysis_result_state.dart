@@ -33,8 +33,11 @@ final class AnalysisResultReady extends AnalysisResultState {
 /// unsupported document.
 ///
 /// [extractedText] travels with it because every one of those ways out ends
-/// at the same place: what the phone read off the paper. The OCR already
-/// happened, so the fallback is always available and costs nothing.
+/// at the same place: what the phone read off the paper. On the offline
+/// route the OCR already happened, so the fallback is available and costs
+/// nothing; the online route (F13) has no local OCR text to offer and this
+/// is simply empty — the fallback is a bonus of the offline path, not a
+/// promise every failure keeps.
 final class AnalysisResultFailed extends AnalysisResultState {
   const AnalysisResultFailed(this.failure, this.extractedText);
 

@@ -30,6 +30,7 @@ Deno.test("the code vocabulary matches API_CONTRACT §31 exactly", () => {
     "ANALYSIS_DISABLED",
     "ANALYSIS_FAILED",
     "DAILY_LIMIT_REACHED",
+    "GLOBAL_CAPACITY_REACHED",
     "INTERNAL_ERROR",
     "INVALID_REQUEST",
     "TIMEOUT",
@@ -48,6 +49,7 @@ Deno.test("every code maps to the status in the §31 table", () => {
     TIMEOUT: 408,
     DAILY_LIMIT_REACHED: 429,
     AI_RATE_LIMITED: 429,
+    GLOBAL_CAPACITY_REACHED: 429,
     ANALYSIS_FAILED: 500,
     INTERNAL_ERROR: 500,
     ANALYSIS_DISABLED: 503,
@@ -94,6 +96,18 @@ Deno.test("dailyLimitReached carries reset_at so the client can say when", () =>
 
   assertEquals(error.code, "DAILY_LIMIT_REACHED");
   assertEquals(error.details?.reset_at, resetAt);
+});
+
+Deno.test("globalCapacityReached is a distinct 429 with no reset_at", async () => {
+  // It must not masquerade as the per-user limit: the caller's quota is
+  // untouched, so promising them a reset instant would be telling them to wait
+  // for something that is not what ran out.
+  const response = ApiError.globalCapacityReached().toResponse();
+  const body = await response.json();
+
+  assertEquals(response.status, 429);
+  assertEquals(body.error.code, "GLOBAL_CAPACITY_REACHED");
+  assertEquals("details" in body.error, false);
 });
 
 Deno.test("the serialised body has no §48 fields", async () => {

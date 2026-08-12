@@ -27,6 +27,7 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   RequestTimeoutFailure() => 'REQUEST_TIMEOUT',
   UnauthorizedFailure() => 'UNAUTHORIZED',
   DailyLimitReachedFailure() => 'DAILY_LIMIT_REACHED',
+  GlobalCapacityReachedFailure() => 'GLOBAL_CAPACITY_REACHED',
   AnalysisDisabledFailure() => 'ANALYSIS_DISABLED',
   UnsupportedAppVersionFailure() => 'UNSUPPORTED_APP_VERSION',
   InvalidRequestFailure() => 'INVALID_REQUEST',

@@ -18,9 +18,12 @@ import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
 import 'package:war2aty/core/widgets/result_header_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
+import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
+import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress_view.dart';
@@ -64,6 +67,15 @@ final class _FakeRepository implements AnalysisRepository {
     await gate?.future;
     return answer ?? Ok(invoiceAnalysis());
   }
+
+  @override
+  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
+    AnalysisImageRequest request,
+  ) async {
+    calls++;
+    await gate?.future;
+    return answer ?? Ok(invoiceAnalysis());
+  }
 }
 
 void main() {
@@ -76,9 +88,10 @@ void main() {
     repository = _FakeRepository();
     cubit = AnalysisResultCubit(
       session: _session,
-      extraction: _extraction,
+      source: const OcrAnalysisSource(_extraction),
       getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
       analyzeDocument: AnalyzeDocument(repository),
+      analyzeImage: AnalyzeImage(repository),
       buildResult: const BuildAnalysisResult(),
     );
     tts = FakeTextToSpeechService();

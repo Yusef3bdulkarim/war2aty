@@ -39,16 +39,39 @@ export function validRequestBody(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    schema_version: "1.0",
+    schema_version: "2.0",
     session_id: SESSION_ID,
     installation_id: INSTALLATION_ID,
     app_version: "1.0.0",
+    input_type: "text",
     ocr_text: OCR_TEXT,
     detected_languages: ["ar"],
     candidates: validCandidates(),
     ...overrides,
   };
 }
+
+/** A valid image-intake request body (§29b) — not yet routed, see F13-T11. */
+export function validImageRequestBody(
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    schema_version: "2.0",
+    session_id: SESSION_ID,
+    installation_id: INSTALLATION_ID,
+    app_version: "1.0.0",
+    input_type: "image",
+    image: {
+      data: VALID_IMAGE_BASE64,
+      mime_type: "image/jpeg",
+    },
+    ...overrides,
+  };
+}
+
+/** A tiny, genuinely valid 1x1 JPEG, base64-encoded — decodes to real bytes. */
+export const VALID_IMAGE_BASE64 =
+  "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=";
 
 export function validCandidates(
   overrides: Record<string, unknown> = {},
