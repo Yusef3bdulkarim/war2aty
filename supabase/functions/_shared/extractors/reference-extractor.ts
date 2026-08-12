@@ -29,6 +29,13 @@ export const REFERENCE_KEYWORDS = [
   "رقم عملية",
   "رقم المعاملة",
   "كود",
+  // "Reference" must precede "Ref"/"REF" in the list: the negative lookahead
+  // below stops "Ref" from matching as a bare prefix inside "Reference", so
+  // the full word needs its own entry or a document that spells it out in
+  // full (with no separate bare "REF"/"Ref" token elsewhere) matches nothing
+  // at all. Backtracking would still find this alternative even listed
+  // after "Ref", but ordering it first avoids a redundant failed attempt.
+  "Reference",
   "Ref",
   "REF",
   "Invoice",

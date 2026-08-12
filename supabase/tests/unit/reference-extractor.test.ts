@@ -69,11 +69,24 @@ Deno.test("reference: does not extract bare numbers without keywords", () => {
 
 // Regression: "Ref" previously matched as a bare prefix inside "Reference",
 // capturing the leftover "erence" as the value instead of the real
-// reference number after "Number:".
+// reference number after "Number:". "Reference" is now its own keyword, so
+// it matches directly and the full "REF-9948271" becomes the value (rather
+// than the earlier, more lossy fix that only kept the digits after "REF").
 Deno.test('reference: does not match "Ref" as a prefix inside "Reference"', () => {
   const results = extractReferences("Reference Number: REF-9948271");
   assertEquals(results.length, 1);
-  assertEquals(results[0].value, "9948271");
+  assertEquals(results[0].value, "REF-9948271");
+});
+
+// Regression (found in code review of the fix above): adding the
+// `(?![A-Za-z])` guard, without giving "Reference" its own keyword entry,
+// meant a document spelling the label out in full with no separate bare
+// "REF"/"Ref" token anywhere else matched nothing at all — the reference
+// number was silently dropped.
+Deno.test('reference: matches "Reference" spelled out with no separate bare "REF" elsewhere', () => {
+  const results = extractReferences("Reference Number: 8821345");
+  assertEquals(results.length, 1);
+  assertEquals(results[0].value, "8821345");
 });
 
 // Regression: "Account" followed by the common "Number:" label word
