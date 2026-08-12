@@ -28,6 +28,7 @@ Future<_Result> _pumpPreview(
   FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
   FakeConnectivityService? connectivity,
+  FakeUsageRepository? usage,
   FakePerspectiveCorrector? perspectiveCorrector,
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
@@ -40,6 +41,12 @@ Future<_Result> _pumpPreview(
     assessQuality: AssessImageQuality(quality ?? FakeImageQualityService()),
     decideRoute: DecideAnalysisRoute(
       connectivity ?? FakeConnectivityService(connected: false),
+      // Live by default so a test that opts into `connected: true` exercises
+      // the online route without also having to know this flag exists.
+      usage ??
+          FakeUsageRepository(
+            seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+          ),
     ),
     correctPerspective: CorrectPerspective(
       perspectiveCorrector ?? FakePerspectiveCorrector(),

@@ -94,7 +94,12 @@ void main() {
     ocrProcessingCubitConstructed = false;
 
     final onboarding = FakeOnboardingRepository(seen: true);
-    final usage = FakeUsageRepository();
+    // azureOcrEnabled: true — this test exercises the online route
+    // specifically (its whole point is proving no silent OCR fallback once
+    // online is chosen), so the pipeline must actually be live.
+    final usage = FakeUsageRepository(
+      seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+    );
     addTearDown(usage.dispose);
     final documents = FakeRecentDocumentsRepository();
     addTearDown(documents.dispose);
@@ -134,7 +139,7 @@ void main() {
           source: CapturedPhoto(path),
           rotate: RotateImage(FakeImageRotator()),
           assessQuality: AssessImageQuality(FakeImageQualityService()),
-          decideRoute: DecideAnalysisRoute(FakeConnectivityService()),
+          decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
           correctPerspective: CorrectPerspective(FakePerspectiveCorrector()),
           createSession: CreateAnalysisSession(FakeAnalysisSessionStorage()),
           onlineHandoff: getIt(),

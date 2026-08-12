@@ -406,7 +406,11 @@ final class FakeUsageRepository implements UsageRepository {
 }
 
 /// A quota with [remaining] of [limit] analyses left today.
-DailyUsage usageWith({required int limit, required int remaining}) {
+DailyUsage usageWith({
+  required int limit,
+  required int remaining,
+  bool azureOcrEnabled = false,
+}) {
   final today = DateTime.utc(2026, 7, 22);
   return DailyUsage(
     usageDate: today,
@@ -414,6 +418,7 @@ DailyUsage usageWith({required int limit, required int remaining}) {
     usedCount: limit - remaining,
     remainingCount: remaining,
     resetsAt: today.add(const Duration(days: 1)),
+    azureOcrEnabled: azureOcrEnabled,
   );
 }
 

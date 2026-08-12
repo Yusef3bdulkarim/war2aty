@@ -32,6 +32,7 @@ ImagePreviewCubit cubitFor(
   FakeAnalysisSessionStorage? storage,
   FakeCaptureFileCleanup? cleanup,
   FakeConnectivityService? connectivity,
+  FakeUsageRepository? usage,
   FakePerspectiveCorrector? perspectiveCorrector,
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
@@ -42,12 +43,20 @@ ImagePreviewCubit cubitFor(
   // Offline by default: every existing (pre-F13) test exercises that route
   // without knowing connectivity exists.
   final conn = connectivity ?? FakeConnectivityService(connected: false);
+  // Live by default so a test that opts into `connected: true` exercises the
+  // online route without also having to know this flag exists — a test that
+  // cares about the gate itself passes its own `usage`.
+  final u =
+      usage ??
+      FakeUsageRepository(
+        seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+      );
   final corrector = perspectiveCorrector ?? FakePerspectiveCorrector();
   return ImagePreviewCubit(
     source: _source,
     rotate: RotateImage(rotator),
     assessQuality: AssessImageQuality(q),
-    decideRoute: DecideAnalysisRoute(conn),
+    decideRoute: DecideAnalysisRoute(conn, u),
     correctPerspective: CorrectPerspective(corrector),
     createSession: CreateAnalysisSession(s),
     onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
@@ -463,5 +472,6 @@ void main() {
       expect(cleanup.deleteCalls, hasLength(1));
       expect(cleanup.deleteCalls.first, [_source.path]);
     });
+
   });
 }

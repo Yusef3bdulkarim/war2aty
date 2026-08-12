@@ -312,7 +312,9 @@ void _registerHome() {
 void _registerCapture() {
   getIt
     ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
-    ..registerFactory<DecideAnalysisRoute>(() => DecideAnalysisRoute(getIt()))
+    ..registerFactory<DecideAnalysisRoute>(
+      () => DecideAnalysisRoute(getIt(), getIt()),
+    )
     // `doclens`'s pure file operations only — never its camera UI (F13
     // locked decision #10).
     ..registerLazySingleton<PerspectiveCorrector>(

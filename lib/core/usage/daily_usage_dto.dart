@@ -14,6 +14,7 @@ final class DailyUsageDto {
     required this.remainingToday,
     required this.resetsAt,
     required this.analysisEnabled,
+    this.azureOcrEnabled = false,
   });
 
   factory DailyUsageDto.fromJson(Map<String, dynamic> json) {
@@ -25,6 +26,10 @@ final class DailyUsageDto {
       remainingToday: json['remaining_today'] as int,
       resetsAt: json['resets_at'] as String,
       analysisEnabled: json['analysis_enabled'] as bool,
+      // Defaulted, not required: unlike the quota numbers, a missing/absent
+      // value here is a safe "not live" reading, not a quota we can no
+      // longer trust — see DailyUsage.azureOcrEnabled.
+      azureOcrEnabled: json['azure_ocr_enabled'] as bool? ?? false,
     );
   }
 
@@ -39,6 +44,7 @@ final class DailyUsageDto {
   /// ISO-8601 with Cairo's real offset (`+02:00` or `+03:00` under DST).
   final String resetsAt;
   final bool analysisEnabled;
+  final bool azureOcrEnabled;
 
   Map<String, dynamic> toJson() => {
     'schema_version': schemaVersion,
@@ -48,6 +54,7 @@ final class DailyUsageDto {
     'remaining_today': remainingToday,
     'resets_at': resetsAt,
     'analysis_enabled': analysisEnabled,
+    'azure_ocr_enabled': azureOcrEnabled,
   };
 
   /// @param syncedAt stamped by the caller so the entity records when this
@@ -60,6 +67,7 @@ final class DailyUsageDto {
       remainingCount: remainingToday,
       resetsAt: DateTime.parse(resetsAt).toUtc(),
       lastSyncedAt: syncedAt.toUtc(),
+      azureOcrEnabled: azureOcrEnabled,
     );
   }
 

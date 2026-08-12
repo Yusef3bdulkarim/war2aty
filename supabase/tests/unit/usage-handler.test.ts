@@ -68,6 +68,7 @@ Deno.test("a fresh day reports the full allowance", async () => {
     remaining_today: 3,
     resets_at: "2026-07-27T00:00:00+03:00",
     analysis_enabled: true,
+    azure_ocr_enabled: false,
   });
 });
 
@@ -106,6 +107,14 @@ Deno.test("an exhausted quota reports zero remaining, not a negative", async () 
 Deno.test("the kill switch is reported so the app can explain before it tries", async () => {
   const response = await harness({ config: { analysisEnabled: false } }).call();
   assertEquals((await response.json()).analysis_enabled, false);
+});
+
+Deno.test("the online-pipeline flag is reported so the client can gate routing on it", async () => {
+  const off = await harness({ config: { azureOcrEnabled: false } }).call();
+  assertEquals((await off.json()).azure_ocr_enabled, false);
+
+  const on = await harness({ config: { azureOcrEnabled: true } }).call();
+  assertEquals((await on.json()).azure_ocr_enabled, true);
 });
 
 Deno.test("a runtime limit change is reflected immediately", async () => {
