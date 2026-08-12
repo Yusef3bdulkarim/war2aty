@@ -71,12 +71,29 @@ void main() {
 
     // Regression: "Ref" previously matched as a bare prefix inside
     // "Reference", capturing the leftover "erence" as the value instead of
-    // the real reference number after "Number:".
+    // the real reference number after "Number:". "Reference" is now its own
+    // keyword, so it matches directly and the full "REF-9948271" becomes the
+    // value (rather than the earlier, more lossy fix that only kept the
+    // digits after "REF").
     test('does not match "Ref" as a prefix inside "Reference"', () {
       final results = extractor.extract('Reference Number: REF-9948271');
       expect(results, hasLength(1));
-      expect(results.first.value, equals('9948271'));
+      expect(results.first.value, equals('REF-9948271'));
     });
+
+    // Regression (found in code review of the fix above): adding the
+    // `(?![A-Za-z])` guard, without giving "Reference" its own keyword
+    // entry, meant a document spelling the label out in full with no
+    // separate bare "REF"/"Ref" token anywhere else matched nothing at all
+    // — the reference number was silently dropped.
+    test(
+      'matches "Reference" spelled out with no separate bare "REF" elsewhere',
+      () {
+        final results = extractor.extract('Reference Number: 8821345');
+        expect(results, hasLength(1));
+        expect(results.first.value, equals('8821345'));
+      },
+    );
 
     // Regression: "Account" followed by the common "Number:" label word
     // previously captured "Number" itself as the value.
