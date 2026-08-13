@@ -217,10 +217,9 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           return MultiBlocProvider(
             providers: [
               BlocProvider<AnalysisResultCubit>(
-                create: (_) => getIt<AnalysisResultCubit>(
-                  param1: session,
-                  param2: source,
-                )..analyze(),
+                create: (_) =>
+                    getIt<AnalysisResultCubit>(param1: session, param2: source)
+                      ..analyze(),
               ),
               BlocProvider<SaveDocumentCubit>(
                 create: (_) => getIt<SaveDocumentCubit>(),

@@ -252,9 +252,7 @@ class _ResultBodyState extends State<_ResultBody> {
       AnalysisSection.keyInformation => ResultKeyInformationCard(
         items: analysis.keyInformation,
       ),
-      AnalysisSection.amounts => ResultAmountsCard(
-        amounts: analysis.amounts,
-      ),
+      AnalysisSection.amounts => ResultAmountsCard(amounts: analysis.amounts),
       AnalysisSection.dates => ResultDatesCard(
         dates: analysis.dates,
         onCreateReminder: widget.onCreateReminder,

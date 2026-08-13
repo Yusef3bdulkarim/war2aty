@@ -3,6 +3,13 @@ import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
+import 'package:war2aty/core/accessibility/high_contrast_cubit.dart';
+import 'package:war2aty/core/accessibility/text_size_cubit.dart';
+import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
+import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
+import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
+import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -143,6 +150,22 @@ void main() {
           watchUpcomingReminder: WatchUpcomingReminder(reminders),
         ),
       )
+      // WaraqtiApp mounts these unconditionally (F11) — not this suite's
+      // concern, but they must resolve for the app to build at all.
+      ..registerFactory<TextSizeCubit>(() {
+        final store = FakeTextSizeStore();
+        return TextSizeCubit(
+          getTextSize: GetTextSize(store),
+          setTextSize: SetTextSize(store),
+        );
+      })
+      ..registerFactory<HighContrastCubit>(() {
+        final store = FakeHighContrastStore();
+        return HighContrastCubit(
+          getHighContrast: GetHighContrast(store),
+          setHighContrast: SetHighContrast(store),
+        );
+      })
       // Online by default (`FakeConnectivityService`'s default is connected),
       // a corrector that hands the photo back untouched, good-quality fakes
       // for rotate/assess so `confirm()` proceeds without the quality sheet.
@@ -175,6 +198,10 @@ void main() {
         (session, source) => AnalysisResultCubit(
           session: session,
           source: source,
+          // Unset (default) — GetAnalysisConsent reads this as allowed, so
+          // this suite's failure/retry flow isn't blocked by a declined
+          // consent state it isn't testing.
+          getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
           analyzeDocument: getIt(),
           analyzeImage: getIt(),
           buildResult: getIt(),
