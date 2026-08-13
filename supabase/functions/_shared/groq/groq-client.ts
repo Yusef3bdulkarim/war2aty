@@ -56,6 +56,13 @@ export interface GroqCompletionRequest {
   readonly temperature?: number;
   readonly maxTokens?: number;
   readonly responseFormat?: GroqResponseFormat;
+  /**
+   * `openai/gpt-oss-*` models spend part of `maxTokens` on an internal
+   * reasoning trace before writing the answer — see {@link GroqProviderOptions}
+   * for why the analysis provider always sets this to `"low"`. Left optional
+   * here because it is meaningless for non-reasoning models.
+   */
+  readonly reasoningEffort?: "low" | "medium" | "high";
 }
 
 export interface GroqCompletion {
@@ -157,6 +164,7 @@ export function createGroqClient(options: GroqClientOptions): GroqClient {
       temperature: request.temperature ?? 0,
       ...(request.maxTokens === undefined ? {} : { max_tokens: request.maxTokens }),
       ...(request.responseFormat === undefined ? {} : { response_format: request.responseFormat }),
+      ...(request.reasoningEffort === undefined ? {} : { reasoning_effort: request.reasoningEffort }),
     };
 
     let response: Response;
