@@ -78,8 +78,8 @@ class _ScanCard extends StatelessWidget {
           boxShadow: const [
             BoxShadow(
               color: Color(0x570E7C86),
-              blurRadius: 34,
-              offset: Offset(0, 14),
+              blurRadius: 15,
+              offset: Offset(0, 0.5),
             ),
           ],
         ),

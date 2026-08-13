@@ -473,25 +473,31 @@ void main() {
       expect(cleanup.deleteCalls.first, [_source.path]);
     });
 
-    test('close after online route deletes the corrected file too', () async {
+    test('close after online route excludes the corrected file '
+        'because the holder owns its lifecycle', () async {
       const corrected = CapturedPhoto('/tmp/corrected.jpg');
       final cleanup = FakeCaptureFileCleanup();
+      final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
         FakeImageRotator(),
         cleanup: cleanup,
         connectivity: FakeConnectivityService(),
         perspectiveCorrector: FakePerspectiveCorrector(output: corrected),
+        onlineHandoff: handoff,
       );
 
       await cubit.confirm();
       await cubit.proceed();
+
+      // After proceed, the handoff holds the corrected file.
+      expect(handoff.holdsCorrectedFile(corrected.path), isTrue);
+
       await cubit.close();
 
+      // The corrected file is NOT deleted by close() — the holder owns it
+      // until the analysis repository has finished reading its bytes.
       expect(cleanup.deleteCalls, hasLength(1));
-      expect(
-        cleanup.deleteCalls.first,
-        unorderedEquals([_source.path, corrected.path]),
-      );
+      expect(cleanup.deleteCalls.first, [_source.path]);
     });
 
     test('close after online route with no-op correction '

@@ -119,6 +119,29 @@ Deno.test("Google's failure is swallowed — the field stays flagged, the analys
   assertEquals(result.verification.needsUserReview, true);
 });
 
+Deno.test("a null Google client skips the second opinion — unconfirmed fields stay flagged", async () => {
+  const azureContent = "Due date 15/08/2026 amount 500 EGP total";
+  const azureWords = wordsIn(azureContent, [
+    ["15/08/2026", 0.4],
+    ["500", 0.97],
+    ["EGP", 0.97],
+  ]);
+  const azureClient: AzureDocumentIntelligenceClient = () =>
+    Promise.resolve({
+      content: azureContent,
+      modelId: "prebuilt-read",
+      words: azureWords,
+    });
+
+  const pipeline = createImageAnalysisPipeline({ azureClient, googleClient: null });
+  const result = await pipeline({ data: IMAGE, mimeType: MIME_TYPE });
+
+  // The date was low-confidence but no Google client to confirm it — stays flagged.
+  assertEquals(result.candidates.dates.length, 1);
+  assertEquals(result.verification.dates[0].needsUserReview, true);
+  assertEquals(result.verification.needsUserReview, true);
+});
+
 Deno.test("an Azure failure propagates and Google is never called", async () => {
   const azureClient: AzureDocumentIntelligenceClient = () => Promise.reject(ApiError.timeout());
   let googleCalls = 0;

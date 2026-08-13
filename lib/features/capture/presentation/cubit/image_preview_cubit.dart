@@ -165,8 +165,16 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     final paths = <String>{_source.path};
     final rotated = _rotatedPath;
     if (rotated != null) paths.add(rotated);
+
+    // The corrected file is EXCLUDED from cleanup when the online route handed
+    // it off — it is still being read by `DefaultAnalysisRepository._buildImageRequest`
+    // on the result screen. `ImageAnalysisSessionHolder.clear()` takes ownership
+    // of deleting it once the analysis is done or abandoned.
     final corrected = _correctedPath;
-    if (corrected != null) paths.add(corrected);
+    if (corrected != null && !_onlineHandoff.holdsCorrectedFile(corrected)) {
+      paths.add(corrected);
+    }
+
     unawaited(_cleanupFiles(paths.toList()));
     return super.close();
   }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/documents/analysis_section.dart';
 import '../../../../core/documents/saved_document.dart';

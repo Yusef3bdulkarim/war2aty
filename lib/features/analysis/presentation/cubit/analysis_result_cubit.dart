@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analysis/usecases/get_analysis_consent.dart';
@@ -34,12 +36,14 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
     required AnalyzeDocument analyzeDocument,
     required AnalyzeImage analyzeImage,
     required BuildAnalysisResult buildResult,
+    VoidCallback? onImageConsumed,
   }) : _session = session,
        _source = source,
        _getAnalysisConsent = getAnalysisConsent,
        _analyzeDocument = analyzeDocument,
        _analyzeImage = analyzeImage,
        _buildResult = buildResult,
+       _onImageConsumed = onImageConsumed,
        super(const AnalysisResultAnalyzing());
 
   final AnalysisSession _session;
@@ -48,6 +52,12 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
   final AnalyzeDocument _analyzeDocument;
   final AnalyzeImage _analyzeImage;
   final BuildAnalysisResult _buildResult;
+
+  /// Called once after [_analyzeImage] has finished reading the
+  /// perspective-corrected file's bytes (success or failure). The file is no
+  /// longer needed and can be safely deleted — wired to
+  /// `ImageAnalysisSessionHolder.clear()` by the router.
+  VoidCallback? _onImageConsumed;
 
   /// Runs the analysis. Called once when the screen mounts, and again by the
   /// retry on the failure view.
@@ -91,6 +101,14 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
         AnalysisImageRequest(sessionId: _session.id, photo: photo),
       ),
     };
+
+    // The repository has finished reading the corrected file's bytes (or
+    // failed trying). Either way, the file on disk is no longer needed and
+    // can be safely deleted — privacy §7 mandates that no unencrypted temp
+    // copy survives past consumption.
+    _onImageConsumed?.call();
+    _onImageConsumed = null;
+
     if (isClosed) return;
 
     emit(
