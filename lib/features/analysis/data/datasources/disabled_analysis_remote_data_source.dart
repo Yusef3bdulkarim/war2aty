@@ -27,6 +27,11 @@ final class DisabledAnalysisRemoteDataSource
   ) async {
     return _disabledResponse;
   }
+
+  @override
+  Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {
+    return _disabledResponse;
+  }
 }
 
 const AnalysisApiResponse _disabledResponse = AnalysisApiResponse(

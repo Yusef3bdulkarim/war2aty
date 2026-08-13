@@ -578,6 +578,26 @@ final class EnStrings implements AppStrings {
   @override
   String get ocrReviewDone => 'Done';
 
+  @override
+  String get ocrOnlineReviewTitle => 'Text read from the document';
+  @override
+  String get ocrOnlineReviewSubtitle =>
+      'Review the text and fix anything wrong before analysis';
+  @override
+  String get ocrOnlineLoading => 'Reading the document...';
+  @override
+  String get ocrOnlineAnalyze => 'Analyze document';
+  @override
+  String get ocrOnlinePoorQuality =>
+      "We couldn't read clear text from the document. Try photographing it "
+      'again with better lighting.';
+  @override
+  String get ocrOnlineShowImage => 'Show original image';
+  @override
+  String get ocrOnlineHideImage => 'Hide image';
+  @override
+  String get ocrOnlineAmbiguityNotice => 'Some information may need review';
+
   // Analysis — while it runs
   @override
   String get analysisRunningTitle => 'Preparing a simple explanation';

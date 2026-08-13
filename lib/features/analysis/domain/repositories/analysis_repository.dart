@@ -1,6 +1,7 @@
 import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
+import '../../../ocr/domain/entities/extraction_result.dart';
 import '../entities/analysis_image_request.dart';
 import '../entities/analysis_request.dart';
 
@@ -16,6 +17,14 @@ abstract interface class AnalysisRepository {
   /// itself instead of local OCR output. Same result contract, same failure
   /// surface — callers do not need to know which route produced either.
   Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
+    AnalysisImageRequest request,
+  );
+
+  /// Runs OCR only (F14) — the first half of the online route's two-call
+  /// split. Sends the same image [request] as [analyzeImage], but stops at
+  /// the OCR text and candidates instead of reaching Groq; the caller reviews
+  /// them before deciding whether to spend an analysis on [analyze].
+  Future<Result<ExtractionResult, AppFailure>> ocrImage(
     AnalysisImageRequest request,
   );
 }

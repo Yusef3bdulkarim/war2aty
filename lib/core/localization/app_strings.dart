@@ -408,6 +408,17 @@ abstract interface class AppStrings {
   String get ocrReviewSubtitle;
   String get ocrReviewDone;
 
+  // OCR online review screen (F14) — the online route's stop between Azure
+  // OCR and Groq analysis.
+  String get ocrOnlineReviewTitle;
+  String get ocrOnlineReviewSubtitle;
+  String get ocrOnlineLoading;
+  String get ocrOnlineAnalyze;
+  String get ocrOnlinePoorQuality;
+  String get ocrOnlineShowImage;
+  String get ocrOnlineHideImage;
+  String get ocrOnlineAmbiguityNotice;
+
   // Analysis — while it runs
   String get analysisRunningTitle;
   String get analysisRunningMessage;

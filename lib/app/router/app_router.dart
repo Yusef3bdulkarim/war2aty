@@ -13,8 +13,10 @@ import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
+import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
+import '../../features/analysis/presentation/screens/ocr_review_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
@@ -66,6 +68,7 @@ abstract final class AppRoutes {
   static const String capture = '/capture';
   static const String preview = '/preview';
   static const String ocr = '/ocr';
+  static const String ocrReview = '/ocr-review';
   static const String result = '/result';
   static const String documentDetails = '/documents';
   static const String reminderCreate = '/reminders/create';
@@ -140,10 +143,13 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               imagePath: path,
               onSessionCreated: (session) =>
                   context.pushReplacement(AppRoutes.ocr, extra: session),
-              // OCR is skipped entirely on this route (F13 locked decision
-              // #1) — straight to the result screen, which reads the
-              // corrected photo back out of `ImageAnalysisSessionHolder`.
-              onOnlineReady: (_) => context.pushReplacement(AppRoutes.result),
+              // The on-device OCR screen is skipped on this route (F13
+              // locked decision #1) — but unlike before F14, the online
+              // route still stops at an OCR review before analysis: the
+              // review screen reads the corrected photo back out of
+              // `ImageAnalysisSessionHolder` and runs Azure OCR itself.
+              onOnlineReady: (_) =>
+                  context.pushReplacement(AppRoutes.ocrReview),
               onRetake: context.pop,
             ),
           );
@@ -175,6 +181,58 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                 onPickAnother: () => context.pushReplacement(
                   AppRoutes.captureWith(CaptureSource.gallery),
                 ),
+              ),
+            ),
+          );
+        },
+      ),
+      // The online route's stop between Azure OCR and Groq analysis (F14).
+      // Also outside the shell, like the routes either side of it.
+      GoRoute(
+        path: AppRoutes.ocrReview,
+        builder: (context, state) {
+          // Read from the hand-off holder rather than `extra`, same reasoning
+          // as the `/result` route below: `extra` is dropped when the OS
+          // kills and restores the app mid-scan.
+          final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
+          final session = onlineHandoff.session;
+          final photo = onlineHandoff.photo;
+          if (session == null || photo == null) return const _BackToHome();
+
+          return BlocProvider<OcrReviewCubit>(
+            create: (_) =>
+                getIt<OcrReviewCubit>(param1: session, param2: photo)..runOcr(),
+            // Same reasoning as the `/ocr` route's `Builder` above: the
+            // callbacks need a `context` below the provider to `read` it.
+            child: Builder(
+              builder: (context) => OcrReviewScreen(
+                // Replaces this route: once the approved text is on its way
+                // to Groq there is no going back to the OCR review of it.
+                onAnalyze: () {
+                  final cubit = context.read<OcrReviewCubit>();
+                  final extraction = cubit.buildReviewedResult();
+                  // The re-extracted result, not the server's original
+                  // candidates — see `buildReviewedResult`'s doc (locked
+                  // correction #1).
+                  getIt<OcrSessionHolder>().set(session, extraction);
+                  cubit.cleanupImage();
+                  context.pushReplacement(AppRoutes.result);
+                },
+                onRetake: () {
+                  context.read<OcrReviewCubit>().cleanupImage();
+                  context.pushReplacement(
+                    AppRoutes.captureWith(CaptureSource.camera),
+                  );
+                },
+                onPickAnother: () {
+                  context.read<OcrReviewCubit>().cleanupImage();
+                  context.pushReplacement(
+                    AppRoutes.captureWith(CaptureSource.gallery),
+                  );
+                },
+                // The way out of a declined analysis consent (F11-T02) — the
+                // same escape hatch `/result` offers on the offline route.
+                onOpenSettings: () => context.go(AppRoutes.settings),
               ),
             ),
           );

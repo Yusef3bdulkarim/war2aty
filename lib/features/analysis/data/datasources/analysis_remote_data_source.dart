@@ -29,4 +29,9 @@ abstract interface class AnalysisRemoteDataSource {
   /// Online counterpart of [analyze] (F13-T14/§29b) — same endpoint, image
   /// shape instead of OCR text.
   Future<AnalysisApiResponse> analyzeImage(AnalysisImageRequestDto request);
+
+  /// Sends [request] to the OCR-only endpoint (F14) — Azure OCR + extractors,
+  /// no Groq. The body it answers with is an OCR response, not an analysis;
+  /// callers must not run it through [analyze]'s response handling.
+  Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request);
 }

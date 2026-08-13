@@ -98,7 +98,9 @@ import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/analysis/domain/usecases/analyze_image.dart';
+import '../../features/analysis/domain/usecases/ocr_image.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
@@ -559,6 +561,9 @@ void _registerAnalysis(AppEnvironment env) {
     // Online-route counterpart (F13-T14), wired into the capture flow by
     // F13-T15's `ImageAnalysisSource`.
     ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
+    // OCR-only half of the online route's two-call split (F14) — stops
+    // before Groq so the user can review the text first.
+    ..registerFactory<OcrImage>(() => OcrImage(getIt()))
     ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
     // The online route's handoff (F13-T15) — the counterpart of
     // `OcrSessionHolder`, registered with F04's OCR feature below.
@@ -577,6 +582,26 @@ void _registerAnalysis(AppEnvironment env) {
         analyzeDocument: getIt(),
         analyzeImage: getIt(),
         buildResult: getIt(),
+        // On the online route the perspective-corrected file must survive
+        // until the repository has read its bytes — the preview cubit's
+        // close() skips it, so *this* callback takes ownership of deleting
+        // it after the analysis reads (or fails to read) the file.
+        onImageConsumed: source is ImageAnalysisSource
+            ? getIt<ImageAnalysisSessionHolder>().clear
+            : null,
+      ),
+    )
+    // The OCR review screen (F14) — reuses `ExtractCandidates`, already
+    // registered by `_registerOcr`, to re-extract candidates from the user's
+    // approved text before it reaches Groq.
+    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
+      (session, photo) => OcrReviewCubit(
+        session: session,
+        photo: photo,
+        ocrImage: getIt(),
+        extractCandidates: getIt(),
+        getAnalysisConsent: getIt(),
+        imageHolder: getIt<ImageAnalysisSessionHolder>(),
       ),
     );
 }

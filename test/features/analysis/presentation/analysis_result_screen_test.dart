@@ -76,6 +76,13 @@ final class _FakeRepository implements AnalysisRepository {
     await gate?.future;
     return answer ?? Ok(invoiceAnalysis());
   }
+
+  @override
+  Future<Result<ExtractionResult, AppFailure>> ocrImage(
+    AnalysisImageRequest request,
+  ) async {
+    throw UnimplementedError('AnalysisResultCubit never calls ocrImage');
+  }
 }
 
 void main() {

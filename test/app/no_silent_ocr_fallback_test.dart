@@ -21,6 +21,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
+import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
@@ -31,7 +32,9 @@ import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
+import 'package:war2aty/features/analysis/domain/usecases/ocr_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import 'package:war2aty/features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
@@ -49,10 +52,22 @@ import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.d
 import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
+import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
+import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
+import 'package:war2aty/features/capture/domain/usecases/request_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
+import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
+import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
+import 'package:war2aty/features/ocr/domain/services/amount_extractor.dart';
+import 'package:war2aty/features/ocr/domain/services/date_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
+import 'package:war2aty/features/ocr/domain/services/phone_extractor.dart';
+import 'package:war2aty/features/ocr/domain/services/reference_extractor.dart';
+import 'package:war2aty/features/ocr/domain/services/text_normalizer.dart';
+import 'package:war2aty/features/ocr/domain/services/time_extractor.dart';
+import 'package:war2aty/features/ocr/domain/usecases/extract_candidates.dart';
 import 'package:war2aty/features/ocr/presentation/cubit/ocr_processing_cubit.dart';
 import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -72,6 +87,7 @@ const _imagePath = '/tmp/paper.jpg';
 final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
   int analyzeCalls = 0;
   int analyzeImageCalls = 0;
+  int ocrImageCalls = 0;
 
   @override
   Future<Result<DocumentAnalysis, AppFailure>> analyze(
@@ -86,6 +102,14 @@ final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
     AnalysisImageRequest request,
   ) async {
     analyzeImageCalls++;
+    return const Err(AnalysisServiceFailure());
+  }
+
+  @override
+  Future<Result<ExtractionResult, AppFailure>> ocrImage(
+    AnalysisImageRequest request,
+  ) async {
+    ocrImageCalls++;
     return const Err(AnalysisServiceFailure());
   }
 }
@@ -189,6 +213,19 @@ void main() {
       ..registerLazySingleton<AnalysisRepository>(() => repository)
       ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
       ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
+      ..registerFactory<OcrImage>(() => OcrImage(getIt()))
+      ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
+        (session, photo) => OcrReviewCubit(
+          session: session,
+          photo: photo,
+          ocrImage: getIt(),
+          extractCandidates: getIt(),
+          // Unset (default) — allowed, same reasoning as the result cubit's
+          // registration below: this suite is not exercising consent.
+          getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
+          imageHolder: getIt(),
+        ),
+      )
       ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
       ..registerFactoryParam<
         AnalysisResultCubit,
@@ -232,6 +269,31 @@ void main() {
           WatchReadingEvents(tts),
         );
       })
+      // Denied — retaking after a failed OCR review lands on the permission
+      // gate, never the viewfinder, which keeps this suite from also needing
+      // a working `CameraCaptureCubit`.
+      ..registerFactory<CameraPermissionCubit>(() {
+        final permissions = FakeCameraPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
+        return CameraPermissionCubit(
+          getCameraPermission: GetCameraPermission(permissions),
+          requestCameraPermission: RequestCameraPermission(permissions),
+          openPermissionSettings: OpenPermissionSettings(permissions),
+        );
+      })
+      // Real extractors — `OcrReviewCubit.buildReviewedResult` is not this
+      // suite's concern, but the cubit still needs one to construct.
+      ..registerFactory<ExtractCandidates>(
+        () => ExtractCandidates(
+          normalizer: TextNormalizer(),
+          dateExtractor: const DateExtractor(),
+          timeExtractor: const TimeExtractor(),
+          amountExtractor: const AmountExtractor(),
+          phoneExtractor: const PhoneExtractor(),
+          referenceExtractor: const ReferenceExtractor(),
+        ),
+      )
       // Poisoned (F13-T16): the online route must never reach either of
       // these, whether on the first attempt or on any retry.
       ..registerLazySingleton<OcrEngine>(() {
@@ -259,38 +321,46 @@ void main() {
     return repository;
   }
 
-  testWidgets('a failed online analysis never constructs Tesseract, even after '
-      'retrying repeatedly', (tester) async {
-    final repository = await pumpToOnlinePreview(tester);
+  testWidgets(
+    'a failed online OCR review never constructs Tesseract, even when the '
+    'user retakes',
+    (tester) async {
+      final repository = await pumpToOnlinePreview(tester);
 
-    getIt<GoRouter>().go(AppRoutes.previewWith(_imagePath));
-    await tester.pumpAndSettle();
+      getIt<GoRouter>().go(AppRoutes.previewWith(_imagePath));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text(_strings.previewUseImage));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(_strings.previewUseImage));
+      await tester.pumpAndSettle();
 
-    // Landed on the failure page over the online (image) route, never the
-    // OCR screen.
-    expect(find.text(_strings.analysisFailedTitle), findsOneWidget);
-    expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.result);
-    expect(repository.analyzeImageCalls, 1);
-    expect(repository.analyzeCalls, 0);
+      // Landed on the OCR review screen's failure page (F14) — Azure OCR
+      // itself failed, so /result and Groq are never reached.
+      expect(find.text(_strings.ocrErrorTitle), findsOneWidget);
+      expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
+      expect(repository.ocrImageCalls, 1);
+      expect(repository.analyzeImageCalls, 0);
+      expect(repository.analyzeCalls, 0);
 
-    // Retrying stays on the same failing online request — not a fallback.
-    await tester.tap(find.text(_strings.actionRetry));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(_strings.actionRetry));
-    await tester.pumpAndSettle();
+      // Retaking leaves the online route for a fresh capture — never a
+      // silent hop to the offline (/ocr) Tesseract screen, and never an
+      // automatic re-request of the same failing call.
+      await tester.tap(find.text(_strings.ocrRetake));
+      await tester.pumpAndSettle();
 
-    expect(repository.analyzeImageCalls, 3);
-    expect(repository.analyzeCalls, 0);
-    expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.result);
-    expect(
-      ocrEngineConstructed,
-      isFalse,
-      reason: 'Tesseract must never be constructed on a failed online run',
-    );
-    expect(ocrProcessingCubitConstructed, isFalse);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        getIt<GoRouter>().state.uri.toString(),
+        startsWith(AppRoutes.capture),
+      );
+      expect(repository.ocrImageCalls, 1);
+      expect(repository.analyzeImageCalls, 0);
+      expect(repository.analyzeCalls, 0);
+      expect(
+        ocrEngineConstructed,
+        isFalse,
+        reason: 'Tesseract must never be constructed on a failed online run',
+      );
+      expect(ocrProcessingCubitConstructed, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

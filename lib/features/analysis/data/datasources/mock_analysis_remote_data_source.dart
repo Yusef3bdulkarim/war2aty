@@ -57,7 +57,63 @@ final class MockAnalysisRemoteDataSource implements AnalysisRemoteDataSource {
 
     return AnalysisApiResponse(statusCode: 200, body: jsonDecode(json));
   }
+
+  /// Answers with a canned OCR response (F14) — enough to demo the OCR
+  /// review screen before the `ocr-document` endpoint is deployed. Unlike
+  /// [analyze]/[analyzeImage], there is no bundled asset per document type:
+  /// the review screen only needs *some* text and candidates to look real.
+  @override
+  Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {
+    if (latency > Duration.zero) await Future<void>.delayed(latency);
+
+    return const AnalysisApiResponse(statusCode: 200, body: _ocrFixtureBody);
+  }
 }
+
+const Map<String, Object?> _ocrFixtureBody = {
+  'schema_version': '2.0',
+  'session_id': 'mock-ocr-session',
+  'ocr_text':
+      'شركة جنوب القاهرة لتوزيع الكهرباء\n'
+      'فاتورة استهلاك شهر مارس 2024\n'
+      'رقم الحساب: 12345678\n'
+      'المبلغ المطلوب: 850.50 جنيه\n'
+      'آخر موعد للسداد: 15/04/2024\n'
+      'للاستفسار: 19980',
+  'detected_languages': ['ar'],
+  'candidates': {
+    'dates': [
+      {
+        'raw_text': '15/04/2024',
+        'normalized_date': '2024-04-15',
+        'is_ambiguous': false,
+      },
+    ],
+    'times': <Map<String, Object?>>[],
+    'amounts': [
+      {
+        'raw_text': '850.50 جنيه',
+        'value': 850.5,
+        'currency': 'EGP',
+        'is_ambiguous': false,
+      },
+    ],
+    'phones': [
+      {
+        'raw_text': '19980',
+        'normalized_number': '19980',
+        'is_ambiguous': false,
+      },
+    ],
+    'references': [
+      {
+        'raw_text': 'رقم الحساب: 12345678',
+        'value': '12345678',
+        'is_ambiguous': true,
+      },
+    ],
+  },
+};
 
 /// Picks the fixture whose document type the OCR text looks most like.
 ///

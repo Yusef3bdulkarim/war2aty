@@ -577,6 +577,25 @@ final class ArStrings implements AppStrings {
   @override
   String get ocrReviewDone => 'تمام';
 
+  @override
+  String get ocrOnlineReviewTitle => 'النص المقروء من الورقة';
+  @override
+  String get ocrOnlineReviewSubtitle =>
+      'راجع النص وعدّل لو فيه غلط قبل التحليل';
+  @override
+  String get ocrOnlineLoading => 'جاري قراءة الورقة...';
+  @override
+  String get ocrOnlineAnalyze => 'تحليل الورقة';
+  @override
+  String get ocrOnlinePoorQuality =>
+      'مقدرناش نقرا نص واضح من الورقة. حاول صوّرها تاني بإضاءة أحسن.';
+  @override
+  String get ocrOnlineShowImage => 'عرض الصورة الأصلية';
+  @override
+  String get ocrOnlineHideImage => 'إخفاء الصورة';
+  @override
+  String get ocrOnlineAmbiguityNotice => 'بعض المعلومات ممكن تحتاج مراجعة';
+
   // Analysis — while it runs
   @override
   String get analysisRunningTitle => 'بنجهز لك شرح بسيط للورقة';
