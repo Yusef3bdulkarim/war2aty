@@ -473,8 +473,8 @@ void main() {
       expect(cleanup.deleteCalls.first, [_source.path]);
     });
 
-    test('close after online route excludes the corrected file '
-        'because the holder owns its lifecycle', () async {
+    test('close after online route skips cleanup entirely — '
+        'the holder owns every temp file', () async {
       const corrected = CapturedPhoto('/tmp/corrected.jpg');
       final cleanup = FakeCaptureFileCleanup();
       final handoff = ImageAnalysisSessionHolder();
@@ -489,36 +489,36 @@ void main() {
       await cubit.confirm();
       await cubit.proceed();
 
-      // After proceed, the handoff holds the corrected file.
-      expect(handoff.holdsCorrectedFile(corrected.path), isTrue);
+      // After proceed, the holder received all cleanup paths.
+      expect(handoff.photo?.path, corrected.path);
 
       await cubit.close();
 
-      // The corrected file is NOT deleted by close() — the holder owns it
-      // until the analysis repository has finished reading its bytes.
-      expect(cleanup.deleteCalls, hasLength(1));
-      expect(cleanup.deleteCalls.first, [_source.path]);
+      // close() does NOT delete anything — the holder deletes all files
+      // in clear() after the analysis has read the image bytes.
+      expect(cleanup.deleteCalls, isEmpty);
     });
 
     test('close after online route with no-op correction '
-        'does not duplicate source in cleanup', () async {
+        'also skips cleanup — holder owns the files', () async {
       final cleanup = FakeCaptureFileCleanup();
+      final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
         FakeImageRotator(),
         cleanup: cleanup,
         connectivity: FakeConnectivityService(),
         perspectiveCorrector: FakePerspectiveCorrector(),
+        onlineHandoff: handoff,
       );
 
       await cubit.confirm();
       await cubit.proceed();
       await cubit.close();
 
-      expect(cleanup.deleteCalls, hasLength(1));
-      // FakePerspectiveCorrector with no output echoes the input — corrected
-      // path equals source, so _correctedPath stays null and only source is
-      // cleaned.
-      expect(cleanup.deleteCalls.first, [_source.path]);
+      // Even when doclens returned the input unchanged (no new corrected
+      // file), close() skips cleanup because the handoff succeeded.
+      // The holder's clear() will delete the source file later.
+      expect(cleanup.deleteCalls, isEmpty);
     });
   });
 }

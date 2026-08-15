@@ -64,6 +64,14 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// document must not survive past this screen (CLAUDE.md §7).
   String? _correctedPath;
 
+  /// Set to `true` once [proceed] successfully hands off to the online
+  /// analysis pipeline. When set, [close] skips file cleanup entirely —
+  /// ownership of every temp file transfers to [_onlineHandoff], which
+  /// deletes them after the analysis repository has read the image bytes.
+  /// This prevents a race where `pushReplacement` disposes this cubit (and
+  /// its cleanup fires) in the same frame the result route reads the file.
+  bool _handedOffToOnline = false;
+
   /// Turns the image 90° clockwise. Ignored while a confirm is in flight so the
   /// rotation cannot change under the export.
   void rotateClockwise() {
@@ -156,26 +164,34 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     // clean up — only a genuinely new file is tracked.
     if (corrected.path != current.photo.path) _correctedPath = corrected.path;
 
-    _onlineHandoff.set(session, corrected);
+    // Collect every temp file this capture flow produced. Ownership transfers
+    // to the holder — close() will skip its own cleanup (see _handedOffToOnline).
+    final cleanupPaths = <String>{_source.path};
+    final rotated = _rotatedPath;
+    if (rotated != null) cleanupPaths.add(rotated);
+    final correctedP = _correctedPath;
+    if (correctedP != null) cleanupPaths.add(correctedP);
+
+    _onlineHandoff.set(session, corrected, cleanupPaths: cleanupPaths.toList());
+    _handedOffToOnline = true;
     emit(ImagePreviewOnlineReady(session));
   }
 
   @override
   Future<void> close() {
-    final paths = <String>{_source.path};
-    final rotated = _rotatedPath;
-    if (rotated != null) paths.add(rotated);
-
-    // The corrected file is EXCLUDED from cleanup when the online route handed
-    // it off — it is still being read by `DefaultAnalysisRepository._buildImageRequest`
-    // on the result screen. `ImageAnalysisSessionHolder.clear()` takes ownership
-    // of deleting it once the analysis is done or abandoned.
-    final corrected = _correctedPath;
-    if (corrected != null && !_onlineHandoff.holdsCorrectedFile(corrected)) {
-      paths.add(corrected);
+    // When the online handoff succeeded, every temp file is now owned by the
+    // ImageAnalysisSessionHolder — it deletes them in clear() after the
+    // analysis repository has read the image bytes. Deleting here would race
+    // against that read (pushReplacement disposes this cubit in the same
+    // frame the result route reads the file).
+    if (!_handedOffToOnline) {
+      final paths = <String>{_source.path};
+      final rotated = _rotatedPath;
+      if (rotated != null) paths.add(rotated);
+      final corrected = _correctedPath;
+      if (corrected != null) paths.add(corrected);
+      unawaited(_cleanupFiles(paths.toList()));
     }
-
-    unawaited(_cleanupFiles(paths.toList()));
     return super.close();
   }
 }
