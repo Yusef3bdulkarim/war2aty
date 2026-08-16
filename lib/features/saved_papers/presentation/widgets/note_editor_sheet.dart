@@ -34,7 +34,7 @@ const double _buttonFontSize = 17;
 Future<String?> showNoteEditorSheet(BuildContext context, {String? initial}) =>
     showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AppColors.light.card,
+      backgroundColor: AppColors.of(context).card,
       isScrollControlled: true,
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor,
@@ -80,7 +80,7 @@ class _NoteEditorSheetState extends State<NoteEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final isEditing = widget.initial != null;
 

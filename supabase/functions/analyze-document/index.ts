@@ -16,7 +16,10 @@ import { createSupabaseTokenVerifier } from "../_shared/auth/supabase-token-veri
 import { azureOptionsFromEnv } from "../_shared/azure/azure-config.ts";
 import { createAzureDocumentIntelligenceClient } from "../_shared/azure/azure-client.ts";
 import { loadRuntimeConfig } from "../_shared/config/supabase-runtime-config.ts";
-import { googleDocumentAiOptionsFromEnv } from "../_shared/google/google-config.ts";
+import {
+  googleDocumentAiOptionsFromEnv,
+  isGoogleDocumentAiConfigured,
+} from "../_shared/google/google-config.ts";
 import { createGoogleDocumentAiClient } from "../_shared/google/google-client.ts";
 import { createGroqClient, groqOptionsFromEnv } from "../_shared/groq/groq-client.ts";
 import { createGroqAnalysisProvider } from "../_shared/groq/groq-provider.ts";
@@ -45,16 +48,22 @@ Deno.serve(
       // deployment that never sees an image request (azureOcrEnabled dark)
       // never has to have them configured — same contract as
       // `azureOptionsFromEnv`/`googleDocumentAiOptionsFromEnv` document.
+      //
+      // Google is optional: an org policy may block service-account key
+      // creation, and the pipeline works fine with Azure alone — unchecked
+      // fields simply stay flagged for user review.
       createImagePipeline: (timeoutSeconds) =>
         createImageAnalysisPipeline({
           azureClient: createAzureDocumentIntelligenceClient({
             ...azureOptionsFromEnv(),
             timeoutSeconds,
           }),
-          googleClient: createGoogleDocumentAiClient({
-            ...googleDocumentAiOptionsFromEnv(),
-            timeoutSeconds,
-          }),
+          googleClient: isGoogleDocumentAiConfigured()
+            ? createGoogleDocumentAiClient({
+                ...googleDocumentAiOptionsFromEnv(),
+                timeoutSeconds,
+              })
+            : null,
         }),
       hashInstallation: installationHasherFromEnv(),
       now: () => new Date(),

@@ -108,6 +108,18 @@ Deno.test("omits optional fields rather than sending undefined", async () => {
   const sent = JSON.parse(calls[0].init.body as string);
   assertEquals("max_tokens" in sent, false);
   assertEquals("response_format" in sent, false);
+  assertEquals("reasoning_effort" in sent, false);
+});
+
+Deno.test("forwards a reasoning effort when given one", async () => {
+  // `openai/gpt-oss-*` spends part of maxTokens on an internal reasoning
+  // trace; this is the seam the analysis provider uses to cap it.
+  const { impl, calls } = recordingFetch(jsonResponse(okPayload()));
+
+  await client(impl)({ ...REQUEST, reasoningEffort: "low" });
+
+  const sent = JSON.parse(calls[0].init.body as string);
+  assertEquals(sent.reasoning_effort, "low");
 });
 
 Deno.test("forwards a response format when given one", async () => {

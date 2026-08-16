@@ -82,6 +82,24 @@ void main() {
         StrokeGlyph.education,
       ]);
     });
+
+    test('only the contrast glyph carries a fill region (F11-T06)', () {
+      for (final glyph in StrokeGlyph.values) {
+        final fill = strokeGlyphFillPath(glyph);
+        if (glyph == StrokeGlyph.contrast) {
+          expect(fill, isNotNull, reason: '$glyph should have a fill half');
+          expect(fill!.computeMetrics(), isNotEmpty);
+          // Solid left half of the same circle the outline draws.
+          final bounds = fill.getBounds();
+          expect(bounds.left, greaterThanOrEqualTo(0));
+          expect(bounds.top, greaterThanOrEqualTo(0));
+          expect(bounds.right, lessThanOrEqualTo(24));
+          expect(bounds.bottom, lessThanOrEqualTo(24));
+        } else {
+          expect(fill, isNull, reason: '$glyph should be stroke-only');
+        }
+      }
+    });
   });
 
   group('StrokeIcon', () {

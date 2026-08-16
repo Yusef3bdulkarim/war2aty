@@ -67,7 +67,7 @@ class ReminderAlertListSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final showMissingTimeHint =
         alerts.isEmpty && missingEventTimeSuggestion != null;
@@ -219,7 +219,7 @@ class _AlertRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return DecoratedBox(

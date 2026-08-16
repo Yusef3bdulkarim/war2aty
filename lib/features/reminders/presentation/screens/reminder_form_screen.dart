@@ -82,7 +82,7 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return BlocConsumer<ReminderFormCubit, ReminderFormState>(
       listenWhen: (_, state) =>
@@ -232,7 +232,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final mirror = Directionality.of(context) == TextDirection.ltr;
 
@@ -300,7 +300,7 @@ class _SaveBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return DecoratedBox(

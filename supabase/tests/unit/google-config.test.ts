@@ -4,7 +4,10 @@
 
 import { assertEquals, assertThrows } from "jsr:@std/assert@1";
 
-import { googleDocumentAiOptionsFromEnv } from "../../functions/_shared/google/google-config.ts";
+import {
+  googleDocumentAiOptionsFromEnv,
+  isGoogleDocumentAiConfigured,
+} from "../../functions/_shared/google/google-config.ts";
 
 /** Stands in for Deno.env so tests never touch the real environment. */
 function env(values: Record<string, string> = {}) {
@@ -69,5 +72,38 @@ Deno.test("everything missing hard-fails on the first required var", () => {
     () => googleDocumentAiOptionsFromEnv(env()),
     Error,
     "GOOGLE_DOCUMENT_AI_CLIENT_EMAIL",
+  );
+});
+
+// ── isGoogleDocumentAiConfigured ────────────────────────────────────────
+
+Deno.test("isGoogleDocumentAiConfigured returns true when all five vars are set", () => {
+  assertEquals(isGoogleDocumentAiConfigured(env(COMPLETE)), true);
+});
+
+Deno.test("isGoogleDocumentAiConfigured returns false when any var is missing", () => {
+  for (const key of Object.keys(COMPLETE)) {
+    const partial = { ...COMPLETE };
+    delete (partial as Record<string, string>)[key];
+
+    assertEquals(
+      isGoogleDocumentAiConfigured(env(partial)),
+      false,
+      `should be false when ${key} is missing`,
+    );
+  }
+});
+
+Deno.test("isGoogleDocumentAiConfigured returns false when all vars are missing", () => {
+  assertEquals(isGoogleDocumentAiConfigured(env()), false);
+});
+
+Deno.test("isGoogleDocumentAiConfigured returns false for a blank value", () => {
+  assertEquals(
+    isGoogleDocumentAiConfigured(env({
+      ...COMPLETE,
+      GOOGLE_DOCUMENT_AI_PROCESSOR_ID: "   ",
+    })),
+    false,
   );
 });

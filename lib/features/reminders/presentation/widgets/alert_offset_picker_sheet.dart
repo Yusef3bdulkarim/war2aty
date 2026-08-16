@@ -43,7 +43,7 @@ Future<ReminderAlertDraft?> showAlertOffsetPickerSheet(
 }) {
   return showModalBottomSheet<ReminderAlertDraft>(
     context: context,
-    backgroundColor: AppColors.light.card,
+    backgroundColor: AppColors.of(context).card,
     // Scroll-controlled so the sheet sizes to its content (up to four
     // options) instead of the default half-screen, which clips on a short
     // viewport or under Large Text.
@@ -72,7 +72,7 @@ class _AlertOffsetPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final eventInstant = this.eventInstant;
 
@@ -183,7 +183,7 @@ class _Option extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Material(
       color: colors.surface,

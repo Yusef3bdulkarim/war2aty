@@ -5,7 +5,32 @@ import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../core/accessibility/high_contrast_cubit.dart';
+import '../../core/accessibility/high_contrast_store.dart';
+import '../../core/accessibility/text_size_cubit.dart';
+import '../../core/accessibility/text_size_store.dart';
+import '../../core/accessibility/usecases/get_high_contrast.dart';
+import '../../core/accessibility/usecases/get_text_size.dart';
+import '../../core/accessibility/usecases/set_high_contrast.dart';
+import '../../core/accessibility/usecases/set_text_size.dart';
+import '../../core/analysis/analysis_consent_store.dart';
+import '../../core/analysis/processing_mode_store.dart';
+import '../../core/analysis/usecases/get_analysis_consent.dart';
+import '../../core/analysis/usecases/get_processing_mode.dart';
+import '../../core/analysis/usecases/set_analysis_consent.dart';
+import '../../core/analysis/usecases/set_processing_mode.dart';
 import '../../core/audio/audio_reader_cubit.dart';
+import '../../core/audio/default_reading_speed_store.dart';
+import '../../core/audio/default_reading_voice_store.dart';
+import '../../core/audio/resume_reading_enabled_store.dart';
+import '../../core/audio/usecases/get_available_voices.dart';
+import '../../core/audio/usecases/get_default_reading_speed.dart';
+import '../../core/audio/usecases/get_default_reading_voice.dart';
+import '../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../core/audio/usecases/preview_default_voice.dart';
+import '../../core/audio/usecases/set_default_reading_speed.dart';
+import '../../core/audio/usecases/set_default_reading_voice.dart';
+import '../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
@@ -74,6 +99,7 @@ import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
+import '../../core/usage/usecases/sync_daily_usage.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
 import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
@@ -84,7 +110,9 @@ import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/analysis/domain/usecases/analyze_image.dart';
+import '../../features/analysis/domain/usecases/ocr_image.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
@@ -163,6 +191,7 @@ import '../../features/reminders/presentation/models/reminder_from_document_args
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/settings/presentation/cubit/settings_cubit.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -176,6 +205,7 @@ Future<void> configureDependencies(
   _registerCore(env);
   _registerDatabase(database);
   _registerLocalization();
+  _registerAccessibility();
   _registerIdentity(env);
   _registerNetwork(env);
   _registerLaunch(env);
@@ -187,6 +217,7 @@ Future<void> configureDependencies(
   _registerSavedPapers();
   _registerReminders();
   _registerAudioReader();
+  _registerSettings();
   _registerRouting();
 }
 
@@ -212,6 +243,26 @@ void _registerLocalization() {
     ..registerFactory<SetLocale>(() => SetLocale(getIt()))
     ..registerFactory<LocaleCubit>(
       () => LocaleCubit(getSavedLocale: getIt(), setLocale: getIt()),
+    );
+}
+
+void _registerAccessibility() {
+  getIt
+    ..registerLazySingleton<TextSizeStore>(() => DriftTextSizeStore(getIt()))
+    ..registerFactory<GetTextSize>(() => GetTextSize(getIt()))
+    ..registerFactory<SetTextSize>(() => SetTextSize(getIt()))
+    ..registerFactory<TextSizeCubit>(
+      () => TextSizeCubit(getTextSize: getIt(), setTextSize: getIt()),
+    )
+    // F11-T06. Same `app_settings` table.
+    ..registerLazySingleton<HighContrastStore>(
+      () => DriftHighContrastStore(getIt()),
+    )
+    ..registerFactory<GetHighContrast>(() => GetHighContrast(getIt()))
+    ..registerFactory<SetHighContrast>(() => SetHighContrast(getIt()))
+    ..registerFactory<HighContrastCubit>(
+      () =>
+          HighContrastCubit(getHighContrast: getIt(), setHighContrast: getIt()),
     );
 }
 
@@ -351,6 +402,10 @@ void _registerHome() {
       getIt.call<DriftDocumentsRepository>,
     )
     ..registerFactory<WatchDailyUsage>(() => WatchDailyUsage(getIt()))
+    // Called by `AnalysisResultCubit` after a successful analysis so Home's
+    // live stream above reflects the freshly consumed slot (registered here,
+    // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
+    ..registerFactory<SyncDailyUsage>(() => SyncDailyUsage(getIt()))
     // Likewise replaced when F09 builds the `reminders` table.
     ..registerLazySingleton<UpcomingReminderRepository>(
       StubUpcomingReminderRepository.new,
@@ -370,16 +425,6 @@ void _registerHome() {
 
 void _registerCapture() {
   getIt
-    ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
-    ..registerFactory<DecideAnalysisRoute>(
-      () => DecideAnalysisRoute(getIt(), getIt()),
-    )
-    // `doclens`'s pure file operations only — never its camera UI (F13
-    // locked decision #10).
-    ..registerLazySingleton<PerspectiveCorrector>(
-      DoclensPerspectiveCorrector.new,
-    )
-    ..registerFactory<CorrectPerspective>(() => CorrectPerspective(getIt()))
     ..registerLazySingleton<PermissionService>(PermissionHandlerService.new)
     ..registerLazySingleton<CameraPermissionRepository>(
       () => SystemCameraPermissionRepository(getIt()),
@@ -424,6 +469,16 @@ void _registerCapture() {
     )
     ..registerLazySingleton<CaptureFileCleanup>(IOCaptureFileCleanup.new)
     ..registerFactory<CleanupCaptureFiles>(() => CleanupCaptureFiles(getIt()))
+    ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
+    ..registerFactory<DecideAnalysisRoute>(
+      () => DecideAnalysisRoute(getIt(), getIt()),
+    )
+    // `doclens`'s pure file operations only — never its camera UI (F13
+    // locked decision #10).
+    ..registerLazySingleton<PerspectiveCorrector>(
+      DoclensPerspectiveCorrector.new,
+    )
+    ..registerFactory<CorrectPerspective>(() => CorrectPerspective(getIt()))
     // Parameterised by the acquired image's path — the cubit rotates,
     // assesses quality, and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
@@ -487,6 +542,18 @@ void _registerAnalysis(AppEnvironment env) {
   final useMock = env.isDev && _useMockAnalysis;
 
   getIt
+    // F11-T02. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<AnalysisConsentStore>(
+      () => DriftAnalysisConsentStore(getIt()),
+    )
+    ..registerFactory<GetAnalysisConsent>(() => GetAnalysisConsent(getIt()))
+    ..registerFactory<SetAnalysisConsent>(() => SetAnalysisConsent(getIt()))
+    // F11-T03. Same `app_settings` table.
+    ..registerLazySingleton<ProcessingModeStore>(
+      () => DriftProcessingModeStore(getIt()),
+    )
+    ..registerFactory<GetProcessingMode>(() => GetProcessingMode(getIt()))
+    ..registerFactory<SetProcessingMode>(() => SetProcessingMode(getIt()))
     // The real Edge Function client (F06-T14). An unconfigured build refuses
     // outright rather than falling back to fixtures: showing invented amounts
     // and deadlines to a real user would be worse than showing nothing, which
@@ -510,6 +577,9 @@ void _registerAnalysis(AppEnvironment env) {
     // Online-route counterpart (F13-T14), wired into the capture flow by
     // F13-T15's `ImageAnalysisSource`.
     ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
+    // OCR-only half of the online route's two-call split (F14) — stops
+    // before Groq so the user can review the text first.
+    ..registerFactory<OcrImage>(() => OcrImage(getIt()))
     ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
     // The online route's handoff (F13-T15) — the counterpart of
     // `OcrSessionHolder`, registered with F04's OCR feature below.
@@ -524,9 +594,31 @@ void _registerAnalysis(AppEnvironment env) {
       (session, source) => AnalysisResultCubit(
         session: session,
         source: source,
+        getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
         analyzeImage: getIt(),
         buildResult: getIt(),
+        syncDailyUsage: getIt(),
+        // On the online route the perspective-corrected file must survive
+        // until the repository has read its bytes — the preview cubit's
+        // close() skips it, so *this* callback takes ownership of deleting
+        // it after the analysis reads (or fails to read) the file.
+        onImageConsumed: source is ImageAnalysisSource
+            ? getIt<ImageAnalysisSessionHolder>().clear
+            : null,
+      ),
+    )
+    // The OCR review screen (F14) — reuses `ExtractCandidates`, already
+    // registered by `_registerOcr`, to re-extract candidates from the user's
+    // approved text before it reaches Groq.
+    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
+      (session, photo) => OcrReviewCubit(
+        session: session,
+        photo: photo,
+        ocrImage: getIt(),
+        extractCandidates: getIt(),
+        getAnalysisConsent: getIt(),
+        imageHolder: getIt<ImageAnalysisSessionHolder>(),
       ),
     );
 }
@@ -708,6 +800,38 @@ void _registerAudioReader() {
     ..registerFactory<SetReadingSpeed>(() => SetReadingSpeed(getIt()))
     // F10-T08.
     ..registerFactory<WatchReadingEvents>(() => WatchReadingEvents(getIt()))
+    // F11-T07. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<DefaultReadingSpeedStore>(
+      () => DriftDefaultReadingSpeedStore(getIt()),
+    )
+    ..registerFactory<GetDefaultReadingSpeed>(
+      () => GetDefaultReadingSpeed(getIt()),
+    )
+    ..registerFactory<SetDefaultReadingSpeed>(
+      () => SetDefaultReadingSpeed(getIt()),
+    )
+    ..registerLazySingleton<DefaultReadingVoiceStore>(
+      () => DriftDefaultReadingVoiceStore(getIt()),
+    )
+    ..registerFactory<GetDefaultReadingVoice>(
+      () => GetDefaultReadingVoice(getIt()),
+    )
+    ..registerFactory<SetDefaultReadingVoice>(
+      () => SetDefaultReadingVoice(getIt()),
+    )
+    ..registerLazySingleton<ResumeReadingEnabledStore>(
+      () => DriftResumeReadingEnabledStore(getIt()),
+    )
+    ..registerFactory<GetResumeReadingEnabled>(
+      () => GetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<SetResumeReadingEnabled>(
+      () => SetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<GetAvailableVoices>(() => GetAvailableVoices(getIt()))
+    ..registerFactory<PreviewDefaultVoice>(
+      () => PreviewDefaultVoice(getIt(), getIt()),
+    )
     // One per result screen visit, like `AnalysisResultCubit` and
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
@@ -718,8 +842,35 @@ void _registerAudioReader() {
         getIt(),
         getIt(),
         getIt(),
+        getIt(),
+        getIt(),
       ),
     );
+}
+
+void _registerSettings() {
+  // F11-T02/T03. Reuses the store/use cases `_registerAnalysis` already
+  // registered — Settings reads and writes the same consent and processing-
+  // mode flags the analysis flow gates itself on.
+  // F11-T07. Reuses the store/use cases `_registerAudioReader` already
+  // registered — Settings reads and writes the same audio defaults the
+  // mini-player applies to a fresh reading.
+  getIt.registerFactory<SettingsCubit>(
+    () => SettingsCubit(
+      getAnalysisConsent: getIt(),
+      setAnalysisConsent: getIt(),
+      getProcessingMode: getIt(),
+      setProcessingMode: getIt(),
+      getDefaultReadingSpeed: getIt(),
+      setDefaultReadingSpeed: getIt(),
+      getDefaultReadingVoice: getIt(),
+      setDefaultReadingVoice: getIt(),
+      getResumeReadingEnabled: getIt(),
+      setResumeReadingEnabled: getIt(),
+      getAvailableVoices: getIt(),
+      previewDefaultVoice: getIt(),
+    ),
+  );
 }
 
 void _registerRouting() {

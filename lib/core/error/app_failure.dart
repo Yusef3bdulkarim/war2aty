@@ -89,6 +89,13 @@ final class TtsFailure extends LocalFailure {
   const TtsFailure();
 }
 
+/// The user has turned off «السماح بإرسال النص للتحليل» (F11-T02) — analysis
+/// was never attempted, so this is not a network/business outcome, but a
+/// local, user-controlled setting the request never got past.
+final class AnalysisConsentDeclinedFailure extends LocalFailure {
+  const AnalysisConsentDeclinedFailure();
+}
+
 // ---------------------------------------------------------------------------
 // Network failures — talking to the Supabase Edge Function / analysis service.
 // ---------------------------------------------------------------------------

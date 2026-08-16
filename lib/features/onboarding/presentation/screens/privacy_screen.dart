@@ -33,7 +33,7 @@ class PrivacyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     final points = [
       s.privacyPointExtractText,
@@ -113,7 +113,7 @@ class _PrivacyPoint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

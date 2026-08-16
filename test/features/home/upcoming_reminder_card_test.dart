@@ -6,6 +6,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/reminders/upcoming_reminder.dart';
+import 'package:war2aty/core/time/cairo_day.dart';
 import 'package:war2aty/core/widgets/skeleton.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_state.dart';
 import 'package:war2aty/features/home/presentation/widgets/upcoming_reminder_card.dart';
@@ -17,8 +18,11 @@ void main() {
   const ar = ArStrings();
   const en = EnStrings();
 
-  final now = DateTime.utc(2026, 7, 22, 8);
-  final dueTomorrow = DateTime.utc(2026, 7, 23, 8);
+  // Built from the Cairo wall clock directly (DST-aware, per `cairoInstant`)
+  // rather than a fixed UTC offset, so "10:00" here always matches what
+  // `cairoWallClockOf` renders regardless of the time of year.
+  final now = cairoInstant(2026, 7, 22, 10);
+  final dueTomorrow = cairoInstant(2026, 7, 23, 10);
 
   Widget cardFor(
     ReminderSection section, {

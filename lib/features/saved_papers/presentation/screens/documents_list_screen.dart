@@ -44,7 +44,7 @@ class DocumentsListScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -198,7 +198,7 @@ class _Body extends StatelessWidget {
 
 //   @override
 //   Widget build(BuildContext context) {
-//     const colors = AppColors.light;
+//     final colors = AppColors.of(context);
 
 //     return Semantics(
 //       header: true,
@@ -217,7 +217,7 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: CircularProgressIndicator(
-        color: AppColors.light.brandPrimary,
+        color: AppColors.of(context).brandPrimary,
         semanticsLabel: context.strings.stateLoading,
       ),
     );
@@ -229,7 +229,7 @@ class _LoadFailed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(

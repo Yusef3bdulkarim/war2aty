@@ -55,7 +55,12 @@ export type ImageAnalysisPipeline = (
 
 export interface ImageAnalysisPipelineOptions {
   readonly azureClient: AzureDocumentIntelligenceClient;
-  readonly googleClient: GoogleDocumentAiClient;
+  /**
+   * `null` when Google credentials are not configured — the pipeline skips
+   * the second opinion entirely and flags unconfirmed fields for review,
+   * same as when the Google call fails at runtime.
+   */
+  readonly googleClient: GoogleDocumentAiClient | null;
 }
 
 /** Runs every T05 extractor over one OCR reading, in `ExtractedCandidates`' own field order. */
@@ -89,7 +94,7 @@ export function createImageAnalysisPipeline(
     });
 
     let googleCandidates: ExtractedCandidates | null = null;
-    if (needsGoogleSecondOpinion(azureVerification)) {
+    if (googleClient !== null && needsGoogleSecondOpinion(azureVerification)) {
       try {
         const googleResult = await googleClient(input.data, input.mimeType);
         googleCandidates = runExtractors(googleResult.content);

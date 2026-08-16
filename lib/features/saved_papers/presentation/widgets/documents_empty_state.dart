@@ -54,7 +54,7 @@ class DocumentsEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -121,7 +121,7 @@ class _EmptyArt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return ExcludeSemantics(
       child: SizedBox(

@@ -38,7 +38,7 @@ class ResultHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final caveat = confidenceLabel(strings, analysis.kindConfidence);
 
@@ -88,7 +88,7 @@ class _KindChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return DecoratedBox(
       decoration: BoxDecoration(

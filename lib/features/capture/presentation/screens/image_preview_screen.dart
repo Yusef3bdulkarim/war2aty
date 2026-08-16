@@ -165,7 +165,7 @@ class _TopBar extends StatelessWidget {
               s.previewTitle,
               textAlign: TextAlign.center,
               style: AppTypography.titleMedium.copyWith(
-                color: AppColors.light.onBrand,
+                color: AppColors.of(context).onBrand,
               ),
             ),
           ),
@@ -258,7 +258,7 @@ class _ProcessingVeil extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return ColoredBox(
       color: previewBackground.withValues(alpha: 0.6),
@@ -293,7 +293,7 @@ class _ActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return Container(
       width: double.infinity,
@@ -332,7 +332,7 @@ class _ActionBar extends StatelessWidget {
           _PreviewButton(
             label: s.previewUseImage,
             onPressed: onUse,
-            background: AppColors.light.brandPrimary,
+            background: AppColors.of(context).brandPrimary,
             foreground: onDark,
             height: _primaryHeight,
             fontSize: 17,
@@ -379,7 +379,7 @@ class _CircleButton extends StatelessWidget {
           child: SizedBox(
             width: _controlBox,
             height: _controlBox,
-            child: Icon(icon, color: AppColors.light.onBrand, size: 22),
+            child: Icon(icon, color: AppColors.of(context).onBrand, size: 22),
           ),
         ),
       ),

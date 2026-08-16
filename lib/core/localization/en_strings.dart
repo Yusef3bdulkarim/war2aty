@@ -460,10 +460,105 @@ final class EnStrings implements AppStrings {
   String get navSettings => 'Settings';
 
   @override
+  String get settingsGeneralSection => 'General';
+
+  @override
+  String get settingsLanguageLabel => 'App language';
+
+  @override
   String get languageArabic => 'Arabic';
 
   @override
   String get languageEnglish => 'English';
+
+  @override
+  String get settingsPrivacySection => 'Privacy';
+
+  @override
+  String get settingsAnalysisConsentLabel =>
+      'Allow sending the text for analysis';
+
+  @override
+  String get settingsProcessingModeLabel => 'Paper processing method';
+
+  @override
+  String get settingsProcessingModeSmartAnalysis => 'Smart analysis';
+
+  @override
+  String get settingsProcessingModeTextOnly => 'Text extraction only';
+
+  @override
+  String get settingsProcessingModeSmartAnalysisDescription =>
+      'The paper is read and analysed to highlight what matters';
+
+  @override
+  String get settingsProcessingModeTextOnlyDescription =>
+      'Only extract the text — nothing leaves your phone';
+
+  // Display / Accessibility (F11-T05)
+  @override
+  String get settingsDisplaySection => 'Display';
+
+  @override
+  String get settingsTextSizeLabel => 'Text size';
+
+  @override
+  String get settingsTextSizeNormal => 'Normal';
+
+  @override
+  String get settingsTextSizeLarge => 'Large';
+
+  @override
+  String get settingsTextSizeVeryLarge => 'Very large';
+
+  @override
+  String get settingsTextSizeNormalDescription => "The app's default text size";
+
+  @override
+  String get settingsTextSizeLargeDescription =>
+      'A bit bigger — easier to read';
+
+  @override
+  String get settingsTextSizeVeryLargeDescription =>
+      'The largest size — for when you need the clearest text';
+
+  // Accessibility (F11-T06)
+  @override
+  String get settingsAccessibilitySection => 'Accessibility';
+
+  @override
+  String get settingsHighContrastLabel => 'High contrast';
+
+  // Audio & reading defaults (F11-T07)
+  @override
+  String get settingsAudioSection => 'Audio & reading';
+
+  @override
+  String get settingsAudioSpeedLabel => 'Default reading speed';
+
+  @override
+  String get settingsAudioVoiceLabel => 'Reading voice';
+
+  @override
+  String get settingsAudioVoiceDescription =>
+      'Available voices depend on your phone\'s own settings.';
+
+  @override
+  String get settingsAudioVoiceDefault => 'Default voice';
+
+  @override
+  String get settingsAudioPreviewLabel => 'Preview voice';
+
+  @override
+  String get settingsAudioPreviewSample =>
+      'Hi, this is the War2aty app speaking.';
+
+  @override
+  String get settingsAudioPreviewFailedFeedback =>
+      'Could not play the voice sample right now.';
+
+  @override
+  String get settingsAudioResumeLabel => 'Resume reading from last position';
 
   // OCR processing
   @override
@@ -513,6 +608,26 @@ final class EnStrings implements AppStrings {
       'These fields need verification — make sure they are correct.';
   @override
   String get ocrReviewDone => 'Done';
+
+  @override
+  String get ocrOnlineReviewTitle => 'Text read from the document';
+  @override
+  String get ocrOnlineReviewSubtitle =>
+      'Review the text and fix anything wrong before analysis';
+  @override
+  String get ocrOnlineLoading => 'Reading the document...';
+  @override
+  String get ocrOnlineAnalyze => 'Analyze document';
+  @override
+  String get ocrOnlinePoorQuality =>
+      "We couldn't read clear text from the document. Try photographing it "
+      'again with better lighting.';
+  @override
+  String get ocrOnlineShowImage => 'Show original image';
+  @override
+  String get ocrOnlineHideImage => 'Hide image';
+  @override
+  String get ocrOnlineAmbiguityNotice => 'Some information may need review';
 
   // Analysis — while it runs
   @override
@@ -604,6 +719,15 @@ final class EnStrings implements AppStrings {
   String get analysisUnsupportedMessage =>
       'We can show you the text we read and read it aloud, but we cannot give '
       'a reliable explanation for this kind of document.';
+  @override
+  String get analysisConsentDeclinedTitle => 'Smart analysis is off';
+  @override
+  String get analysisConsentDeclinedMessage =>
+      'You turned off "Allow sending the text for analysis" in Settings, so '
+      'we could not explain this paper. The text we read from it is still '
+      'available below.';
+  @override
+  String get analysisConsentDeclinedOpenSettings => 'Open Settings';
   @override
   String get resultListenToExtractedText => 'Listen to the text';
   @override

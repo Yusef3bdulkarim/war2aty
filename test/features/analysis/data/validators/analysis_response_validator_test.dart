@@ -65,13 +65,17 @@ void main() {
   });
 
   group('schema version', () {
-    test('accepts the supported version', () {
+    test('accepts supported versions', () {
       expect(kSupportedAnalysisSchemaVersions, contains('1.0'));
+      expect(kSupportedAnalysisSchemaVersions, contains('2.0'));
       expect(_validator.validate(_minimal()).isOk, isTrue);
+
+      final v2 = _minimal()..['schema_version'] = '2.0';
+      expect(_validator.validate(v2).isOk, isTrue);
     });
 
     test('rejects an unknown version without parsing the body', () {
-      for (final version in ['2.0', '0.9', '1', '']) {
+      for (final version in ['3.0', '0.9', '1', '']) {
         final body = _minimal()..['schema_version'] = version;
 
         _expectInvalid(_validator.validate(body));

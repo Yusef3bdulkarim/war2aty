@@ -40,6 +40,24 @@ export type AiAnalysisProvider = (
  */
 const MAX_OUTPUT_TOKENS = 2000;
 
+/**
+ * `openai/gpt-oss-120b` is a reasoning model: Groq counts its internal
+ * chain-of-thought against `max_tokens` before it ever writes the JSON
+ * answer. Measured on 2026-08-11 at the default effort, that trace alone ran
+ * 1,100–1,300 tokens on an ordinary bill, leaving the actual answer only
+ * 700–900 of the 2000-token budget and occasionally none at all — the
+ * completion hit `finish_reason: "length"` mid-object, or the model
+ * fell back to wrapping the answer in a bare array, which Groq's own strict
+ * schema check then rejects with an HTTP 400. Both surfaced identically as
+ * ANALYSIS_FAILED with no way to tell them apart from a real outage.
+ *
+ * "low" cut the trace to ~220 tokens with no loss of extraction quality in
+ * the same test — this is a document-extraction task, not one that benefits
+ * from deep reasoning — and left the answer a comfortable margin under the
+ * cap.
+ */
+const REASONING_EFFORT = "low";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -131,6 +149,7 @@ export function createGroqAnalysisProvider(
       temperature: 0,
       maxTokens: MAX_OUTPUT_TOKENS,
       responseFormat: GROQ_ANALYSIS_RESPONSE_FORMAT,
+      reasoningEffort: REASONING_EFFORT,
     });
 
     let parsed: unknown;

@@ -7,6 +7,9 @@ import 'analysis_remote_data_source.dart';
 /// Path of the analysis endpoint, relative to the functions base URL.
 const String kAnalyzeDocumentPath = '/analyze-document';
 
+/// Path of the OCR-only endpoint (F14), relative to the functions base URL.
+const String kOcrDocumentPath = '/ocr-document';
+
 /// The real transport: `POST /functions/v1/analyze-document` (F06-T13).
 ///
 /// Deliberately thin. Authentication, the correlation id and logging are the
@@ -22,9 +25,12 @@ const String kAnalyzeDocumentPath = '/analyze-document';
 /// PRIVACY: [analyze] carries OCR text and candidates only — no image, no
 /// thumbnail, no EXIF, no GPS. `AnalysisRequestDto` has no field that could
 /// hold one (§7), which is what makes that guarantee structural rather than a
-/// promise this class has to keep. [analyzeImage] is the one deliberate
-/// exception (F13 locked decisions, §29b) — it exists specifically to send
-/// the image, gated server-side behind `azureOcrEnabled`.
+/// promise this class has to keep. [analyzeImage] and [ocrImage] are the
+/// deliberate exceptions (F13 locked decisions, §29b; F14) — they exist
+/// specifically to send the image, gated server-side behind
+/// `azureOcrEnabled`. [ocrImage] stops at OCR text and candidates and never
+/// reaches Groq (F14's two-call split, `ocr-document` then `analyze-document`
+/// text path).
 final class EdgeFunctionAnalysisRemoteDataSource
     implements AnalysisRemoteDataSource {
   const EdgeFunctionAnalysisRemoteDataSource(this._dio);
@@ -56,6 +62,19 @@ final class EdgeFunctionAnalysisRemoteDataSource
   ) async {
     final response = await _dio.post<dynamic>(
       kAnalyzeDocumentPath,
+      data: request.toJson(),
+    );
+
+    return AnalysisApiResponse(
+      statusCode: response.statusCode ?? 0,
+      body: response.data,
+    );
+  }
+
+  @override
+  Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {
+    final response = await _dio.post<dynamic>(
+      kOcrDocumentPath,
       data: request.toJson(),
     );
 

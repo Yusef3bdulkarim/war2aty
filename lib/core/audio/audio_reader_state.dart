@@ -1,6 +1,6 @@
-import '../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../documents/reading_mode.dart';
 import '../error/app_failure.dart';
+import 'reading_speed.dart';
 
 /// States of the result screen's audio reader mini-player (F10).
 sealed class AudioReaderState {

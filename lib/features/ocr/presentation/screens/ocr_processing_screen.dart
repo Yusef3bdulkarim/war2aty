@@ -31,7 +31,7 @@ class OcrProcessingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.light.surface,
+      backgroundColor: AppColors.of(context).surface,
       body: SafeArea(
         child: BlocConsumer<OcrProcessingCubit, OcrProcessingState>(
           listener: (context, state) {
@@ -56,13 +56,13 @@ class OcrProcessingScreen extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: AppColors.light.brandPrimary),
+          CircularProgressIndicator(color: AppColors.of(context).brandPrimary),
           const SizedBox(height: AppSpacing.lg),
           Text(
             strings.ocrProcessing,
             style: TextStyle(
               fontSize: 16,
-              color: AppColors.light.textSecondary,
+              color: AppColors.of(context).textSecondary,
             ),
           ),
         ],
@@ -105,14 +105,14 @@ class OcrProcessingScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: AppColors.light.textMuted),
+            Icon(icon, size: 64, color: AppColors.of(context).textMuted),
             const SizedBox(height: AppSpacing.lg),
             Text(
               title,
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: AppColors.light.ink,
+                color: AppColors.of(context).ink,
               ),
               textAlign: TextAlign.center,
             ),
@@ -121,7 +121,7 @@ class OcrProcessingScreen extends StatelessWidget {
               message,
               style: TextStyle(
                 fontSize: 15,
-                color: AppColors.light.textSecondary,
+                color: AppColors.of(context).textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -131,8 +131,8 @@ class OcrProcessingScreen extends StatelessWidget {
               child: FilledButton(
                 onPressed: onRetake,
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.light.brandPrimary,
-                  foregroundColor: AppColors.light.onBrand,
+                  backgroundColor: AppColors.of(context).brandPrimary,
+                  foregroundColor: AppColors.of(context).onBrand,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadii.md),
@@ -147,9 +147,9 @@ class OcrProcessingScreen extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: onPickAnother,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.light.brandPrimary,
+                  foregroundColor: AppColors.of(context).brandPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(color: AppColors.light.brandPrimary),
+                  side: BorderSide(color: AppColors.of(context).brandPrimary),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadii.md),
                   ),
@@ -182,13 +182,16 @@ class OcrProcessingScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.light.ink,
+                    color: AppColors.of(context).ink,
                   ),
                 ),
               ),
               IconButton(
                 onPressed: () => _copyText(context, result),
-                icon: Icon(Icons.copy, color: AppColors.light.brandPrimary),
+                icon: Icon(
+                  Icons.copy,
+                  color: AppColors.of(context).brandPrimary,
+                ),
                 tooltip: strings.ocrCopyText,
               ),
             ],
@@ -206,16 +209,16 @@ class OcrProcessingScreen extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   decoration: BoxDecoration(
-                    color: AppColors.light.card,
+                    color: AppColors.of(context).card,
                     borderRadius: BorderRadius.circular(AppRadii.md),
-                    border: Border.all(color: AppColors.light.borderSoft),
+                    border: Border.all(color: AppColors.of(context).borderSoft),
                   ),
                   child: SelectableText(
                     result.text.cleanedText,
                     style: TextStyle(
                       fontSize: 15,
                       height: 1.6,
-                      color: AppColors.light.textBody,
+                      color: AppColors.of(context).textBody,
                     ),
                   ),
                 ),
@@ -240,8 +243,8 @@ class OcrProcessingScreen extends StatelessWidget {
             child: FilledButton(
               onPressed: onContinue,
               style: FilledButton.styleFrom(
-                backgroundColor: AppColors.light.brandPrimary,
-                foregroundColor: AppColors.light.onBrand,
+                backgroundColor: AppColors.of(context).brandPrimary,
+                foregroundColor: AppColors.of(context).onBrand,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadii.md),
@@ -269,7 +272,7 @@ class OcrProcessingScreen extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.light.card,
+      backgroundColor: AppColors.of(context).card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
       ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../features/audio_reader/domain/entities/reading_speed.dart';
+import '../audio/reading_speed.dart';
 import '../documents/reading_mode.dart';
 import '../documents/reading_mode_label.dart';
 import '../localization/app_localizations.dart';

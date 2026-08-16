@@ -171,7 +171,7 @@ class _Opening extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return Semantics(
       liveRegion: true,
@@ -217,7 +217,7 @@ class _CloseButton extends StatelessWidget {
             height: _controlBox,
             child: Icon(
               Icons.close_rounded,
-              color: AppColors.light.onBrand,
+              color: AppColors.of(context).onBrand,
               size: 22,
             ),
           ),
@@ -250,7 +250,7 @@ class _Hint extends StatelessWidget {
             child: Text(
               s.cameraViewfinderHint,
               style: AppTypography.caption.copyWith(
-                color: AppColors.light.onBrand,
+                color: AppColors.of(context).onBrand,
                 fontWeight: AppTypography.semiBold,
                 fontSize: 14,
               ),
@@ -291,7 +291,7 @@ class _PulsingDotState extends State<_PulsingDot>
         width: 8,
         height: 8,
         decoration: BoxDecoration(
-          color: AppColors.light.mint,
+          color: AppColors.of(context).mint,
           shape: BoxShape.circle,
         ),
       ),
@@ -356,7 +356,7 @@ class _CameraError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return Stack(
       children: [
@@ -399,7 +399,7 @@ class _CameraError extends StatelessWidget {
                 FilledButton(
                   onPressed: onRetry,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.light.brandPrimary,
+                    backgroundColor: AppColors.of(context).brandPrimary,
                     foregroundColor: onDark,
                     minimumSize: const Size.fromHeight(52),
                     textStyle: AppTypography.labelLarge,

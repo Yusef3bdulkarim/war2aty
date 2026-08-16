@@ -62,7 +62,7 @@ class ReminderDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -108,7 +108,7 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: CircularProgressIndicator(
-        color: AppColors.light.brandPrimary,
+        color: AppColors.of(context).brandPrimary,
         semanticsLabel: context.strings.stateLoading,
       ),
     );
@@ -213,7 +213,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     // The design's arrow points towards the start of an Arabic line; in an
     // English layout that is the other way round.
@@ -284,7 +284,7 @@ class _StatusAndTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,10 +317,14 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final alert = reminder.nextAlert;
-    final localAlert = alert == null ? null : cairoLocalOf(alert.scheduledAt);
+    // DST-aware, matching how the alert was scheduled — see
+    // `formatClockTime`'s doc for why not `cairoLocalOf`.
+    final localAlert = alert == null
+        ? null
+        : cairoWallClockOf(alert.scheduledAt);
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -379,7 +383,7 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,7 +423,7 @@ class _DescriptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return Padding(
@@ -473,7 +477,7 @@ class _LinkedDocumentButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     // The design's arrow points towards the start of an Arabic line; in an
     // English layout that is the other way round.
@@ -536,7 +540,7 @@ class _Actions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final cubit = context.read<ReminderDetailsCubit>();
 

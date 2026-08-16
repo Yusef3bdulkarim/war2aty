@@ -80,6 +80,18 @@ Deno.test("the provider bounds the output length", async () => {
   assert((requests[0].maxTokens ?? 0) > 0);
 });
 
+Deno.test("the provider caps reasoning effort", async () => {
+  // openai/gpt-oss-120b spends part of maxTokens on an internal reasoning
+  // trace before writing the answer; left at the default effort this was
+  // measured consuming 1,100-1,300 tokens on an ordinary document, regularly
+  // crowding out the JSON answer itself. "low" is required, not incidental.
+  const { provider, requests } = providerReturning(VALID);
+
+  await provider(INPUT);
+
+  assertEquals(requests[0].reasoningEffort, "low");
+});
+
 Deno.test("the provider sends the built prompt messages", async () => {
   const { provider, requests } = providerReturning(VALID);
 

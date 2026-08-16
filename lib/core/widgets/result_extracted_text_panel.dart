@@ -54,7 +54,7 @@ class ResultExtractedTextPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return ExpandablePanel(
@@ -118,7 +118,7 @@ class _ReadingCaution extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return DecoratedBox(
@@ -171,7 +171,7 @@ class _PanelButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return SizedBox(
       height: _buttonHeight,

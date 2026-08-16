@@ -50,3 +50,27 @@ export function googleDocumentAiOptionsFromEnv(
     processorId: requireEnv(environment, "GOOGLE_DOCUMENT_AI_PROCESSOR_ID"),
   };
 }
+
+/**
+ * Returns `true` when all five Google Document AI env vars are present.
+ *
+ * Google is a second-opinion enhancement, not a dependency — the pipeline
+ * works fine with Azure alone. An org policy may block service-account key
+ * creation, and forcing a deploy fault for an optional provider would be
+ * wrong.
+ */
+export function isGoogleDocumentAiConfigured(
+  environment: { get(key: string): string | undefined } = Deno.env,
+): boolean {
+  const keys = [
+    "GOOGLE_DOCUMENT_AI_CLIENT_EMAIL",
+    "GOOGLE_DOCUMENT_AI_PRIVATE_KEY",
+    "GOOGLE_DOCUMENT_AI_PROJECT_ID",
+    "GOOGLE_DOCUMENT_AI_LOCATION",
+    "GOOGLE_DOCUMENT_AI_PROCESSOR_ID",
+  ];
+  return keys.every((k) => {
+    const v = environment.get(k)?.trim();
+    return v !== undefined && v.length > 0;
+  });
+}

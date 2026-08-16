@@ -331,8 +331,83 @@ abstract interface class AppStrings {
   String get navSettings;
 
   // Settings
+  /// The settings screen's «عام» section (F11-T04).
+  String get settingsGeneralSection;
+
+  /// The language-switch row's label (F11-T04).
+  String get settingsLanguageLabel;
+
   String get languageArabic;
   String get languageEnglish;
+
+  /// The settings screen's «الخصوصية» section (F11-T02).
+  String get settingsPrivacySection;
+
+  /// The analysis consent toggle's row label (F11-T02).
+  String get settingsAnalysisConsentLabel;
+
+  /// The processing-mode row's label (F11-T03).
+  String get settingsProcessingModeLabel;
+
+  /// The two processing modes (F11-T03), shown in the picker sheet and as
+  /// the current value on the row itself.
+  String get settingsProcessingModeSmartAnalysis;
+  String get settingsProcessingModeTextOnly;
+
+  /// One-line descriptions under each mode in the picker sheet (F11-T03).
+  String get settingsProcessingModeSmartAnalysisDescription;
+  String get settingsProcessingModeTextOnlyDescription;
+
+  /// The settings screen's «العرض» section (F11-T05).
+  String get settingsDisplaySection;
+
+  /// The text-size row's label (F11-T05).
+  String get settingsTextSizeLabel;
+
+  /// The three text sizes (F11-T05), shown in the picker sheet and as
+  /// the current value on the row itself.
+  String get settingsTextSizeNormal;
+  String get settingsTextSizeLarge;
+  String get settingsTextSizeVeryLarge;
+
+  /// One-line descriptions under each text size in the picker sheet (F11-T05).
+  String get settingsTextSizeNormalDescription;
+  String get settingsTextSizeLargeDescription;
+  String get settingsTextSizeVeryLargeDescription;
+
+  /// The settings screen's «إمكانية الوصول» section (F11-T06).
+  String get settingsAccessibilitySection;
+
+  /// The high-contrast toggle's row label (F11-T06).
+  String get settingsHighContrastLabel;
+
+  /// The settings screen's «الصوت والقراءة» section (F11-T07).
+  String get settingsAudioSection;
+
+  /// The default reading speed row's label (F11-T07).
+  String get settingsAudioSpeedLabel;
+
+  /// The default reading voice row's label and supporting description
+  /// (F11-T07).
+  String get settingsAudioVoiceLabel;
+  String get settingsAudioVoiceDescription;
+
+  /// The value shown on the voice row — and the automatic-match option in
+  /// its picker sheet — when nothing overrides `SelectVoiceForReading`'s own
+  /// match (F11-T07).
+  String get settingsAudioVoiceDefault;
+
+  /// «تجربة الصوت» (F11-T07).
+  String get settingsAudioPreviewLabel;
+
+  /// The fixed phrase «تجربة الصوت» speaks (F11-T07).
+  String get settingsAudioPreviewSample;
+
+  /// Shown when «تجربة الصوت» fails to play (F11-T07).
+  String get settingsAudioPreviewFailedFeedback;
+
+  /// The resume-reading toggle's row label (F11-T07).
+  String get settingsAudioResumeLabel;
 
   // OCR processing
   String get ocrProcessing;
@@ -360,6 +435,17 @@ abstract interface class AppStrings {
   String get ocrReviewTitle;
   String get ocrReviewSubtitle;
   String get ocrReviewDone;
+
+  // OCR online review screen (F14) — the online route's stop between Azure
+  // OCR and Groq analysis.
+  String get ocrOnlineReviewTitle;
+  String get ocrOnlineReviewSubtitle;
+  String get ocrOnlineLoading;
+  String get ocrOnlineAnalyze;
+  String get ocrOnlinePoorQuality;
+  String get ocrOnlineShowImage;
+  String get ocrOnlineHideImage;
+  String get ocrOnlineAmbiguityNotice;
 
   // Analysis — while it runs
   String get analysisRunningTitle;
@@ -477,6 +563,14 @@ abstract interface class AppStrings {
   /// responsibly. The text and the reader are still offered.
   String get analysisUnsupportedTitle;
   String get analysisUnsupportedMessage;
+
+  /// The user turned off analysis consent in Settings (F11-T02) — the state
+  /// page's own words, not a generic failure.
+  String get analysisConsentDeclinedTitle;
+  String get analysisConsentDeclinedMessage;
+
+  /// Leads to Settings from the declined-consent state page (F11-T02).
+  String get analysisConsentDeclinedOpenSettings;
 
   /// Reads the extracted text aloud from a state screen, where there is no
   /// surrounding text to lean on.

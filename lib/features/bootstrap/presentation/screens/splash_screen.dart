@@ -158,7 +158,7 @@ class _LaunchError extends StatelessWidget {
                         width: 96,
                         height: 96,
                         decoration: BoxDecoration(
-                          color: AppColors.light.surfaceTealAlt,
+                          color: AppColors.of(context).surfaceTealAlt,
                           borderRadius: BorderRadius.circular(28),
                         ),
                         child: Icon(

@@ -41,7 +41,7 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -84,7 +84,7 @@ class _Opening extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Semantics(
       liveRegion: true,
@@ -118,7 +118,7 @@ class _GalleryError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Center(
       child: SingleChildScrollView(

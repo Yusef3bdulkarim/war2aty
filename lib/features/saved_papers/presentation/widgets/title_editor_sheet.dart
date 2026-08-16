@@ -36,7 +36,7 @@ Future<String?> showTitleEditorSheet(
   required String current,
 }) => showModalBottomSheet<String>(
   context: context,
-  backgroundColor: AppColors.light.card,
+  backgroundColor: AppColors.of(context).card,
   isScrollControlled: true,
   constraints: BoxConstraints(
     maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor,
@@ -81,7 +81,7 @@ class _TitleEditorSheetState extends State<_TitleEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SafeArea(

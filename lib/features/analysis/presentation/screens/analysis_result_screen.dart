@@ -19,6 +19,7 @@ import '../../../../core/widgets/audio_mini_player_bar.dart';
 import '../../../../core/widgets/audio_options_sheet.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
+import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_amounts_card.dart';
 import '../../../../core/widgets/result_dates_card.dart';
@@ -29,12 +30,10 @@ import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
-import '../../../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
-import '../widgets/result_action_bar.dart';
 
 // From `Waraqti.dc.html` → the result page. The top bar's 56px is measured
 // from the physical screen top and already contains the 52px status bar, which
@@ -63,6 +62,7 @@ class AnalysisResultScreen extends StatelessWidget {
     this.onCreateReminder,
     this.onSave,
     this.onCaptureAnother,
+    this.onOpenSettings,
     super.key,
   });
 
@@ -91,9 +91,13 @@ class AnalysisResultScreen extends StatelessWidget {
   /// Starts a fresh capture. The way out of an unsupported paper.
   final VoidCallback? onCaptureAnother;
 
+  /// Opens the settings screen. The way out of a declined analysis consent
+  /// (F11-T02) — absent until the settings screen exists to open (F11-T01).
+  final VoidCallback? onOpenSettings;
+
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -113,6 +117,7 @@ class AnalysisResultScreen extends StatelessWidget {
             onClose: onClose,
             onListen: onListen,
             onCaptureAnother: onCaptureAnother,
+            onOpenSettings: onOpenSettings,
           ),
         },
       ),
@@ -177,7 +182,7 @@ class _ResultBodyState extends State<_ResultBody> {
                   if (widget.result.analysis.isPartial)
                     const PartialResultBanner(),
                   for (final section in widget.result.sections)
-                    _section(section, strings),
+                    _section(context, section, strings),
                 ],
               ),
             ),
@@ -199,18 +204,22 @@ class _ResultBodyState extends State<_ResultBody> {
   /// Opens the mode-and-speed-picker sheet and starts the mini-player reading
   /// whatever the user confirms there. Reopening it (from the bar's
   /// «خيارات») highlights the mode and speed already reading rather than
-  /// resetting either to the first/default.
+  /// resetting either to the first/default — a fresh open instead highlights
+  /// the user's persisted «سرعة القراءة الافتراضية» (F11-T07) rather than
+  /// always the same fixed default.
   Future<void> _openAudioSheet() async {
     final cubit = context.read<AudioReaderCubit>();
     final currentlyReading = cubit.state;
+    final defaultSpeed = currentlyReading is AudioReaderReading
+        ? currentlyReading.speed
+        : await cubit.loadDefaultSpeed();
+    if (!mounted) return;
     final choice = await showAudioOptionsSheet(
       context,
       initialMode: currentlyReading is AudioReaderReading
           ? currentlyReading.mode
           : ReadingMode.summaryOnly,
-      initialSpeed: currentlyReading is AudioReaderReading
-          ? currentlyReading.speed
-          : ReadingSpeed.normal,
+      initialSpeed: defaultSpeed,
     );
     if (choice == null || !mounted) return;
     await cubit.start(
@@ -224,8 +233,12 @@ class _ResultBodyState extends State<_ResultBody> {
   /// The widget for one section. Each owns its own spacing and internal
   /// states, the way Home's sections do — and each is filled in by the task
   /// named beside it.
-  Widget _section(AnalysisSection section, AppStrings strings) {
-    const colors = AppColors.light;
+  Widget _section(
+    BuildContext context,
+    AnalysisSection section,
+    AppStrings strings,
+  ) {
+    final colors = AppColors.of(context);
     final analysis = widget.result.analysis;
 
     return switch (section) {
@@ -327,7 +340,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     // The design's arrow points towards the start of an Arabic line; in an
     // English layout that is the other way round.
@@ -405,12 +418,14 @@ class _FailureBody extends StatefulWidget {
     this.onClose,
     this.onListen,
     this.onCaptureAnother,
+    this.onOpenSettings,
   });
 
   final AnalysisResultFailed state;
   final VoidCallback? onClose;
   final VoidCallback? onListen;
   final VoidCallback? onCaptureAnother;
+  final VoidCallback? onOpenSettings;
 
   @override
   State<_FailureBody> createState() => _FailureBodyState();
@@ -433,6 +448,11 @@ enum _FailureKind {
   /// same text would come back unsupported, at the cost of one analysis.
   unsupported,
 
+  /// The user turned off «السماح بإرسال النص للتحليل» (F11-T02). Not an
+  /// error — retrying would fail the exact same way until the setting
+  /// changes, so the way forward is Settings, not another attempt.
+  consentDeclined,
+
   /// The service could not answer. Worth another try in a moment.
   serviceProblem,
 }
@@ -443,7 +463,7 @@ class _FailureBodyState extends State<_FailureBody> {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     if (_showText) {
@@ -461,17 +481,20 @@ class _FailureBodyState extends State<_FailureBody> {
         _FailureKind.offline => StrokeGlyph.wifiOff,
         _FailureKind.limitReached => StrokeGlyph.clock,
         _FailureKind.unsupported => StrokeGlyph.documentSteps,
+        _FailureKind.consentDeclined => StrokeGlyph.shieldCheck,
         _FailureKind.serviceProblem => StrokeGlyph.warningTriangle,
       },
       tint: switch (kind) {
         _FailureKind.offline ||
-        _FailureKind.limitReached => colors.surfaceTealAlt,
+        _FailureKind.limitReached ||
+        _FailureKind.consentDeclined => colors.surfaceTealAlt,
         _FailureKind.unsupported => colors.surfaceAlt,
         _FailureKind.serviceProblem => colors.warningTint,
       },
       iconColor: switch (kind) {
         _FailureKind.offline ||
-        _FailureKind.limitReached => colors.brandPrimary,
+        _FailureKind.limitReached ||
+        _FailureKind.consentDeclined => colors.brandPrimary,
         _FailureKind.unsupported => colors.textMuted,
         _FailureKind.serviceProblem => colors.warning,
       },
@@ -479,12 +502,14 @@ class _FailureBodyState extends State<_FailureBody> {
         _FailureKind.offline => strings.analysisNoInternetTitle,
         _FailureKind.limitReached => strings.analysisLimitReachedTitle,
         _FailureKind.unsupported => strings.analysisUnsupportedTitle,
+        _FailureKind.consentDeclined => strings.analysisConsentDeclinedTitle,
         _FailureKind.serviceProblem => strings.analysisFailedTitle,
       },
       message: switch (kind) {
         _FailureKind.offline => strings.analysisNoInternetMessage,
         _FailureKind.limitReached => strings.analysisLimitReachedMessage,
         _FailureKind.unsupported => strings.analysisUnsupportedMessage,
+        _FailureKind.consentDeclined => strings.analysisConsentDeclinedMessage,
         _FailureKind.serviceProblem => strings.analysisFailedMessage,
       },
       primary: _primary(strings),
@@ -497,6 +522,7 @@ class _FailureBodyState extends State<_FailureBody> {
     NoInternetFailure() => _FailureKind.offline,
     DailyLimitReachedFailure() => _FailureKind.limitReached,
     UnsupportedDocumentFailure() => _FailureKind.unsupported,
+    AnalysisConsentDeclinedFailure() => _FailureKind.consentDeclined,
     _ => _FailureKind.serviceProblem,
   };
 
@@ -516,8 +542,18 @@ class _FailureBodyState extends State<_FailureBody> {
     onPressed: () => setState(() => _showText = true),
   );
 
-  /// Retrying leads the way where it can work; otherwise the text does.
+  /// Retrying leads the way where it can work; a declined consent leads to
+  /// Settings instead, since retrying would only fail the same way again;
+  /// otherwise the text does.
   ServiceStateAction _primary(AppStrings strings) {
+    if (_kind == _FailureKind.consentDeclined) {
+      if (widget.onOpenSettings case final onOpenSettings?) {
+        return ServiceStateAction(
+          label: strings.analysisConsentDeclinedOpenSettings,
+          onPressed: onOpenSettings,
+        );
+      }
+    }
     if (_canRetry) {
       return ServiceStateAction(
         label: strings.actionRetry,
@@ -533,6 +569,12 @@ class _FailureBodyState extends State<_FailureBody> {
 
   ServiceStateAction? _secondary(AppStrings strings) {
     if (!_hasText) return null;
+    // A declined consent's primary slot went to Settings above, so the text
+    // — never spent, since the request never went out — takes this one.
+    if (_kind == _FailureKind.consentDeclined &&
+        widget.onOpenSettings != null) {
+      return _showTextAction(strings);
+    }
     // Whichever of the two the primary did not take.
     if (_canRetry) return _showTextAction(strings);
     if (widget.onListen case final onListen?) {

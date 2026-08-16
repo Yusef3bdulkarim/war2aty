@@ -33,7 +33,7 @@ Future<DocumentCategory?> showCategoryPickerSheet(
   required DocumentCategory current,
 }) => showModalBottomSheet<DocumentCategory>(
   context: context,
-  backgroundColor: AppColors.light.card,
+  backgroundColor: AppColors.of(context).card,
   isScrollControlled: true,
   constraints: BoxConstraints(
     maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeightFactor,
@@ -51,7 +51,7 @@ class _CategoryPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SafeArea(
@@ -134,7 +134,7 @@ class _CategoryOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final radius = BorderRadius.circular(_optionRadius);
 
     return Semantics(

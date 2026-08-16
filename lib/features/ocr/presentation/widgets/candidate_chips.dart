@@ -84,14 +84,14 @@ class _Section extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: AppColors.light.textSecondary),
+              Icon(icon, size: 16, color: AppColors.of(context).textSecondary),
               const SizedBox(width: AppSpacing.xs),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.light.textSecondary,
+                  color: AppColors.of(context).textSecondary,
                 ),
               ),
             ],
@@ -100,20 +100,17 @@ class _Section extends StatelessWidget {
           Wrap(
             spacing: AppSpacing.sm,
             runSpacing: AppSpacing.sm,
-            children: chips.map(_buildChip).toList(),
+            children: chips.map((data) => _buildChip(context, data)).toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildChip(_ChipData data) {
-    final bgColor = data.isAmbiguous
-        ? AppColors.light.warningTint
-        : AppColors.light.surfaceTeal;
-    final fgColor = data.isAmbiguous
-        ? AppColors.light.warningInk
-        : AppColors.light.brandDeep;
+  Widget _buildChip(BuildContext context, _ChipData data) {
+    final colors = AppColors.of(context);
+    final bgColor = data.isAmbiguous ? colors.warningTint : colors.surfaceTeal;
+    final fgColor = data.isAmbiguous ? colors.warningInk : colors.brandDeep;
 
     return Container(
       padding: const EdgeInsets.symmetric(

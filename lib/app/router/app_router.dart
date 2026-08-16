@@ -13,8 +13,10 @@ import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
+import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
+import '../../features/analysis/presentation/screens/ocr_review_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
@@ -50,8 +52,9 @@ import '../../features/saved_papers/presentation/screens/document_details_screen
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
+import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../di/service_locator.dart';
-import '../shell/placeholder_tab.dart';
 import '../shell/scaffold_with_nav_bar.dart';
 
 /// Route path constants.
@@ -65,6 +68,7 @@ abstract final class AppRoutes {
   static const String capture = '/capture';
   static const String preview = '/preview';
   static const String ocr = '/ocr';
+  static const String ocrReview = '/ocr-review';
   static const String result = '/result';
   static const String documentDetails = '/documents';
   static const String reminderCreate = '/reminders/create';
@@ -139,10 +143,13 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               imagePath: path,
               onSessionCreated: (session) =>
                   context.pushReplacement(AppRoutes.ocr, extra: session),
-              // OCR is skipped entirely on this route (F13 locked decision
-              // #1) — straight to the result screen, which reads the
-              // corrected photo back out of `ImageAnalysisSessionHolder`.
-              onOnlineReady: (_) => context.pushReplacement(AppRoutes.result),
+              // The on-device OCR screen is skipped on this route (F13
+              // locked decision #1) — but unlike before F14, the online
+              // route still stops at an OCR review before analysis: the
+              // review screen reads the corrected photo back out of
+              // `ImageAnalysisSessionHolder` and runs Azure OCR itself.
+              onOnlineReady: (_) =>
+                  context.pushReplacement(AppRoutes.ocrReview),
               onRetake: context.pop,
             ),
           );
@@ -168,12 +175,73 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   context.read<OcrProcessingCubit>().confirm();
                   context.pushReplacement(AppRoutes.result);
                 },
-                onRetake: () => context.pushReplacement(
-                  AppRoutes.captureWith(CaptureSource.camera),
-                ),
-                onPickAnother: () => context.pushReplacement(
-                  AppRoutes.captureWith(CaptureSource.gallery),
-                ),
+                // `go(home)` then `push(capture)` rather than
+                // `pushReplacement`: `pushReplacement` only swaps the current
+                // top route, leaving the original `/capture` entry `Home`
+                // pushed underneath still on the stack. Collapsing to Home
+                // first guarantees the stack is always `[Home, capture(new)]`,
+                // so Back from the fresh Camera can never resurface a stale,
+                // covered capture route.
+                onRetake: () {
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.camera));
+                },
+                onPickAnother: () {
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.gallery));
+                },
+              ),
+            ),
+          );
+        },
+      ),
+      // The online route's stop between Azure OCR and Groq analysis (F14).
+      // Also outside the shell, like the routes either side of it.
+      GoRoute(
+        path: AppRoutes.ocrReview,
+        builder: (context, state) {
+          // Read from the hand-off holder rather than `extra`, same reasoning
+          // as the `/result` route below: `extra` is dropped when the OS
+          // kills and restores the app mid-scan.
+          final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
+          final session = onlineHandoff.session;
+          final photo = onlineHandoff.photo;
+          if (session == null || photo == null) return const _BackToHome();
+
+          return BlocProvider<OcrReviewCubit>(
+            create: (_) =>
+                getIt<OcrReviewCubit>(param1: session, param2: photo)..runOcr(),
+            // Same reasoning as the `/ocr` route's `Builder` above: the
+            // callbacks need a `context` below the provider to `read` it.
+            child: Builder(
+              builder: (context) => OcrReviewScreen(
+                // Replaces this route: once the approved text is on its way
+                // to Groq there is no going back to the OCR review of it.
+                onAnalyze: () {
+                  final cubit = context.read<OcrReviewCubit>();
+                  final extraction = cubit.buildReviewedResult();
+                  // The re-extracted result, not the server's original
+                  // candidates — see `buildReviewedResult`'s doc (locked
+                  // correction #1).
+                  getIt<OcrSessionHolder>().set(session, extraction);
+                  cubit.cleanupImage();
+                  context.pushReplacement(AppRoutes.result);
+                },
+                // See the `/ocr` route's `onRetake` above for why this is
+                // `go(home)` + `push(capture)` rather than `pushReplacement`.
+                onRetake: () {
+                  context.read<OcrReviewCubit>().cleanupImage();
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.camera));
+                },
+                onPickAnother: () {
+                  context.read<OcrReviewCubit>().cleanupImage();
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.gallery));
+                },
+                // The way out of a declined analysis consent (F11-T02) — the
+                // same escape hatch `/result` offers on the offline route.
+                onOpenSettings: () => context.go(AppRoutes.settings),
               ),
             ),
           );
@@ -216,10 +284,9 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           return MultiBlocProvider(
             providers: [
               BlocProvider<AnalysisResultCubit>(
-                create: (_) => getIt<AnalysisResultCubit>(
-                  param1: session,
-                  param2: source,
-                )..analyze(),
+                create: (_) =>
+                    getIt<AnalysisResultCubit>(param1: session, param2: source)
+                      ..analyze(),
               ),
               BlocProvider<SaveDocumentCubit>(
                 create: (_) => getIt<SaveDocumentCubit>(),
@@ -234,14 +301,17 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               child: Builder(
                 builder: (context) => AnalysisResultScreen(
                   onClose: () => context.go(AppRoutes.home),
-                  // Replaces this route: the paper that could not be explained
-                  // is not somewhere to come back to.
-                  onCaptureAnother: () => context.pushReplacement(
-                    AppRoutes.captureWith(CaptureSource.camera),
-                  ),
+                  // See the `/ocr` route's `onRetake` above for why this is
+                  // `go(home)` + `push(capture)` rather than `pushReplacement`.
+                  onCaptureAnother: () {
+                    context.go(AppRoutes.home);
+                    context.push(AppRoutes.captureWith(CaptureSource.camera));
+                  },
                   onSave: () => unawaited(_saveResult(context, session!)),
                   onCreateReminder: (date) =>
                       _startReminderFromDate(context, date),
+                  // The way out of a declined analysis consent (F11-T02).
+                  onOpenSettings: () => context.go(AppRoutes.settings),
                 ),
               ),
             ),
@@ -257,8 +327,18 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           final id = state.pathParameters['id'];
           if (id == null) return const _BackToHome();
 
-          return BlocProvider<DocumentDetailsCubit>(
-            create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<DocumentDetailsCubit>(
+                create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
+              ),
+              // Mirrors the `/result` route: the details screen grew its own
+              // Listen action and mini-player (F08 follow-up), reusing the
+              // same reader.
+              BlocProvider<AudioReaderCubit>(
+                create: (_) => getIt<AudioReaderCubit>(),
+              ),
+            ],
             child: DocumentDetailsScreen(
               onClose: context.pop,
               onCreateReminder: (date) =>
@@ -400,10 +480,16 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               ),
             ],
           ),
-          _branch(
-            AppRoutes.settings,
-            (c) => c.strings.navSettings,
-            Icons.settings,
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.settings,
+                builder: (context, state) => BlocProvider<SettingsCubit>(
+                  create: (_) => getIt<SettingsCubit>()..load(),
+                  child: const SettingsScreen(),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -474,22 +560,6 @@ Widget _galleryPicker(BuildContext context) {
       onPicked: (photo) => context.push(AppRoutes.previewWith(photo.path)),
       onCancelled: context.pop,
     ),
-  );
-}
-
-StatefulShellBranch _branch(
-  String path,
-  String Function(BuildContext) title,
-  IconData icon,
-) {
-  return StatefulShellBranch(
-    routes: [
-      GoRoute(
-        path: path,
-        builder: (context, state) =>
-            PlaceholderTab(title: title(context), icon: icon),
-      ),
-    ],
   );
 }
 

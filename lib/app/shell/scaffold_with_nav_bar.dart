@@ -75,7 +75,7 @@ class _NavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
     return ClipRect(
@@ -132,7 +132,7 @@ class _Destination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final color = selected ? colors.brandPrimary : colors.iconMuted;
 
     return Semantics(

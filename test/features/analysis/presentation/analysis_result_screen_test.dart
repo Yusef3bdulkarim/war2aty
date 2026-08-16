@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -12,6 +16,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
@@ -75,6 +80,13 @@ final class _FakeRepository implements AnalysisRepository {
     await gate?.future;
     return answer ?? Ok(invoiceAnalysis());
   }
+
+  @override
+  Future<Result<ExtractionResult, AppFailure>> ocrImage(
+    AnalysisImageRequest request,
+  ) async {
+    throw UnimplementedError('AnalysisResultCubit never calls ocrImage');
+  }
 }
 
 void main() {
@@ -82,17 +94,21 @@ void main() {
   late AnalysisResultCubit cubit;
   late FakeTextToSpeechService tts;
   late AudioReaderCubit audioReaderCubit;
+  late FakeDefaultReadingSpeedStore speedStore;
 
   setUp(() {
     repository = _FakeRepository();
     cubit = AnalysisResultCubit(
       session: _session,
       source: const OcrAnalysisSource(_extraction),
+      getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
       analyzeDocument: AnalyzeDocument(repository),
       analyzeImage: AnalyzeImage(repository),
       buildResult: const BuildAnalysisResult(),
+      syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
     );
     tts = FakeTextToSpeechService();
+    speedStore = FakeDefaultReadingSpeedStore();
     audioReaderCubit = AudioReaderCubit(
       StartReading(
         const BuildReadingText(),
@@ -104,6 +120,8 @@ void main() {
       ResumeReading(tts),
       SetReadingSpeed(tts),
       WatchReadingEvents(tts),
+      GetDefaultReadingSpeed(speedStore),
+      GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
     );
   });
 
@@ -244,6 +262,24 @@ void main() {
           ),
           findsOneWidget,
         );
+      },
+    );
+
+    testWidgets(
+      'a fresh open highlights the persisted default speed (F11-T07)',
+      (tester) async {
+        await speedStore.writeSpeed(ReadingSpeed.faster);
+        await cubit.analyze();
+        await pumpScreen(tester);
+
+        await tester.tap(find.text(_strings.resultListen));
+        await tester.pumpAndSettle();
+        // Confirm without touching the speed row — the default should carry
+        // straight through to the engine.
+        await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+        await tester.pumpAndSettle();
+
+        expect(tts.speechRates, [ReadingSpeed.faster.rate]);
       },
     );
 

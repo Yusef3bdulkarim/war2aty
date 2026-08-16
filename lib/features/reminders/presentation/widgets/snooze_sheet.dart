@@ -43,7 +43,7 @@ final class SnoozeCustom extends SnoozeChoice {
 Future<SnoozeChoice?> showSnoozeSheet(BuildContext context) {
   return showModalBottomSheet<SnoozeChoice>(
     context: context,
-    backgroundColor: AppColors.light.card,
+    backgroundColor: AppColors.of(context).card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
     ),
@@ -96,7 +96,7 @@ class _SnoozeSheetBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     final now = DateTime.now();
 
@@ -171,7 +171,7 @@ class _SnoozeOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Material(
       color: colors.surfaceAlt,

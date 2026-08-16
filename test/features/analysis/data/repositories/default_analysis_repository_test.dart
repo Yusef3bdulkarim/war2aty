@@ -42,6 +42,9 @@ final class _FakeDataSource implements AnalysisRemoteDataSource {
   /// The image request the repository actually built.
   AnalysisImageRequestDto? sentImage;
 
+  /// The image request [ocrImage] actually built.
+  AnalysisImageRequestDto? sentOcrImage;
+
   @override
   Future<AnalysisApiResponse> analyze(AnalysisRequestDto request) async {
     sent = request;
@@ -54,6 +57,13 @@ final class _FakeDataSource implements AnalysisRemoteDataSource {
     AnalysisImageRequestDto request,
   ) async {
     sentImage = request;
+    if (error != null) throw error!;
+    return response!;
+  }
+
+  @override
+  Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {
+    sentOcrImage = request;
     if (error != null) throw error!;
     return response!;
   }
@@ -88,6 +98,33 @@ Object? _errorBody(String code, {String? details}) => jsonDecode(
   '{"error":{"code":"$code","message":"debug only"'
   '${details == null ? '' : ',"details":$details'}}}',
 );
+
+Map<String, dynamic> _ocrSuccessBody() => {
+  'schema_version': '2.0',
+  'session_id': 'session-1',
+  'ocr_text': 'فاتورة كهرباء 850 جنيه',
+  'detected_languages': ['ar'],
+  'candidates': {
+    'dates': [
+      {
+        'raw_text': '15/04/2024',
+        'normalized_date': '2024-04-15',
+        'is_ambiguous': false,
+      },
+    ],
+    'times': <Map<String, dynamic>>[],
+    'amounts': [
+      {
+        'raw_text': '850 جنيه',
+        'value': 850,
+        'currency': 'EGP',
+        'is_ambiguous': false,
+      },
+    ],
+    'phones': <Map<String, dynamic>>[],
+    'references': <Map<String, dynamic>>[],
+  },
+};
 
 const _extraction = ExtractionResult(
   text: NormalizedOcrText(
@@ -497,6 +534,133 @@ void main() {
       expect(harness.sink.writes, hasLength(1));
       expect(harness.sink.writes.single['errorCode'], 'UNAUTHORIZED');
       expect(harness.sink.writes.single['analysisSessionId'], 'session-1');
+    });
+  });
+
+  group('ocrImage — outcomes', () {
+    test('returns the parsed extraction on success', () async {
+      final harness = _build(response: _ok(_ocrSuccessBody()));
+
+      final result = await harness.repository.ocrImage(_imageRequest);
+
+      final extraction = result.valueOrNull;
+      expect(extraction, isNotNull);
+      expect(extraction!.text.cleanedText, 'فاتورة كهرباء 850 جنيه');
+      expect(extraction.text.originalText, 'فاتورة كهرباء 850 جنيه');
+      expect(extraction.detectedLanguages, ['ar']);
+      expect(extraction.dates, hasLength(1));
+      expect(extraction.dates.single.normalizedDate, DateTime(2024, 4, 15));
+      expect(extraction.amounts.single.value, 850);
+      expect(extraction.amounts.single.currency, 'EGP');
+    });
+
+    test('reads bytes from the photo path it was given', () async {
+      String? readPath;
+      final harness = _build(
+        response: _ok(_ocrSuccessBody()),
+        readImageBytes: (path) async {
+          readPath = path;
+          return Uint8List.fromList([1]);
+        },
+      );
+
+      await harness.repository.ocrImage(_imageRequest);
+
+      expect(readPath, '/tmp/warped.jpg');
+    });
+
+    test('fails on a body it cannot read', () async {
+      final harness = _build(response: _ok('<html>oops</html>'));
+
+      final result = await harness.repository.ocrImage(_imageRequest);
+
+      expect(result.failureOrNull, isA<InvalidAnalysisResponseFailure>());
+    });
+
+    test('fails on an unsupported schema version', () async {
+      final body = _ocrSuccessBody()..['schema_version'] = '99.0';
+      final harness = _build(response: _ok(body));
+
+      final result = await harness.repository.ocrImage(_imageRequest);
+
+      expect(result.failureOrNull, isA<InvalidAnalysisResponseFailure>());
+    });
+
+    test('maps an error response through the shared §31 mapper', () async {
+      final harness = _build(
+        response: AnalysisApiResponse(
+          statusCode: 503,
+          body: _errorBody('ANALYSIS_DISABLED'),
+        ),
+      );
+
+      final result = await harness.repository.ocrImage(_imageRequest);
+
+      expect(result.failureOrNull, isA<AnalysisDisabledFailure>());
+    });
+
+    test('maps a transport error the same way as the other routes', () async {
+      final harness = _build(error: StateError('socket died'));
+
+      final result = await harness.repository.ocrImage(_imageRequest);
+
+      expect(result.failureOrNull, isA<AnalysisServiceFailure>());
+    });
+
+    test(
+      'turns an unreadable file into a local failure without calling the service',
+      () async {
+        final harness = _build(
+          response: _ok(_ocrSuccessBody()),
+          readImageBytes: (path) => throw const FileSystemException('nope'),
+        );
+
+        final result = await harness.repository.ocrImage(_imageRequest);
+
+        expect(result.failureOrNull, isA<ImageProcessingFailure>());
+        expect(harness.dataSource.sentOcrImage, isNull);
+      },
+    );
+
+    test(
+      'propagates an identity failure without calling the service',
+      () async {
+        final harness = _build(
+          response: _ok(_ocrSuccessBody()),
+          identity: const Err(FileStorageFailure()),
+        );
+
+        final result = await harness.repository.ocrImage(_imageRequest);
+
+        expect(result.failureOrNull, isA<FileStorageFailure>());
+        expect(harness.dataSource.sentOcrImage, isNull);
+      },
+    );
+
+    test('logs a failure scoped to the OCR stage and session', () async {
+      final harness = _build(
+        response: AnalysisApiResponse(
+          statusCode: 401,
+          body: _errorBody('UNAUTHORIZED'),
+        ),
+      );
+
+      await harness.repository.ocrImage(_imageRequest);
+
+      expect(harness.sink.writes, hasLength(1));
+      expect(harness.sink.writes.single['errorCode'], 'UNAUTHORIZED');
+      expect(harness.sink.writes.single['stage'], LogStage.ocr.name);
+      expect(harness.sink.writes.single['analysisSessionId'], 'session-1');
+    });
+
+    test('never logs document content', () async {
+      final harness = _build(response: _ok('<html>oops</html>'));
+
+      await harness.repository.ocrImage(_imageRequest);
+
+      final logged = jsonEncode(harness.sink.writes);
+      expect(logged, isNot(contains('كهرباء')));
+      expect(logged, isNot(contains('850')));
     });
   });
 }

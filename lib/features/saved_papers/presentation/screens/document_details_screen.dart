@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/audio/audio_reader_cubit.dart';
+import '../../../../core/audio/audio_reader_state.dart';
 import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/documents/analysis_section.dart';
+import '../../../../core/documents/reading_mode.dart';
+import '../../../../core/documents/reading_mode_label.dart';
 import '../../../../core/documents/saved_document.dart';
+import '../../../../core/documents/usecases/build_analysis_result.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/app_strings.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/audio_mini_player_bar.dart';
+import '../../../../core/widgets/audio_options_sheet.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
+import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_amounts_card.dart';
 import '../../../../core/widgets/result_dates_card.dart';
@@ -64,7 +72,7 @@ class DocumentDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -107,7 +115,7 @@ class _Loading extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: CircularProgressIndicator(
-        color: AppColors.light.brandPrimary,
+        color: AppColors.of(context).brandPrimary,
         semanticsLabel: context.strings.stateLoading,
       ),
     );
@@ -153,7 +161,12 @@ class _StateBody extends StatelessWidget {
 }
 
 /// The top bar and the ordered sections.
-class _DetailsBody extends StatelessWidget {
+///
+/// A `StatefulWidget`, mirroring `AnalysisResultScreen`'s `_ResultBody`: the
+/// same "خيارات الاستماع" sheet + mini-player + bottom action bar this
+/// screen now shares with the result page, over the document that was saved
+/// instead of the one just analysed.
+class _DetailsBody extends StatefulWidget {
   const _DetailsBody({
     required this.document,
     required this.sections,
@@ -167,50 +180,114 @@ class _DetailsBody extends StatelessWidget {
   final ValueChanged<AnalysisDate>? onCreateReminder;
 
   @override
+  State<_DetailsBody> createState() => _DetailsBodyState();
+}
+
+class _DetailsBodyState extends State<_DetailsBody> {
+  @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final document = widget.document;
 
-    return Column(
-      children: [
-        _TopBar(document: document, onClose: onClose),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              _pageSide,
-              _pageTop,
-              _pageSide,
-              _pageBottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Above everything: a half-read paper must not look like a
-                // fully understood one, whatever it managed to fill in — the
-                // same rule the result screen follows for the same status.
-                if (document.analysis.isPartial) const PartialResultBanner(),
-                for (final section in sections) _section(section, strings),
-                // «ملاحظتي» lives between the analysis sections and the
-                // explanation/extracted-text panels — the same position the
-                // design draws it in, after the paper's own content and
-                // before the raw OCR output (F08-T09).
-                _NoteSection(document: document),
-              ],
+    // Same reasoning as `_ResultBodyState`: a `BlocListener` here, not a
+    // `BlocBuilder` around the whole page, so a reading's progress ticks
+    // only rebuild `_MiniPlayerSlot` below (CLAUDE.md §B8).
+    return BlocListener<AudioReaderCubit, AudioReaderState>(
+      listenWhen: (previous, current) => current is AudioReaderFailed,
+      listener: (context, state) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
+          );
+      },
+      child: Column(
+        children: [
+          _TopBar(document: document, onClose: widget.onClose),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                _pageSide,
+                _pageTop,
+                _pageSide,
+                _pageBottom,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Above everything: a half-read paper must not look like a
+                  // fully understood one, whatever it managed to fill in —
+                  // the same rule the result screen follows for the same
+                  // status.
+                  if (document.analysis.isPartial) const PartialResultBanner(),
+                  for (final section in widget.sections)
+                    _section(context, section, strings),
+                  // «ملاحظتي» lives between the analysis sections and the
+                  // explanation/extracted-text panels — the same position
+                  // the design draws it in, after the paper's own content
+                  // and before the raw OCR output (F08-T09).
+                  _NoteSection(document: document),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+          _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
+          // Pinned below the scroll, same as the result page's own bar.
+          // `onSave` stays absent: a document reached from its own details
+          // screen is already saved, so there is nothing left to save.
+          ResultActionBar(
+            dates: document.analysis.dates,
+            onListen: _openAudioSheet,
+            onCreateReminder: widget.onCreateReminder,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the mode-and-speed-picker sheet and starts the mini-player
+  /// reading whatever the user confirms there — the same flow
+  /// `_ResultBodyState._openAudioSheet` runs for a fresh result, built here
+  /// from the saved document instead of a live analysis. A fresh open
+  /// highlights the user's persisted «سرعة القراءة الافتراضية» (F11-T07)
+  /// rather than always the same fixed default.
+  Future<void> _openAudioSheet() async {
+    final cubit = context.read<AudioReaderCubit>();
+    final currentlyReading = cubit.state;
+    final defaultSpeed = currentlyReading is AudioReaderReading
+        ? currentlyReading.speed
+        : await cubit.loadDefaultSpeed();
+    if (!mounted) return;
+    final choice = await showAudioOptionsSheet(
+      context,
+      initialMode: currentlyReading is AudioReaderReading
+          ? currentlyReading.mode
+          : ReadingMode.summaryOnly,
+      initialSpeed: defaultSpeed,
+    );
+    if (choice == null || !mounted) return;
+
+    final document = widget.document;
+    await cubit.start(
+      result: const BuildAnalysisResult()(
+        analysis: document.analysis,
+        extractedText: document.extractedText,
+      ),
+      mode: choice.mode,
+      speed: choice.speed,
+      strings: context.strings,
     );
   }
 
   /// The widget for one section — the result screen's own mapping, over the
-  /// document that was saved instead of the one just analysed. `extractedText`
-  /// leaves out the action the result screen offers there (listening aloud):
-  /// there is no reader yet, and a button that does nothing is worse than
-  /// none (F10). `dates` now offers the reminder action (F09) same as the
-  /// result screen's.
-  Widget _section(AnalysisSection section, AppStrings strings) {
-    const colors = AppColors.light;
-    final analysis = document.analysis;
+  /// document that was saved instead of the one just analysed.
+  Widget _section(
+    BuildContext context,
+    AnalysisSection section,
+    AppStrings strings,
+  ) {
+    final colors = AppColors.of(context);
+    final analysis = widget.document.analysis;
 
     return switch (section) {
       AnalysisSection.header => ResultHeaderCard(analysis: analysis),
@@ -229,7 +306,7 @@ class _DetailsBody extends StatelessWidget {
       AnalysisSection.amounts => ResultAmountsCard(amounts: analysis.amounts),
       AnalysisSection.dates => ResultDatesCard(
         dates: analysis.dates,
-        onCreateReminder: onCreateReminder,
+        onCreateReminder: widget.onCreateReminder,
       ),
       AnalysisSection.requiredDocuments => ResultListCard(
         glyph: StrokeGlyph.documentCheck,
@@ -255,9 +332,48 @@ class _DetailsBody extends StatelessWidget {
         ),
       ),
       AnalysisSection.extractedText => ResultExtractedTextPanel(
-        text: document.extractedText,
+        text: widget.document.extractedText,
+        onListen: _openAudioSheet,
       ),
     };
+  }
+}
+
+/// Watches [AudioReaderCubit] on its own, scoped to just the mini-player —
+/// see the comment on `_DetailsBodyState.build` for why this is split out
+/// rather than folded into the page's own `builder`. A duplicate of
+/// `AnalysisResultScreen`'s own private `_MiniPlayerSlot`: tightly coupled to
+/// its screen, and not part of the project's established shared-widget set.
+class _MiniPlayerSlot extends StatelessWidget {
+  const _MiniPlayerSlot({required this.onOpenAudioSheet});
+
+  final VoidCallback onOpenAudioSheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return BlocBuilder<AudioReaderCubit, AudioReaderState>(
+      builder: (context, audioState) => switch (audioState) {
+        AudioReaderReading(:final mode, :final isPaused, :final progress) =>
+          AudioMiniPlayerBar(
+            modeLabel: readingModeLabel(strings, mode),
+            isPlaying: !isPaused,
+            progress: progress,
+            onTogglePlayPause: () {
+              final cubit = context.read<AudioReaderCubit>();
+              if (isPaused) {
+                cubit.resume();
+              } else {
+                cubit.pause();
+              }
+            },
+            onOptions: onOpenAudioSheet,
+            onStop: () => context.read<AudioReaderCubit>().stop(),
+          ),
+        AudioReaderIdle() || AudioReaderFailed() => const SizedBox.shrink(),
+      },
+    );
   }
 }
 
@@ -351,7 +467,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
     // The design's arrow points towards the start of an Arabic line; in an
     // English layout that is the other way round.
@@ -427,7 +543,7 @@ class _OverflowMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return SizedBox.square(
@@ -523,7 +639,7 @@ class _OverflowMenu extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(
               strings.actionDelete,
-              style: TextStyle(color: AppColors.light.error),
+              style: TextStyle(color: AppColors.of(context).error),
             ),
           ),
         ],

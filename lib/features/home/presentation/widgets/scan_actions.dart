@@ -60,7 +60,7 @@ class _ScanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final radius = BorderRadius.circular(_scanRadius);
 
     return Semantics(
@@ -78,8 +78,8 @@ class _ScanCard extends StatelessWidget {
           boxShadow: const [
             BoxShadow(
               color: Color(0x570E7C86),
-              blurRadius: 34,
-              offset: Offset(0, 14),
+              blurRadius: 15,
+              offset: Offset(0, 0.5),
             ),
           ],
         ),
@@ -166,7 +166,7 @@ class _ForwardChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return Transform.scale(
@@ -190,7 +190,7 @@ class _PickImageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final radius = BorderRadius.circular(_pickRadius);
 
     return Material(
@@ -253,7 +253,7 @@ class _ImagePrivacyNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),

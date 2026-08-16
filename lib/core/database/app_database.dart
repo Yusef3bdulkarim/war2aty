@@ -136,6 +136,12 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Removes a setting, so a later [getSetting] answers `null` again — how a
+  /// store models "back to automatic" for a value that has no default string
+  /// of its own to overwrite with (F11-T07's default voice, unset).
+  Future<void> deleteSetting(String key) =>
+      (delete(appSettings)..where((t) => t.key.equals(key))).go();
+
   /// Reads the cached usage row for a Cairo [date], or `null`.
   Future<UsageCacheData?> usageForDate(DateTime date) {
     return (select(

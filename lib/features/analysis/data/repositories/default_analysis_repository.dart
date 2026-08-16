@@ -15,6 +15,7 @@ import '../../../../core/logging/log_event.dart';
 import '../../../../core/network/api_error_mapper.dart';
 import '../../../../core/network/network_failure_mapper.dart';
 import '../../../../core/result/result.dart';
+import '../../../ocr/domain/entities/extraction_result.dart';
 import '../../domain/entities/analysis_image_request.dart';
 import '../../domain/entities/analysis_request.dart';
 import '../../domain/repositories/analysis_repository.dart';
@@ -24,6 +25,7 @@ import '../models/analysis_image_request_dto.dart';
 import '../models/analysis_request_dto.dart';
 import '../models/candidates_dto.dart';
 import '../models/date_candidate_dto.dart';
+import '../models/ocr_response_dto.dart';
 import '../models/phone_candidate_dto.dart';
 import '../models/reference_candidate_dto.dart';
 import '../models/time_candidate_dto.dart';
@@ -240,4 +242,79 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
   /// extension is a reliable enough signal without decoding the image.
   String _mimeTypeFor(String path) =>
       p.extension(path).toLowerCase() == '.png' ? 'image/png' : 'image/jpeg';
+
+  @override
+  Future<Result<ExtractionResult, AppFailure>> ocrImage(
+    AnalysisImageRequest request,
+  ) async {
+    final result = await _ocrImage(request);
+
+    if (result case Err(:final failure)) {
+      _logger.failure(
+        failure,
+        stage: LogStage.ocr,
+        sessionId: request.sessionId,
+      );
+    }
+    return result;
+  }
+
+  Future<Result<ExtractionResult, AppFailure>> _ocrImage(
+    AnalysisImageRequest request,
+  ) async {
+    final identity = await _installationId.getOrCreate();
+    if (identity case Err(:final failure)) return Err(failure);
+
+    final AnalysisImageRequestDto dto;
+    try {
+      // Same wire shape [analyzeImage] sends — this endpoint differs only in
+      // where the server stops, not in what the client uploads.
+      dto = await _buildImageRequest(request, identity.valueOrNull!);
+    } on Object {
+      return const Err(ImageProcessingFailure());
+    }
+
+    final AnalysisApiResponse response;
+    try {
+      response = await _dataSource.ocrImage(dto);
+    } on DioException catch (exception) {
+      return Err(failureFromDioException(exception));
+    } on TimeoutException {
+      return const Err(RequestTimeoutFailure());
+    } on Object {
+      return const Err(AnalysisServiceFailure());
+    }
+
+    if (!response.isSuccess) {
+      return Err(
+        failureFromErrorBody(response.body, statusCode: response.statusCode),
+      );
+    }
+
+    return _parseOcrResponse(response.body);
+  }
+
+  /// No [AnalysisResponseValidator] here — that class parses a full
+  /// `DocumentAnalysis`, a different wire shape from this endpoint's OCR-only
+  /// body. Malformed or unversioned bodies still surface as the same
+  /// [InvalidAnalysisResponseFailure] a broken analyze-document body would.
+  Result<ExtractionResult, AppFailure> _parseOcrResponse(Object? decodedBody) {
+    if (decodedBody is! Map<String, dynamic>) {
+      return const Err(InvalidAnalysisResponseFailure());
+    }
+
+    final version = decodedBody['schema_version'];
+    if (version is! String ||
+        !kSupportedAnalysisSchemaVersions.contains(version)) {
+      return const Err(InvalidAnalysisResponseFailure());
+    }
+
+    try {
+      return Ok(OcrResponseDto.fromJson(decodedBody).toExtractionResult());
+    } catch (_) {
+      // Deliberately catch-all, same reasoning as the analysis validator: the
+      // caught object can quote document content and must not be logged (§7).
+      return const Err(InvalidAnalysisResponseFailure());
+    }
+  }
 }

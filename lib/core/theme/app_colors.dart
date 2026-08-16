@@ -1,4 +1,4 @@
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
 
 /// Semantic color palette, sourced exactly from the Waraqti design
 /// (`Waraqti.dc.html`). Two variants are provided: [light] and
@@ -43,6 +43,7 @@ final class AppColors {
     required this.accentBlueTint,
     required this.error,
     required this.errorTint,
+    required this.switchTrackOff,
   });
 
   final Color brandPrimary;
@@ -130,6 +131,10 @@ final class AppColors {
   final Color error;
   final Color errorTint;
 
+  /// An off (inactive) toggle switch's track — every settings toggle in the
+  /// design (`الخصوصية`, `تباين عالي`, …) shares this one grey.
+  final Color switchTrackOff;
+
   /// Default light theme — the exact Waraqti hex values.
   static const AppColors light = AppColors(
     brandPrimary: Color(0xFF0E7C86),
@@ -169,6 +174,7 @@ final class AppColors {
     accentBlueTint: Color(0xFFE6EEF9),
     error: Color(0xFFC4362A),
     errorTint: Color(0xFFFBECEA),
+    switchTrackOff: Color(0xFFD7D2C7),
   );
 
   /// High-contrast variant — darker text, stronger borders, deeper brand and
@@ -215,5 +221,38 @@ final class AppColors {
     accentBlueTint: Color(0xFFD8E3F5),
     error: Color(0xFFA82217),
     errorTint: Color(0xFFF8E1DE),
+    // Darker than the light variant's, matching [borderStrong] here — an off
+    // switch needs to read clearly against white under high contrast.
+    switchTrackOff: Color(0xFF5A686E),
   );
+
+  /// The active palette for [context] — [light] normally, [highContrast]
+  /// once the user turns on «تباين عالي» (F11-T06).
+  ///
+  /// Screens call this instead of touching [light]/[highContrast] directly,
+  /// so every screen recolors together when [HighContrastCubit] flips —
+  /// exactly as [TextSize.scaler] recolors through [MediaQuery] rather than
+  /// each widget reading a global. Falls back to [light] outside of
+  /// [AppColorsScope] (e.g. a widget test built without the app root) rather
+  /// than throwing, since a missing scope is not a state the setting itself
+  /// can cause.
+  static AppColors of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppColorsScope>()?.colors ??
+      light;
+}
+
+/// Carries the active [AppColors] palette down the tree so [AppColors.of]
+/// can resolve it (F11-T06).
+///
+/// Installed once at the app root ([WaraqtiApp]), swapped by
+/// [HighContrastCubit]'s state — the same shape the root [MediaQuery] takes
+/// for [TextSize].
+class AppColorsScope extends InheritedWidget {
+  const AppColorsScope({required this.colors, required super.child, super.key});
+
+  final AppColors colors;
+
+  @override
+  bool updateShouldNotify(AppColorsScope oldWidget) =>
+      colors != oldWidget.colors;
 }

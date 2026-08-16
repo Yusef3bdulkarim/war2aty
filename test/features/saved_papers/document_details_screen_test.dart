@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/audio_reader_cubit.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
@@ -14,6 +19,14 @@ import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/widgets/result_header_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import 'package:war2aty/features/saved_papers/presentation/screens/document_details_screen.dart';
 
@@ -26,6 +39,8 @@ void main() {
 
   late FakeDocumentsRepository repository;
   late DocumentDetailsCubit cubit;
+  late FakeTextToSpeechService tts;
+  late AudioReaderCubit audioReaderCubit;
 
   setUp(() {
     repository = FakeDocumentsRepository();
@@ -37,10 +52,30 @@ void main() {
       DeleteDocument(repository),
       documentId: 'doc-1',
     );
+    tts = FakeTextToSpeechService();
+    audioReaderCubit = AudioReaderCubit(
+      StartReading(
+        const BuildReadingText(),
+        const SelectVoiceForReading(),
+        tts,
+      ),
+      StopReading(tts),
+      PauseReading(tts),
+      ResumeReading(tts),
+      SetReadingSpeed(tts),
+      WatchReadingEvents(tts),
+      GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
+      GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
+    );
   });
-  tearDown(() {
-    cubit.close();
-    repository.dispose();
+  tearDown(() async {
+    // `DocumentDetailsCubit.close()` awaits cancelling its subscription on
+    // `repository`'s stream — matching this file's existing convention
+    // (unlike `AudioReaderCubit`'s plain `close()`), neither is awaited here.
+    unawaited(cubit.close());
+    unawaited(repository.dispose());
+    await audioReaderCubit.close();
+    await tts.dispose();
   });
 
   Future<void> pumpScreen(
@@ -51,8 +86,11 @@ void main() {
     bool settle = true,
   }) => pumpApp(
     tester,
-    BlocProvider<DocumentDetailsCubit>.value(
-      value: cubit,
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<DocumentDetailsCubit>.value(value: cubit),
+        BlocProvider<AudioReaderCubit>.value(value: audioReaderCubit),
+      ],
       child: DocumentDetailsScreen(onClose: onClose),
     ),
     locale: locale,
@@ -181,6 +219,10 @@ void main() {
       cubit.start();
 
       await pumpScreen(tester);
+      // The pinned bottom action bar (F11-T07's "listen aloud" bar) now
+      // shares the viewport with the scrollable note section, so the note
+      // button is no longer guaranteed on-screen without scrolling first.
+      await tester.ensureVisible(find.text(ar.documentNoteAdd));
       await tester.tap(find.text(ar.documentNoteAdd));
       await tester.pumpAndSettle();
 
@@ -196,6 +238,9 @@ void main() {
       cubit.start();
 
       await pumpScreen(tester);
+      // Same as above: scroll the note button into view past the pinned
+      // bottom action bar before tapping it.
+      await tester.ensureVisible(find.text(ar.documentNoteEdit));
       await tester.tap(find.text(ar.documentNoteEdit));
       await tester.pumpAndSettle();
 
@@ -208,6 +253,9 @@ void main() {
       cubit.start();
 
       await pumpScreen(tester);
+      // Same as above: scroll the note button into view past the pinned
+      // bottom action bar before tapping it.
+      await tester.ensureVisible(find.text(ar.documentNoteDelete));
       await tester.tap(find.text(ar.documentNoteDelete));
       await tester.pumpAndSettle();
 

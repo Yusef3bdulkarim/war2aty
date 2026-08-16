@@ -1,4 +1,4 @@
-import '../entities/tts_voice.dart';
+import '../../../../core/audio/tts_voice.dart';
 
 /// Picks which of the device's [TtsVoice]s should read a piece of text aloud
 /// (F10-T07).

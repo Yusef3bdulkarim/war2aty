@@ -17,7 +17,9 @@ String alertTimeLabel(
 }) {
   if (offset != null) return alertOffsetLabel(s, offset);
 
-  final cairo = cairoLocalOf(instant);
+  // DST-aware, matching how [instant] was scheduled — see
+  // `formatClockTime`'s own doc for why this cannot be [cairoLocalOf].
+  final cairo = cairoWallClockOf(instant);
   return '${formatDocumentDate(s, cairo)} — '
       '${formatWallClockTime(s, cairo.hour, cairo.minute)}';
 }
