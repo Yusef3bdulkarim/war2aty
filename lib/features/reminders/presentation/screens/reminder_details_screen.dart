@@ -320,7 +320,11 @@ class _InfoCard extends StatelessWidget {
     final colors = AppColors.of(context);
     final strings = context.strings;
     final alert = reminder.nextAlert;
-    final localAlert = alert == null ? null : cairoLocalOf(alert.scheduledAt);
+    // DST-aware, matching how the alert was scheduled — see
+    // `formatClockTime`'s doc for why not `cairoLocalOf`.
+    final localAlert = alert == null
+        ? null
+        : cairoWallClockOf(alert.scheduledAt);
 
     return DecoratedBox(
       decoration: BoxDecoration(

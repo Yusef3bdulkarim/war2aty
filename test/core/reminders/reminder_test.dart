@@ -11,10 +11,12 @@ void main() {
     });
 
     test('combines the event date and time on the Cairo clock', () {
-      // 25 Aug 2026, 10:00 Cairo == 08:00 UTC.
-      final reminder = _reminder(eventDate: DateTime(2026, 8, 25));
+      // 25 Jan 2026, 10:00 Cairo == 08:00 UTC. Outside Egypt's DST window
+      // (see `cairo_day_test.dart`'s 'observes DST' group), so the fixed
+      // +2h offset and the real one agree here.
+      final reminder = _reminder(eventDate: DateTime(2026, 1, 25));
 
-      expect(reminder.eventInstant, DateTime.utc(2026, 8, 25, 8));
+      expect(reminder.eventInstant, DateTime.utc(2026, 1, 25, 8));
     });
   });
 

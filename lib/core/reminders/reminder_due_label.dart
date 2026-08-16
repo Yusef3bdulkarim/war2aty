@@ -37,13 +37,17 @@ String reminderDueLabel(AppStrings s, DateTime dueAt, {DateTime? now}) {
 ///
 /// Shares its wording with the times printed on a paper — a reminder for
 /// «10:00 صباحًا» must not read differently from the appointment it is for.
+///
+/// [cairoWallClockOf], not [cairoLocalOf]: [instant] came from `cairoInstant`
+/// (real, DST-aware), so reading it back must go through the same real zone
+/// — otherwise a summer reminder set for 10:00 would show as 09:00.
 String formatClockTime(AppStrings s, DateTime instant) {
-  final cairo = cairoLocalOf(instant);
+  final cairo = cairoWallClockOf(instant);
   return formatWallClockTime(s, cairo.hour, cairo.minute);
 }
 
 /// `25/8` — day then month, as both languages write a short date.
 String _shortDate(DateTime instant) {
-  final cairo = cairoLocalOf(instant);
+  final cairo = cairoWallClockOf(instant);
   return '${cairo.day}/${cairo.month}';
 }

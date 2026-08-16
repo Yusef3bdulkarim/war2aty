@@ -12,8 +12,12 @@ const String reminderNotificationChannelId = 'reminders';
 
 /// [LocalNotificationsPort] on top of `flutter_local_notifications` and the
 /// `timezone` package (F09-T10) — the only file in the app allowed to import
-/// either, matching how `PermissionHandlerService` is the only file that
-/// imports `permission_handler`.
+/// `flutter_local_notifications`, matching how `PermissionHandlerService` is
+/// the only file that imports `permission_handler`. `core/time/cairo_day.dart`
+/// also imports the `timezone` package on its own, narrower terms: it only
+/// resolves `Africa/Cairo` for `cairoInstant` rather than driving the plugin.
+/// This file still owns loading the IANA data itself ([initialize] below);
+/// `cairoInstant` only ever reads what this already loaded at app start.
 ///
 /// Android alarms are scheduled [fln.AndroidScheduleMode.inexactAllowWhileIdle]
 /// — approximate delivery (typically within minutes), no special permission

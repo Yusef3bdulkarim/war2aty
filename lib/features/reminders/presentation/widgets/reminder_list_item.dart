@@ -110,8 +110,11 @@ class ReminderListItem extends StatelessWidget {
                     child: Text(
                       due == null
                           ? formatDocumentDate(strings, reminder.eventDate)
-                          : '${formatDocumentDate(strings, cairoLocalOf(due))}'
-                                ' — ${formatWallClockTime(strings, cairoLocalOf(due).hour, cairoLocalOf(due).minute)}',
+                          // DST-aware, matching how `due` was scheduled —
+                          // see `formatClockTime`'s doc for why not
+                          // `cairoLocalOf`.
+                          : '${formatDocumentDate(strings, cairoWallClockOf(due))}'
+                                ' — ${formatWallClockTime(strings, cairoWallClockOf(due).hour, cairoWallClockOf(due).minute)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.caption.copyWith(
