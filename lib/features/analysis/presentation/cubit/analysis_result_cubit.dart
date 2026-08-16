@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +7,7 @@ import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/documents/usecases/build_analysis_result.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/storage/analysis_session.dart';
+import '../../../../core/usage/usecases/sync_daily_usage.dart';
 import '../../domain/entities/analysis_image_request.dart';
 import '../../domain/entities/analysis_request.dart';
 import '../../domain/entities/analysis_source.dart';
@@ -22,6 +24,9 @@ import 'analysis_result_state.dart';
 /// - [AnalyzeImage] — sends the perspective-corrected image off instead, for
 ///   [ImageAnalysisSource] (F13 online route — OCR is skipped entirely).
 /// - [BuildAnalysisResult] — orders and filters the sections to draw.
+/// - [SyncDailyUsage] — refreshes the cached quota after a *successful*
+///   analysis, so Home's already-live usage stream reflects the consumed
+///   slot without polling or client-side decrementing.
 ///
 /// What leaves the phone for the offline route is decided by
 /// [AnalysisRequest], which has no field for the image or its path; the
@@ -36,6 +41,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
     required AnalyzeDocument analyzeDocument,
     required AnalyzeImage analyzeImage,
     required BuildAnalysisResult buildResult,
+    required SyncDailyUsage syncDailyUsage,
     VoidCallback? onImageConsumed,
   }) : _session = session,
        _source = source,
@@ -43,6 +49,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
        _analyzeDocument = analyzeDocument,
        _analyzeImage = analyzeImage,
        _buildResult = buildResult,
+       _syncDailyUsage = syncDailyUsage,
        _onImageConsumed = onImageConsumed,
        super(const AnalysisResultAnalyzing());
 
@@ -52,6 +59,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
   final AnalyzeDocument _analyzeDocument;
   final AnalyzeImage _analyzeImage;
   final BuildAnalysisResult _buildResult;
+  final SyncDailyUsage _syncDailyUsage;
 
   /// Called once after [_analyzeImage] has finished reading the
   /// perspective-corrected file's bytes (success or failure). The file is no
@@ -119,5 +127,11 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
         err: (failure) => AnalysisResultFailed(failure, extractedText),
       ),
     );
+
+    // Only a successful analysis consumed a daily slot — refresh the cached
+    // usage row so Home's live stream reflects it. Fire-and-forget: never
+    // blocks the result screen, and a failure here just leaves the previous
+    // cached count in place until the next sync.
+    if (outcome.isOk) unawaited(_syncDailyUsage());
   }
 }

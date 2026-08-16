@@ -8,6 +8,7 @@ import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
@@ -77,11 +78,17 @@ final class FakeAnalysisRepository implements AnalysisRepository {
 void main() {
   late FakeAnalysisRepository repository;
   late FakeAnalysisConsentStore consentStore;
+  late FakeUsageRepository usageRepository;
 
   setUp(() {
     repository = FakeAnalysisRepository();
     consentStore = FakeAnalysisConsentStore();
+    usageRepository = FakeUsageRepository(
+      seed: usageWith(limit: 3, remaining: 3),
+    );
   });
+
+  tearDown(() => usageRepository.dispose());
 
   AnalysisResultCubit buildCubit({AnalysisSource? source}) =>
       AnalysisResultCubit(
@@ -91,6 +98,7 @@ void main() {
         analyzeDocument: AnalyzeDocument(repository),
         analyzeImage: AnalyzeImage(repository),
         buildResult: const BuildAnalysisResult(),
+        syncDailyUsage: SyncDailyUsage(usageRepository),
       );
 
   group('AnalysisResultCubit', () {
@@ -146,6 +154,21 @@ void main() {
           _extraction.text.cleanedText,
         ),
       );
+    });
+
+    test('syncs the daily usage after a successful analysis', () async {
+      final cubit = buildCubit();
+      await cubit.analyze();
+
+      expect(usageRepository.syncCallCount, 1);
+    });
+
+    test('does not sync the daily usage after a failed analysis', () async {
+      repository.answer = const Err(AnalysisServiceFailure());
+      final cubit = buildCubit();
+      await cubit.analyze();
+
+      expect(usageRepository.syncCallCount, 0);
     });
 
     test('retrying runs the analysis again', () async {

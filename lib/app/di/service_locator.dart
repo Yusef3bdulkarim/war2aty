@@ -88,6 +88,7 @@ import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
+import '../../core/usage/usecases/sync_daily_usage.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
 import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
@@ -390,6 +391,10 @@ void _registerHome() {
       getIt.call<DriftDocumentsRepository>,
     )
     ..registerFactory<WatchDailyUsage>(() => WatchDailyUsage(getIt()))
+    // Called by `AnalysisResultCubit` after a successful analysis so Home's
+    // live stream above reflects the freshly consumed slot (registered here,
+    // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
+    ..registerFactory<SyncDailyUsage>(() => SyncDailyUsage(getIt()))
     // Likewise replaced when F09 builds the `reminders` table.
     ..registerLazySingleton<UpcomingReminderRepository>(
       StubUpcomingReminderRepository.new,
@@ -582,6 +587,7 @@ void _registerAnalysis(AppEnvironment env) {
         analyzeDocument: getIt(),
         analyzeImage: getIt(),
         buildResult: getIt(),
+        syncDailyUsage: getIt(),
         // On the online route the perspective-corrected file must survive
         // until the repository has read its bytes — the preview cubit's
         // close() skips it, so *this* callback takes ownership of deleting
