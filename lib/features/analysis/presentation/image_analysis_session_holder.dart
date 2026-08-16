@@ -27,11 +27,7 @@ final class ImageAnalysisSessionHolder {
   /// Owned by this holder once the online handoff fires; deleted in [clear].
   List<String>? _captureCleanupPaths;
 
-  void set(
-    AnalysisSession s,
-    CapturedPhoto p, {
-    List<String>? cleanupPaths,
-  }) {
+  void set(AnalysisSession s, CapturedPhoto p, {List<String>? cleanupPaths}) {
     session = s;
     photo = p;
     _captureCleanupPaths = cleanupPaths;

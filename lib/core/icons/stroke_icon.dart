@@ -127,6 +127,22 @@ enum StrokeGlyph {
   /// A circle, half solid — «تباين عالي» in Settings (F11-T06).
   contrast,
 
+  /// A speaker with sound waves — «صوت القراءة» in Settings (F11-T07).
+  speaker,
+
+  /// A play triangle — «تجربة الصوت» in Settings (F11-T07).
+  ///
+  /// A dedicated glyph rather than reusing [StrokeIcon] with Material's own
+  /// `Icons.play_arrow_rounded` (what `AudioOptionsSheet`/`AudioMiniPlayerBar`
+  /// use for the same shape): every row in a `SettingsSection` draws its
+  /// leading icon as a [StrokeGlyph], and this is the design's own play glyph
+  /// from the same «الصوت والقراءة» card.
+  play,
+
+  /// A circular arrow with its tail — «استكمال القراءة من آخر مكان» in
+  /// Settings (F11-T07).
+  resume,
+
   navHome,
   navDocuments,
   navReminders,
@@ -218,6 +234,10 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M3 20L9 4L15 20 M6 14h6 M16 20L19.5 12L23 20 M17.5 17h4',
   // The outline only — [_glyphFillPaths] paints the solid left half on top.
   StrokeGlyph.contrast: _circle(12, 12, 9),
+  StrokeGlyph.speaker:
+      'M11 5 6 9H2v6h4l5 4z M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14',
+  StrokeGlyph.play: 'M8 5v14l11-7z',
+  StrokeGlyph.resume: 'M3 12a9 9 0 1 0 9-9 M3 3v5h5',
   // `<circle cx=12 cy=12 r=10/>`, the equator, and a meridian ellipse.
   StrokeGlyph.globe:
       '${_circle(12, 12, 10)} M2 12h20 M12 2a7 10 0 0 1 0 20a7 10 0 0 1 0-20',

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/documents/reading_mode.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/reading_speed.dart';
 
 import '../../support/pump_app.dart';
 

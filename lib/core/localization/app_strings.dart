@@ -381,6 +381,34 @@ abstract interface class AppStrings {
   /// The high-contrast toggle's row label (F11-T06).
   String get settingsHighContrastLabel;
 
+  /// The settings screen's «الصوت والقراءة» section (F11-T07).
+  String get settingsAudioSection;
+
+  /// The default reading speed row's label (F11-T07).
+  String get settingsAudioSpeedLabel;
+
+  /// The default reading voice row's label and supporting description
+  /// (F11-T07).
+  String get settingsAudioVoiceLabel;
+  String get settingsAudioVoiceDescription;
+
+  /// The value shown on the voice row — and the automatic-match option in
+  /// its picker sheet — when nothing overrides `SelectVoiceForReading`'s own
+  /// match (F11-T07).
+  String get settingsAudioVoiceDefault;
+
+  /// «تجربة الصوت» (F11-T07).
+  String get settingsAudioPreviewLabel;
+
+  /// The fixed phrase «تجربة الصوت» speaks (F11-T07).
+  String get settingsAudioPreviewSample;
+
+  /// Shown when «تجربة الصوت» fails to play (F11-T07).
+  String get settingsAudioPreviewFailedFeedback;
+
+  /// The resume-reading toggle's row label (F11-T07).
+  String get settingsAudioResumeLabel;
+
   // OCR processing
   String get ocrProcessing;
   String get ocrErrorTitle;

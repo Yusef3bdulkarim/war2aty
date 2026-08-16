@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/documents/reading_mode.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
@@ -182,6 +182,46 @@ void main() {
         Ok<int, AppFailure>(invoiceAnalysis().summary.short.length),
       );
       expect(tts.spoken, [invoiceAnalysis().summary.short]);
+    });
+  });
+
+  group('preferred voice override (F11-T07)', () {
+    const arabicVoice = TtsVoice(name: 'Maged', locale: 'ar-EG');
+    const englishVoice = TtsVoice(name: 'Samantha', locale: 'en-US');
+
+    test('a persisted preferred voice wins over the automatic match', () async {
+      // The automatic match would pick the Arabic voice for this Arabic
+      // summary — the user's own Settings pick must win instead.
+      tts.voices = [arabicVoice, englishVoice];
+      final result = _buildResult(
+        analysis: invoiceAnalysis(),
+        extractedText: '',
+      );
+
+      await useCase(
+        result: result,
+        mode: ReadingMode.summaryOnly,
+        strings: _ar,
+        preferredVoice: englishVoice,
+      );
+
+      expect(tts.voicesSet, [englishVoice]);
+    });
+
+    test('nothing preferred falls back to the automatic match', () async {
+      tts.voices = [arabicVoice, englishVoice];
+      final result = _buildResult(
+        analysis: invoiceAnalysis(),
+        extractedText: '',
+      );
+
+      await useCase(
+        result: result,
+        mode: ReadingMode.summaryOnly,
+        strings: _ar,
+      );
+
+      expect(tts.voicesSet, [arabicVoice]);
     });
   });
 

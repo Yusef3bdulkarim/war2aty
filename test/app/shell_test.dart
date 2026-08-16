@@ -17,6 +17,14 @@ import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
 import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
+import 'package:war2aty/core/audio/usecases/get_available_voices.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
+import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -26,6 +34,7 @@ import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/capture_source.dart';
@@ -124,11 +133,26 @@ void main() {
       ..registerFactory<SettingsCubit>(() {
         final consentStore = FakeAnalysisConsentStore();
         final modeStore = FakeProcessingModeStore();
+        final speedStore = FakeDefaultReadingSpeedStore();
+        final voiceStore = FakeDefaultReadingVoiceStore();
+        final resumeStore = FakeResumeReadingEnabledStore();
+        final tts = FakeTextToSpeechService();
         return SettingsCubit(
           getAnalysisConsent: GetAnalysisConsent(consentStore),
           setAnalysisConsent: SetAnalysisConsent(consentStore),
           getProcessingMode: GetProcessingMode(modeStore),
           setProcessingMode: SetProcessingMode(modeStore),
+          getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
+          setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
+          getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
+          setDefaultReadingVoice: SetDefaultReadingVoice(voiceStore),
+          getResumeReadingEnabled: GetResumeReadingEnabled(resumeStore),
+          setResumeReadingEnabled: SetResumeReadingEnabled(resumeStore),
+          getAvailableVoices: GetAvailableVoices(tts),
+          previewDefaultVoice: PreviewDefaultVoice(
+            tts,
+            const SelectVoiceForReading(),
+          ),
         );
       })
       ..registerLazySingleton<GoRouter>(

@@ -13,21 +13,32 @@ import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
 import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/tts_voice.dart';
+import 'package:war2aty/core/audio/usecases/get_available_voices.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
+import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:war2aty/features/settings/presentation/screens/settings_screen.dart';
 
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 
-// F11-T01/T02/T03/T04/T05/T06: the settings scaffold, the analysis consent
-// toggle, the processing-mode picker, the language switch, the text-size
-// picker, and the high-contrast toggle.
+// F11-T01/T02/T03/T04/T05/T06/T07: the settings scaffold, the analysis
+// consent toggle, the processing-mode picker, the language switch, the
+// text-size picker, the high-contrast toggle, and the audio prefs.
 void main() {
   const ar = ArStrings();
 
@@ -36,6 +47,10 @@ void main() {
   late FakeLocaleStore localeStore;
   late FakeTextSizeStore textSizeStore;
   late FakeHighContrastStore highContrastStore;
+  late FakeDefaultReadingSpeedStore speedStore;
+  late FakeDefaultReadingVoiceStore voiceStore;
+  late FakeResumeReadingEnabledStore resumeStore;
+  late FakeTextToSpeechService tts;
   late SettingsCubit cubit;
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
@@ -47,11 +62,26 @@ void main() {
     localeStore = FakeLocaleStore();
     textSizeStore = FakeTextSizeStore();
     highContrastStore = FakeHighContrastStore();
+    speedStore = FakeDefaultReadingSpeedStore();
+    voiceStore = FakeDefaultReadingVoiceStore();
+    resumeStore = FakeResumeReadingEnabledStore();
+    tts = FakeTextToSpeechService();
     cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consentStore),
       setAnalysisConsent: SetAnalysisConsent(consentStore),
       getProcessingMode: GetProcessingMode(modeStore),
       setProcessingMode: SetProcessingMode(modeStore),
+      getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
+      setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
+      getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
+      setDefaultReadingVoice: SetDefaultReadingVoice(voiceStore),
+      getResumeReadingEnabled: GetResumeReadingEnabled(resumeStore),
+      setResumeReadingEnabled: SetResumeReadingEnabled(resumeStore),
+      getAvailableVoices: GetAvailableVoices(tts),
+      previewDefaultVoice: PreviewDefaultVoice(
+        tts,
+        const SelectVoiceForReading(),
+      ),
     );
     localeCubit = LocaleCubit(
       getSavedLocale: GetSavedLocale(localeStore),
@@ -72,6 +102,7 @@ void main() {
     localeCubit.close();
     textSizeCubit.close();
     highContrastCubit.close();
+    tts.dispose();
   });
 
   Future<void> pumpScreen(
@@ -91,7 +122,11 @@ void main() {
           BlocProvider<TextSizeCubit>.value(value: textSizeCubit),
           BlocProvider<HighContrastCubit>.value(value: highContrastCubit),
         ],
-        child: const SettingsScreen(),
+        // A bare `Scaffold`, matching the real app: `SettingsScreen` itself
+        // draws no `Scaffold` (unlike `AnalysisResultScreen`), relying on the
+        // bottom-nav shell's own — needed here so «تجربة الصوت»'s failure
+        // snackbar (F11-T07) has somewhere to attach to.
+        child: const Scaffold(body: SettingsScreen()),
       ),
       locale: locale,
       textScaler: textScaler,
@@ -377,6 +412,160 @@ void main() {
 
       expect(tester.widget<Switch>(highContrastSwitch()).value, isTrue);
       expect(await highContrastStore.readEnabled(), isTrue);
+    });
+  });
+
+  group('the audio & reading defaults (F11-T07)', () {
+    Finder resumeSwitch() => find.descendant(
+      of: find.byKey(settingsResumeReadingToggleKey),
+      matching: find.byType(Switch),
+    );
+
+    testWidgets('shows the section with 1x, the default voice and resume on', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      expect(find.text(ar.settingsAudioSection), findsOneWidget);
+      expect(find.text(ar.settingsAudioSpeedLabel), findsOneWidget);
+      expect(find.text(ReadingSpeed.normal.label), findsOneWidget);
+      expect(find.text(ar.settingsAudioVoiceLabel), findsOneWidget);
+      expect(find.text(ar.settingsAudioVoiceDefault), findsOneWidget);
+      expect(find.text(ar.settingsAudioPreviewLabel), findsOneWidget);
+      expect(tester.widget<Switch>(resumeSwitch()).value, isTrue);
+    });
+
+    testWidgets('reflects a persisted speed, voice and resume choice', (
+      tester,
+    ) async {
+      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
+      await speedStore.writeSpeed(ReadingSpeed.faster);
+      await voiceStore.writeVoice(voice);
+      await resumeStore.writeEnabled(false);
+      tts.voices = const [voice];
+      await pumpScreen(tester);
+
+      expect(find.text(ReadingSpeed.faster.label), findsOneWidget);
+      expect(find.text(voice.name), findsOneWidget);
+      expect(tester.widget<Switch>(resumeSwitch()).value, isFalse);
+    });
+
+    testWidgets('tapping the speed row opens the picker sheet', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioSpeedLabel));
+      await tester.tap(find.text(ar.settingsAudioSpeedLabel));
+      await tester.pumpAndSettle();
+
+      for (final speed in ReadingSpeed.values) {
+        expect(find.text(speed.label), findsWidgets);
+      }
+    });
+
+    testWidgets('selecting a new speed persists and updates the row', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioSpeedLabel));
+      await tester.tap(find.text(ar.settingsAudioSpeedLabel));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(ReadingSpeed.fastest.label).last);
+      await tester.pumpAndSettle();
+
+      expect(await speedStore.readSpeed(), ReadingSpeed.fastest);
+      expect(find.text(ReadingSpeed.fastest.label), findsOneWidget);
+    });
+
+    testWidgets('tapping the voice row lists the device voices', (
+      tester,
+    ) async {
+      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
+      tts.voices = const [voice];
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioVoiceLabel));
+      await tester.tap(find.text(ar.settingsAudioVoiceLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.settingsAudioVoiceDefault), findsWidgets);
+      expect(find.text(voice.name), findsOneWidget);
+    });
+
+    testWidgets('selecting a device voice persists and updates the row', (
+      tester,
+    ) async {
+      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
+      tts.voices = const [voice];
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioVoiceLabel));
+      await tester.tap(find.text(ar.settingsAudioVoiceLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(voice.name));
+      await tester.pumpAndSettle();
+
+      expect(await voiceStore.readVoice(), voice);
+      expect(find.text(voice.name), findsOneWidget);
+    });
+
+    testWidgets('selecting «الصوت الافتراضي» again resets a picked voice', (
+      tester,
+    ) async {
+      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
+      await voiceStore.writeVoice(voice);
+      tts.voices = const [voice];
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(voice.name));
+      await tester.tap(find.text(voice.name));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.settingsAudioVoiceDefault).last);
+      await tester.pumpAndSettle();
+
+      expect(await voiceStore.readVoice(), isNull);
+      expect(find.text(ar.settingsAudioVoiceDefault), findsOneWidget);
+    });
+
+    testWidgets('tapping «تجربة الصوت» plays the sample text', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioPreviewLabel));
+      await tester.tap(find.text(ar.settingsAudioPreviewLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.spoken, [ar.settingsAudioPreviewSample]);
+    });
+
+    testWidgets(
+      'a failed preview shows a snackbar rather than staying silent',
+      (tester) async {
+        tts.speakFails = true;
+        await pumpScreen(tester);
+
+        await tester.ensureVisible(find.text(ar.settingsAudioPreviewLabel));
+        await tester.tap(find.text(ar.settingsAudioPreviewLabel));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(ar.settingsAudioPreviewFailedFeedback),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('turning resume off persists through the cubit', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(resumeSwitch());
+      await tester.tap(resumeSwitch());
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(resumeSwitch()).value, isFalse);
+      expect(await resumeStore.readEnabled(), isFalse);
     });
   });
 }

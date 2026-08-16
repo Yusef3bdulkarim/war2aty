@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_tts/flutter_tts.dart' as ft;
 
+import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/tts_event.dart';
-import '../../domain/entities/tts_voice.dart';
 import '../../domain/services/text_to_speech_service.dart';
 
 /// [TextToSpeechService] backed by `flutter_tts`, wrapping the OS's own

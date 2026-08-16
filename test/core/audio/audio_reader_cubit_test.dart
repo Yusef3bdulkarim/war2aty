@@ -1,14 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/audio_reader_state.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/tts_voice.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/analysis_result.dart';
 import 'package:war2aty/core/documents/reading_mode.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
@@ -30,6 +32,9 @@ final AnalysisResult _result = _buildResult(
 );
 
 /// A cubit and the fake engine behind it, wired the same way DI does.
+///
+/// [defaultSpeed]/[defaultVoice] model Settings' own persisted picks
+/// (F11-T07) — `null` defaults, same as a user who has never touched either.
 ({AudioReaderCubit cubit, FakeTextToSpeechService tts}) _cubitFor({
   bool speakFails = false,
   bool stopFails = false,
@@ -37,6 +42,8 @@ final AnalysisResult _result = _buildResult(
   bool resumeFails = false,
   bool setSpeechRateFails = false,
   List<TtsVoice> voices = const [],
+  ReadingSpeed? defaultSpeed,
+  TtsVoice? defaultVoice,
 }) {
   final tts = FakeTextToSpeechService(
     speakFails: speakFails,
@@ -53,6 +60,8 @@ final AnalysisResult _result = _buildResult(
     ResumeReading(tts),
     SetReadingSpeed(tts),
     WatchReadingEvents(tts),
+    GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
+    GetDefaultReadingVoice(FakeDefaultReadingVoiceStore(defaultVoice)),
   );
   return (cubit: cubit, tts: tts);
 }
@@ -436,6 +445,62 @@ void main() {
         await expectation;
 
         expect(built.tts.spoken, [invoiceAnalysis().summary.short]);
+      },
+    );
+  });
+
+  group('default audio prefs (F11-T07)', () {
+    test('loadDefaultSpeed answers the persisted default', () async {
+      final built = _cubitFor(defaultSpeed: ReadingSpeed.faster);
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      expect(await built.cubit.loadDefaultSpeed(), ReadingSpeed.faster);
+    });
+
+    test('loadDefaultSpeed falls back to normal untouched', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      expect(await built.cubit.loadDefaultSpeed(), ReadingSpeed.normal);
+    });
+
+    test(
+      'start applies the persisted default voice ahead of speaking',
+      () async {
+        const voice = TtsVoice(name: 'Voice A', locale: 'ar-EG');
+        final built = _cubitFor(defaultVoice: voice);
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+
+        await built.cubit.start(
+          result: _result,
+          mode: ReadingMode.summaryOnly,
+          speed: ReadingSpeed.normal,
+          strings: _ar,
+        );
+
+        expect(built.tts.voicesSet, [voice]);
+      },
+    );
+
+    test(
+      'start falls back to the automatic script match with no default voice',
+      () async {
+        const arabicVoice = TtsVoice(name: 'Voice A', locale: 'ar-EG');
+        final built = _cubitFor(voices: [arabicVoice]);
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+
+        await built.cubit.start(
+          result: _result,
+          mode: ReadingMode.summaryOnly,
+          speed: ReadingSpeed.normal,
+          strings: _ar,
+        );
+
+        expect(built.tts.voicesSet, [arabicVoice]);
       },
     );
   });

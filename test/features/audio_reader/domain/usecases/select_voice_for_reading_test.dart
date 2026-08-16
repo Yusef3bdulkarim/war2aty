@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
+import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 
 const _select = SelectVoiceForReading();

@@ -1,7 +1,7 @@
+import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../entities/tts_event.dart';
-import '../entities/tts_voice.dart';
 
 /// Contract for on-device speech synthesis.
 ///

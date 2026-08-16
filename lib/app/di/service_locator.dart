@@ -20,6 +20,17 @@ import '../../core/analysis/usecases/get_processing_mode.dart';
 import '../../core/analysis/usecases/set_analysis_consent.dart';
 import '../../core/analysis/usecases/set_processing_mode.dart';
 import '../../core/audio/audio_reader_cubit.dart';
+import '../../core/audio/default_reading_speed_store.dart';
+import '../../core/audio/default_reading_voice_store.dart';
+import '../../core/audio/resume_reading_enabled_store.dart';
+import '../../core/audio/usecases/get_available_voices.dart';
+import '../../core/audio/usecases/get_default_reading_speed.dart';
+import '../../core/audio/usecases/get_default_reading_voice.dart';
+import '../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../core/audio/usecases/preview_default_voice.dart';
+import '../../core/audio/usecases/set_default_reading_speed.dart';
+import '../../core/audio/usecases/set_default_reading_voice.dart';
+import '../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
@@ -789,10 +800,44 @@ void _registerAudioReader() {
     ..registerFactory<SetReadingSpeed>(() => SetReadingSpeed(getIt()))
     // F10-T08.
     ..registerFactory<WatchReadingEvents>(() => WatchReadingEvents(getIt()))
+    // F11-T07. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<DefaultReadingSpeedStore>(
+      () => DriftDefaultReadingSpeedStore(getIt()),
+    )
+    ..registerFactory<GetDefaultReadingSpeed>(
+      () => GetDefaultReadingSpeed(getIt()),
+    )
+    ..registerFactory<SetDefaultReadingSpeed>(
+      () => SetDefaultReadingSpeed(getIt()),
+    )
+    ..registerLazySingleton<DefaultReadingVoiceStore>(
+      () => DriftDefaultReadingVoiceStore(getIt()),
+    )
+    ..registerFactory<GetDefaultReadingVoice>(
+      () => GetDefaultReadingVoice(getIt()),
+    )
+    ..registerFactory<SetDefaultReadingVoice>(
+      () => SetDefaultReadingVoice(getIt()),
+    )
+    ..registerLazySingleton<ResumeReadingEnabledStore>(
+      () => DriftResumeReadingEnabledStore(getIt()),
+    )
+    ..registerFactory<GetResumeReadingEnabled>(
+      () => GetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<SetResumeReadingEnabled>(
+      () => SetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<GetAvailableVoices>(() => GetAvailableVoices(getIt()))
+    ..registerFactory<PreviewDefaultVoice>(
+      () => PreviewDefaultVoice(getIt(), getIt()),
+    )
     // One per result screen visit, like `AnalysisResultCubit` and
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
+        getIt(),
         getIt(),
         getIt(),
         getIt(),
@@ -807,12 +852,23 @@ void _registerSettings() {
   // F11-T02/T03. Reuses the store/use cases `_registerAnalysis` already
   // registered — Settings reads and writes the same consent and processing-
   // mode flags the analysis flow gates itself on.
+  // F11-T07. Reuses the store/use cases `_registerAudioReader` already
+  // registered — Settings reads and writes the same audio defaults the
+  // mini-player applies to a fresh reading.
   getIt.registerFactory<SettingsCubit>(
     () => SettingsCubit(
       getAnalysisConsent: getIt(),
       setAnalysisConsent: getIt(),
       getProcessingMode: getIt(),
       setProcessingMode: getIt(),
+      getDefaultReadingSpeed: getIt(),
+      setDefaultReadingSpeed: getIt(),
+      getDefaultReadingVoice: getIt(),
+      setDefaultReadingVoice: getIt(),
+      getResumeReadingEnabled: getIt(),
+      setResumeReadingEnabled: getIt(),
+      getAvailableVoices: getIt(),
+      previewDefaultVoice: getIt(),
     ),
   );
 }

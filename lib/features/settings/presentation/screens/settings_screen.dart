@@ -5,6 +5,8 @@ import '../../../../core/accessibility/high_contrast_cubit.dart';
 import '../../../../core/accessibility/text_size.dart';
 import '../../../../core/accessibility/text_size_cubit.dart';
 import '../../../../core/analysis/processing_mode.dart';
+import '../../../../core/audio/reading_speed.dart';
+import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/app_strings.dart';
@@ -31,6 +33,11 @@ const Key settingsAnalysisConsentToggleKey = Key(
   'settings-analysis-consent-toggle',
 );
 const Key settingsHighContrastToggleKey = Key('settings-high-contrast-toggle');
+
+/// The resume-reading row (F11-T07) — the other toggle beside the two above.
+const Key settingsResumeReadingToggleKey = Key(
+  'settings-resume-reading-toggle',
+);
 
 /// The «الإعدادات» tab (F11-T01 onward).
 ///
@@ -75,6 +82,7 @@ class SettingsScreen extends StatelessWidget {
               const _DisplaySection(),
               const _PrivacySection(),
               const _AccessibilitySection(),
+              const _AudioSection(),
             ],
           ),
         ),
@@ -176,13 +184,13 @@ class _LanguageSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: _sheetTitleGap),
-            _LanguageOption(
+            _RadioOption(
               title: strings.languageArabic,
               selected: current.languageCode == 'ar',
               onTap: () => onSelected('ar'),
             ),
             const SizedBox(height: _optionGap),
-            _LanguageOption(
+            _RadioOption(
               title: strings.languageEnglish,
               selected: current.languageCode == 'en',
               onTap: () => onSelected('en'),
@@ -194,8 +202,8 @@ class _LanguageSheet extends StatelessWidget {
   }
 }
 
-class _LanguageOption extends StatelessWidget {
-  const _LanguageOption({
+class _RadioOption extends StatelessWidget {
+  const _RadioOption({
     required this.title,
     required this.selected,
     required this.onTap,
@@ -708,6 +716,239 @@ class _AccessibilitySection extends StatelessWidget {
                 context.read<HighContrastCubit>().setHighContrast(value),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// «الصوت والقراءة» — the default reading speed and voice (F11-T07), «تجربة
+/// الصوت», and the resume-reading toggle.
+class _AudioSection extends StatelessWidget {
+  const _AudioSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) => switch (state) {
+        SettingsLoading() => const SizedBox.shrink(),
+        SettingsReady(
+          :final defaultReadingSpeed,
+          :final defaultReadingVoice,
+          :final availableVoices,
+          :final resumeReadingEnabled,
+        ) =>
+          SettingsSection(
+            title: strings.settingsAudioSection,
+            rows: [
+              SettingsValueRow(
+                glyph: StrokeGlyph.clock,
+                label: strings.settingsAudioSpeedLabel,
+                value: defaultReadingSpeed.label,
+                onTap: () =>
+                    _showReadingSpeedPicker(context, defaultReadingSpeed),
+              ),
+              SettingsValueRow(
+                glyph: StrokeGlyph.speaker,
+                label: strings.settingsAudioVoiceLabel,
+                description: strings.settingsAudioVoiceDescription,
+                value:
+                    defaultReadingVoice?.name ??
+                    strings.settingsAudioVoiceDefault,
+                onTap: () => _showReadingVoicePicker(
+                  context,
+                  current: defaultReadingVoice,
+                  voices: availableVoices,
+                ),
+              ),
+              SettingsActionRow(
+                glyph: StrokeGlyph.play,
+                label: strings.settingsAudioPreviewLabel,
+                onTap: () => _previewVoice(context, strings),
+              ),
+              SettingsToggleRow(
+                key: settingsResumeReadingToggleKey,
+                glyph: StrokeGlyph.resume,
+                label: strings.settingsAudioResumeLabel,
+                value: resumeReadingEnabled,
+                onChanged: (value) => context
+                    .read<SettingsCubit>()
+                    .setResumeReadingEnabled(value),
+              ),
+            ],
+          ),
+      },
+    );
+  }
+}
+
+/// Plays «تجربة الصوت» and surfaces a failure — the one audio row that is
+/// not a persisted value, so it has no dedicated failure state of its own
+/// (no silent failures, CLAUDE.md §A3).
+Future<void> _previewVoice(BuildContext context, AppStrings strings) async {
+  final cubit = context.read<SettingsCubit>();
+  final played = await cubit.previewVoice(strings);
+  if (played || !context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(content: Text(strings.settingsAudioPreviewFailedFeedback)),
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Reading-speed picker sheet (F11-T07)
+// ---------------------------------------------------------------------------
+
+void _showReadingSpeedPicker(BuildContext context, ReadingSpeed current) {
+  showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
+    ),
+    backgroundColor: AppColors.of(context).card,
+    builder: (_) => _ReadingSpeedSheet(
+      current: current,
+      onSelected: (speed) {
+        context.read<SettingsCubit>().setDefaultReadingSpeed(speed);
+        Navigator.of(context).pop();
+      },
+    ),
+  );
+}
+
+class _ReadingSpeedSheet extends StatelessWidget {
+  const _ReadingSpeedSheet({required this.current, required this.onSelected});
+
+  final ReadingSpeed current;
+  final ValueChanged<ReadingSpeed> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final strings = context.strings;
+
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          _sheetPaddingH,
+          _sheetPaddingTop,
+          _sheetPaddingH,
+          _sheetPaddingBottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                strings.settingsAudioSpeedLabel,
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: AppTypography.bold,
+                  color: colors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(height: _sheetTitleGap),
+            for (final (index, speed) in ReadingSpeed.values.indexed) ...[
+              if (index > 0) const SizedBox(height: _optionGap),
+              _RadioOption(
+                title: speed.label,
+                selected: speed == current,
+                onTap: () => onSelected(speed),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reading-voice picker sheet (F11-T07)
+// ---------------------------------------------------------------------------
+
+void _showReadingVoicePicker(
+  BuildContext context, {
+  required TtsVoice? current,
+  required List<TtsVoice> voices,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
+    ),
+    backgroundColor: AppColors.of(context).card,
+    builder: (_) => _ReadingVoiceSheet(
+      current: current,
+      voices: voices,
+      onSelected: (voice) {
+        context.read<SettingsCubit>().setDefaultReadingVoice(voice);
+        Navigator.of(context).pop();
+      },
+    ),
+  );
+}
+
+class _ReadingVoiceSheet extends StatelessWidget {
+  const _ReadingVoiceSheet({
+    required this.current,
+    required this.voices,
+    required this.onSelected,
+  });
+
+  final TtsVoice? current;
+  final List<TtsVoice> voices;
+  final ValueChanged<TtsVoice?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final strings = context.strings;
+
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          _sheetPaddingH,
+          _sheetPaddingTop,
+          _sheetPaddingH,
+          _sheetPaddingBottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                strings.settingsAudioVoiceLabel,
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: AppTypography.bold,
+                  color: colors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(height: _sheetTitleGap),
+            _RadioOption(
+              title: strings.settingsAudioVoiceDefault,
+              selected: current == null,
+              onTap: () => onSelected(null),
+            ),
+            for (final voice in voices) ...[
+              const SizedBox(height: _optionGap),
+              _RadioOption(
+                title: voice.name,
+                selected: voice == current,
+                onTap: () => onSelected(voice),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

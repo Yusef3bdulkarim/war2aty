@@ -19,6 +19,7 @@ import '../../../../core/widgets/audio_mini_player_bar.dart';
 import '../../../../core/widgets/audio_options_sheet.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
+import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_amounts_card.dart';
 import '../../../../core/widgets/result_dates_card.dart';
@@ -29,12 +30,10 @@ import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
-import '../../../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
-import '../widgets/result_action_bar.dart';
 
 // From `Waraqti.dc.html` → the result page. The top bar's 56px is measured
 // from the physical screen top and already contains the 52px status bar, which
@@ -205,18 +204,22 @@ class _ResultBodyState extends State<_ResultBody> {
   /// Opens the mode-and-speed-picker sheet and starts the mini-player reading
   /// whatever the user confirms there. Reopening it (from the bar's
   /// «خيارات») highlights the mode and speed already reading rather than
-  /// resetting either to the first/default.
+  /// resetting either to the first/default — a fresh open instead highlights
+  /// the user's persisted «سرعة القراءة الافتراضية» (F11-T07) rather than
+  /// always the same fixed default.
   Future<void> _openAudioSheet() async {
     final cubit = context.read<AudioReaderCubit>();
     final currentlyReading = cubit.state;
+    final defaultSpeed = currentlyReading is AudioReaderReading
+        ? currentlyReading.speed
+        : await cubit.loadDefaultSpeed();
+    if (!mounted) return;
     final choice = await showAudioOptionsSheet(
       context,
       initialMode: currentlyReading is AudioReaderReading
           ? currentlyReading.mode
           : ReadingMode.summaryOnly,
-      initialSpeed: currentlyReading is AudioReaderReading
-          ? currentlyReading.speed
-          : ReadingSpeed.normal,
+      initialSpeed: defaultSpeed,
     );
     if (choice == null || !mounted) return;
     await cubit.start(

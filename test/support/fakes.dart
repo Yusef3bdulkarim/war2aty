@@ -8,6 +8,11 @@ import 'package:war2aty/core/accessibility/text_size_store.dart';
 import 'package:war2aty/core/analysis/analysis_consent_store.dart';
 import 'package:war2aty/core/analysis/processing_mode.dart';
 import 'package:war2aty/core/analysis/processing_mode_store.dart';
+import 'package:war2aty/core/audio/default_reading_speed_store.dart';
+import 'package:war2aty/core/audio/default_reading_voice_store.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/resume_reading_enabled_store.dart';
+import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/connectivity/connectivity_service.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/documents/analysis_amount.dart';
@@ -48,7 +53,6 @@ import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/tts_voice.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
@@ -151,6 +155,51 @@ final class FakeProcessingModeStore implements ProcessingModeStore {
 
   @override
   Future<void> writeMode(ProcessingMode mode) async => _mode = mode;
+}
+
+/// In-memory [DefaultReadingSpeedStore] (F11-T07) — no persistence, seedable.
+/// `null` (the default) models a user who has never touched the setting, the
+/// same as [FakeProcessingModeStore]'s own default.
+final class FakeDefaultReadingSpeedStore implements DefaultReadingSpeedStore {
+  FakeDefaultReadingSpeedStore([this._speed]);
+
+  ReadingSpeed? _speed;
+
+  @override
+  Future<ReadingSpeed?> readSpeed() async => _speed;
+
+  @override
+  Future<void> writeSpeed(ReadingSpeed speed) async => _speed = speed;
+}
+
+/// In-memory [DefaultReadingVoiceStore] (F11-T07) — no persistence, seedable.
+/// `null` (the default) models «الصوت الافتراضي» — either untouched, or
+/// explicitly reset back to it.
+final class FakeDefaultReadingVoiceStore implements DefaultReadingVoiceStore {
+  FakeDefaultReadingVoiceStore([this._voice]);
+
+  TtsVoice? _voice;
+
+  @override
+  Future<TtsVoice?> readVoice() async => _voice;
+
+  @override
+  Future<void> writeVoice(TtsVoice? voice) async => _voice = voice;
+}
+
+/// In-memory [ResumeReadingEnabledStore] (F11-T07) — no persistence,
+/// seedable. `null` (the default) models a user who has never touched the
+/// setting, the same as [FakeProcessingModeStore]'s own default.
+final class FakeResumeReadingEnabledStore implements ResumeReadingEnabledStore {
+  FakeResumeReadingEnabledStore([this._enabled]);
+
+  bool? _enabled;
+
+  @override
+  Future<bool?> readEnabled() async => _enabled;
+
+  @override
+  Future<void> writeEnabled(bool enabled) async => _enabled = enabled;
 }
 
 /// In-memory [OnboardingRepository]; can be seeded as "already seen" or made
@@ -532,12 +581,19 @@ final class FakeUsageRepository implements UsageRepository {
   @override
   Future<Result<DailyUsage?, AppFailure>> cachedUsage() async => _latest;
 
+  /// How many times [syncUsage] has been called — tests assert on this to
+  /// confirm a sync did (or deliberately did not) happen.
+  int syncCallCount = 0;
+
   @override
-  Future<Result<DailyUsage, AppFailure>> syncUsage() async => switch (_latest) {
-    Ok(:final value) when value != null => Ok(value),
-    Ok() => const Err(LocalDatabaseFailure()),
-    Err(:final failure) => Err(failure),
-  };
+  Future<Result<DailyUsage, AppFailure>> syncUsage() async {
+    syncCallCount++;
+    return switch (_latest) {
+      Ok(:final value) when value != null => Ok(value),
+      Ok() => const Err(LocalDatabaseFailure()),
+      Err(:final failure) => Err(failure),
+    };
+  }
 }
 
 /// A quota with [remaining] of [limit] analyses left today.

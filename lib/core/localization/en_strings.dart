@@ -529,6 +529,37 @@ final class EnStrings implements AppStrings {
   @override
   String get settingsHighContrastLabel => 'High contrast';
 
+  // Audio & reading defaults (F11-T07)
+  @override
+  String get settingsAudioSection => 'Audio & reading';
+
+  @override
+  String get settingsAudioSpeedLabel => 'Default reading speed';
+
+  @override
+  String get settingsAudioVoiceLabel => 'Reading voice';
+
+  @override
+  String get settingsAudioVoiceDescription =>
+      'Available voices depend on your phone\'s own settings.';
+
+  @override
+  String get settingsAudioVoiceDefault => 'Default voice';
+
+  @override
+  String get settingsAudioPreviewLabel => 'Preview voice';
+
+  @override
+  String get settingsAudioPreviewSample =>
+      'Hi, this is the War2aty app speaking.';
+
+  @override
+  String get settingsAudioPreviewFailedFeedback =>
+      'Could not play the voice sample right now.';
+
+  @override
+  String get settingsAudioResumeLabel => 'Resume reading from last position';
+
   // OCR processing
   @override
   String get ocrProcessing => 'Reading the document...';

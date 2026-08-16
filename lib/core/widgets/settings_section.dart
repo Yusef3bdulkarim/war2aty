@@ -89,6 +89,7 @@ class SettingsValueRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onTap,
+    this.description,
     super.key,
   });
 
@@ -99,6 +100,11 @@ class SettingsValueRow extends StatelessWidget {
   final String value;
 
   final VoidCallback? onTap;
+
+  /// An optional explanatory line under [label], above [value] — e.g. «صوت
+  /// القراءة»'s «الأصوات المتاحة حسب إعدادات الموبايل.» (F11-T07). Every
+  /// other row has none.
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +138,16 @@ class SettingsValueRow extends StatelessWidget {
                         color: colors.ink,
                       ),
                     ),
+                    if (description case final description?) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: AppTypography.caption.copyWith(
+                          fontSize: 13,
+                          color: colors.textMuted,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       value,
@@ -147,6 +163,55 @@ class SettingsValueRow extends StatelessWidget {
                 StrokeGlyph.chevronForward,
                 color: colors.textMuted,
                 size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One row: a leading icon and a label styled as a link, with no trailing
+/// value or chevron — a plain action, e.g. «تجربة الصوت» (F11-T07).
+class SettingsActionRow extends StatelessWidget {
+  const SettingsActionRow({
+    required this.glyph,
+    required this.label,
+    required this.onTap,
+    super.key,
+  });
+
+  final StrokeGlyph glyph;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _rowPaddingH,
+            vertical: _rowPaddingV,
+          ),
+          child: Row(
+            children: [
+              StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
+              const SizedBox(width: _rowGap),
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontSize: _rowLabelFontSize,
+                    fontWeight: AppTypography.semiBold,
+                    color: colors.brandPrimary,
+                  ),
+                ),
               ),
             ],
           ),

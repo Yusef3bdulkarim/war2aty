@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -11,6 +13,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
@@ -92,6 +95,7 @@ void main() {
       analyzeDocument: AnalyzeDocument(repository),
       analyzeImage: AnalyzeImage(repository),
       buildResult: const BuildAnalysisResult(),
+      syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
     );
     tts = FakeTextToSpeechService();
     audioReaderCubit = AudioReaderCubit(
@@ -105,6 +109,8 @@ void main() {
       ResumeReading(tts),
       SetReadingSpeed(tts),
       WatchReadingEvents(tts),
+      GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
+      GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
     );
   });
 

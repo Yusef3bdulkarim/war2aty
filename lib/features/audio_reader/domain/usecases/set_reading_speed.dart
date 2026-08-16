@@ -1,6 +1,6 @@
+import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
-import '../entities/reading_speed.dart';
 import '../services/text_to_speech_service.dart';
 
 /// Applies a [ReadingSpeed] to the engine, ahead of the utterance it should

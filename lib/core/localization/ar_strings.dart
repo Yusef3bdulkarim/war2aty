@@ -529,6 +529,37 @@ final class ArStrings implements AppStrings {
   @override
   String get settingsHighContrastLabel => 'تباين عالي';
 
+  // Audio & reading defaults (F11-T07)
+  @override
+  String get settingsAudioSection => 'الصوت والقراءة';
+
+  @override
+  String get settingsAudioSpeedLabel => 'سرعة القراءة الافتراضية';
+
+  @override
+  String get settingsAudioVoiceLabel => 'صوت القراءة';
+
+  @override
+  String get settingsAudioVoiceDescription =>
+      'الأصوات المتاحة حسب إعدادات الموبايل.';
+
+  @override
+  String get settingsAudioVoiceDefault => 'الصوت الافتراضي';
+
+  @override
+  String get settingsAudioPreviewLabel => 'تجربة الصوت';
+
+  @override
+  String get settingsAudioPreviewSample =>
+      'أهلًا بيك في تطبيق ورقتي بتقول إيه.';
+
+  @override
+  String get settingsAudioPreviewFailedFeedback =>
+      'تعذّر تشغيل عينة الصوت الآن.';
+
+  @override
+  String get settingsAudioResumeLabel => 'استكمال القراءة من آخر مكان';
+
   // OCR processing
   @override
   String get ocrProcessing => 'بنقرأ الورقة...';

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../features/audio_reader/domain/entities/reading_speed.dart';
 import '../../features/audio_reader/domain/entities/tts_event.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
@@ -15,6 +14,9 @@ import '../documents/reading_mode.dart';
 import '../error/app_failure.dart';
 import '../localization/app_strings.dart';
 import 'audio_reader_state.dart';
+import 'reading_speed.dart';
+import 'usecases/get_default_reading_speed.dart';
+import 'usecases/get_default_reading_voice.dart';
 
 /// Drives the result screen's mini-player: what [ReadingMode] is reading, and
 /// starting/stopping the engine behind it (F10-T04).
@@ -36,6 +38,8 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     this._resumeReading,
     this._setReadingSpeed,
     this._watchReadingEvents,
+    this._getDefaultReadingSpeed,
+    this._getDefaultReadingVoice,
   ) : super(const AudioReaderIdle()) {
     _eventsSubscription = _watchReadingEvents().listen(_onEvent);
   }
@@ -46,6 +50,14 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   final ResumeReading _resumeReading;
   final SetReadingSpeed _setReadingSpeed;
   final WatchReadingEvents _watchReadingEvents;
+
+  /// «سرعة القراءة الافتراضية» (F11-T07) — read once per fresh sheet open,
+  /// not cached: Settings can change it between one reading and the next.
+  final GetDefaultReadingSpeed _getDefaultReadingSpeed;
+
+  /// «صوت القراءة» (F11-T07) — applied automatically on every [start], the
+  /// same reasoning [_getDefaultReadingSpeed] documents for itself.
+  final GetDefaultReadingVoice _getDefaultReadingVoice;
 
   /// Listens for the rest of this cubit's life — one shared engine, one
   /// subscription — and is cancelled in [close].
@@ -70,6 +82,12 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// its own high-water mark keeps Android honest without `TextToSpeechService`
   /// having to say which kind of resume the engine actually gave it.
   double _peakProgress = 0;
+
+  /// The user's persisted «سرعة القراءة الافتراضية» (F11-T07), for the
+  /// options sheet to highlight when it opens on a paper nothing is already
+  /// reading — reopening it mid-reading highlights the *current* reading's
+  /// own speed instead, which the caller already holds in [state].
+  Future<ReadingSpeed> loadDefaultSpeed() => _getDefaultReadingSpeed();
 
   /// Starts reading [mode] aloud at [speed], replacing whatever was reading
   /// before — `TextToSpeechService.speak` does that on its own, so this never
@@ -103,10 +121,13 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
       emit(AudioReaderFailed(failure));
       if (isClosed) return;
     }
+    final preferredVoice = await _getDefaultReadingVoice();
+    if (isClosed) return;
     final outcome = await _startReading(
       result: result,
       mode: mode,
       strings: strings,
+      preferredVoice: preferredVoice,
     );
     if (isClosed) return;
     emit(

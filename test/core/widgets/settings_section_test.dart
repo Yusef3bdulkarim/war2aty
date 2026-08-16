@@ -99,4 +99,99 @@ void main() {
       expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
     });
   });
+
+  group('SettingsValueRow', () {
+    testWidgets('shows the label and value, with no description by default', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsValueRow(
+            glyph: StrokeGlyph.globe,
+            label: 'اللغة',
+            value: 'العربية',
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('اللغة'), findsOneWidget);
+      expect(find.text('العربية'), findsOneWidget);
+    });
+
+    testWidgets('shows a description when given one (F11-T07)', (tester) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsValueRow(
+            glyph: StrokeGlyph.speaker,
+            label: 'صوت القراءة',
+            description: 'الأصوات المتاحة حسب إعدادات الموبايل.',
+            value: 'الصوت الافتراضي',
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(
+        find.text('الأصوات المتاحة حسب إعدادات الموبايل.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the row fires onTap', (tester) async {
+      var tapped = false;
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsValueRow(
+            glyph: StrokeGlyph.globe,
+            label: 'اللغة',
+            value: 'العربية',
+            onTap: () => tapped = true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(SettingsValueRow));
+
+      expect(tapped, isTrue);
+    });
+  });
+
+  group('SettingsActionRow (F11-T07)', () {
+    testWidgets('shows the label', (tester) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsActionRow(
+            glyph: StrokeGlyph.play,
+            label: 'تجربة الصوت',
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(find.text('تجربة الصوت'), findsOneWidget);
+    });
+
+    testWidgets('tapping the row fires onTap', (tester) async {
+      var tapped = false;
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsActionRow(
+            glyph: StrokeGlyph.play,
+            label: 'تجربة الصوت',
+            onTap: () => tapped = true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(SettingsActionRow));
+
+      expect(tapped, isTrue);
+    });
+  });
 }

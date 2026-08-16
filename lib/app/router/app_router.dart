@@ -175,12 +175,21 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   context.read<OcrProcessingCubit>().confirm();
                   context.pushReplacement(AppRoutes.result);
                 },
-                onRetake: () => context.pushReplacement(
-                  AppRoutes.captureWith(CaptureSource.camera),
-                ),
-                onPickAnother: () => context.pushReplacement(
-                  AppRoutes.captureWith(CaptureSource.gallery),
-                ),
+                // `go(home)` then `push(capture)` rather than
+                // `pushReplacement`: `pushReplacement` only swaps the current
+                // top route, leaving the original `/capture` entry `Home`
+                // pushed underneath still on the stack. Collapsing to Home
+                // first guarantees the stack is always `[Home, capture(new)]`,
+                // so Back from the fresh Camera can never resurface a stale,
+                // covered capture route.
+                onRetake: () {
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.camera));
+                },
+                onPickAnother: () {
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.gallery));
+                },
               ),
             ),
           );
@@ -218,17 +227,17 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   cubit.cleanupImage();
                   context.pushReplacement(AppRoutes.result);
                 },
+                // See the `/ocr` route's `onRetake` above for why this is
+                // `go(home)` + `push(capture)` rather than `pushReplacement`.
                 onRetake: () {
                   context.read<OcrReviewCubit>().cleanupImage();
-                  context.pushReplacement(
-                    AppRoutes.captureWith(CaptureSource.camera),
-                  );
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.camera));
                 },
                 onPickAnother: () {
                   context.read<OcrReviewCubit>().cleanupImage();
-                  context.pushReplacement(
-                    AppRoutes.captureWith(CaptureSource.gallery),
-                  );
+                  context.go(AppRoutes.home);
+                  context.push(AppRoutes.captureWith(CaptureSource.gallery));
                 },
                 // The way out of a declined analysis consent (F11-T02) — the
                 // same escape hatch `/result` offers on the offline route.
@@ -292,11 +301,12 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               child: Builder(
                 builder: (context) => AnalysisResultScreen(
                   onClose: () => context.go(AppRoutes.home),
-                  // Replaces this route: the paper that could not be explained
-                  // is not somewhere to come back to.
-                  onCaptureAnother: () => context.pushReplacement(
-                    AppRoutes.captureWith(CaptureSource.camera),
-                  ),
+                  // See the `/ocr` route's `onRetake` above for why this is
+                  // `go(home)` + `push(capture)` rather than `pushReplacement`.
+                  onCaptureAnother: () {
+                    context.go(AppRoutes.home);
+                    context.push(AppRoutes.captureWith(CaptureSource.camera));
+                  },
                   onSave: () => unawaited(_saveResult(context, session!)),
                   onCreateReminder: (date) =>
                       _startReminderFromDate(context, date),
@@ -317,8 +327,18 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           final id = state.pathParameters['id'];
           if (id == null) return const _BackToHome();
 
-          return BlocProvider<DocumentDetailsCubit>(
-            create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<DocumentDetailsCubit>(
+                create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
+              ),
+              // Mirrors the `/result` route: the details screen grew its own
+              // Listen action and mini-player (F08 follow-up), reusing the
+              // same reader.
+              BlocProvider<AudioReaderCubit>(
+                create: (_) => getIt<AudioReaderCubit>(),
+              ),
+            ],
             child: DocumentDetailsScreen(
               onClose: context.pop,
               onCreateReminder: (date) =>

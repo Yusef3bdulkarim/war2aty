@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/documents/analysis_date.dart';
-import '../../../../core/icons/stroke_icon.dart';
-import '../../../../core/localization/app_localizations.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/date_selection_sheet.dart';
+import '../documents/analysis_date.dart';
+import '../icons/stroke_icon.dart';
+import '../localization/app_localizations.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+import 'date_selection_sheet.dart';
 
 // From `Waraqti.dc.html` → the result page's bottom action bar.
 const double _paddingH = AppSpacing.screenHorizontal;

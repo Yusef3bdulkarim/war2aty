@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
-import 'package:war2aty/features/audio_reader/domain/entities/reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 
 import '../../../../support/fakes.dart';

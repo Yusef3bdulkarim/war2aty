@@ -4,6 +4,7 @@ import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/documents/key_information.dart';
 import '../../../../core/documents/reading_mode.dart';
 import '../../../../core/localization/app_strings.dart';
+import 'normalize_spoken_numbers.dart';
 
 /// Assembles the text `TextToSpeechService.speak` reads for one [ReadingMode].
 ///
@@ -29,15 +30,21 @@ final class BuildReadingText {
     required AnalysisResult result,
     required ReadingMode mode,
     required AppStrings strings,
-  }) => switch (mode) {
-    ReadingMode.summaryOnly => result.analysis.summary.short.trim(),
-    ReadingMode.fullExplanation => result.analysis.summary.detailed.trim(),
-    ReadingMode.extractedText => result.extractedText.trim(),
-    ReadingMode.summaryAndKeyInformation => _summaryAndKeyInformation(
-      result.analysis,
-      strings,
-    ),
-  };
+  }) {
+    final raw = switch (mode) {
+      ReadingMode.summaryOnly => result.analysis.summary.short,
+      ReadingMode.fullExplanation => result.analysis.summary.detailed,
+      ReadingMode.extractedText => result.extractedText,
+      ReadingMode.summaryAndKeyInformation => _summaryAndKeyInformation(
+        result.analysis,
+        strings,
+      ),
+    };
+    // The one choke point every reading mode passes through, so a phone
+    // number, date, or amount is spoken the same way no matter which mode
+    // read it out.
+    return normalizeSpokenNumbers(raw).trim();
+  }
 
   /// The quick summary, then one sentence per labelled fact.
   ///

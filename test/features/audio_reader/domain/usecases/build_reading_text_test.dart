@@ -81,7 +81,9 @@ void main() {
           text,
           '${invoiceAnalysis().summary.short}. '
           '${ar.resultKeyInformationTitle}. '
-          'رقم الحساب: 1234',
+          // "رقم" makes this a reference number (spoken-number
+          // normalization) — read digit-by-digit, not as one cardinal.
+          'رقم الحساب: واحد اثنين ثلاثة أربعة',
         );
       },
     );
@@ -116,7 +118,9 @@ void main() {
       expect(
         text,
         endsWith(
-          'رقم العداد: 998877. ${ar.confidenceUncertain}. ${ar.resultActionInferred}',
+          // "رقم" makes this a reference number too — digit-by-digit.
+          'رقم العداد: تسعة تسعة ثمانية ثمانية سبعة سبعة. '
+          '${ar.confidenceUncertain}. ${ar.resultActionInferred}',
         ),
       );
     });

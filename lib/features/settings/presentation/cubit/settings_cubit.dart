@@ -5,6 +5,17 @@ import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/analysis/usecases/get_processing_mode.dart';
 import '../../../../core/analysis/usecases/set_analysis_consent.dart';
 import '../../../../core/analysis/usecases/set_processing_mode.dart';
+import '../../../../core/audio/reading_speed.dart';
+import '../../../../core/audio/tts_voice.dart';
+import '../../../../core/audio/usecases/get_available_voices.dart';
+import '../../../../core/audio/usecases/get_default_reading_speed.dart';
+import '../../../../core/audio/usecases/get_default_reading_voice.dart';
+import '../../../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../../../core/audio/usecases/preview_default_voice.dart';
+import '../../../../core/audio/usecases/set_default_reading_speed.dart';
+import '../../../../core/audio/usecases/set_default_reading_voice.dart';
+import '../../../../core/audio/usecases/set_resume_reading_enabled.dart';
+import '../../../../core/localization/app_strings.dart';
 import 'settings_state.dart';
 
 /// Drives the settings screen (F11-T02 onward). Depends on use cases only.
@@ -14,26 +25,63 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required SetAnalysisConsent setAnalysisConsent,
     required GetProcessingMode getProcessingMode,
     required SetProcessingMode setProcessingMode,
+    required GetDefaultReadingSpeed getDefaultReadingSpeed,
+    required SetDefaultReadingSpeed setDefaultReadingSpeed,
+    required GetDefaultReadingVoice getDefaultReadingVoice,
+    required SetDefaultReadingVoice setDefaultReadingVoice,
+    required GetResumeReadingEnabled getResumeReadingEnabled,
+    required SetResumeReadingEnabled setResumeReadingEnabled,
+    required GetAvailableVoices getAvailableVoices,
+    required PreviewDefaultVoice previewDefaultVoice,
   }) : _getAnalysisConsent = getAnalysisConsent,
        _setAnalysisConsent = setAnalysisConsent,
        _getProcessingMode = getProcessingMode,
        _setProcessingMode = setProcessingMode,
+       _getDefaultReadingSpeed = getDefaultReadingSpeed,
+       _setDefaultReadingSpeed = setDefaultReadingSpeed,
+       _getDefaultReadingVoice = getDefaultReadingVoice,
+       _setDefaultReadingVoice = setDefaultReadingVoice,
+       _getResumeReadingEnabled = getResumeReadingEnabled,
+       _setResumeReadingEnabled = setResumeReadingEnabled,
+       _getAvailableVoices = getAvailableVoices,
+       _previewDefaultVoice = previewDefaultVoice,
        super(const SettingsLoading());
 
   final GetAnalysisConsent _getAnalysisConsent;
   final SetAnalysisConsent _setAnalysisConsent;
   final GetProcessingMode _getProcessingMode;
   final SetProcessingMode _setProcessingMode;
+  final GetDefaultReadingSpeed _getDefaultReadingSpeed;
+  final SetDefaultReadingSpeed _setDefaultReadingSpeed;
+  final GetDefaultReadingVoice _getDefaultReadingVoice;
+  final SetDefaultReadingVoice _setDefaultReadingVoice;
+  final GetResumeReadingEnabled _getResumeReadingEnabled;
+  final SetResumeReadingEnabled _setResumeReadingEnabled;
+  final GetAvailableVoices _getAvailableVoices;
+  final PreviewDefaultVoice _previewDefaultVoice;
 
   /// Reads every persisted setting once, on screen mount.
+  ///
+  /// [GetAvailableVoices] is the one read here that talks to the OS engine
+  /// rather than a store — a device that fails to report its voices still
+  /// gets a working screen, just with the picker offering only «الصوت
+  /// الافتراضي» (F11-T07).
   Future<void> load() async {
     final analysisConsent = await _getAnalysisConsent();
     final processingMode = await _getProcessingMode();
+    final defaultReadingSpeed = await _getDefaultReadingSpeed();
+    final defaultReadingVoice = await _getDefaultReadingVoice();
+    final resumeReadingEnabled = await _getResumeReadingEnabled();
+    final availableVoices = (await _getAvailableVoices()).valueOrNull ?? [];
     if (isClosed) return;
     emit(
       SettingsReady(
         analysisConsent: analysisConsent,
         processingMode: processingMode,
+        defaultReadingSpeed: defaultReadingSpeed,
+        defaultReadingVoice: defaultReadingVoice,
+        availableVoices: availableVoices,
+        resumeReadingEnabled: resumeReadingEnabled,
       ),
     );
   }
@@ -58,5 +106,56 @@ final class SettingsCubit extends Cubit<SettingsState> {
     if (current is! SettingsReady) return;
     emit(current.copyWith(processingMode: mode));
     await _setProcessingMode(mode);
+  }
+
+  /// Picks «سرعة القراءة الافتراضية» (F11-T07).
+  ///
+  /// Same emit-first pattern as [setAnalysisConsent].
+  Future<void> setDefaultReadingSpeed(ReadingSpeed speed) async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    emit(current.copyWith(defaultReadingSpeed: speed));
+    await _setDefaultReadingSpeed(speed);
+  }
+
+  /// Picks «صوت القراءة» (F11-T07) — `null` for «الصوت الافتراضي».
+  ///
+  /// Same emit-first pattern as [setAnalysisConsent].
+  Future<void> setDefaultReadingVoice(TtsVoice? voice) async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    emit(
+      current.copyWith(
+        defaultReadingVoice: voice,
+        clearDefaultReadingVoice: voice == null,
+      ),
+    );
+    await _setDefaultReadingVoice(voice);
+  }
+
+  /// Toggles «استكمال القراءة من آخر مكان» (F11-T07).
+  ///
+  /// Same emit-first pattern as [setAnalysisConsent].
+  Future<void> setResumeReadingEnabled(bool enabled) async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    emit(current.copyWith(resumeReadingEnabled: enabled));
+    await _setResumeReadingEnabled(enabled);
+  }
+
+  /// Plays «تجربة الصوت» (F11-T07) using whichever speed/voice are currently
+  /// selected on screen — not necessarily saved yet, so the user hears what
+  /// they are about to confirm. Answers whether it played, for the screen to
+  /// surface a failure rather than leaving a silent tap unexplained (no
+  /// silent failures, CLAUDE.md §A3).
+  Future<bool> previewVoice(AppStrings strings) async {
+    final current = state;
+    if (current is! SettingsReady) return false;
+    final outcome = await _previewDefaultVoice(
+      sampleText: strings.settingsAudioPreviewSample,
+      speed: current.defaultReadingSpeed,
+      voice: current.defaultReadingVoice,
+    );
+    return outcome.isOk;
   }
 }
