@@ -50,6 +50,28 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Register a dependency on `ModalRoute` so this callback fires whenever
+    // `isCurrent` changes — which happens exactly when a route is pushed on
+    // top of this one (isCurrent → false) or popped off it (isCurrent → true).
+    //
+    // A finished capture parks the cubit on `CameraCaptured`, a terminal
+    // state the viewfinder does not treat as "ready" — so the screen is stuck
+    // showing an "opening camera" spinner forever once it is revealed again
+    // by a pop (retake button, device-back from preview/OCR/OCR-review).
+    // Re-arming here covers every pop path uniformly — including the hardware
+    // back gesture, which no explicit callback in the router can intercept.
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      final state = context.read<CameraCaptureCubit>().state;
+      if (state is CameraCaptured) {
+        context.read<CameraCaptureCubit>().start();
+      }
+    }
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();

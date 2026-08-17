@@ -30,6 +30,7 @@ final class SettingsReady extends SettingsState {
     required this.availableVoices,
     required this.resumeReadingEnabled,
     required this.cameraPermission,
+    required this.notificationPermission,
   });
 
   /// «السماح بإرسال النص للتحليل» (F11-T02).
@@ -57,6 +58,9 @@ final class SettingsReady extends SettingsState {
   /// «إذن الكاميرا» (F11-T08).
   final PermissionOutcome cameraPermission;
 
+  /// «إذن الإشعارات» (F11-T09).
+  final PermissionOutcome notificationPermission;
+
   SettingsReady copyWith({
     bool? analysisConsent,
     ProcessingMode? processingMode,
@@ -66,6 +70,7 @@ final class SettingsReady extends SettingsState {
     List<TtsVoice>? availableVoices,
     bool? resumeReadingEnabled,
     PermissionOutcome? cameraPermission,
+    PermissionOutcome? notificationPermission,
   }) => SettingsReady(
     analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
@@ -76,6 +81,8 @@ final class SettingsReady extends SettingsState {
     availableVoices: availableVoices ?? this.availableVoices,
     resumeReadingEnabled: resumeReadingEnabled ?? this.resumeReadingEnabled,
     cameraPermission: cameraPermission ?? this.cameraPermission,
+    notificationPermission:
+        notificationPermission ?? this.notificationPermission,
   );
 
   @override
@@ -88,7 +95,8 @@ final class SettingsReady extends SettingsState {
           other.defaultReadingVoice == defaultReadingVoice &&
           _listEquals(other.availableVoices, availableVoices) &&
           other.resumeReadingEnabled == resumeReadingEnabled &&
-          other.cameraPermission == cameraPermission;
+          other.cameraPermission == cameraPermission &&
+          other.notificationPermission == notificationPermission;
 
   @override
   int get hashCode => Object.hash(
@@ -99,6 +107,7 @@ final class SettingsReady extends SettingsState {
     Object.hashAll(availableVoices),
     resumeReadingEnabled,
     cameraPermission,
+    notificationPermission,
   );
 }
 

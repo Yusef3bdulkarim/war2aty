@@ -32,6 +32,8 @@ import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
@@ -140,6 +142,9 @@ void main() {
         final cameraPermissions = FakeCameraPermissionRepository(
           status: PermissionOutcome.denied,
         );
+        final notificationPermissions = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
         return SettingsCubit(
           getAnalysisConsent: GetAnalysisConsent(consentStore),
           setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -158,6 +163,12 @@ void main() {
           ),
           getCameraPermission: GetCameraPermission(cameraPermissions),
           openPermissionSettings: OpenPermissionSettings(cameraPermissions),
+          getNotificationPermission: GetNotificationPermission(
+            notificationPermissions,
+          ),
+          openNotificationSettings: OpenNotificationPermissionSettings(
+            notificationPermissions,
+          ),
         );
       })
       ..registerLazySingleton<GoRouter>(

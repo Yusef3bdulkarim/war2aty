@@ -574,6 +574,13 @@ final class EnStrings implements AppStrings {
   @override
   String get settingsOpenCameraSettingsLabel => 'Open camera settings';
 
+  // Permissions (F11-T09)
+  @override
+  String get settingsNotificationPermissionLabel => 'Notification permission';
+  @override
+  String get settingsOpenNotificationSettingsLabel =>
+      'Open notification settings';
+
   // OCR processing
   @override
   String get ocrProcessing => 'Reading the document...';

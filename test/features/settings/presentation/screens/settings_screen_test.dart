@@ -30,6 +30,8 @@ import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -39,10 +41,10 @@ import 'package:war2aty/features/settings/presentation/screens/settings_screen.d
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 
-// F11-T01/T02/T03/T04/T05/T06/T07/T08: the settings scaffold, the analysis
-// consent toggle, the processing-mode picker, the language switch, the
-// text-size picker, the high-contrast toggle, the audio prefs, and the
-// camera permission status row.
+// F11-T01/T02/T03/T04/T05/T06/T07/T08/T09: the settings scaffold, the
+// analysis consent toggle, the processing-mode picker, the language switch,
+// the text-size picker, the high-contrast toggle, the audio prefs, and the
+// camera/notification permission status rows.
 void main() {
   const ar = ArStrings();
 
@@ -56,6 +58,7 @@ void main() {
   late FakeResumeReadingEnabledStore resumeStore;
   late FakeTextToSpeechService tts;
   late FakeCameraPermissionRepository cameraPermissionRepo;
+  late FakeNotificationPermissionRepository notificationPermissionRepo;
   late SettingsCubit cubit;
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
@@ -74,6 +77,7 @@ void main() {
     cameraPermissionRepo = FakeCameraPermissionRepository(
       status: PermissionOutcome.granted,
     );
+    notificationPermissionRepo = FakeNotificationPermissionRepository();
     cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consentStore),
       setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -92,6 +96,12 @@ void main() {
       ),
       getCameraPermission: GetCameraPermission(cameraPermissionRepo),
       openPermissionSettings: OpenPermissionSettings(cameraPermissionRepo),
+      getNotificationPermission: GetNotificationPermission(
+        notificationPermissionRepo,
+      ),
+      openNotificationSettings: OpenNotificationPermissionSettings(
+        notificationPermissionRepo,
+      ),
     );
     localeCubit = LocaleCubit(
       getSavedLocale: GetSavedLocale(localeStore),
@@ -588,7 +598,9 @@ void main() {
       await tester.ensureVisible(find.text(ar.settingsPermissionsSection));
       expect(find.text(ar.settingsPermissionsSection), findsOneWidget);
       expect(find.text(ar.settingsCameraPermissionLabel), findsOneWidget);
-      expect(find.text(ar.settingsPermissionGranted), findsOneWidget);
+      // Both rows default to granted (F11-T09 added the notification row
+      // alongside this one), so the pill text appears twice.
+      expect(find.text(ar.settingsPermissionGranted), findsNWidgets(2));
       expect(find.text(ar.settingsOpenCameraSettingsLabel), findsOneWidget);
     });
 
@@ -620,6 +632,61 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(cameraPermissionRepo.openSettingsCount, 1);
+      },
+    );
+  });
+
+  group('notification permission status (F11-T09)', () {
+    testWidgets('shows the section with the granted pill by default', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPermissionLabel),
+      );
+      expect(find.text(ar.settingsNotificationPermissionLabel), findsOneWidget);
+      // Both rows default to granted (the camera row alongside this one), so
+      // the pill text appears twice.
+      expect(find.text(ar.settingsPermissionGranted), findsNWidgets(2));
+      expect(
+        find.text(ar.settingsOpenNotificationSettingsLabel),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reflects a denied status', (tester) async {
+      notificationPermissionRepo.status = PermissionOutcome.denied;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPermissionLabel),
+      );
+      expect(find.text(ar.settingsPermissionDenied), findsOneWidget);
+    });
+
+    testWidgets('reflects a permanently-denied status', (tester) async {
+      notificationPermissionRepo.status = PermissionOutcome.permanentlyDenied;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPermissionLabel),
+      );
+      expect(find.text(ar.settingsPermissionBlocked), findsOneWidget);
+    });
+
+    testWidgets(
+      'tapping «فتح إعدادات الإشعارات» calls through to the repository',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.ensureVisible(
+          find.byKey(settingsOpenNotificationSettingsButtonKey),
+        );
+        await tester.tap(find.byKey(settingsOpenNotificationSettingsButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(notificationPermissionRepo.openSettingsCount, 1);
       },
     );
   });

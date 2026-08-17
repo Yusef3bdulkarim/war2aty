@@ -342,9 +342,16 @@ final class FakeNotificationPermissionRepository
 
   PermissionOutcome status;
   PermissionOutcome afterRequest;
-  final bool fails;
+
+  /// Mutable like [status] — a test can flip a fake that started healthy to
+  /// simulate a platform failure on a later call (e.g. a refresh after a
+  /// successful load), not just at construction (F11-T09).
+  bool fails;
 
   int requestCount = 0;
+
+  /// «فتح إعدادات الإشعارات» calls (F11-T09).
+  int openSettingsCount = 0;
 
   @override
   Future<Result<PermissionOutcome, AppFailure>> currentStatus() async =>
@@ -356,6 +363,12 @@ final class FakeNotificationPermissionRepository
     if (fails) return const Err(NotificationPermissionFailure());
     status = afterRequest;
     return Ok(status);
+  }
+
+  @override
+  Future<Result<bool, AppFailure>> openSettings() async {
+    openSettingsCount++;
+    return fails ? const Err(NotificationPermissionFailure()) : const Ok(true);
   }
 }
 

@@ -35,6 +35,16 @@ void main() {
       expect(permissions.requestCount, 1);
     });
 
+    test('opens the settings app (F11-T09)', () async {
+      final permissions = FakePermissionService(
+        outcome: PermissionOutcome.granted,
+      );
+      final repository = SystemNotificationPermissionRepository(permissions);
+
+      expect(await repository.openSettings(), const Ok<bool, AppFailure>(true));
+      expect(permissions.openSettingsCount, 1);
+    });
+
     test('turns a platform error into a typed failure', () async {
       final repository = SystemNotificationPermissionRepository(
         FakePermissionService(outcome: PermissionOutcome.denied, fails: true),
@@ -46,6 +56,10 @@ void main() {
       );
       expect(
         (await repository.request()).failureOrNull,
+        const NotificationPermissionFailure(),
+      );
+      expect(
+        (await repository.openSettings()).failureOrNull,
         const NotificationPermissionFailure(),
       );
     });

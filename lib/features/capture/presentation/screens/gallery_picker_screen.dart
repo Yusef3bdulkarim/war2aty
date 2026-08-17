@@ -40,6 +40,24 @@ class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Same mechanism as `CameraCaptureScreen`: when a route pushed on top of
+    // this one (the crop/preview screen) is popped, `ModalRoute.isCurrent`
+    // flips back to `true` and this callback fires. A finished pick parks the
+    // cubit on `GalleryPickerSelected` — a terminal state the builder shows
+    // as the "opening" spinner. Re-opening the picker here covers every pop
+    // path (retake button, device back gesture) uniformly.
+    final route = ModalRoute.of(context);
+    if (route != null && route.isCurrent) {
+      final state = context.read<GalleryPickerCubit>().state;
+      if (state is GalleryPickerSelected || state is GalleryPickerCancelled) {
+        context.read<GalleryPickerCubit>().pick();
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 

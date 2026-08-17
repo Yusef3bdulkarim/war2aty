@@ -17,6 +17,8 @@ import '../../../../core/audio/usecases/set_default_reading_voice.dart';
 import '../../../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../../../core/localization/app_strings.dart';
 import '../../../../core/permissions/permission_service.dart';
+import '../../../../core/permissions/usecases/get_notification_permission.dart';
+import '../../../../core/permissions/usecases/open_notification_permission_settings.dart';
 import '../../../capture/domain/usecases/get_camera_permission.dart';
 import '../../../capture/domain/usecases/open_permission_settings.dart';
 import 'settings_state.dart';
@@ -38,6 +40,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required PreviewDefaultVoice previewDefaultVoice,
     required GetCameraPermission getCameraPermission,
     required OpenPermissionSettings openPermissionSettings,
+    required GetNotificationPermission getNotificationPermission,
+    required OpenNotificationPermissionSettings openNotificationSettings,
   }) : _getAnalysisConsent = getAnalysisConsent,
        _setAnalysisConsent = setAnalysisConsent,
        _getProcessingMode = getProcessingMode,
@@ -52,6 +56,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _previewDefaultVoice = previewDefaultVoice,
        _getCameraPermission = getCameraPermission,
        _openPermissionSettings = openPermissionSettings,
+       _getNotificationPermission = getNotificationPermission,
+       _openNotificationSettings = openNotificationSettings,
        super(const SettingsLoading());
 
   final GetAnalysisConsent _getAnalysisConsent;
@@ -68,6 +74,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
   final PreviewDefaultVoice _previewDefaultVoice;
   final GetCameraPermission _getCameraPermission;
   final OpenPermissionSettings _openPermissionSettings;
+  final GetNotificationPermission _getNotificationPermission;
+  final OpenNotificationPermissionSettings _openNotificationSettings;
 
   /// Reads every persisted setting once, on screen mount.
   ///
@@ -84,6 +92,9 @@ final class SettingsCubit extends Cubit<SettingsState> {
     final availableVoices = (await _getAvailableVoices()).valueOrNull ?? [];
     final cameraPermission =
         (await _getCameraPermission()).valueOrNull ?? PermissionOutcome.denied;
+    final notificationPermission =
+        (await _getNotificationPermission()).valueOrNull ??
+        PermissionOutcome.denied;
     if (isClosed) return;
     emit(
       SettingsReady(
@@ -94,6 +105,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
         availableVoices: availableVoices,
         resumeReadingEnabled: resumeReadingEnabled,
         cameraPermission: cameraPermission,
+        notificationPermission: notificationPermission,
       ),
     );
   }
@@ -194,4 +206,21 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// what reflects whatever the user changed there, the same contract
   /// `CameraPermissionCubit.allow()` already uses for this same use case.
   Future<void> openCameraSettings() => _openPermissionSettings().then((_) {});
+
+  /// Re-reads «إذن الإشعارات» without prompting (F11-T09) — same reasoning
+  /// and same denied-on-failure fallback as [refreshCameraPermission].
+  Future<void> refreshNotificationPermission() async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    final notificationPermission =
+        (await _getNotificationPermission()).valueOrNull ??
+        PermissionOutcome.denied;
+    if (isClosed) return;
+    emit(current.copyWith(notificationPermission: notificationPermission));
+  }
+
+  /// «فتح إعدادات الإشعارات» (F11-T09) — same contract as
+  /// [openCameraSettings].
+  Future<void> openNotificationSettings() =>
+      _openNotificationSettings().then((_) {});
 }

@@ -45,6 +45,11 @@ const Key settingsOpenCameraSettingsButtonKey = Key(
   'settings-open-camera-settings-button',
 );
 
+/// The «فتح إعدادات الإشعارات» row (F11-T09).
+const Key settingsOpenNotificationSettingsButtonKey = Key(
+  'settings-open-notification-settings-button',
+);
+
 /// The «الإعدادات» tab (F11-T01 onward).
 ///
 /// The heading is a scaffold; the body below it grows one [SettingsSection]
@@ -790,17 +795,18 @@ class _AudioSection extends StatelessWidget {
   }
 }
 
-/// «الأذونات والتنبيهات» — the camera permission row (F11-T08).
+/// «الأذونات والتنبيهات» — the camera and notification permission rows
+/// (F11-T08, F11-T09).
 ///
-/// The design also shows a notification-permission row, a notification-
-/// privacy toggle, and «حذف كل التذكيرات» in this same card — no F11 task
-/// owns them yet (F11-T09/T10/T11), so they are left out rather than
-/// guessed at, the same way `_AccessibilitySection` leaves out «تقليل
-/// الحركة».
+/// The design also shows a notification-privacy toggle and «حذف كل
+/// التذكيرات» in this same card — no F11 task owns them yet (F11-T10/T11),
+/// so they are left out rather than guessed at, the same way
+/// `_AccessibilitySection` leaves out «تقليل الحركة».
 ///
 /// Stateful only for the [AppLifecycleListener]: opening the OS settings app
 /// backgrounds this app, so only a re-check on resume notices what the user
-/// changed there ([SettingsCubit.refreshCameraPermission]).
+/// changed there ([SettingsCubit.refreshCameraPermission],
+/// [SettingsCubit.refreshNotificationPermission]).
 class _PermissionsSection extends StatefulWidget {
   const _PermissionsSection();
 
@@ -819,7 +825,9 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
 
   void _onResume() {
     if (!mounted) return;
-    context.read<SettingsCubit>().refreshCameraPermission();
+    final cubit = context.read<SettingsCubit>();
+    cubit.refreshCameraPermission();
+    cubit.refreshNotificationPermission();
   }
 
   @override
@@ -836,29 +844,52 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
         SettingsLoading() => const SizedBox.shrink(),
-        SettingsReady(:final cameraPermission) => SettingsSection(
-          title: strings.settingsPermissionsSection,
-          rows: [
-            SettingsStatusRow(
-              glyph: StrokeGlyph.camera,
-              label: strings.settingsCameraPermissionLabel,
-              statusLabel: _permissionStatusLabel(cameraPermission, strings),
-              statusBackground: _permissionStatusBackground(
-                cameraPermission,
-                colors,
+        SettingsReady(:final cameraPermission, :final notificationPermission) =>
+          SettingsSection(
+            title: strings.settingsPermissionsSection,
+            rows: [
+              SettingsStatusRow(
+                glyph: StrokeGlyph.camera,
+                label: strings.settingsCameraPermissionLabel,
+                statusLabel: _permissionStatusLabel(cameraPermission, strings),
+                statusBackground: _permissionStatusBackground(
+                  cameraPermission,
+                  colors,
+                ),
+                statusForeground: _permissionStatusForeground(
+                  cameraPermission,
+                  colors,
+                ),
               ),
-              statusForeground: _permissionStatusForeground(
-                cameraPermission,
-                colors,
+              SettingsLinkRow(
+                key: settingsOpenCameraSettingsButtonKey,
+                label: strings.settingsOpenCameraSettingsLabel,
+                onTap: () => context.read<SettingsCubit>().openCameraSettings(),
               ),
-            ),
-            SettingsLinkRow(
-              key: settingsOpenCameraSettingsButtonKey,
-              label: strings.settingsOpenCameraSettingsLabel,
-              onTap: () => context.read<SettingsCubit>().openCameraSettings(),
-            ),
-          ],
-        ),
+              SettingsStatusRow(
+                glyph: StrokeGlyph.navReminders,
+                label: strings.settingsNotificationPermissionLabel,
+                statusLabel: _permissionStatusLabel(
+                  notificationPermission,
+                  strings,
+                ),
+                statusBackground: _permissionStatusBackground(
+                  notificationPermission,
+                  colors,
+                ),
+                statusForeground: _permissionStatusForeground(
+                  notificationPermission,
+                  colors,
+                ),
+              ),
+              SettingsLinkRow(
+                key: settingsOpenNotificationSettingsButtonKey,
+                label: strings.settingsOpenNotificationSettingsLabel,
+                onTap: () =>
+                    context.read<SettingsCubit>().openNotificationSettings(),
+              ),
+            ],
+          ),
       },
     );
   }

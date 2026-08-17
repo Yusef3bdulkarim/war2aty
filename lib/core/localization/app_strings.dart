@@ -424,6 +424,12 @@ abstract interface class AppStrings {
   /// «فتح إعدادات الكاميرا» (F11-T08).
   String get settingsOpenCameraSettingsLabel;
 
+  /// The notification permission row's label (F11-T09).
+  String get settingsNotificationPermissionLabel;
+
+  /// «فتح إعدادات الإشعارات» (F11-T09).
+  String get settingsOpenNotificationSettingsLabel;
+
   // OCR processing
   String get ocrProcessing;
   String get ocrErrorTitle;

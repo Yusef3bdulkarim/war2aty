@@ -70,6 +70,7 @@ import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
 import '../../core/permissions/system_notification_permission_repository.dart';
 import '../../core/permissions/usecases/get_notification_permission.dart';
+import '../../core/permissions/usecases/open_notification_permission_settings.dart';
 import '../../core/permissions/usecases/request_notification_permission.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
@@ -737,6 +738,11 @@ void _registerReminders() {
     ..registerFactory<RequestNotificationPermission>(
       () => RequestNotificationPermission(getIt()),
     )
+    // F11-T09. Settings re-opens the same notification permission the
+    // reminder-save flow gates itself on.
+    ..registerFactory<OpenNotificationPermissionSettings>(
+      () => OpenNotificationPermissionSettings(getIt()),
+    )
     // From a document's date (F09-T03): one cubit per opened form, seeded
     // with what the router already knows (the chosen date, and the document
     // it came from, if any).
@@ -858,6 +864,9 @@ void _registerSettings() {
   // F11-T08. Reuses `GetCameraPermission`/`OpenPermissionSettings`
   // `_registerCapture` already registered — Settings reads and re-opens the
   // same camera permission the capture flow gates itself on.
+  // F11-T09. Reuses `GetNotificationPermission`/`OpenNotificationPermissionSettings`
+  // `_registerReminders` already registered — same reasoning, for
+  // notifications.
   getIt.registerFactory<SettingsCubit>(
     () => SettingsCubit(
       getAnalysisConsent: getIt(),
@@ -874,6 +883,8 @@ void _registerSettings() {
       previewDefaultVoice: getIt(),
       getCameraPermission: getIt(),
       openPermissionSettings: getIt(),
+      getNotificationPermission: getIt(),
+      openNotificationSettings: getIt(),
     ),
   );
 }

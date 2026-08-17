@@ -574,6 +574,12 @@ final class ArStrings implements AppStrings {
   @override
   String get settingsOpenCameraSettingsLabel => 'فتح إعدادات الكاميرا';
 
+  // Permissions (F11-T09)
+  @override
+  String get settingsNotificationPermissionLabel => 'إذن الإشعارات';
+  @override
+  String get settingsOpenNotificationSettingsLabel => 'فتح إعدادات الإشعارات';
+
   // OCR processing
   @override
   String get ocrProcessing => 'بنقرأ الورقة...';

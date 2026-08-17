@@ -16,6 +16,8 @@ import 'package:war2aty/core/audio/usecases/set_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -36,6 +38,7 @@ void main() {
     FakeResumeReadingEnabledStore? resumeStore,
     FakeTextToSpeechService? tts,
     FakeCameraPermissionRepository? cameraPermissionRepo,
+    FakeNotificationPermissionRepository? notificationPermissionRepo,
   }) {
     final consent = consentStore ?? FakeAnalysisConsentStore();
     final mode = modeStore ?? FakeProcessingModeStore();
@@ -46,6 +49,8 @@ void main() {
     final cameraPermission =
         cameraPermissionRepo ??
         FakeCameraPermissionRepository(status: PermissionOutcome.granted);
+    final notificationPermission =
+        notificationPermissionRepo ?? FakeNotificationPermissionRepository();
     final cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consent),
       setAnalysisConsent: SetAnalysisConsent(consent),
@@ -64,6 +69,12 @@ void main() {
       ),
       getCameraPermission: GetCameraPermission(cameraPermission),
       openPermissionSettings: OpenPermissionSettings(cameraPermission),
+      getNotificationPermission: GetNotificationPermission(
+        notificationPermission,
+      ),
+      openNotificationSettings: OpenNotificationPermissionSettings(
+        notificationPermission,
+      ),
     );
     addTearDown(cubit.close);
     addTearDown(ttsService.dispose);
@@ -78,6 +89,7 @@ void main() {
     availableVoices: [],
     resumeReadingEnabled: true,
     cameraPermission: PermissionOutcome.granted,
+    notificationPermission: PermissionOutcome.granted,
   );
 
   test('starts loading', () {
@@ -407,6 +419,140 @@ void main() {
         await cubit.load();
 
         await cubit.openCameraSettings();
+
+        expect(repo.openSettingsCount, 1);
+      },
+    );
+  });
+
+  group('notification permission status (F11-T09)', () {
+    test('load() reflects a denied notification permission', () async {
+      final cubit = buildCubit(
+        notificationPermissionRepo: FakeNotificationPermissionRepository(
+          status: PermissionOutcome.denied,
+        ),
+      );
+
+      await cubit.load();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(
+          notificationPermission: PermissionOutcome.denied,
+        ),
+      );
+    });
+
+    test(
+      'load() reflects a permanently-denied notification permission',
+      () async {
+        final cubit = buildCubit(
+          notificationPermissionRepo: FakeNotificationPermissionRepository(
+            status: PermissionOutcome.permanentlyDenied,
+          ),
+        );
+
+        await cubit.load();
+
+        expect(
+          cubit.state,
+          readyDefaults.copyWith(
+            notificationPermission: PermissionOutcome.permanentlyDenied,
+          ),
+        );
+      },
+    );
+
+    test('load() falls back to denied when the read fails', () async {
+      final cubit = buildCubit(
+        notificationPermissionRepo: FakeNotificationPermissionRepository(
+          fails: true,
+        ),
+      );
+
+      await cubit.load();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(
+          notificationPermission: PermissionOutcome.denied,
+        ),
+      );
+    });
+
+    test(
+      'refreshNotificationPermission() updates only notificationPermission',
+      () async {
+        final repo = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
+        final cubit = buildCubit(notificationPermissionRepo: repo);
+        await cubit.load();
+
+        repo.status = PermissionOutcome.granted;
+        await cubit.refreshNotificationPermission();
+
+        expect(
+          cubit.state,
+          readyDefaults.copyWith(
+            notificationPermission: PermissionOutcome.granted,
+          ),
+        );
+      },
+    );
+
+    test('refreshNotificationPermission() before load() is a no-op', () async {
+      final cubit = buildCubit();
+
+      await cubit.refreshNotificationPermission();
+
+      expect(cubit.state, const SettingsLoading());
+    });
+
+    test('refreshNotificationPermission() falls back to denied, same as '
+        'load(), when the re-check fails after a successful load()', () async {
+      final repo = FakeNotificationPermissionRepository();
+      final cubit = buildCubit(notificationPermissionRepo: repo);
+      await cubit.load();
+      expect(cubit.state, readyDefaults);
+
+      repo.fails = true;
+      await cubit.refreshNotificationPermission();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(
+          notificationPermission: PermissionOutcome.denied,
+        ),
+      );
+    });
+
+    test(
+      'openNotificationSettings() calls through to the repository',
+      () async {
+        final repo = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.permanentlyDenied,
+        );
+        final cubit = buildCubit(notificationPermissionRepo: repo);
+        await cubit.load();
+
+        await cubit.openNotificationSettings();
+
+        expect(repo.openSettingsCount, 1);
+      },
+    );
+
+    test(
+      'openNotificationSettings() does not throw when the repository fails',
+      () async {
+        final repo = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.permanentlyDenied,
+          fails: true,
+        );
+        final cubit = buildCubit(notificationPermissionRepo: repo);
+        await cubit.load();
+
+        await cubit.openNotificationSettings();
 
         expect(repo.openSettingsCount, 1);
       },
