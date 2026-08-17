@@ -16,6 +16,9 @@ import '../../../../core/audio/usecases/set_default_reading_speed.dart';
 import '../../../../core/audio/usecases/set_default_reading_voice.dart';
 import '../../../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../../../core/localization/app_strings.dart';
+import '../../../../core/permissions/permission_service.dart';
+import '../../../capture/domain/usecases/get_camera_permission.dart';
+import '../../../capture/domain/usecases/open_permission_settings.dart';
 import 'settings_state.dart';
 
 /// Drives the settings screen (F11-T02 onward). Depends on use cases only.
@@ -33,6 +36,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required SetResumeReadingEnabled setResumeReadingEnabled,
     required GetAvailableVoices getAvailableVoices,
     required PreviewDefaultVoice previewDefaultVoice,
+    required GetCameraPermission getCameraPermission,
+    required OpenPermissionSettings openPermissionSettings,
   }) : _getAnalysisConsent = getAnalysisConsent,
        _setAnalysisConsent = setAnalysisConsent,
        _getProcessingMode = getProcessingMode,
@@ -45,6 +50,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _setResumeReadingEnabled = setResumeReadingEnabled,
        _getAvailableVoices = getAvailableVoices,
        _previewDefaultVoice = previewDefaultVoice,
+       _getCameraPermission = getCameraPermission,
+       _openPermissionSettings = openPermissionSettings,
        super(const SettingsLoading());
 
   final GetAnalysisConsent _getAnalysisConsent;
@@ -59,6 +66,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
   final SetResumeReadingEnabled _setResumeReadingEnabled;
   final GetAvailableVoices _getAvailableVoices;
   final PreviewDefaultVoice _previewDefaultVoice;
+  final GetCameraPermission _getCameraPermission;
+  final OpenPermissionSettings _openPermissionSettings;
 
   /// Reads every persisted setting once, on screen mount.
   ///
@@ -73,6 +82,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
     final defaultReadingVoice = await _getDefaultReadingVoice();
     final resumeReadingEnabled = await _getResumeReadingEnabled();
     final availableVoices = (await _getAvailableVoices()).valueOrNull ?? [];
+    final cameraPermission =
+        (await _getCameraPermission()).valueOrNull ?? PermissionOutcome.denied;
     if (isClosed) return;
     emit(
       SettingsReady(
@@ -82,6 +93,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
         defaultReadingVoice: defaultReadingVoice,
         availableVoices: availableVoices,
         resumeReadingEnabled: resumeReadingEnabled,
+        cameraPermission: cameraPermission,
       ),
     );
   }
@@ -158,4 +170,28 @@ final class SettingsCubit extends Cubit<SettingsState> {
     );
     return outcome.isOk;
   }
+
+  /// Re-reads «إذن الكاميرا» without prompting (F11-T08) — call this on app
+  /// resume, since the OS settings app is a round trip out of the process
+  /// and only a re-check on return notices what changed there.
+  ///
+  /// Falls back to [PermissionOutcome.denied] on a failed read, the same
+  /// policy [load] already applies — a transient failure here is treated
+  /// exactly like a transient failure during the initial load rather than
+  /// keeping the last known-good value.
+  Future<void> refreshCameraPermission() async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    final cameraPermission =
+        (await _getCameraPermission()).valueOrNull ?? PermissionOutcome.denied;
+    if (isClosed) return;
+    emit(current.copyWith(cameraPermission: cameraPermission));
+  }
+
+  /// «فتح إعدادات الكاميرا» (F11-T08).
+  ///
+  /// No result surfaces here — [refreshCameraPermission] on app resume is
+  /// what reflects whatever the user changed there, the same contract
+  /// `CameraPermissionCubit.allow()` already uses for this same use case.
+  Future<void> openCameraSettings() => _openPermissionSettings().then((_) {});
 }

@@ -29,16 +29,20 @@ import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
+import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
+import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
 import 'package:war2aty/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:war2aty/features/settings/presentation/screens/settings_screen.dart';
 
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 
-// F11-T01/T02/T03/T04/T05/T06/T07: the settings scaffold, the analysis
+// F11-T01/T02/T03/T04/T05/T06/T07/T08: the settings scaffold, the analysis
 // consent toggle, the processing-mode picker, the language switch, the
-// text-size picker, the high-contrast toggle, and the audio prefs.
+// text-size picker, the high-contrast toggle, the audio prefs, and the
+// camera permission status row.
 void main() {
   const ar = ArStrings();
 
@@ -51,6 +55,7 @@ void main() {
   late FakeDefaultReadingVoiceStore voiceStore;
   late FakeResumeReadingEnabledStore resumeStore;
   late FakeTextToSpeechService tts;
+  late FakeCameraPermissionRepository cameraPermissionRepo;
   late SettingsCubit cubit;
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
@@ -66,6 +71,9 @@ void main() {
     voiceStore = FakeDefaultReadingVoiceStore();
     resumeStore = FakeResumeReadingEnabledStore();
     tts = FakeTextToSpeechService();
+    cameraPermissionRepo = FakeCameraPermissionRepository(
+      status: PermissionOutcome.granted,
+    );
     cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consentStore),
       setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -82,6 +90,8 @@ void main() {
         tts,
         const SelectVoiceForReading(),
       ),
+      getCameraPermission: GetCameraPermission(cameraPermissionRepo),
+      openPermissionSettings: OpenPermissionSettings(cameraPermissionRepo),
     );
     localeCubit = LocaleCubit(
       getSavedLocale: GetSavedLocale(localeStore),
@@ -567,5 +577,50 @@ void main() {
       expect(tester.widget<Switch>(resumeSwitch()).value, isFalse);
       expect(await resumeStore.readEnabled(), isFalse);
     });
+  });
+
+  group('camera permission status (F11-T08)', () {
+    testWidgets('shows the section with the granted pill by default', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsPermissionsSection));
+      expect(find.text(ar.settingsPermissionsSection), findsOneWidget);
+      expect(find.text(ar.settingsCameraPermissionLabel), findsOneWidget);
+      expect(find.text(ar.settingsPermissionGranted), findsOneWidget);
+      expect(find.text(ar.settingsOpenCameraSettingsLabel), findsOneWidget);
+    });
+
+    testWidgets('reflects a denied status', (tester) async {
+      cameraPermissionRepo.status = PermissionOutcome.denied;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsCameraPermissionLabel));
+      expect(find.text(ar.settingsPermissionDenied), findsOneWidget);
+    });
+
+    testWidgets('reflects a permanently-denied status', (tester) async {
+      cameraPermissionRepo.status = PermissionOutcome.permanentlyDenied;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsCameraPermissionLabel));
+      expect(find.text(ar.settingsPermissionBlocked), findsOneWidget);
+    });
+
+    testWidgets(
+      'tapping «فتح إعدادات الكاميرا» calls through to the repository',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.ensureVisible(
+          find.byKey(settingsOpenCameraSettingsButtonKey),
+        );
+        await tester.tap(find.byKey(settingsOpenCameraSettingsButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(cameraPermissionRepo.openSettingsCount, 1);
+      },
+    );
   });
 }

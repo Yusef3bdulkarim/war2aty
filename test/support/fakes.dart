@@ -304,7 +304,11 @@ final class FakeCameraPermissionRepository
 
   PermissionOutcome status;
   PermissionOutcome afterRequest;
-  final bool fails;
+
+  /// Mutable like [status] — a test can flip a fake that started healthy to
+  /// simulate a platform failure on a later call (e.g. a refresh after a
+  /// successful load), not just at construction.
+  bool fails;
 
   int openSettingsCount = 0;
 

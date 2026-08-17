@@ -409,6 +409,21 @@ abstract interface class AppStrings {
   /// The resume-reading toggle's row label (F11-T07).
   String get settingsAudioResumeLabel;
 
+  /// The settings screen's «الأذونات والتنبيهات» section (F11-T08 onward).
+  String get settingsPermissionsSection;
+
+  /// The camera permission row's label (F11-T08).
+  String get settingsCameraPermissionLabel;
+
+  /// Status pill labels shared by every permission row (F11-T08 onward) —
+  /// generic, not camera-specific, so F11-T09's notification row reuses them.
+  String get settingsPermissionGranted;
+  String get settingsPermissionDenied;
+  String get settingsPermissionBlocked;
+
+  /// «فتح إعدادات الكاميرا» (F11-T08).
+  String get settingsOpenCameraSettingsLabel;
+
   // OCR processing
   String get ocrProcessing;
   String get ocrErrorTitle;

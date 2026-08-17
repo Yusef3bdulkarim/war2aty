@@ -560,6 +560,20 @@ final class ArStrings implements AppStrings {
   @override
   String get settingsAudioResumeLabel => 'استكمال القراءة من آخر مكان';
 
+  // Permissions (F11-T08)
+  @override
+  String get settingsPermissionsSection => 'الأذونات والتنبيهات';
+  @override
+  String get settingsCameraPermissionLabel => 'إذن الكاميرا';
+  @override
+  String get settingsPermissionGranted => 'مسموح';
+  @override
+  String get settingsPermissionDenied => 'غير مسموح';
+  @override
+  String get settingsPermissionBlocked => 'ممنوع';
+  @override
+  String get settingsOpenCameraSettingsLabel => 'فتح إعدادات الكاميرا';
+
   // OCR processing
   @override
   String get ocrProcessing => 'بنقرأ الورقة...';

@@ -11,6 +11,7 @@ import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/app_strings.dart';
 import '../../../../core/localization/locale_cubit.dart';
+import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -37,6 +38,11 @@ const Key settingsHighContrastToggleKey = Key('settings-high-contrast-toggle');
 /// The resume-reading row (F11-T07) — the other toggle beside the two above.
 const Key settingsResumeReadingToggleKey = Key(
   'settings-resume-reading-toggle',
+);
+
+/// The «فتح إعدادات الكاميرا» row (F11-T08).
+const Key settingsOpenCameraSettingsButtonKey = Key(
+  'settings-open-camera-settings-button',
 );
 
 /// The «الإعدادات» tab (F11-T01 onward).
@@ -83,6 +89,7 @@ class SettingsScreen extends StatelessWidget {
               const _PrivacySection(),
               const _AccessibilitySection(),
               const _AudioSection(),
+              const _PermissionsSection(),
             ],
           ),
         ),
@@ -782,6 +789,110 @@ class _AudioSection extends StatelessWidget {
     );
   }
 }
+
+/// «الأذونات والتنبيهات» — the camera permission row (F11-T08).
+///
+/// The design also shows a notification-permission row, a notification-
+/// privacy toggle, and «حذف كل التذكيرات» in this same card — no F11 task
+/// owns them yet (F11-T09/T10/T11), so they are left out rather than
+/// guessed at, the same way `_AccessibilitySection` leaves out «تقليل
+/// الحركة».
+///
+/// Stateful only for the [AppLifecycleListener]: opening the OS settings app
+/// backgrounds this app, so only a re-check on resume notices what the user
+/// changed there ([SettingsCubit.refreshCameraPermission]).
+class _PermissionsSection extends StatefulWidget {
+  const _PermissionsSection();
+
+  @override
+  State<_PermissionsSection> createState() => _PermissionsSectionState();
+}
+
+class _PermissionsSectionState extends State<_PermissionsSection> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(onResume: _onResume);
+  }
+
+  void _onResume() {
+    if (!mounted) return;
+    context.read<SettingsCubit>().refreshCameraPermission();
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final colors = AppColors.of(context);
+
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) => switch (state) {
+        SettingsLoading() => const SizedBox.shrink(),
+        SettingsReady(:final cameraPermission) => SettingsSection(
+          title: strings.settingsPermissionsSection,
+          rows: [
+            SettingsStatusRow(
+              glyph: StrokeGlyph.camera,
+              label: strings.settingsCameraPermissionLabel,
+              statusLabel: _permissionStatusLabel(cameraPermission, strings),
+              statusBackground: _permissionStatusBackground(
+                cameraPermission,
+                colors,
+              ),
+              statusForeground: _permissionStatusForeground(
+                cameraPermission,
+                colors,
+              ),
+            ),
+            SettingsLinkRow(
+              key: settingsOpenCameraSettingsButtonKey,
+              label: strings.settingsOpenCameraSettingsLabel,
+              onTap: () => context.read<SettingsCubit>().openCameraSettings(),
+            ),
+          ],
+        ),
+      },
+    );
+  }
+}
+
+/// The pill's text for [outcome] — always paired with a color, never color
+/// alone (CLAUDE.md).
+String _permissionStatusLabel(PermissionOutcome outcome, AppStrings strings) =>
+    switch (outcome) {
+      PermissionOutcome.granted => strings.settingsPermissionGranted,
+      PermissionOutcome.denied => strings.settingsPermissionDenied,
+      PermissionOutcome.permanentlyDenied => strings.settingsPermissionBlocked,
+    };
+
+/// The pill's background for [outcome] — the same success/warning/error
+/// triad `ReminderStatusPill` uses.
+Color _permissionStatusBackground(
+  PermissionOutcome outcome,
+  AppColors colors,
+) => switch (outcome) {
+  PermissionOutcome.granted => colors.successTint,
+  PermissionOutcome.denied => colors.warningTint,
+  PermissionOutcome.permanentlyDenied => colors.errorTint,
+};
+
+/// The pill's text color for [outcome], matching [_permissionStatusBackground].
+Color _permissionStatusForeground(
+  PermissionOutcome outcome,
+  AppColors colors,
+) => switch (outcome) {
+  PermissionOutcome.granted => colors.successInk,
+  PermissionOutcome.denied => colors.warningInk,
+  PermissionOutcome.permanentlyDenied => colors.error,
+};
 
 /// Plays «تجربة الصوت» and surfaces a failure — the one audio row that is
 /// not a persisted value, so it has no dedicated failure state of its own

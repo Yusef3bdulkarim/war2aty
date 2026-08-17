@@ -1,6 +1,7 @@
 import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/audio/tts_voice.dart';
+import '../../../../core/permissions/permission_service.dart';
 
 /// States of the settings screen (F11-T02 onward).
 sealed class SettingsState {
@@ -28,6 +29,7 @@ final class SettingsReady extends SettingsState {
     required this.defaultReadingVoice,
     required this.availableVoices,
     required this.resumeReadingEnabled,
+    required this.cameraPermission,
   });
 
   /// «السماح بإرسال النص للتحليل» (F11-T02).
@@ -52,6 +54,9 @@ final class SettingsReady extends SettingsState {
   /// «استكمال القراءة من آخر مكان» (F11-T07).
   final bool resumeReadingEnabled;
 
+  /// «إذن الكاميرا» (F11-T08).
+  final PermissionOutcome cameraPermission;
+
   SettingsReady copyWith({
     bool? analysisConsent,
     ProcessingMode? processingMode,
@@ -60,6 +65,7 @@ final class SettingsReady extends SettingsState {
     bool clearDefaultReadingVoice = false,
     List<TtsVoice>? availableVoices,
     bool? resumeReadingEnabled,
+    PermissionOutcome? cameraPermission,
   }) => SettingsReady(
     analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
@@ -69,6 +75,7 @@ final class SettingsReady extends SettingsState {
         : defaultReadingVoice ?? this.defaultReadingVoice,
     availableVoices: availableVoices ?? this.availableVoices,
     resumeReadingEnabled: resumeReadingEnabled ?? this.resumeReadingEnabled,
+    cameraPermission: cameraPermission ?? this.cameraPermission,
   );
 
   @override
@@ -80,7 +87,8 @@ final class SettingsReady extends SettingsState {
           other.defaultReadingSpeed == defaultReadingSpeed &&
           other.defaultReadingVoice == defaultReadingVoice &&
           _listEquals(other.availableVoices, availableVoices) &&
-          other.resumeReadingEnabled == resumeReadingEnabled;
+          other.resumeReadingEnabled == resumeReadingEnabled &&
+          other.cameraPermission == cameraPermission;
 
   @override
   int get hashCode => Object.hash(
@@ -90,6 +98,7 @@ final class SettingsReady extends SettingsState {
     defaultReadingVoice,
     Object.hashAll(availableVoices),
     resumeReadingEnabled,
+    cameraPermission,
   );
 }
 
