@@ -137,6 +137,9 @@ void main() {
         final voiceStore = FakeDefaultReadingVoiceStore();
         final resumeStore = FakeResumeReadingEnabledStore();
         final tts = FakeTextToSpeechService();
+        final cameraPermissions = FakeCameraPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
         return SettingsCubit(
           getAnalysisConsent: GetAnalysisConsent(consentStore),
           setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -153,6 +156,8 @@ void main() {
             tts,
             const SelectVoiceForReading(),
           ),
+          getCameraPermission: GetCameraPermission(cameraPermissions),
+          openPermissionSettings: OpenPermissionSettings(cameraPermissions),
         );
       })
       ..registerLazySingleton<GoRouter>(

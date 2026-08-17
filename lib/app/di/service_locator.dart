@@ -855,6 +855,9 @@ void _registerSettings() {
   // F11-T07. Reuses the store/use cases `_registerAudioReader` already
   // registered — Settings reads and writes the same audio defaults the
   // mini-player applies to a fresh reading.
+  // F11-T08. Reuses `GetCameraPermission`/`OpenPermissionSettings`
+  // `_registerCapture` already registered — Settings reads and re-opens the
+  // same camera permission the capture flow gates itself on.
   getIt.registerFactory<SettingsCubit>(
     () => SettingsCubit(
       getAnalysisConsent: getIt(),
@@ -869,6 +872,8 @@ void _registerSettings() {
       setResumeReadingEnabled: getIt(),
       getAvailableVoices: getIt(),
       previewDefaultVoice: getIt(),
+      getCameraPermission: getIt(),
+      openPermissionSettings: getIt(),
     ),
   );
 }

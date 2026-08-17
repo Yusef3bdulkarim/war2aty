@@ -560,6 +560,20 @@ final class EnStrings implements AppStrings {
   @override
   String get settingsAudioResumeLabel => 'Resume reading from last position';
 
+  // Permissions (F11-T08)
+  @override
+  String get settingsPermissionsSection => 'Permissions & notifications';
+  @override
+  String get settingsCameraPermissionLabel => 'Camera permission';
+  @override
+  String get settingsPermissionGranted => 'Allowed';
+  @override
+  String get settingsPermissionDenied => 'Not allowed';
+  @override
+  String get settingsPermissionBlocked => 'Blocked';
+  @override
+  String get settingsOpenCameraSettingsLabel => 'Open camera settings';
+
   // OCR processing
   @override
   String get ocrProcessing => 'Reading the document...';

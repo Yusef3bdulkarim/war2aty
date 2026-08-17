@@ -221,6 +221,140 @@ class SettingsActionRow extends StatelessWidget {
   }
 }
 
+/// One row: a leading icon, a label, and a trailing status pill — e.g. «إذن
+/// الكاميرا» (F11-T08 onward). Not interactive; the pill always pairs its
+/// color with a distinct text label so meaning never rests on color alone
+/// (CLAUDE.md — same rule `ReminderStatusPill` already follows).
+class SettingsStatusRow extends StatelessWidget {
+  const SettingsStatusRow({
+    required this.glyph,
+    required this.label,
+    required this.statusLabel,
+    required this.statusBackground,
+    required this.statusForeground,
+    super.key,
+  });
+
+  final StrokeGlyph glyph;
+  final String label;
+
+  /// The pill's text — e.g. «مسموح» / «غير مسموح» / «ممنوع».
+  final String statusLabel;
+  final Color statusBackground;
+  final Color statusForeground;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: _rowPaddingH,
+        vertical: _rowPaddingV,
+      ),
+      child: Row(
+        children: [
+          StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
+          const SizedBox(width: _rowGap),
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.bodyMedium.copyWith(
+                fontSize: _rowLabelFontSize,
+                fontWeight: AppTypography.semiBold,
+                color: colors.ink,
+              ),
+            ),
+          ),
+          Semantics(
+            label: statusLabel,
+            excludeSemantics: true,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: statusBackground,
+                borderRadius: BorderRadius.circular(AppRadii.pill),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _statusPillPaddingH,
+                  vertical: _statusPillPaddingV,
+                ),
+                child: Text(
+                  statusLabel,
+                  style: AppTypography.caption.copyWith(
+                    fontSize: _statusPillFontSize,
+                    fontWeight: AppTypography.bold,
+                    color: statusForeground,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const double _statusPillPaddingH = 12;
+const double _statusPillPaddingV = 4;
+const double _statusPillFontSize = 12.5;
+
+/// One row: a label styled as a link with a trailing chevron, no leading
+/// icon — e.g. «فتح إعدادات الكاميرا» (F11-T08 onward). Unlike
+/// [SettingsActionRow] (icon, no chevron), this is the design's "leaves the
+/// screen" affordance: same visual family as [SettingsValueRow]'s chevron,
+/// tighter padding to match.
+class SettingsLinkRow extends StatelessWidget {
+  const SettingsLinkRow({required this.label, required this.onTap, super.key});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            _rowPaddingH,
+            _linkRowPaddingTop,
+            _rowPaddingH,
+            _linkRowPaddingBottom,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontSize: _linkRowFontSize,
+                    fontWeight: AppTypography.bold,
+                    color: colors.brandPrimary,
+                  ),
+                ),
+              ),
+              StrokeIcon(
+                StrokeGlyph.chevronForward,
+                color: colors.textMuted,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const double _linkRowPaddingTop = 12;
+const double _linkRowPaddingBottom = 14;
+const double _linkRowFontSize = 14;
+
 /// One row: a leading icon, a label (with an optional supporting line), and a
 /// trailing on/off switch.
 class SettingsToggleRow extends StatelessWidget {
