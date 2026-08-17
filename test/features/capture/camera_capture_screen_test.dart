@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/navigation/app_route_observer.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
@@ -102,6 +105,62 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
+    });
+
+    testWidgets('reopens the camera when revealed again by a pop, instead of '
+        'staying stuck on the captured/opening state (regression, bug: '
+        'retake/back loops forever without opening the camera)', (
+      tester,
+    ) async {
+      final camera = FakeCameraService();
+      final cubit = CameraCaptureCubit(
+        preview: const FakeCameraPreview(),
+        initializeCamera: InitializeCamera(camera),
+        capturePhoto: CapturePhoto(camera),
+        disposeCamera: DisposeCamera(camera),
+      );
+      addTearDown(cubit.close);
+
+      // A real host app: a Navigator with the shared route observer, and a
+      // second, pushed route standing in for `/preview` (or `/ocr-review`)
+      // — the screen this bug is about is never the very first route.
+      await pumpApp(
+        tester,
+        BlocProvider<CameraCaptureCubit>.value(
+          value: cubit,
+          child: CameraCaptureScreen(onCaptured: (_) {}, onClose: () {}),
+        ),
+        settle: false,
+        navigatorObservers: [appRouteObserver],
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(camera.initializeCount, 1);
+
+      // Take a shot: the cubit parks on the terminal `CameraCaptured`
+      // state, exactly like right before the real preview screen is
+      // pushed on top of this one.
+      await tester.tap(find.bySemanticsLabel(_strings.cameraShutterLabel));
+      await tester.pump();
+      await tester.pump();
+
+      // Push a screen on top (the preview/OCR-review stand-in), then pop
+      // back — mirroring "retake" or the device back button.
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+        ),
+      );
+      await tester.pump();
+      navigator.pop();
+      await tester.pump();
+      await tester.pump();
+
+      // The camera must have been reopened rather than left parked on its
+      // last, already-consumed state.
+      expect(camera.initializeCount, 2);
       expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
     });
 

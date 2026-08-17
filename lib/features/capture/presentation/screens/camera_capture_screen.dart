@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_route_observer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -41,7 +42,7 @@ class CameraCaptureScreen extends StatefulWidget {
 }
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   @override
   void initState() {
     super.initState();
@@ -50,7 +51,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -68,6 +77,19 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       case AppLifecycleState.detached:
         cubit.suspend();
     }
+  }
+
+  /// Fires when a route pushed on top of this one (the crop/preview screen,
+  /// or — via a "retake" that replaced it — the OCR/OCR-review screen) is
+  /// popped back to it. A finished capture leaves the cubit parked on the
+  /// terminal [CameraCaptured] state, which the viewfinder does not treat as
+  /// ready; without this, the screen is stuck showing its last frame (or the
+  /// "opening camera" spinner) forever, since nothing else re-arms it once
+  /// in-app navigation — as opposed to the app itself being backgrounded —
+  /// reveals it again.
+  @override
+  void didPopNext() {
+    context.read<CameraCaptureCubit>().start();
   }
 
   @override
