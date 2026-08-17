@@ -32,6 +32,8 @@ import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -41,10 +43,11 @@ import 'package:war2aty/features/settings/presentation/screens/settings_screen.d
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 
-// F11-T01/T02/T03/T04/T05/T06/T07/T08/T09: the settings scaffold, the
+// F11-T01/T02/T03/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the
 // analysis consent toggle, the processing-mode picker, the language switch,
-// the text-size picker, the high-contrast toggle, the audio prefs, and the
-// camera/notification permission status rows.
+// the text-size picker, the high-contrast toggle, the audio prefs, the
+// camera/notification permission status rows, and the notification-privacy
+// toggle.
 void main() {
   const ar = ArStrings();
 
@@ -59,6 +62,7 @@ void main() {
   late FakeTextToSpeechService tts;
   late FakeCameraPermissionRepository cameraPermissionRepo;
   late FakeNotificationPermissionRepository notificationPermissionRepo;
+  late FakeNotificationPrivacyStore notificationPrivacyStore;
   late SettingsCubit cubit;
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
@@ -78,6 +82,7 @@ void main() {
       status: PermissionOutcome.granted,
     );
     notificationPermissionRepo = FakeNotificationPermissionRepository();
+    notificationPrivacyStore = FakeNotificationPrivacyStore();
     cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consentStore),
       setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -101,6 +106,12 @@ void main() {
       ),
       openNotificationSettings: OpenNotificationPermissionSettings(
         notificationPermissionRepo,
+      ),
+      getHideSensitiveNotificationDetails: GetHideSensitiveNotificationDetails(
+        notificationPrivacyStore,
+      ),
+      setHideSensitiveNotificationDetails: SetHideSensitiveNotificationDetails(
+        notificationPrivacyStore,
       ),
     );
     localeCubit = LocaleCubit(
@@ -689,5 +700,48 @@ void main() {
         expect(notificationPermissionRepo.openSettingsCount, 1);
       },
     );
+  });
+
+  group('the notification-privacy toggle (F11-T10)', () {
+    Finder privacySwitch() => find.descendant(
+      of: find.byKey(settingsNotificationPrivacyToggleKey),
+      matching: find.byType(Switch),
+    );
+
+    testWidgets('shows the row, hidden (on) by default', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPrivacyLabel),
+      );
+      expect(find.text(ar.settingsNotificationPrivacyLabel), findsOneWidget);
+      expect(
+        find.text(ar.settingsNotificationPrivacyDescription),
+        findsOneWidget,
+      );
+      expect(tester.widget<Switch>(privacySwitch()).value, isTrue);
+    });
+
+    testWidgets('reflects a previously revealed choice', (tester) async {
+      await notificationPrivacyStore.writeHideSensitiveDetails(false);
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(privacySwitch());
+      expect(tester.widget<Switch>(privacySwitch()).value, isFalse);
+    });
+
+    testWidgets('turning it off persists through the cubit', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(privacySwitch());
+      await tester.tap(privacySwitch());
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(privacySwitch()).value, isFalse);
+      expect(
+        await notificationPrivacyStore.readHideSensitiveDetails(),
+        isFalse,
+      );
+    });
   });
 }

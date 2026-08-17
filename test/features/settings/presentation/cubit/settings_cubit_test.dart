@@ -18,6 +18,8 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -39,6 +41,7 @@ void main() {
     FakeTextToSpeechService? tts,
     FakeCameraPermissionRepository? cameraPermissionRepo,
     FakeNotificationPermissionRepository? notificationPermissionRepo,
+    FakeNotificationPrivacyStore? notificationPrivacyStore,
   }) {
     final consent = consentStore ?? FakeAnalysisConsentStore();
     final mode = modeStore ?? FakeProcessingModeStore();
@@ -51,6 +54,8 @@ void main() {
         FakeCameraPermissionRepository(status: PermissionOutcome.granted);
     final notificationPermission =
         notificationPermissionRepo ?? FakeNotificationPermissionRepository();
+    final notificationPrivacy =
+        notificationPrivacyStore ?? FakeNotificationPrivacyStore();
     final cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consent),
       setAnalysisConsent: SetAnalysisConsent(consent),
@@ -75,6 +80,12 @@ void main() {
       openNotificationSettings: OpenNotificationPermissionSettings(
         notificationPermission,
       ),
+      getHideSensitiveNotificationDetails: GetHideSensitiveNotificationDetails(
+        notificationPrivacy,
+      ),
+      setHideSensitiveNotificationDetails: SetHideSensitiveNotificationDetails(
+        notificationPrivacy,
+      ),
     );
     addTearDown(cubit.close);
     addTearDown(ttsService.dispose);
@@ -90,6 +101,7 @@ void main() {
     resumeReadingEnabled: true,
     cameraPermission: PermissionOutcome.granted,
     notificationPermission: PermissionOutcome.granted,
+    hideSensitiveNotificationDetails: true,
   );
 
   test('starts loading', () {
@@ -555,6 +567,56 @@ void main() {
         await cubit.openNotificationSettings();
 
         expect(repo.openSettingsCount, 1);
+      },
+    );
+  });
+
+  group('notification-privacy toggle (F11-T10)', () {
+    test('load() defaults to hidden (on)', () async {
+      final cubit = buildCubit();
+
+      await cubit.load();
+
+      expect(cubit.state, readyDefaults);
+    });
+
+    test('load() reflects a previously revealed choice', () async {
+      final cubit = buildCubit(
+        notificationPrivacyStore: FakeNotificationPrivacyStore(false),
+      );
+
+      await cubit.load();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(hideSensitiveNotificationDetails: false),
+      );
+    });
+
+    test('setHideSensitiveNotificationDetails() emits and persists', () async {
+      final store = FakeNotificationPrivacyStore();
+      final cubit = buildCubit(notificationPrivacyStore: store);
+      await cubit.load();
+
+      await cubit.setHideSensitiveNotificationDetails(false);
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(hideSensitiveNotificationDetails: false),
+      );
+      expect(await store.readHideSensitiveDetails(), isFalse);
+    });
+
+    test(
+      'setHideSensitiveNotificationDetails() before load() is a no-op',
+      () async {
+        final store = FakeNotificationPrivacyStore();
+        final cubit = buildCubit(notificationPrivacyStore: store);
+
+        await cubit.setHideSensitiveNotificationDetails(false);
+
+        expect(cubit.state, const SettingsLoading());
+        expect(await store.readHideSensitiveDetails(), isNull);
       },
     );
   });

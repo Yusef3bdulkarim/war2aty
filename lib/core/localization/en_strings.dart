@@ -581,6 +581,14 @@ final class EnStrings implements AppStrings {
   String get settingsOpenNotificationSettingsLabel =>
       'Open notification settings';
 
+  // Notification privacy (F11-T10)
+  @override
+  String get settingsNotificationPrivacyLabel =>
+      'Hide sensitive details on the lock screen';
+  @override
+  String get settingsNotificationPrivacyDescription =>
+      "We won't show amounts or important numbers inside the notification.";
+
   // OCR processing
   @override
   String get ocrProcessing => 'Reading the document...';

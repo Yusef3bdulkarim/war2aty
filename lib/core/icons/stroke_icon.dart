@@ -143,6 +143,10 @@ enum StrokeGlyph {
   /// Settings (F11-T07).
   resume,
 
+  /// A padlock — «إخفاء التفاصيل الحساسة من شاشة القفل» in Settings
+  /// (F11-T10).
+  lock,
+
   navHome,
   navDocuments,
   navReminders,
@@ -238,6 +242,9 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M11 5 6 9H2v6h4l5 4z M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14',
   StrokeGlyph.play: 'M8 5v14l11-7z',
   StrokeGlyph.resume: 'M3 12a9 9 0 1 0 9-9 M3 3v5h5',
+  // `<rect x=3 y=11 width=18 height=10 rx=2/>` plus the shackle arc.
+  StrokeGlyph.lock:
+      '${_roundedRect(3, 11, 18, 10, 2)} M7 11V8a5 5 0 0 1 10 0v3',
   // `<circle cx=12 cy=12 r=10/>`, the equator, and a meridian ellipse.
   StrokeGlyph.globe:
       '${_circle(12, 12, 10)} M2 12h20 M12 2a7 10 0 0 1 0 20a7 10 0 0 1 0-20',

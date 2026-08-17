@@ -19,6 +19,8 @@ import '../../../../core/localization/app_strings.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/permissions/usecases/get_notification_permission.dart';
 import '../../../../core/permissions/usecases/open_notification_permission_settings.dart';
+import '../../../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import '../../../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import '../../../capture/domain/usecases/get_camera_permission.dart';
 import '../../../capture/domain/usecases/open_permission_settings.dart';
 import 'settings_state.dart';
@@ -42,6 +44,10 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required OpenPermissionSettings openPermissionSettings,
     required GetNotificationPermission getNotificationPermission,
     required OpenNotificationPermissionSettings openNotificationSettings,
+    required GetHideSensitiveNotificationDetails
+    getHideSensitiveNotificationDetails,
+    required SetHideSensitiveNotificationDetails
+    setHideSensitiveNotificationDetails,
   }) : _getAnalysisConsent = getAnalysisConsent,
        _setAnalysisConsent = setAnalysisConsent,
        _getProcessingMode = getProcessingMode,
@@ -58,6 +64,10 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _openPermissionSettings = openPermissionSettings,
        _getNotificationPermission = getNotificationPermission,
        _openNotificationSettings = openNotificationSettings,
+       _getHideSensitiveNotificationDetails =
+           getHideSensitiveNotificationDetails,
+       _setHideSensitiveNotificationDetails =
+           setHideSensitiveNotificationDetails,
        super(const SettingsLoading());
 
   final GetAnalysisConsent _getAnalysisConsent;
@@ -76,6 +86,10 @@ final class SettingsCubit extends Cubit<SettingsState> {
   final OpenPermissionSettings _openPermissionSettings;
   final GetNotificationPermission _getNotificationPermission;
   final OpenNotificationPermissionSettings _openNotificationSettings;
+  final GetHideSensitiveNotificationDetails
+  _getHideSensitiveNotificationDetails;
+  final SetHideSensitiveNotificationDetails
+  _setHideSensitiveNotificationDetails;
 
   /// Reads every persisted setting once, on screen mount.
   ///
@@ -95,6 +109,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
     final notificationPermission =
         (await _getNotificationPermission()).valueOrNull ??
         PermissionOutcome.denied;
+    final hideSensitiveNotificationDetails =
+        await _getHideSensitiveNotificationDetails();
     if (isClosed) return;
     emit(
       SettingsReady(
@@ -106,6 +122,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
         resumeReadingEnabled: resumeReadingEnabled,
         cameraPermission: cameraPermission,
         notificationPermission: notificationPermission,
+        hideSensitiveNotificationDetails: hideSensitiveNotificationDetails,
       ),
     );
   }
@@ -223,4 +240,16 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// [openCameraSettings].
   Future<void> openNotificationSettings() =>
       _openNotificationSettings().then((_) {});
+
+  /// Toggles «إخفاء التفاصيل الحساسة من شاشة القفل» (F11-T10) — persists the
+  /// same setting `FlutterLocalNotificationsReminderScheduler` already reads
+  /// on every reminder fire (F09-T14).
+  ///
+  /// Same emit-first pattern as [setAnalysisConsent].
+  Future<void> setHideSensitiveNotificationDetails(bool hide) async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    emit(current.copyWith(hideSensitiveNotificationDetails: hide));
+    await _setHideSensitiveNotificationDetails(hide);
+  }
 }

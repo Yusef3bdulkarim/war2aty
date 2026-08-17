@@ -31,6 +31,7 @@ final class SettingsReady extends SettingsState {
     required this.resumeReadingEnabled,
     required this.cameraPermission,
     required this.notificationPermission,
+    required this.hideSensitiveNotificationDetails,
   });
 
   /// «السماح بإرسال النص للتحليل» (F11-T02).
@@ -61,6 +62,9 @@ final class SettingsReady extends SettingsState {
   /// «إذن الإشعارات» (F11-T09).
   final PermissionOutcome notificationPermission;
 
+  /// «إخفاء التفاصيل الحساسة من شاشة القفل» (F11-T10).
+  final bool hideSensitiveNotificationDetails;
+
   SettingsReady copyWith({
     bool? analysisConsent,
     ProcessingMode? processingMode,
@@ -71,6 +75,7 @@ final class SettingsReady extends SettingsState {
     bool? resumeReadingEnabled,
     PermissionOutcome? cameraPermission,
     PermissionOutcome? notificationPermission,
+    bool? hideSensitiveNotificationDetails,
   }) => SettingsReady(
     analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
@@ -83,6 +88,9 @@ final class SettingsReady extends SettingsState {
     cameraPermission: cameraPermission ?? this.cameraPermission,
     notificationPermission:
         notificationPermission ?? this.notificationPermission,
+    hideSensitiveNotificationDetails:
+        hideSensitiveNotificationDetails ??
+        this.hideSensitiveNotificationDetails,
   );
 
   @override
@@ -96,7 +104,9 @@ final class SettingsReady extends SettingsState {
           _listEquals(other.availableVoices, availableVoices) &&
           other.resumeReadingEnabled == resumeReadingEnabled &&
           other.cameraPermission == cameraPermission &&
-          other.notificationPermission == notificationPermission;
+          other.notificationPermission == notificationPermission &&
+          other.hideSensitiveNotificationDetails ==
+              hideSensitiveNotificationDetails;
 
   @override
   int get hashCode => Object.hash(
@@ -108,6 +118,7 @@ final class SettingsReady extends SettingsState {
     resumeReadingEnabled,
     cameraPermission,
     notificationPermission,
+    hideSensitiveNotificationDetails,
   );
 }
 

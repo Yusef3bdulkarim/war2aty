@@ -363,6 +363,7 @@ class SettingsToggleRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.description,
     super.key,
   });
 
@@ -372,6 +373,11 @@ class SettingsToggleRow extends StatelessWidget {
 
   /// `null` shows the row as disabled — read but not interactive.
   final ValueChanged<bool>? onChanged;
+
+  /// An optional explanatory line under [label] — e.g. «إخفاء التفاصيل
+  /// الحساسة من شاشة القفل»'s «مش هنظهر المبالغ أو الأرقام المهمة داخل
+  /// الإشعار.» (F11-T10). Every other toggle row has none.
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -387,13 +393,28 @@ class SettingsToggleRow extends StatelessWidget {
           StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
           const SizedBox(width: _rowGap),
           Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodyMedium.copyWith(
-                fontSize: _rowLabelFontSize,
-                fontWeight: AppTypography.semiBold,
-                color: colors.ink,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontSize: _rowLabelFontSize,
+                    fontWeight: AppTypography.semiBold,
+                    color: colors.ink,
+                  ),
+                ),
+                if (description case final description?) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: AppTypography.caption.copyWith(
+                      fontSize: 13,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           // Material's own Switch, not a hand-drawn track: it mirrors

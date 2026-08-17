@@ -867,6 +867,9 @@ void _registerSettings() {
   // F11-T09. Reuses `GetNotificationPermission`/`OpenNotificationPermissionSettings`
   // `_registerReminders` already registered — same reasoning, for
   // notifications.
+  // F11-T10. Reuses `GetHideSensitiveNotificationDetails`/
+  // `SetHideSensitiveNotificationDetails` `_registerReminders` already
+  // registered (F09-T14) — Settings is their first UI.
   getIt.registerFactory<SettingsCubit>(
     () => SettingsCubit(
       getAnalysisConsent: getIt(),
@@ -885,6 +888,8 @@ void _registerSettings() {
       openPermissionSettings: getIt(),
       getNotificationPermission: getIt(),
       openNotificationSettings: getIt(),
+      getHideSensitiveNotificationDetails: getIt(),
+      setHideSensitiveNotificationDetails: getIt(),
     ),
   );
 }

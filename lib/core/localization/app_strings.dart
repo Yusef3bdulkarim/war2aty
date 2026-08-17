@@ -430,6 +430,14 @@ abstract interface class AppStrings {
   /// «فتح إعدادات الإشعارات» (F11-T09).
   String get settingsOpenNotificationSettingsLabel;
 
+  /// The notification-privacy toggle's row label (F11-T10) — persists the
+  /// same setting `FlutterLocalNotificationsReminderScheduler` already reads
+  /// (`GetHideSensitiveNotificationDetails`, F09-T14); this is its first UI.
+  String get settingsNotificationPrivacyLabel;
+
+  /// The explanatory line under [settingsNotificationPrivacyLabel] (F11-T10).
+  String get settingsNotificationPrivacyDescription;
+
   // OCR processing
   String get ocrProcessing;
   String get ocrErrorTitle;

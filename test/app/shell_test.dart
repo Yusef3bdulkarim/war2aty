@@ -34,6 +34,8 @@ import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
@@ -145,6 +147,7 @@ void main() {
         final notificationPermissions = FakeNotificationPermissionRepository(
           status: PermissionOutcome.denied,
         );
+        final notificationPrivacyStore = FakeNotificationPrivacyStore();
         return SettingsCubit(
           getAnalysisConsent: GetAnalysisConsent(consentStore),
           setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -169,6 +172,10 @@ void main() {
           openNotificationSettings: OpenNotificationPermissionSettings(
             notificationPermissions,
           ),
+          getHideSensitiveNotificationDetails:
+              GetHideSensitiveNotificationDetails(notificationPrivacyStore),
+          setHideSensitiveNotificationDetails:
+              SetHideSensitiveNotificationDetails(notificationPrivacyStore),
         );
       })
       ..registerLazySingleton<GoRouter>(

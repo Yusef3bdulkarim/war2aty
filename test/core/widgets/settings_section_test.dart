@@ -98,6 +98,42 @@ void main() {
 
       expect(tester.widget<Switch>(find.byType(Switch)).onChanged, isNull);
     });
+
+    testWidgets('shows no description by default', (tester) async {
+      await pumpApp(
+        tester,
+        const Scaffold(
+          body: SettingsToggleRow(
+            glyph: StrokeGlyph.send,
+            label: 'تفعيل',
+            value: true,
+            onChanged: null,
+          ),
+        ),
+      );
+
+      expect(find.byType(Text), findsOneWidget);
+    });
+
+    testWidgets('shows a description when given one (F11-T10)', (tester) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsToggleRow(
+            glyph: StrokeGlyph.lock,
+            label: 'إخفاء التفاصيل الحساسة من شاشة القفل',
+            description: 'مش هنظهر المبالغ أو الأرقام المهمة داخل الإشعار.',
+            value: true,
+            onChanged: (_) {},
+          ),
+        ),
+      );
+
+      expect(
+        find.text('مش هنظهر المبالغ أو الأرقام المهمة داخل الإشعار.'),
+        findsOneWidget,
+      );
+    });
   });
 
   group('SettingsValueRow', () {

@@ -580,6 +580,14 @@ final class ArStrings implements AppStrings {
   @override
   String get settingsOpenNotificationSettingsLabel => 'فتح إعدادات الإشعارات';
 
+  // Notification privacy (F11-T10)
+  @override
+  String get settingsNotificationPrivacyLabel =>
+      'إخفاء التفاصيل الحساسة من شاشة القفل';
+  @override
+  String get settingsNotificationPrivacyDescription =>
+      'مش هنظهر المبالغ أو الأرقام المهمة داخل الإشعار.';
+
   // OCR processing
   @override
   String get ocrProcessing => 'بنقرأ الورقة...';

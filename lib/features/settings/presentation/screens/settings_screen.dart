@@ -50,6 +50,11 @@ const Key settingsOpenNotificationSettingsButtonKey = Key(
   'settings-open-notification-settings-button',
 );
 
+/// The «إخفاء التفاصيل الحساسة من شاشة القفل» row (F11-T10).
+const Key settingsNotificationPrivacyToggleKey = Key(
+  'settings-notification-privacy-toggle',
+);
+
 /// The «الإعدادات» tab (F11-T01 onward).
 ///
 /// The heading is a scaffold; the body below it grows one [SettingsSection]
@@ -796,12 +801,11 @@ class _AudioSection extends StatelessWidget {
 }
 
 /// «الأذونات والتنبيهات» — the camera and notification permission rows
-/// (F11-T08, F11-T09).
+/// (F11-T08, F11-T09) and the notification-privacy toggle (F11-T10).
 ///
-/// The design also shows a notification-privacy toggle and «حذف كل
-/// التذكيرات» in this same card — no F11 task owns them yet (F11-T10/T11),
-/// so they are left out rather than guessed at, the same way
-/// `_AccessibilitySection` leaves out «تقليل الحركة».
+/// The design also shows «حذف كل التذكيرات» in this same card — no F11 task
+/// owns it yet (F11-T11), so it is left out rather than guessed at, the same
+/// way `_AccessibilitySection` leaves out «تقليل الحركة».
 ///
 /// Stateful only for the [AppLifecycleListener]: opening the OS settings app
 /// backgrounds this app, so only a re-check on resume notices what the user
@@ -844,7 +848,11 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
         SettingsLoading() => const SizedBox.shrink(),
-        SettingsReady(:final cameraPermission, :final notificationPermission) =>
+        SettingsReady(
+          :final cameraPermission,
+          :final notificationPermission,
+          :final hideSensitiveNotificationDetails,
+        ) =>
           SettingsSection(
             title: strings.settingsPermissionsSection,
             rows: [
@@ -887,6 +895,16 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
                 label: strings.settingsOpenNotificationSettingsLabel,
                 onTap: () =>
                     context.read<SettingsCubit>().openNotificationSettings(),
+              ),
+              SettingsToggleRow(
+                key: settingsNotificationPrivacyToggleKey,
+                glyph: StrokeGlyph.lock,
+                label: strings.settingsNotificationPrivacyLabel,
+                description: strings.settingsNotificationPrivacyDescription,
+                value: hideSensitiveNotificationDetails,
+                onChanged: (value) => context
+                    .read<SettingsCubit>()
+                    .setHideSensitiveNotificationDetails(value),
               ),
             ],
           ),
