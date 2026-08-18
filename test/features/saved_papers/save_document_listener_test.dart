@@ -155,6 +155,9 @@ final class _FakeRepository implements DocumentsRepository {
   @override
   Future<Result<void, AppFailure>> deleteDocument(String id) async =>
       const Ok(null);
+
+  @override
+  Future<Result<void, AppFailure>> deleteAllDocuments() async => const Ok(null);
 }
 
 DocumentAnalysis _analysis() => const DocumentAnalysis(

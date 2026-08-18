@@ -147,6 +147,10 @@ enum StrokeGlyph {
   /// (F11-T10).
   lock,
 
+  /// A waste bin — the settings' delete-all rows (F11-T11), e.g. «حذف كل
+  /// المستندات».
+  trash,
+
   navHome,
   navDocuments,
   navReminders,
@@ -245,6 +249,10 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   // `<rect x=3 y=11 width=18 height=10 rx=2/>` plus the shackle arc.
   StrokeGlyph.lock:
       '${_roundedRect(3, 11, 18, 10, 2)} M7 11V8a5 5 0 0 1 10 0v3',
+  // The lid, the handle, and the tapered bin body.
+  StrokeGlyph.trash:
+      'M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'
+      'M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13',
   // `<circle cx=12 cy=12 r=10/>`, the equator, and a meridian ellipse.
   StrokeGlyph.globe:
       '${_circle(12, 12, 10)} M2 12h20 M12 2a7 10 0 0 1 0 20a7 10 0 0 1 0-20',

@@ -14,6 +14,7 @@ import '../features/bootstrap/presentation/cubit/bootstrap_state.dart';
 import '../features/bootstrap/presentation/screens/splash_screen.dart';
 import '../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../features/onboarding/presentation/cubit/onboarding_state.dart';
+import '../features/settings/presentation/cubit/settings_cubit.dart';
 import 'di/service_locator.dart';
 
 /// Root widget.
@@ -43,6 +44,14 @@ class WaraqtiApp extends StatelessWidget {
         // outlive this subtree. `load()` is idempotent.
         BlocProvider<OnboardingCubit>.value(
           value: getIt<OnboardingCubit>()..load(),
+        ),
+        // Eagerly loaded so every setting is already resolved by the time the
+        // user reaches the Settings tab — previously created only on first tab
+        // visit, causing a visible skeleton/delay split against the three
+        // cubits above (which were always root-scoped). Now all six sections
+        // appear together, no skeleton needed on normal hardware.
+        BlocProvider<SettingsCubit>(
+          create: (_) => getIt<SettingsCubit>()..load(),
         ),
       ],
       child: BlocBuilder<LocaleCubit, Locale>(

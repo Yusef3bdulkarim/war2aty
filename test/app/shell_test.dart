@@ -17,14 +17,13 @@ import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
 import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
-import 'package:war2aty/core/audio/usecases/get_available_voices.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
 import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/set_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -34,9 +33,11 @@ import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/delete_all_reminders.dart';
 import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
+import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
@@ -148,6 +149,10 @@ void main() {
           status: PermissionOutcome.denied,
         );
         final notificationPrivacyStore = FakeNotificationPrivacyStore();
+        final documentsRepository = FakeDocumentsRepository();
+        final remindersRepository = FakeRemindersRepository();
+        final reminderScheduler = FakeReminderScheduler();
+        final settingsRepository = FakeAppSettingsRepository();
         return SettingsCubit(
           getAnalysisConsent: GetAnalysisConsent(consentStore),
           setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -156,10 +161,8 @@ void main() {
           getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
           setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
           getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
-          setDefaultReadingVoice: SetDefaultReadingVoice(voiceStore),
           getResumeReadingEnabled: GetResumeReadingEnabled(resumeStore),
           setResumeReadingEnabled: SetResumeReadingEnabled(resumeStore),
-          getAvailableVoices: GetAvailableVoices(tts),
           previewDefaultVoice: PreviewDefaultVoice(
             tts,
             const SelectVoiceForReading(),
@@ -176,6 +179,16 @@ void main() {
               GetHideSensitiveNotificationDetails(notificationPrivacyStore),
           setHideSensitiveNotificationDetails:
               SetHideSensitiveNotificationDetails(notificationPrivacyStore),
+          deleteAllDocuments: DeleteAllDocuments(documentsRepository),
+          deleteAllReminders: DeleteAllReminders(
+            remindersRepository,
+            reminderScheduler,
+          ),
+          deleteAllAppData: DeleteAllAppData(
+            DeleteAllDocuments(documentsRepository),
+            DeleteAllReminders(remindersRepository, reminderScheduler),
+            settingsRepository,
+          ),
         );
       })
       ..registerLazySingleton<GoRouter>(

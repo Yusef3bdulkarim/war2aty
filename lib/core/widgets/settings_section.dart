@@ -174,21 +174,28 @@ class SettingsValueRow extends StatelessWidget {
 
 /// One row: a leading icon and a label styled as a link, with no trailing
 /// value or chevron — a plain action, e.g. «تجربة الصوت» (F11-T07).
+///
+/// [destructive] swaps the icon/label to [AppColors.error] — the settings'
+/// delete-all rows (F11-T11), e.g. «حذف كل المستندات». Off by default so
+/// every existing action row is unaffected.
 class SettingsActionRow extends StatelessWidget {
   const SettingsActionRow({
     required this.glyph,
     required this.label,
     required this.onTap,
+    this.destructive = false,
     super.key,
   });
 
   final StrokeGlyph glyph;
   final String label;
   final VoidCallback onTap;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final color = destructive ? colors.error : colors.brandPrimary;
 
     return Material(
       type: MaterialType.transparency,
@@ -201,7 +208,7 @@ class SettingsActionRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
+              StrokeIcon(glyph, color: color, size: _rowIconSize),
               const SizedBox(width: _rowGap),
               Expanded(
                 child: Text(
@@ -209,7 +216,7 @@ class SettingsActionRow extends StatelessWidget {
                   style: AppTypography.bodyMedium.copyWith(
                     fontSize: _rowLabelFontSize,
                     fontWeight: AppTypography.semiBold,
-                    color: colors.brandPrimary,
+                    color: color,
                   ),
                 ),
               ),

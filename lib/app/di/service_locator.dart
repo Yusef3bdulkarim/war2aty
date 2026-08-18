@@ -48,6 +48,7 @@ import '../../core/documents/drift_documents_repository.dart';
 import '../../core/documents/file_document_image_store.dart';
 import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/usecases/build_analysis_result.dart';
+import '../../core/documents/usecases/delete_all_documents.dart';
 import '../../core/documents/usecases/delete_document.dart';
 import '../../core/documents/usecases/save_document.dart';
 import '../../core/documents/usecases/save_document_with_image.dart';
@@ -84,6 +85,7 @@ import '../../core/reminders/upcoming_reminder_repository.dart';
 import '../../core/reminders/usecases/complete_reminder.dart';
 import '../../core/reminders/usecases/create_manual_reminder.dart';
 import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
+import '../../core/reminders/usecases/delete_all_reminders.dart';
 import '../../core/reminders/usecases/delete_reminder.dart';
 import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import '../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
@@ -92,6 +94,9 @@ import '../../core/reminders/usecases/watch_reminder.dart';
 import '../../core/reminders/usecases/watch_reminders.dart';
 import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
+import '../../core/settings/app_settings_repository.dart';
+import '../../core/settings/drift_app_settings_repository.dart';
+import '../../core/settings/usecases/delete_all_app_data.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
@@ -662,6 +667,8 @@ void _registerSavedPapers() {
     ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
     ..registerFactory<UpdateDocument>(() => UpdateDocument(getIt()))
     ..registerFactory<DeleteDocument>(() => DeleteDocument(getIt()))
+    // F11-T11.
+    ..registerFactory<DeleteAllDocuments>(() => DeleteAllDocuments(getIt()))
     // Parameterised by the document id — one cubit instance per opened
     // details screen, the same shape [ImagePreviewCubit]'s registration uses.
     ..registerFactoryParam<DocumentDetailsCubit, String, void>(
@@ -727,6 +734,10 @@ void _registerReminders() {
     )
     ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
     ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
+    // F11-T11.
+    ..registerFactory<DeleteAllReminders>(
+      () => DeleteAllReminders(getIt(), getIt()),
+    )
     // F09-T09. Reuses the `PermissionService` singleton `_registerCapture`
     // already set up — one plugin boundary for every runtime permission.
     ..registerLazySingleton<NotificationPermissionRepository>(
@@ -870,28 +881,39 @@ void _registerSettings() {
   // F11-T10. Reuses `GetHideSensitiveNotificationDetails`/
   // `SetHideSensitiveNotificationDetails` `_registerReminders` already
   // registered (F09-T14) — Settings is their first UI.
-  getIt.registerFactory<SettingsCubit>(
-    () => SettingsCubit(
-      getAnalysisConsent: getIt(),
-      setAnalysisConsent: getIt(),
-      getProcessingMode: getIt(),
-      setProcessingMode: getIt(),
-      getDefaultReadingSpeed: getIt(),
-      setDefaultReadingSpeed: getIt(),
-      getDefaultReadingVoice: getIt(),
-      setDefaultReadingVoice: getIt(),
-      getResumeReadingEnabled: getIt(),
-      setResumeReadingEnabled: getIt(),
-      getAvailableVoices: getIt(),
-      previewDefaultVoice: getIt(),
-      getCameraPermission: getIt(),
-      openPermissionSettings: getIt(),
-      getNotificationPermission: getIt(),
-      openNotificationSettings: getIt(),
-      getHideSensitiveNotificationDetails: getIt(),
-      setHideSensitiveNotificationDetails: getIt(),
-    ),
-  );
+  // F11-T11. `AppSettingsRepository`/`DeleteAllAppData` are new here;
+  // `DeleteAllDocuments`/`DeleteAllReminders` reuse what `_registerSavedPapers`
+  // and `_registerReminders` already registered.
+  getIt
+    ..registerLazySingleton<AppSettingsRepository>(
+      () => DriftAppSettingsRepository(getIt()),
+    )
+    ..registerFactory<DeleteAllAppData>(
+      () => DeleteAllAppData(getIt(), getIt(), getIt()),
+    )
+    ..registerFactory<SettingsCubit>(
+      () => SettingsCubit(
+        getAnalysisConsent: getIt(),
+        setAnalysisConsent: getIt(),
+        getProcessingMode: getIt(),
+        setProcessingMode: getIt(),
+        getDefaultReadingSpeed: getIt(),
+        setDefaultReadingSpeed: getIt(),
+        getDefaultReadingVoice: getIt(),
+        getResumeReadingEnabled: getIt(),
+        setResumeReadingEnabled: getIt(),
+        previewDefaultVoice: getIt(),
+        getCameraPermission: getIt(),
+        openPermissionSettings: getIt(),
+        getNotificationPermission: getIt(),
+        openNotificationSettings: getIt(),
+        getHideSensitiveNotificationDetails: getIt(),
+        setHideSensitiveNotificationDetails: getIt(),
+        deleteAllDocuments: getIt(),
+        deleteAllReminders: getIt(),
+        deleteAllAppData: getIt(),
+      ),
+    );
 }
 
 void _registerRouting() {

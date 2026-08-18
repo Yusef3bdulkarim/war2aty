@@ -1,4 +1,5 @@
 import '../../../../core/database/app_database.dart';
+import '../../../../core/database/setting_keys.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/repositories/onboarding_repository.dart';
@@ -13,7 +14,7 @@ final class DriftOnboardingRepository implements OnboardingRepository {
 
   /// Key in `app_settings`. Present with `'true'` once onboarding finished;
   /// absent on a fresh install.
-  static const String settingKey = 'onboarding_seen';
+  static const String settingKey = AppSettingKeys.onboardingSeen;
 
   final AppDatabase _db;
 

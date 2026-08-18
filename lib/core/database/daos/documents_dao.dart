@@ -290,6 +290,13 @@ class DocumentsDao extends DatabaseAccessor<AppDatabase>
     return (delete(documents)..where((d) => d.id.equals(id))).go();
   }
 
+  /// Deletes every saved document. Children cascade with each row — settings'
+  /// «حذف كل المستندات» / «حذف كل بيانات التطبيق» (F11-T11).
+  ///
+  /// Deleting every encrypted image file is the repository's job, same as
+  /// [deleteDocument].
+  Future<void> deleteAllDocuments() => delete(documents).go();
+
   /// Clears a document's children before its rows are written again.
   ///
   /// The cascade covers deletion, but a re-save keeps the parent row, so the

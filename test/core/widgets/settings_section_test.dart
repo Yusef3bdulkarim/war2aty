@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/icons/stroke_icon.dart';
+import 'package:war2aty/core/theme/app_colors.dart';
 import 'package:war2aty/core/widgets/settings_section.dart';
 
 import '../../support/pump_app.dart';
@@ -228,6 +229,53 @@ void main() {
       await tester.tap(find.byType(SettingsActionRow));
 
       expect(tapped, isTrue);
+    });
+
+    testWidgets('is brand-colored by default', (tester) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsActionRow(
+            glyph: StrokeGlyph.play,
+            label: 'تجربة الصوت',
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<StrokeIcon>(find.byType(StrokeIcon)).color,
+        AppColors.light.brandPrimary,
+      );
+      expect(
+        tester.widget<Text>(find.text('تجربة الصوت')).style?.color,
+        AppColors.light.brandPrimary,
+      );
+    });
+
+    testWidgets('destructive: true colors it error-red instead (F11-T11)', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsActionRow(
+            glyph: StrokeGlyph.trash,
+            label: 'حذف كل المستندات',
+            destructive: true,
+            onTap: () {},
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<StrokeIcon>(find.byType(StrokeIcon)).color,
+        AppColors.light.error,
+      );
+      expect(
+        tester.widget<Text>(find.text('حذف كل المستندات')).style?.color,
+        AppColors.light.error,
+      );
     });
   });
 }

@@ -27,7 +27,6 @@ final class SettingsReady extends SettingsState {
     required this.processingMode,
     required this.defaultReadingSpeed,
     required this.defaultReadingVoice,
-    required this.availableVoices,
     required this.resumeReadingEnabled,
     required this.cameraPermission,
     required this.notificationPermission,
@@ -45,13 +44,11 @@ final class SettingsReady extends SettingsState {
 
   /// «صوت القراءة» (F11-T07) — `null` is «الصوت الافتراضي», the automatic
   /// script match `SelectVoiceForReading` picks with nothing overriding it.
+  ///
+  /// The voice picker was removed from the Settings UI (most device voices
+  /// are unsuitable for Arabic) but the stored preference is still loaded and
+  /// used by the audio reader and the preview button.
   final TtsVoice? defaultReadingVoice;
-
-  /// The device's installed voices, for the «صوت القراءة» picker (F11-T07) —
-  /// empty on a device that reports none, or while `GetAvailableVoices`
-  /// could not read them; either way the picker still offers «الصوت
-  /// الافتراضي» on its own.
-  final List<TtsVoice> availableVoices;
 
   /// «استكمال القراءة من آخر مكان» (F11-T07).
   final bool resumeReadingEnabled;
@@ -71,7 +68,6 @@ final class SettingsReady extends SettingsState {
     ReadingSpeed? defaultReadingSpeed,
     TtsVoice? defaultReadingVoice,
     bool clearDefaultReadingVoice = false,
-    List<TtsVoice>? availableVoices,
     bool? resumeReadingEnabled,
     PermissionOutcome? cameraPermission,
     PermissionOutcome? notificationPermission,
@@ -83,7 +79,6 @@ final class SettingsReady extends SettingsState {
     defaultReadingVoice: clearDefaultReadingVoice
         ? null
         : defaultReadingVoice ?? this.defaultReadingVoice,
-    availableVoices: availableVoices ?? this.availableVoices,
     resumeReadingEnabled: resumeReadingEnabled ?? this.resumeReadingEnabled,
     cameraPermission: cameraPermission ?? this.cameraPermission,
     notificationPermission:
@@ -101,7 +96,6 @@ final class SettingsReady extends SettingsState {
           other.processingMode == processingMode &&
           other.defaultReadingSpeed == defaultReadingSpeed &&
           other.defaultReadingVoice == defaultReadingVoice &&
-          _listEquals(other.availableVoices, availableVoices) &&
           other.resumeReadingEnabled == resumeReadingEnabled &&
           other.cameraPermission == cameraPermission &&
           other.notificationPermission == notificationPermission &&
@@ -114,19 +108,9 @@ final class SettingsReady extends SettingsState {
     processingMode,
     defaultReadingSpeed,
     defaultReadingVoice,
-    Object.hashAll(availableVoices),
     resumeReadingEnabled,
     cameraPermission,
     notificationPermission,
     hideSensitiveNotificationDetails,
   );
-}
-
-bool _listEquals(List<TtsVoice> a, List<TtsVoice> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
 }

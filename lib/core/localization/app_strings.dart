@@ -438,6 +438,34 @@ abstract interface class AppStrings {
   /// The explanatory line under [settingsNotificationPrivacyLabel] (F11-T10).
   String get settingsNotificationPrivacyDescription;
 
+  /// The delete-all rows' labels (F11-T11).
+  String get settingsDeleteAllDocumentsLabel;
+  String get settingsDeleteAllAppDataLabel;
+  String get settingsDeleteAllRemindersLabel;
+
+  /// The confirm button shared by every delete-all sheet (F11-T11); cancel
+  /// reuses [actionCancel].
+  String get settingsDeleteAllConfirmAction;
+
+  /// «حذف كل المستندات؟» confirmation sheet (F11-T11).
+  String get settingsDeleteAllDocumentsConfirmTitle;
+  String get settingsDeleteAllDocumentsConfirmMessage;
+  String get settingsDeleteAllDocumentsSuccess;
+  String get settingsDeleteAllDocumentsError;
+
+  /// «حذف كل بيانات التطبيق؟» confirmation sheet (F11-T11).
+  String get settingsDeleteAllAppDataConfirmTitle;
+  String get settingsDeleteAllAppDataConfirmMessage;
+  String get settingsDeleteAllAppDataSuccess;
+  String get settingsDeleteAllAppDataError;
+
+  /// «حذف كل التذكيرات؟» confirmation sheet (F11-T11) — copy matches the
+  /// design's `sheetDeleteAllRem` exactly.
+  String get settingsDeleteAllRemindersConfirmTitle;
+  String get settingsDeleteAllRemindersConfirmMessage;
+  String get settingsDeleteAllRemindersSuccess;
+  String get settingsDeleteAllRemindersError;
+
   // OCR processing
   String get ocrProcessing;
   String get ocrErrorTitle;
