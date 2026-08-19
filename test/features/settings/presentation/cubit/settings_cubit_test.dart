@@ -13,6 +13,8 @@ import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
 import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
+import 'package:war2aty/core/env/app_environment.dart';
+import 'package:war2aty/core/env/usecases/get_app_version.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
@@ -23,6 +25,7 @@ import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_
 import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -49,6 +52,8 @@ void main() {
     FakeRemindersRepository? remindersRepository,
     FakeReminderScheduler? reminderScheduler,
     FakeAppSettingsRepository? settingsRepository,
+    FakeUsageRepository? usageRepository,
+    String appVersion = '1.0.0',
   }) {
     final consent = consentStore ?? FakeAnalysisConsentStore();
     final mode = modeStore ?? FakeProcessingModeStore();
@@ -67,6 +72,7 @@ void main() {
     final reminders = remindersRepository ?? FakeRemindersRepository();
     final scheduler = reminderScheduler ?? FakeReminderScheduler();
     final settings = settingsRepository ?? FakeAppSettingsRepository();
+    final usage = usageRepository ?? FakeUsageRepository();
     final cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consent),
       setAnalysisConsent: SetAnalysisConsent(consent),
@@ -102,6 +108,10 @@ void main() {
         DeleteAllReminders(reminders, scheduler),
         settings,
       ),
+      getDailyUsage: GetDailyUsage(usage),
+      getAppVersion: GetAppVersion(
+        AppEnvironment.dev(isAndroid: false, appVersion: appVersion),
+      ),
     );
     addTearDown(cubit.close);
     addTearDown(ttsService.dispose);
@@ -117,6 +127,8 @@ void main() {
     cameraPermission: PermissionOutcome.granted,
     notificationPermission: PermissionOutcome.granted,
     hideSensitiveNotificationDetails: true,
+    dailyUsage: null,
+    appVersion: '1.0.0',
   );
 
   test('starts loading', () {
@@ -703,6 +715,39 @@ void main() {
 
       expect(ok, isFalse);
       expect(settings.clearCalled, isFalse);
+    });
+  });
+
+  group('about section (F11-T12)', () {
+    test('load() reflects nothing cached yet as a null dailyUsage', () async {
+      final cubit = buildCubit();
+
+      await cubit.load();
+
+      expect(cubit.state, readyDefaults);
+      expect((cubit.state as SettingsReady).dailyUsage, isNull);
+    });
+
+    test('load() reflects today\'s cached quota', () async {
+      final usage = FakeUsageRepository(
+        seed: usageWith(limit: 3, remaining: 2),
+      );
+      final cubit = buildCubit(usageRepository: usage);
+
+      await cubit.load();
+
+      expect(
+        (cubit.state as SettingsReady).dailyUsage,
+        usageWith(limit: 3, remaining: 2),
+      );
+    });
+
+    test('load() reads the platform version', () async {
+      final cubit = buildCubit(appVersion: '2.3.1');
+
+      await cubit.load();
+
+      expect((cubit.state as SettingsReady).appVersion, '2.3.1');
     });
   });
 }

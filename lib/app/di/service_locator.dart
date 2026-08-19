@@ -58,6 +58,7 @@ import '../../core/documents/usecases/watch_document.dart';
 import '../../core/documents/usecases/watch_documents.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
+import '../../core/env/usecases/get_app_version.dart';
 import '../../core/identity/installation_id_provider.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
@@ -105,6 +106,7 @@ import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
+import '../../core/usage/usecases/get_daily_usage.dart';
 import '../../core/usage/usecases/sync_daily_usage.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
 import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
@@ -408,6 +410,9 @@ void _registerHome() {
       getIt.call<DriftDocumentsRepository>,
     )
     ..registerFactory<WatchDailyUsage>(() => WatchDailyUsage(getIt()))
+    // Settings' «حدود الاستخدام» row (F11-T12) — a one-shot snapshot rather
+    // than `WatchDailyUsage`'s live stream, registered next to it.
+    ..registerFactory<GetDailyUsage>(() => GetDailyUsage(getIt()))
     // Called by `AnalysisResultCubit` after a successful analysis so Home's
     // live stream above reflects the freshly consumed slot (registered here,
     // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
@@ -884,6 +889,9 @@ void _registerSettings() {
   // F11-T11. `AppSettingsRepository`/`DeleteAllAppData` are new here;
   // `DeleteAllDocuments`/`DeleteAllReminders` reuse what `_registerSavedPapers`
   // and `_registerReminders` already registered.
+  // F11-T12. Reuses `GetDailyUsage` `_registerLaunch` already registered
+  // (next to `WatchDailyUsage`). `GetAppVersion` is new here, over the same
+  // `AppEnvironment` singleton `_registerCore` registered.
   getIt
     ..registerLazySingleton<AppSettingsRepository>(
       () => DriftAppSettingsRepository(getIt()),
@@ -891,6 +899,7 @@ void _registerSettings() {
     ..registerFactory<DeleteAllAppData>(
       () => DeleteAllAppData(getIt(), getIt(), getIt()),
     )
+    ..registerFactory<GetAppVersion>(() => GetAppVersion(getIt()))
     ..registerFactory<SettingsCubit>(
       () => SettingsCubit(
         getAnalysisConsent: getIt(),
@@ -911,6 +920,8 @@ void _registerSettings() {
         setHideSensitiveNotificationDetails: getIt(),
         deleteAllDocuments: getIt(),
         deleteAllReminders: getIt(),
+        getDailyUsage: getIt(),
+        getAppVersion: getIt(),
         deleteAllAppData: getIt(),
       ),
     );

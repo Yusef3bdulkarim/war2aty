@@ -635,6 +635,27 @@ final class EnStrings implements AppStrings {
   String get settingsDeleteAllRemindersError =>
       "Couldn't delete the reminders. Try again.";
 
+  @override
+  String get settingsAboutSection => 'About';
+
+  @override
+  String get settingsPrivacyPolicyLabel => 'Privacy policy';
+
+  @override
+  String get settingsSupportedDocumentTypesLabel => 'Supported paper types';
+
+  @override
+  String get settingsUsageLimitLabel => 'Usage limit';
+
+  @override
+  String settingsUsageLimitValue(int used, int limit) => '$used / $limit';
+
+  @override
+  String get settingsUsageLimitUnavailable => 'Not available right now';
+
+  @override
+  String settingsVersionLabel(String version) => 'Version $version';
+
   // OCR processing
   @override
   String get ocrProcessing => 'Reading the document...';

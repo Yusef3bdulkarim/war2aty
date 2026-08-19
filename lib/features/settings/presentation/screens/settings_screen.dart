@@ -6,6 +6,8 @@ import '../../../../core/accessibility/text_size.dart';
 import '../../../../core/accessibility/text_size_cubit.dart';
 import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
+import '../../../../core/documents/document_category.dart';
+import '../../../../core/documents/document_category_style.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/app_strings.dart';
@@ -15,6 +17,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/usage/daily_usage.dart';
 import '../../../../core/widgets/destructive_confirm_sheet.dart';
 import '../../../../core/widgets/settings_section.dart';
 import '../../../../core/widgets/skeleton.dart';
@@ -74,7 +77,11 @@ const Key settingsDeleteAllRemindersButtonKey = Key(
 /// per task, in the design's own order — nothing is drawn ahead of the task
 /// that owns it. [SettingsCubit] backs every section from F11-T02 on.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({this.onOpenPrivacyPolicy, super.key});
+
+  /// Opens [PrivacyPolicyScreen] (F11-T12). The router supplies it; optional
+  /// so the screen can be pumped on its own in a widget test.
+  final VoidCallback? onOpenPrivacyPolicy;
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +120,7 @@ class SettingsScreen extends StatelessWidget {
               const _AccessibilitySection(),
               const _AudioSection(),
               const _PermissionsSection(),
+              _AboutSection(onOpenPrivacyPolicy: onOpenPrivacyPolicy),
             ],
           ),
         ),
@@ -1136,6 +1144,195 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
       );
   }
 }
+
+/// «عن التطبيق» — the privacy-policy and supported-document-types rows, the
+/// usage-limit pill, and the version line (F11-T12).
+///
+/// The version line sits under the card rather than inside it, as its own
+/// centered caption — the design draws it outside the card's white
+/// background, unlike every row above it.
+class _AboutSection extends StatelessWidget {
+  const _AboutSection({this.onOpenPrivacyPolicy});
+
+  final VoidCallback? onOpenPrivacyPolicy;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final colors = AppColors.of(context);
+
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) => switch (state) {
+        // Privacy policy, supported types, usage limit — three rows.
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 3),
+        SettingsReady(:final dailyUsage, :final appVersion) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SettingsSection(
+              title: strings.settingsAboutSection,
+              rows: [
+                SettingsNavRow(
+                  label: strings.settingsPrivacyPolicyLabel,
+                  onTap: onOpenPrivacyPolicy,
+                ),
+                SettingsNavRow(
+                  label: strings.settingsSupportedDocumentTypesLabel,
+                  onTap: () => _showSupportedDocumentTypesSheet(context),
+                ),
+                SettingsStatusRow(
+                  label: strings.settingsUsageLimitLabel,
+                  statusLabel: _usageLimitValue(dailyUsage, strings),
+                  statusBackground: colors.surfaceNeutral,
+                  statusForeground: colors.iconInfo,
+                ),
+              ],
+            ),
+            Padding(
+              // `SettingsSection` already added its own `_cardGapBelow` gap
+              // above this line — the design draws the version line tighter
+              // to the card than that, but reusing the section's shared
+              // spacing (rather than fighting it with negative padding) keeps
+              // the screen's vertical rhythm consistent with every section
+              // above it.
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                strings.settingsVersionLabel(appVersion),
+                textAlign: TextAlign.center,
+                style: AppTypography.caption.copyWith(
+                  fontSize: 12.5,
+                  fontWeight: AppTypography.semiBold,
+                  color: colors.textMuted,
+                ),
+              ),
+            ),
+          ],
+        ),
+      },
+    );
+  }
+}
+
+/// The «حدود الاستخدام» pill text, or [AppStrings.settingsUsageLimitUnavailable]
+/// when nothing has been cached yet (no silent blank pill, CLAUDE.md §A3).
+String _usageLimitValue(DailyUsage? usage, AppStrings strings) =>
+    switch (usage) {
+      null => strings.settingsUsageLimitUnavailable,
+      DailyUsage(:final usedCount, :final dailyLimit) =>
+        strings.settingsUsageLimitValue(usedCount, dailyLimit),
+    };
+
+// ---------------------------------------------------------------------------
+// Supported document types sheet (F11-T12)
+// ---------------------------------------------------------------------------
+
+const double _typeSheetIconBox = 40;
+const double _typeSheetGap = 12;
+const double _typeSheetRowGap = 14;
+
+void _showSupportedDocumentTypesSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
+    ),
+    backgroundColor: AppColors.of(context).card,
+    builder: (_) => const _SupportedDocumentTypesSheet(),
+  );
+}
+
+/// Read-only — every [DocumentCategory] the app recognises, with the same
+/// icon/label pairing `DocumentListItem` and the category picker already use
+/// elsewhere, so a paper's category always looks the same wherever it shows.
+class _SupportedDocumentTypesSheet extends StatelessWidget {
+  const _SupportedDocumentTypesSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final strings = context.strings;
+
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          _sheetPaddingH,
+          _sheetPaddingTop,
+          _sheetPaddingH,
+          _sheetPaddingBottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                strings.settingsSupportedDocumentTypesLabel,
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: AppTypography.bold,
+                  color: colors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(height: _sheetTitleGap),
+            for (final (index, category)
+                in DocumentCategory.values.indexed) ...[
+              if (index > 0) const SizedBox(height: _typeSheetRowGap),
+              _DocumentTypeRow(category: category),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentTypeRow extends StatelessWidget {
+  const _DocumentTypeRow({required this.category});
+
+  final DocumentCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final style = DocumentCategoryStyle.of(context, category);
+
+    return Row(
+      children: [
+        Container(
+          width: _typeSheetIconBox,
+          height: _typeSheetIconBox,
+          decoration: BoxDecoration(
+            color: style.tint,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
+          child: Center(
+            child: StrokeIcon(style.glyph, color: style.foreground),
+          ),
+        ),
+        const SizedBox(width: _typeSheetGap),
+        Expanded(
+          child: Text(
+            _documentCategoryLabel(strings, category),
+            style: AppTypography.bodyMedium.copyWith(
+              fontWeight: AppTypography.semiBold,
+              color: AppColors.of(context).ink,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _documentCategoryLabel(AppStrings s, DocumentCategory category) =>
+    switch (category) {
+      DocumentCategory.appointment => s.documentCategoryAppointment,
+      DocumentCategory.invoice => s.documentCategoryInvoice,
+      DocumentCategory.government => s.documentCategoryGovernment,
+      DocumentCategory.education => s.documentCategoryEducation,
+      DocumentCategory.other => s.documentCategoryOther,
+    };
 
 /// The pill's text for [outcome] — always paired with a color, never color
 /// alone (CLAUDE.md).

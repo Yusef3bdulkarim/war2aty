@@ -25,6 +25,8 @@ import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
 import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
+import 'package:war2aty/core/env/app_environment.dart';
+import 'package:war2aty/core/env/usecases/get_app_version.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
@@ -38,6 +40,7 @@ import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_
 import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
@@ -189,6 +192,8 @@ void main() {
             DeleteAllReminders(remindersRepository, reminderScheduler),
             settingsRepository,
           ),
+          getDailyUsage: GetDailyUsage(usage),
+          getAppVersion: GetAppVersion(AppEnvironment.dev(isAndroid: false)),
         );
       })
       ..registerLazySingleton<GoRouter>(

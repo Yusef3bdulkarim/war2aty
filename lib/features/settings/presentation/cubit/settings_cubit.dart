@@ -13,6 +13,7 @@ import '../../../../core/audio/usecases/preview_default_voice.dart';
 import '../../../../core/audio/usecases/set_default_reading_speed.dart';
 import '../../../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../../../core/documents/usecases/delete_all_documents.dart';
+import '../../../../core/env/usecases/get_app_version.dart';
 import '../../../../core/localization/app_strings.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/permissions/usecases/get_notification_permission.dart';
@@ -21,6 +22,7 @@ import '../../../../core/reminders/usecases/delete_all_reminders.dart';
 import '../../../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import '../../../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import '../../../../core/settings/usecases/delete_all_app_data.dart';
+import '../../../../core/usage/usecases/get_daily_usage.dart';
 import '../../../capture/domain/usecases/get_camera_permission.dart';
 import '../../../capture/domain/usecases/open_permission_settings.dart';
 import 'settings_state.dart';
@@ -49,6 +51,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required DeleteAllDocuments deleteAllDocuments,
     required DeleteAllReminders deleteAllReminders,
     required DeleteAllAppData deleteAllAppData,
+    required GetDailyUsage getDailyUsage,
+    required GetAppVersion getAppVersion,
   }) : _getAnalysisConsent = getAnalysisConsent,
        _setAnalysisConsent = setAnalysisConsent,
        _getProcessingMode = getProcessingMode,
@@ -70,6 +74,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _deleteAllDocuments = deleteAllDocuments,
        _deleteAllReminders = deleteAllReminders,
        _deleteAllAppData = deleteAllAppData,
+       _getDailyUsage = getDailyUsage,
+       _getAppVersion = getAppVersion,
        super(const SettingsLoading());
 
   final GetAnalysisConsent _getAnalysisConsent;
@@ -93,6 +99,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
   final DeleteAllDocuments _deleteAllDocuments;
   final DeleteAllReminders _deleteAllReminders;
   final DeleteAllAppData _deleteAllAppData;
+  final GetDailyUsage _getDailyUsage;
+  final GetAppVersion _getAppVersion;
 
   /// Reads every persisted setting once, on screen mount.
   ///
@@ -110,6 +118,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
     final notificationPermissionFuture = _getNotificationPermission();
     final hideSensitiveNotificationDetailsFuture =
         _getHideSensitiveNotificationDetails();
+    final dailyUsageFuture = _getDailyUsage();
 
     final analysisConsent = await analysisConsentFuture;
     final processingMode = await processingModeFuture;
@@ -123,6 +132,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
         PermissionOutcome.denied;
     final hideSensitiveNotificationDetails =
         await hideSensitiveNotificationDetailsFuture;
+    final dailyUsage = (await dailyUsageFuture).valueOrNull;
     if (isClosed) return;
     emit(
       SettingsReady(
@@ -134,6 +144,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
         cameraPermission: cameraPermission,
         notificationPermission: notificationPermission,
         hideSensitiveNotificationDetails: hideSensitiveNotificationDetails,
+        dailyUsage: dailyUsage,
+        appVersion: _getAppVersion(),
       ),
     );
   }

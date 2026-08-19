@@ -21,6 +21,8 @@ import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
 import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
+import 'package:war2aty/core/env/app_environment.dart';
+import 'package:war2aty/core/env/usecases/get_app_version.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -36,6 +38,7 @@ import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_
 import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/widgets/skeleton.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
@@ -70,6 +73,7 @@ void main() {
   late FakeRemindersRepository remindersRepository;
   late FakeReminderScheduler reminderScheduler;
   late FakeAppSettingsRepository settingsRepository;
+  late FakeUsageRepository usageRepository;
   late SettingsCubit cubit;
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
@@ -94,6 +98,7 @@ void main() {
     remindersRepository = FakeRemindersRepository();
     reminderScheduler = FakeReminderScheduler();
     settingsRepository = FakeAppSettingsRepository();
+    usageRepository = FakeUsageRepository();
     cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consentStore),
       setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -132,6 +137,10 @@ void main() {
         DeleteAllReminders(remindersRepository, reminderScheduler),
         settingsRepository,
       ),
+      getDailyUsage: GetDailyUsage(usageRepository),
+      getAppVersion: GetAppVersion(
+        AppEnvironment.dev(isAndroid: false, appVersion: '2.3.1'),
+      ),
     );
     localeCubit = LocaleCubit(
       getSavedLocale: GetSavedLocale(localeStore),
@@ -159,6 +168,7 @@ void main() {
     WidgetTester tester, {
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
+    VoidCallback? onOpenPrivacyPolicy,
   }) async {
     await cubit.load();
     await textSizeCubit.load();
@@ -176,7 +186,9 @@ void main() {
         // draws no `Scaffold` (unlike `AnalysisResultScreen`), relying on the
         // bottom-nav shell's own — needed here so «تجربة الصوت»'s failure
         // snackbar (F11-T07) has somewhere to attach to.
-        child: const Scaffold(body: SettingsScreen()),
+        child: Scaffold(
+          body: SettingsScreen(onOpenPrivacyPolicy: onOpenPrivacyPolicy),
+        ),
       ),
       locale: locale,
       textScaler: textScaler,
@@ -216,13 +228,15 @@ void main() {
         expect(find.text(ar.settingsDisplaySection), findsOneWidget);
         expect(find.text(ar.settingsAccessibilitySection), findsOneWidget);
 
-        // ...while the three sections still waiting on SettingsCubit show a
-        // skeleton, not their real title or content yet.
+        // ...while the four sections still waiting on SettingsCubit show a
+        // skeleton, not their real title or content yet (F11-T12 added the
+        // «عن التطبيق» section as the fourth).
         expect(find.text(ar.settingsPrivacySection), findsNothing);
         expect(find.text(ar.settingsAudioSection), findsNothing);
         expect(find.text(ar.settingsPermissionsSection), findsNothing);
-        expect(find.byType(Shimmer), findsNWidgets(3));
-        expect(find.bySemanticsLabel(ar.stateLoading), findsNWidgets(3));
+        expect(find.text(ar.settingsAboutSection), findsNothing);
+        expect(find.byType(Shimmer), findsNWidgets(4));
+        expect(find.bySemanticsLabel(ar.stateLoading), findsNWidgets(4));
       },
     );
 
@@ -235,6 +249,7 @@ void main() {
       expect(find.text(ar.settingsPrivacySection), findsOneWidget);
       expect(find.text(ar.settingsAudioSection), findsOneWidget);
       expect(find.text(ar.settingsPermissionsSection), findsOneWidget);
+      expect(find.text(ar.settingsAboutSection), findsOneWidget);
     });
   });
 
@@ -868,6 +883,75 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(settingsRepository.clearCalled, isFalse);
+    });
+  });
+
+  group('the about section (F11-T12)', () {
+    testWidgets('shows the section, the two nav rows, and the version line', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAboutSection));
+      expect(find.text(ar.settingsAboutSection), findsOneWidget);
+      expect(find.text(ar.settingsPrivacyPolicyLabel), findsOneWidget);
+      expect(find.text(ar.settingsSupportedDocumentTypesLabel), findsOneWidget);
+      expect(find.text(ar.settingsUsageLimitLabel), findsOneWidget);
+      expect(find.text(ar.settingsVersionLabel('2.3.1')), findsOneWidget);
+    });
+
+    testWidgets('tapping «سياسة الخصوصية» calls the router callback', (
+      tester,
+    ) async {
+      var opened = false;
+      await pumpScreen(tester, onOpenPrivacyPolicy: () => opened = true);
+
+      await tester.ensureVisible(find.text(ar.settingsPrivacyPolicyLabel));
+      await tester.tap(find.text(ar.settingsPrivacyPolicyLabel));
+      await tester.pumpAndSettle();
+
+      expect(opened, isTrue);
+    });
+
+    testWidgets(
+      'tapping «أنواع الأوراق المدعومة» opens a sheet listing every category',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.ensureVisible(
+          find.text(ar.settingsSupportedDocumentTypesLabel),
+        );
+        await tester.tap(find.text(ar.settingsSupportedDocumentTypesLabel));
+        await tester.pumpAndSettle();
+
+        // The row's own label doubles as the sheet's title — two now.
+        expect(
+          find.text(ar.settingsSupportedDocumentTypesLabel),
+          findsNWidgets(2),
+        );
+        expect(find.text(ar.documentCategoryAppointment), findsOneWidget);
+        expect(find.text(ar.documentCategoryInvoice), findsOneWidget);
+        expect(find.text(ar.documentCategoryGovernment), findsOneWidget);
+        expect(find.text(ar.documentCategoryEducation), findsOneWidget);
+        expect(find.text(ar.documentCategoryOther), findsOneWidget);
+      },
+    );
+
+    testWidgets('shows «غير متاح دلوقتي» when nothing is cached yet', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsUsageLimitLabel));
+      expect(find.text(ar.settingsUsageLimitUnavailable), findsOneWidget);
+    });
+
+    testWidgets('shows the cached quota as a pill', (tester) async {
+      usageRepository.emit(usageWith(limit: 3, remaining: 1));
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsUsageLimitLabel));
+      expect(find.text(ar.settingsUsageLimitValue(2, 3)), findsOneWidget);
     });
   });
 }

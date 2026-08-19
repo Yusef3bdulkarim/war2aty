@@ -2,6 +2,7 @@ import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/permissions/permission_service.dart';
+import '../../../../core/usage/daily_usage.dart';
 
 /// States of the settings screen (F11-T02 onward).
 sealed class SettingsState {
@@ -31,6 +32,8 @@ final class SettingsReady extends SettingsState {
     required this.cameraPermission,
     required this.notificationPermission,
     required this.hideSensitiveNotificationDetails,
+    required this.dailyUsage,
+    required this.appVersion,
   });
 
   /// «السماح بإرسال النص للتحليل» (F11-T02).
@@ -62,6 +65,13 @@ final class SettingsReady extends SettingsState {
   /// «إخفاء التفاصيل الحساسة من شاشة القفل» (F11-T10).
   final bool hideSensitiveNotificationDetails;
 
+  /// Today's cached analysis quota, for the «حدود الاستخدام» row (F11-T12).
+  /// `null` when nothing has been cached yet — a real state, not an error.
+  final DailyUsage? dailyUsage;
+
+  /// «الإصدار» line (F11-T12), read from the platform bundle at launch.
+  final String appVersion;
+
   SettingsReady copyWith({
     bool? analysisConsent,
     ProcessingMode? processingMode,
@@ -72,6 +82,9 @@ final class SettingsReady extends SettingsState {
     PermissionOutcome? cameraPermission,
     PermissionOutcome? notificationPermission,
     bool? hideSensitiveNotificationDetails,
+    DailyUsage? dailyUsage,
+    bool clearDailyUsage = false,
+    String? appVersion,
   }) => SettingsReady(
     analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
@@ -86,6 +99,8 @@ final class SettingsReady extends SettingsState {
     hideSensitiveNotificationDetails:
         hideSensitiveNotificationDetails ??
         this.hideSensitiveNotificationDetails,
+    dailyUsage: clearDailyUsage ? null : dailyUsage ?? this.dailyUsage,
+    appVersion: appVersion ?? this.appVersion,
   );
 
   @override
@@ -100,7 +115,9 @@ final class SettingsReady extends SettingsState {
           other.cameraPermission == cameraPermission &&
           other.notificationPermission == notificationPermission &&
           other.hideSensitiveNotificationDetails ==
-              hideSensitiveNotificationDetails;
+              hideSensitiveNotificationDetails &&
+          other.dailyUsage == dailyUsage &&
+          other.appVersion == appVersion;
 
   @override
   int get hashCode => Object.hash(
@@ -112,5 +129,7 @@ final class SettingsReady extends SettingsState {
     cameraPermission,
     notificationPermission,
     hideSensitiveNotificationDetails,
+    dailyUsage,
+    appVersion,
   );
 }

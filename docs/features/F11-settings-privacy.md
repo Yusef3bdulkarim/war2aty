@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/settings` · **Milestone:** M8
 - **Depends on:** F00, F08/F09 (delete-all), F10 (audio prefs) · **Feeds:** whole-app locale/theme/consent
-- **Progress:** 11 / 12 DONE
+- **Progress:** 12 / 12 DONE
 
 Settings hub. Includes the **AR/EN language switch** (the approved bilingual addition to the design).
 

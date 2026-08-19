@@ -52,6 +52,7 @@ import '../../features/saved_papers/presentation/screens/document_details_screen
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
 import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
+import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../di/service_locator.dart';
 import '../shell/scaffold_with_nav_bar.dart';
@@ -64,6 +65,7 @@ abstract final class AppRoutes {
   static const String saved = '/saved';
   static const String reminders = '/reminders';
   static const String settings = '/settings';
+  static const String settingsPrivacyPolicy = '/settings/privacy-policy';
   static const String capture = '/capture';
   static const String preview = '/preview';
   static const String ocr = '/ocr';
@@ -422,6 +424,13 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           );
         },
       ),
+      // «سياسة الخصوصية» (F11-T12), opened from the settings screen's «عن
+      // التطبيق» section — its own back control, like `documentDetails` and
+      // `reminderDetails` above.
+      GoRoute(
+        path: AppRoutes.settingsPrivacyPolicy,
+        builder: (context, state) => PrivacyPolicyScreen(onClose: context.pop),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -483,7 +492,10 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             routes: [
               GoRoute(
                 path: AppRoutes.settings,
-                builder: (context, state) => const SettingsScreen(),
+                builder: (context, state) => SettingsScreen(
+                  onOpenPrivacyPolicy: () =>
+                      context.push(AppRoutes.settingsPrivacyPolicy),
+                ),
               ),
             ],
           ),

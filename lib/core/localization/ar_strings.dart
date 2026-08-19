@@ -632,6 +632,27 @@ final class ArStrings implements AppStrings {
   String get settingsDeleteAllRemindersError =>
       'مقدرناش نحذف التذكيرات. جرّب تاني.';
 
+  @override
+  String get settingsAboutSection => 'عن التطبيق';
+
+  @override
+  String get settingsPrivacyPolicyLabel => 'سياسة الخصوصية';
+
+  @override
+  String get settingsSupportedDocumentTypesLabel => 'أنواع الأوراق المدعومة';
+
+  @override
+  String get settingsUsageLimitLabel => 'حدود الاستخدام';
+
+  @override
+  String settingsUsageLimitValue(int used, int limit) => '$used / $limit';
+
+  @override
+  String get settingsUsageLimitUnavailable => 'غير متاح دلوقتي';
+
+  @override
+  String settingsVersionLabel(String version) => 'الإصدار $version';
+
   // OCR processing
   @override
   String get ocrProcessing => 'بنقرأ الورقة...';

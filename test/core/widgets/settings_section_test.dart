@@ -278,4 +278,82 @@ void main() {
       );
     });
   });
+
+  group('SettingsNavRow (F11-T12)', () {
+    testWidgets('shows the label and a trailing chevron, no leading icon', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsNavRow(label: 'سياسة الخصوصية', onTap: () {}),
+        ),
+      );
+
+      expect(find.text('سياسة الخصوصية'), findsOneWidget);
+      // The chevron is the row's only icon — no leading glyph like
+      // `SettingsValueRow` draws.
+      expect(
+        tester.widget<StrokeIcon>(find.byType(StrokeIcon)).glyph,
+        StrokeGlyph.chevronForward,
+      );
+    });
+
+    testWidgets('tapping the row fires onTap', (tester) async {
+      var tapped = false;
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsNavRow(
+            label: 'سياسة الخصوصية',
+            onTap: () => tapped = true,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byType(SettingsNavRow));
+
+      expect(tapped, isTrue);
+    });
+  });
+
+  group('SettingsStatusRow', () {
+    testWidgets('shows a leading icon by default', (tester) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsStatusRow(
+            glyph: StrokeGlyph.camera,
+            label: 'إذن الكاميرا',
+            statusLabel: 'مسموح',
+            statusBackground: AppColors.light.successTint,
+            statusForeground: AppColors.light.successInk,
+          ),
+        ),
+      );
+
+      expect(find.byType(StrokeIcon), findsOneWidget);
+      expect(find.text('مسموح'), findsOneWidget);
+    });
+
+    testWidgets('draws no leading icon when glyph is omitted (F11-T12)', (
+      tester,
+    ) async {
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: SettingsStatusRow(
+            label: 'حدود الاستخدام',
+            statusLabel: '1 / 3',
+            statusBackground: AppColors.light.surfaceNeutral,
+            statusForeground: AppColors.light.iconInfo,
+          ),
+        ),
+      );
+
+      expect(find.byType(StrokeIcon), findsNothing);
+      expect(find.text('حدود الاستخدام'), findsOneWidget);
+      expect(find.text('1 / 3'), findsOneWidget);
+    });
+  });
 }
