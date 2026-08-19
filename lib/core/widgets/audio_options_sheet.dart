@@ -253,23 +253,31 @@ class _SpeedPill extends StatelessWidget {
   Widget build(BuildContext context) {
     const colors = AppColors.light;
 
-    return Material(
-      color: selected ? colors.brandPrimary : colors.surface,
-      borderRadius: BorderRadius.circular(AppRadii.pill),
-      child: InkWell(
+    // Selection is otherwise conveyed only by fill color — invisible to a
+    // screen reader without this (F12-T01).
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: speed.label,
+      excludeSemantics: true,
+      child: Material(
+        color: selected ? colors.brandPrimary : colors.surface,
         borderRadius: BorderRadius.circular(AppRadii.pill),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: _speedPillPaddingH,
-            vertical: _speedPillPaddingV,
-          ),
-          child: Text(
-            speed.label,
-            style: AppTypography.caption.copyWith(
-              fontSize: _speedPillFontSize,
-              fontWeight: AppTypography.bold,
-              color: selected ? colors.onBrand : colors.textMuted,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: _speedPillPaddingH,
+              vertical: _speedPillPaddingV,
+            ),
+            child: Text(
+              speed.label,
+              style: AppTypography.caption.copyWith(
+                fontSize: _speedPillFontSize,
+                fontWeight: AppTypography.bold,
+                color: selected ? colors.onBrand : colors.textMuted,
+              ),
             ),
           ),
         ),
@@ -294,30 +302,38 @@ class _ModeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     const colors = AppColors.light;
 
-    return Material(
-      color: selected ? colors.surfaceTeal : colors.card,
-      borderRadius: BorderRadius.circular(_optionRadius),
-      child: InkWell(
+    // Selection is otherwise conveyed only by fill/border color — invisible
+    // to a screen reader without this (F12-T01).
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: selected ? colors.surfaceTeal : colors.card,
         borderRadius: BorderRadius.circular(_optionRadius),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: selected ? colors.brandPrimary : colors.borderSoft,
-              width: _optionBorderWidth,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_optionRadius),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: selected ? colors.brandPrimary : colors.borderSoft,
+                width: _optionBorderWidth,
+              ),
+              borderRadius: BorderRadius.circular(_optionRadius),
             ),
-            borderRadius: BorderRadius.circular(_optionRadius),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: _optionPaddingH,
-            vertical: _optionPaddingV,
-          ),
-          child: Text(
-            label,
-            style: AppTypography.labelCard.copyWith(
-              fontSize: _optionFontSize,
-              fontWeight: AppTypography.bold,
-              color: colors.ink,
+            padding: const EdgeInsets.symmetric(
+              horizontal: _optionPaddingH,
+              vertical: _optionPaddingV,
+            ),
+            child: Text(
+              label,
+              style: AppTypography.labelCard.copyWith(
+                fontSize: _optionFontSize,
+                fontWeight: AppTypography.bold,
+                color: colors.ink,
+              ),
             ),
           ),
         ),
@@ -336,20 +352,26 @@ class _SkipButton extends StatelessWidget {
   Widget build(BuildContext context) {
     const colors = AppColors.light;
 
-    return SizedBox.square(
-      dimension: _skipSize,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: colors.surface,
-        ),
-        // Disabled rather than left out: the design keeps its place in the
-        // row, and a greyed-out control says "not yet" more honestly than an
-        // active one that would do nothing.
-        child: IconButton(
-          onPressed: null,
-          padding: EdgeInsets.zero,
-          icon: Icon(icon, size: _skipIconSize, color: colors.textBody),
+    // Excluded from semantics (F12-T01): a permanently disabled control has
+    // no label to give it — the same "nothing to announce" call
+    // `camera_permission_sheet.dart`'s dismiss scrim makes — rather than a
+    // screen reader finding an unlabeled, un-actionable "button".
+    return ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: _skipSize,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.surface,
+          ),
+          // Disabled rather than left out: the design keeps its place in the
+          // row, and a greyed-out control says "not yet" more honestly than
+          // an active one that would do nothing.
+          child: IconButton(
+            onPressed: null,
+            padding: EdgeInsets.zero,
+            icon: Icon(icon, size: _skipIconSize, color: colors.textBody),
+          ),
         ),
       ),
     );

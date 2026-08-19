@@ -59,6 +59,21 @@ void main() {
       expect(find.text(_strings.audioReaderModeExtractedText), findsNothing);
     });
 
+    testWidgets('exposes which mode is selected to assistive tech (F12-T01)', (
+      tester,
+    ) async {
+      await openSheet(tester);
+
+      expect(
+        tester.getSemantics(find.text(_strings.audioReaderModeSummary)),
+        isSemantics(isSelected: true),
+      );
+      expect(
+        tester.getSemantics(find.text(_strings.audioReaderModeFull)),
+        isSemantics(isSelected: false),
+      );
+    });
+
     testWidgets('confirms the mode already highlighted by default', (
       tester,
     ) async {
@@ -171,6 +186,21 @@ void main() {
       for (final speed in ReadingSpeed.values) {
         expect(find.text(speed.label), findsOneWidget);
       }
+    });
+
+    testWidgets('exposes which speed is selected to assistive tech (F12-T01)', (
+      tester,
+    ) async {
+      await openSheet(tester);
+
+      expect(
+        tester.getSemantics(find.text(ReadingSpeed.normal.label)),
+        isSemantics(isSelected: true),
+      );
+      expect(
+        tester.getSemantics(find.text(ReadingSpeed.fastest.label)),
+        isSemantics(isSelected: false),
+      );
     });
 
     testWidgets('confirming without picking a speed keeps the default', (

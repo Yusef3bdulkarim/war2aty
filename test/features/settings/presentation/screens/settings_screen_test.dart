@@ -316,6 +316,27 @@ void main() {
       expect(find.text(ar.languageEnglish), findsOneWidget);
     });
 
+    testWidgets(
+      'the sheet exposes which option is selected to assistive tech (F12-T01)',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.tap(find.text(ar.settingsLanguageLabel));
+        await tester.pumpAndSettle();
+
+        // The last `العربية` in the tree is the sheet's own option — the
+        // first is the row's value text, outside the sheet.
+        expect(
+          tester.getSemantics(find.text(ar.languageArabic).last),
+          isSemantics(isSelected: true),
+        );
+        expect(
+          tester.getSemantics(find.text(ar.languageEnglish)),
+          isSemantics(isSelected: false),
+        );
+      },
+    );
+
     testWidgets('selecting English persists and updates the row', (
       tester,
     ) async {
