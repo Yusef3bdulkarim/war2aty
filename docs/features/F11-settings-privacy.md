@@ -21,7 +21,7 @@ Settings hub. Includes the **AR/EN language switch** (the approved bilingual add
 | 9 | F11-T09 | Notification permission status | state + open settings | DONE |
 | 10 | F11-T10 | Notification-privacy toggle | «إخفاء التفاصيل الحساسة» | DONE |
 | 11 | F11-T11 | Delete-all | documents / reminders / all app data + confirmations | DONE |
-| 12 | F11-T12 | About | supported docs / usage limits / privacy policy / version | TODO |
+| 12 | F11-T12 | About | supported docs / usage limits / privacy policy / version | DONE |
 
 ## Exit DoD
 Settings persist; language toggle flips whole app AR↔EN + direction; delete-all cascades to F08/F09; consent respected before analysis.
