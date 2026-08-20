@@ -174,21 +174,28 @@ class SettingsValueRow extends StatelessWidget {
 
 /// One row: a leading icon and a label styled as a link, with no trailing
 /// value or chevron — a plain action, e.g. «تجربة الصوت» (F11-T07).
+///
+/// [destructive] swaps the icon/label to [AppColors.error] — the settings'
+/// delete-all rows (F11-T11), e.g. «حذف كل المستندات». Off by default so
+/// every existing action row is unaffected.
 class SettingsActionRow extends StatelessWidget {
   const SettingsActionRow({
     required this.glyph,
     required this.label,
     required this.onTap,
+    this.destructive = false,
     super.key,
   });
 
   final StrokeGlyph glyph;
   final String label;
   final VoidCallback onTap;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final color = destructive ? colors.error : colors.brandPrimary;
 
     return Material(
       type: MaterialType.transparency,
@@ -201,7 +208,7 @@ class SettingsActionRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
+              StrokeIcon(glyph, color: color, size: _rowIconSize),
               const SizedBox(width: _rowGap),
               Expanded(
                 child: Text(
@@ -209,7 +216,7 @@ class SettingsActionRow extends StatelessWidget {
                   style: AppTypography.bodyMedium.copyWith(
                     fontSize: _rowLabelFontSize,
                     fontWeight: AppTypography.semiBold,
-                    color: colors.brandPrimary,
+                    color: color,
                   ),
                 ),
               ),
@@ -225,17 +232,21 @@ class SettingsActionRow extends StatelessWidget {
 /// الكاميرا» (F11-T08 onward). Not interactive; the pill always pairs its
 /// color with a distinct text label so meaning never rests on color alone
 /// (CLAUDE.md — same rule `ReminderStatusPill` already follows).
+///
+/// [glyph] is optional — «حدود الاستخدام» (F11-T12) draws the same label+pill
+/// shape with no leading icon at all, matching the design's own «عن التطبيق»
+/// card.
 class SettingsStatusRow extends StatelessWidget {
   const SettingsStatusRow({
-    required this.glyph,
     required this.label,
     required this.statusLabel,
     required this.statusBackground,
     required this.statusForeground,
+    this.glyph,
     super.key,
   });
 
-  final StrokeGlyph glyph;
+  final StrokeGlyph? glyph;
   final String label;
 
   /// The pill's text — e.g. «مسموح» / «غير مسموح» / «ممنوع».
@@ -254,8 +265,10 @@ class SettingsStatusRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
-          const SizedBox(width: _rowGap),
+          if (glyph case final glyph?) ...[
+            StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
+            const SizedBox(width: _rowGap),
+          ],
           Expanded(
             child: Text(
               label,
@@ -355,6 +368,56 @@ const double _linkRowPaddingTop = 12;
 const double _linkRowPaddingBottom = 14;
 const double _linkRowFontSize = 14;
 
+/// One row: an ink-colored label with a trailing chevron, no leading icon and
+/// no value — e.g. «سياسة الخصوصية» / «أنواع الأوراق المدعومة» in the «عن
+/// التطبيق» section (F11-T12). Unlike [SettingsLinkRow] (teal, the "do
+/// something" affordance) this reads as plain text, matching the design's own
+/// About card; unlike [SettingsValueRow] it has no icon or current-value
+/// subtitle to show.
+class SettingsNavRow extends StatelessWidget {
+  const SettingsNavRow({required this.label, required this.onTap, super.key});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: _rowPaddingH,
+            vertical: _rowPaddingV,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontSize: _rowLabelFontSize,
+                    fontWeight: AppTypography.semiBold,
+                    color: colors.ink,
+                  ),
+                ),
+              ),
+              StrokeIcon(
+                StrokeGlyph.chevronForward,
+                color: colors.textMuted,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// One row: a leading icon, a label (with an optional supporting line), and a
 /// trailing on/off switch.
 class SettingsToggleRow extends StatelessWidget {
@@ -363,6 +426,7 @@ class SettingsToggleRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.description,
     super.key,
   });
 
@@ -372,6 +436,11 @@ class SettingsToggleRow extends StatelessWidget {
 
   /// `null` shows the row as disabled — read but not interactive.
   final ValueChanged<bool>? onChanged;
+
+  /// An optional explanatory line under [label] — e.g. «إخفاء التفاصيل
+  /// الحساسة من شاشة القفل»'s «مش هنظهر المبالغ أو الأرقام المهمة داخل
+  /// الإشعار.» (F11-T10). Every other toggle row has none.
+  final String? description;
 
   @override
   Widget build(BuildContext context) {
@@ -387,13 +456,28 @@ class SettingsToggleRow extends StatelessWidget {
           StrokeIcon(glyph, color: colors.brandPrimary, size: _rowIconSize),
           const SizedBox(width: _rowGap),
           Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodyMedium.copyWith(
-                fontSize: _rowLabelFontSize,
-                fontWeight: AppTypography.semiBold,
-                color: colors.ink,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontSize: _rowLabelFontSize,
+                    fontWeight: AppTypography.semiBold,
+                    color: colors.ink,
+                  ),
+                ),
+                if (description case final description?) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: AppTypography.caption.copyWith(
+                      fontSize: 13,
+                      color: colors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           // Material's own Switch, not a hand-drawn track: it mirrors

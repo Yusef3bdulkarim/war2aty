@@ -6,7 +6,8 @@ import '../../../../core/accessibility/text_size.dart';
 import '../../../../core/accessibility/text_size_cubit.dart';
 import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
-import '../../../../core/audio/tts_voice.dart';
+import '../../../../core/documents/document_category.dart';
+import '../../../../core/documents/document_category_style.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/app_strings.dart';
@@ -14,8 +15,12 @@ import '../../../../core/localization/locale_cubit.dart';
 import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
+import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/usage/daily_usage.dart';
+import '../../../../core/widgets/destructive_confirm_sheet.dart';
 import '../../../../core/widgets/settings_section.dart';
+import '../../../../core/widgets/skeleton.dart';
 import '../cubit/settings_cubit.dart';
 import '../cubit/settings_state.dart';
 
@@ -45,13 +50,38 @@ const Key settingsOpenCameraSettingsButtonKey = Key(
   'settings-open-camera-settings-button',
 );
 
+/// The «فتح إعدادات الإشعارات» row (F11-T09).
+const Key settingsOpenNotificationSettingsButtonKey = Key(
+  'settings-open-notification-settings-button',
+);
+
+/// The «إخفاء التفاصيل الحساسة من شاشة القفل» row (F11-T10).
+const Key settingsNotificationPrivacyToggleKey = Key(
+  'settings-notification-privacy-toggle',
+);
+
+/// The delete-all rows (F11-T11).
+const Key settingsDeleteAllDocumentsButtonKey = Key(
+  'settings-delete-all-documents-button',
+);
+const Key settingsDeleteAllAppDataButtonKey = Key(
+  'settings-delete-all-app-data-button',
+);
+const Key settingsDeleteAllRemindersButtonKey = Key(
+  'settings-delete-all-reminders-button',
+);
+
 /// The «الإعدادات» tab (F11-T01 onward).
 ///
 /// The heading is a scaffold; the body below it grows one [SettingsSection]
 /// per task, in the design's own order — nothing is drawn ahead of the task
 /// that owns it. [SettingsCubit] backs every section from F11-T02 on.
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({this.onOpenPrivacyPolicy, super.key});
+
+  /// Opens [PrivacyPolicyScreen] (F11-T12). The router supplies it; optional
+  /// so the screen can be pumped on its own in a widget test.
+  final VoidCallback? onOpenPrivacyPolicy;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +120,7 @@ class SettingsScreen extends StatelessWidget {
               const _AccessibilitySection(),
               const _AudioSection(),
               const _PermissionsSection(),
+              _AboutSection(onOpenPrivacyPolicy: onOpenPrivacyPolicy),
             ],
           ),
         ),
@@ -97,6 +128,113 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
+
+/// The loading silhouette for a [SettingsSection] backed by [SettingsCubit]
+/// — «الخصوصية», «الصوت والقراءة», and «الأذونات والتنبيهات» all show one of
+/// these while [SettingsState] is [SettingsLoading], instead of vanishing
+/// outright and popping into place once the reads settle (the settings
+/// screen's perceived-hang bug: this replaces what used to be a bare
+/// `SizedBox.shrink()`).
+///
+/// Mirrors [SettingsSection]'s own card/row shape — same title-then-card
+/// layout, same row padding/icon/gap — so nothing changes size once the real
+/// content replaces it. Every row draws the same generic icon+label+value+
+/// trailing shapes regardless of which row it stands in for: a skeleton
+/// only needs to read as "a row is coming," not preview its exact content.
+/// Same convention Home's `_ReminderSkeleton`/`_DocumentsSkeleton` already
+/// use for their own cubit-backed sections.
+class _SettingsSectionSkeleton extends StatelessWidget {
+  const _SettingsSectionSkeleton({required this.rowCount});
+
+  /// How many rows the real section this stands in for will draw.
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _cardGapBelow),
+      child: Shimmer(
+        label: context.strings.stateLoading,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: SkeletonBox(width: 90, height: _titleFontSize),
+            ),
+            const SizedBox(height: _titleGapBelow),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.card,
+                borderRadius: BorderRadius.circular(AppRadii.lg),
+                boxShadow: AppShadows.card,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadii.lg),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < rowCount; i++)
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: i == rowCount - 1
+                              ? null
+                              : Border(
+                                  bottom: BorderSide(color: colors.surfaceAlt),
+                                ),
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: _rowPaddingH,
+                            vertical: _rowPaddingV,
+                          ),
+                          child: Row(
+                            children: [
+                              SkeletonBox(
+                                width: _rowIconSize,
+                                height: _rowIconSize,
+                                radius: 6,
+                              ),
+                              SizedBox(width: _rowGap),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SkeletonBox(height: _rowLabelFontSize),
+                                    SizedBox(height: 6),
+                                    SkeletonBox(width: 100, height: 13),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              SkeletonBox(width: 32, height: 18, radius: 9),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Mirrors `SettingsSection`'s own (private) layout constants — kept in sync
+// by hand since those aren't exported; the skeleton only needs to match
+// dimensions, not import the section's rendering itself.
+const double _titleFontSize = 13;
+const double _titleGapBelow = 10;
+const double _cardGapBelow = 22;
+const double _rowPaddingH = 16;
+const double _rowPaddingV = 15;
+const double _rowGap = 12;
+const double _rowIconSize = 20;
+const double _rowLabelFontSize = 15;
 
 /// «عام» — the language switch (F11-T04).
 ///
@@ -455,8 +593,9 @@ class _TextSizeOption extends StatelessWidget {
   }
 }
 
-/// «الخصوصية» — the analysis consent toggle (F11-T02) and the
-/// processing-mode row (F11-T03).
+/// «الخصوصية» — the analysis consent toggle (F11-T02), the processing-mode
+/// row (F11-T03), and the delete-all-documents / delete-all-app-data rows
+/// (F11-T11).
 class _PrivacySection extends StatelessWidget {
   const _PrivacySection();
 
@@ -466,7 +605,9 @@ class _PrivacySection extends StatelessWidget {
 
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
-        SettingsLoading() => const SizedBox.shrink(),
+        // Consent toggle, processing-mode row, and the two delete-all rows
+        // (F11-T11) — four rows.
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 4),
         SettingsReady(:final analysisConsent, :final processingMode) =>
           SettingsSection(
             title: strings.settingsPrivacySection,
@@ -485,10 +626,89 @@ class _PrivacySection extends StatelessWidget {
                 value: _modeName(processingMode, strings),
                 onTap: () => _showModePicker(context, processingMode),
               ),
+              SettingsActionRow(
+                key: settingsDeleteAllDocumentsButtonKey,
+                glyph: StrokeGlyph.trash,
+                label: strings.settingsDeleteAllDocumentsLabel,
+                destructive: true,
+                onTap: () => _deleteAllDocuments(context, strings),
+              ),
+              SettingsActionRow(
+                key: settingsDeleteAllAppDataButtonKey,
+                glyph: StrokeGlyph.trash,
+                label: strings.settingsDeleteAllAppDataLabel,
+                destructive: true,
+                onTap: () => _deleteAllAppData(context, strings),
+              ),
             ],
           ),
       },
     );
+  }
+
+  /// «حذف كل المستندات» (F11-T11).
+  Future<void> _deleteAllDocuments(
+    BuildContext context,
+    AppStrings strings,
+  ) async {
+    final confirmed = await showDestructiveConfirmSheet(
+      context,
+      title: strings.settingsDeleteAllDocumentsConfirmTitle,
+      message: strings.settingsDeleteAllDocumentsConfirmMessage,
+      confirmLabel: strings.settingsDeleteAllConfirmAction,
+      cancelLabel: strings.actionCancel,
+    );
+    if (!confirmed || !context.mounted) return;
+    final ok = await context.read<SettingsCubit>().deleteAllDocuments();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? strings.settingsDeleteAllDocumentsSuccess
+                : strings.settingsDeleteAllDocumentsError,
+          ),
+        ),
+      );
+  }
+
+  /// «حذف كل بيانات التطبيق» (F11-T11).
+  Future<void> _deleteAllAppData(
+    BuildContext context,
+    AppStrings strings,
+  ) async {
+    final confirmed = await showDestructiveConfirmSheet(
+      context,
+      title: strings.settingsDeleteAllAppDataConfirmTitle,
+      message: strings.settingsDeleteAllAppDataConfirmMessage,
+      confirmLabel: strings.settingsDeleteAllConfirmAction,
+      cancelLabel: strings.actionCancel,
+    );
+    if (!confirmed || !context.mounted) return;
+    final ok = await context.read<SettingsCubit>().deleteAllAppData();
+    if (ok && context.mounted) {
+      // Every setting SettingsCubit doesn't own also reverted — re-sync the
+      // app-scoped cubits that drive them (F11-T11).
+      await context.read<TextSizeCubit>().load();
+      if (!context.mounted) return;
+      await context.read<HighContrastCubit>().load();
+      if (!context.mounted) return;
+      context.read<LocaleCubit>().resetToDefault();
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? strings.settingsDeleteAllAppDataSuccess
+                : strings.settingsDeleteAllAppDataError,
+          ),
+        ),
+      );
   }
 }
 
@@ -739,11 +959,11 @@ class _AudioSection extends StatelessWidget {
 
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
-        SettingsLoading() => const SizedBox.shrink(),
+        // Speed, «تجربة الصوت», resume — three rows (the voice picker was
+        // removed: most device voices are unsuitable for Arabic).
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 3),
         SettingsReady(
           :final defaultReadingSpeed,
-          :final defaultReadingVoice,
-          :final availableVoices,
           :final resumeReadingEnabled,
         ) =>
           SettingsSection(
@@ -755,19 +975,6 @@ class _AudioSection extends StatelessWidget {
                 value: defaultReadingSpeed.label,
                 onTap: () =>
                     _showReadingSpeedPicker(context, defaultReadingSpeed),
-              ),
-              SettingsValueRow(
-                glyph: StrokeGlyph.speaker,
-                label: strings.settingsAudioVoiceLabel,
-                description: strings.settingsAudioVoiceDescription,
-                value:
-                    defaultReadingVoice?.name ??
-                    strings.settingsAudioVoiceDefault,
-                onTap: () => _showReadingVoicePicker(
-                  context,
-                  current: defaultReadingVoice,
-                  voices: availableVoices,
-                ),
               ),
               SettingsActionRow(
                 glyph: StrokeGlyph.play,
@@ -790,17 +997,14 @@ class _AudioSection extends StatelessWidget {
   }
 }
 
-/// «الأذونات والتنبيهات» — the camera permission row (F11-T08).
-///
-/// The design also shows a notification-permission row, a notification-
-/// privacy toggle, and «حذف كل التذكيرات» in this same card — no F11 task
-/// owns them yet (F11-T09/T10/T11), so they are left out rather than
-/// guessed at, the same way `_AccessibilitySection` leaves out «تقليل
-/// الحركة».
+/// «الأذونات والتنبيهات» — the camera and notification permission rows
+/// (F11-T08, F11-T09), the notification-privacy toggle (F11-T10), and the
+/// delete-all-reminders row (F11-T11).
 ///
 /// Stateful only for the [AppLifecycleListener]: opening the OS settings app
 /// backgrounds this app, so only a re-check on resume notices what the user
-/// changed there ([SettingsCubit.refreshCameraPermission]).
+/// changed there ([SettingsCubit.refreshCameraPermission],
+/// [SettingsCubit.refreshNotificationPermission]).
 class _PermissionsSection extends StatefulWidget {
   const _PermissionsSection();
 
@@ -819,7 +1023,9 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
 
   void _onResume() {
     if (!mounted) return;
-    context.read<SettingsCubit>().refreshCameraPermission();
+    final cubit = context.read<SettingsCubit>();
+    cubit.refreshCameraPermission();
+    cubit.refreshNotificationPermission();
   }
 
   @override
@@ -835,27 +1041,169 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
 
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
-        SettingsLoading() => const SizedBox.shrink(),
-        SettingsReady(:final cameraPermission) => SettingsSection(
-          title: strings.settingsPermissionsSection,
-          rows: [
-            SettingsStatusRow(
-              glyph: StrokeGlyph.camera,
-              label: strings.settingsCameraPermissionLabel,
-              statusLabel: _permissionStatusLabel(cameraPermission, strings),
-              statusBackground: _permissionStatusBackground(
-                cameraPermission,
-                colors,
+        // Camera status, open-camera link, notification status,
+        // open-notification link, privacy toggle, delete-all-reminders — six
+        // rows.
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 6),
+        SettingsReady(
+          :final cameraPermission,
+          :final notificationPermission,
+          :final hideSensitiveNotificationDetails,
+        ) =>
+          SettingsSection(
+            title: strings.settingsPermissionsSection,
+            rows: [
+              SettingsStatusRow(
+                glyph: StrokeGlyph.camera,
+                label: strings.settingsCameraPermissionLabel,
+                statusLabel: _permissionStatusLabel(cameraPermission, strings),
+                statusBackground: _permissionStatusBackground(
+                  cameraPermission,
+                  colors,
+                ),
+                statusForeground: _permissionStatusForeground(
+                  cameraPermission,
+                  colors,
+                ),
               ),
-              statusForeground: _permissionStatusForeground(
-                cameraPermission,
-                colors,
+              SettingsLinkRow(
+                key: settingsOpenCameraSettingsButtonKey,
+                label: strings.settingsOpenCameraSettingsLabel,
+                onTap: () => context.read<SettingsCubit>().openCameraSettings(),
               ),
+              SettingsStatusRow(
+                glyph: StrokeGlyph.navReminders,
+                label: strings.settingsNotificationPermissionLabel,
+                statusLabel: _permissionStatusLabel(
+                  notificationPermission,
+                  strings,
+                ),
+                statusBackground: _permissionStatusBackground(
+                  notificationPermission,
+                  colors,
+                ),
+                statusForeground: _permissionStatusForeground(
+                  notificationPermission,
+                  colors,
+                ),
+              ),
+              SettingsLinkRow(
+                key: settingsOpenNotificationSettingsButtonKey,
+                label: strings.settingsOpenNotificationSettingsLabel,
+                onTap: () =>
+                    context.read<SettingsCubit>().openNotificationSettings(),
+              ),
+              SettingsToggleRow(
+                key: settingsNotificationPrivacyToggleKey,
+                glyph: StrokeGlyph.lock,
+                label: strings.settingsNotificationPrivacyLabel,
+                description: strings.settingsNotificationPrivacyDescription,
+                value: hideSensitiveNotificationDetails,
+                onChanged: (value) => context
+                    .read<SettingsCubit>()
+                    .setHideSensitiveNotificationDetails(value),
+              ),
+              SettingsActionRow(
+                key: settingsDeleteAllRemindersButtonKey,
+                glyph: StrokeGlyph.trash,
+                label: strings.settingsDeleteAllRemindersLabel,
+                destructive: true,
+                onTap: () => _deleteAllReminders(context, strings),
+              ),
+            ],
+          ),
+      },
+    );
+  }
+
+  /// «حذف كل التذكيرات» (F11-T11).
+  Future<void> _deleteAllReminders(
+    BuildContext context,
+    AppStrings strings,
+  ) async {
+    final confirmed = await showDestructiveConfirmSheet(
+      context,
+      title: strings.settingsDeleteAllRemindersConfirmTitle,
+      message: strings.settingsDeleteAllRemindersConfirmMessage,
+      confirmLabel: strings.settingsDeleteAllConfirmAction,
+      cancelLabel: strings.actionCancel,
+    );
+    if (!confirmed || !context.mounted) return;
+    final ok = await context.read<SettingsCubit>().deleteAllReminders();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? strings.settingsDeleteAllRemindersSuccess
+                : strings.settingsDeleteAllRemindersError,
+          ),
+        ),
+      );
+  }
+}
+
+/// «عن التطبيق» — the privacy-policy and supported-document-types rows, the
+/// usage-limit pill, and the version line (F11-T12).
+///
+/// The version line sits under the card rather than inside it, as its own
+/// centered caption — the design draws it outside the card's white
+/// background, unlike every row above it.
+class _AboutSection extends StatelessWidget {
+  const _AboutSection({this.onOpenPrivacyPolicy});
+
+  final VoidCallback? onOpenPrivacyPolicy;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final colors = AppColors.of(context);
+
+    return BlocBuilder<SettingsCubit, SettingsState>(
+      builder: (context, state) => switch (state) {
+        // Privacy policy, supported types, usage limit — three rows.
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 3),
+        SettingsReady(:final dailyUsage, :final appVersion) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SettingsSection(
+              title: strings.settingsAboutSection,
+              rows: [
+                SettingsNavRow(
+                  label: strings.settingsPrivacyPolicyLabel,
+                  onTap: onOpenPrivacyPolicy,
+                ),
+                SettingsNavRow(
+                  label: strings.settingsSupportedDocumentTypesLabel,
+                  onTap: () => _showSupportedDocumentTypesSheet(context),
+                ),
+                SettingsStatusRow(
+                  label: strings.settingsUsageLimitLabel,
+                  statusLabel: _usageLimitValue(dailyUsage, strings),
+                  statusBackground: colors.surfaceNeutral,
+                  statusForeground: colors.iconInfo,
+                ),
+              ],
             ),
-            SettingsLinkRow(
-              key: settingsOpenCameraSettingsButtonKey,
-              label: strings.settingsOpenCameraSettingsLabel,
-              onTap: () => context.read<SettingsCubit>().openCameraSettings(),
+            Padding(
+              // `SettingsSection` already added its own `_cardGapBelow` gap
+              // above this line — the design draws the version line tighter
+              // to the card than that, but reusing the section's shared
+              // spacing (rather than fighting it with negative padding) keeps
+              // the screen's vertical rhythm consistent with every section
+              // above it.
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                strings.settingsVersionLabel(appVersion),
+                textAlign: TextAlign.center,
+                style: AppTypography.caption.copyWith(
+                  fontSize: 12.5,
+                  fontWeight: AppTypography.semiBold,
+                  color: colors.textMuted,
+                ),
+              ),
             ),
           ],
         ),
@@ -863,6 +1211,128 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
     );
   }
 }
+
+/// The «حدود الاستخدام» pill text, or [AppStrings.settingsUsageLimitUnavailable]
+/// when nothing has been cached yet (no silent blank pill, CLAUDE.md §A3).
+String _usageLimitValue(DailyUsage? usage, AppStrings strings) =>
+    switch (usage) {
+      null => strings.settingsUsageLimitUnavailable,
+      DailyUsage(:final usedCount, :final dailyLimit) =>
+        strings.settingsUsageLimitValue(usedCount, dailyLimit),
+    };
+
+// ---------------------------------------------------------------------------
+// Supported document types sheet (F11-T12)
+// ---------------------------------------------------------------------------
+
+const double _typeSheetIconBox = 40;
+const double _typeSheetGap = 12;
+const double _typeSheetRowGap = 14;
+
+void _showSupportedDocumentTypesSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
+    ),
+    backgroundColor: AppColors.of(context).card,
+    builder: (_) => const _SupportedDocumentTypesSheet(),
+  );
+}
+
+/// Read-only — every [DocumentCategory] the app recognises, with the same
+/// icon/label pairing `DocumentListItem` and the category picker already use
+/// elsewhere, so a paper's category always looks the same wherever it shows.
+class _SupportedDocumentTypesSheet extends StatelessWidget {
+  const _SupportedDocumentTypesSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final strings = context.strings;
+
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(
+          _sheetPaddingH,
+          _sheetPaddingTop,
+          _sheetPaddingH,
+          _sheetPaddingBottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                strings.settingsSupportedDocumentTypesLabel,
+                style: AppTypography.titleMedium.copyWith(
+                  fontWeight: AppTypography.bold,
+                  color: colors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(height: _sheetTitleGap),
+            for (final (index, category)
+                in DocumentCategory.values.indexed) ...[
+              if (index > 0) const SizedBox(height: _typeSheetRowGap),
+              _DocumentTypeRow(category: category),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DocumentTypeRow extends StatelessWidget {
+  const _DocumentTypeRow({required this.category});
+
+  final DocumentCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final style = DocumentCategoryStyle.of(context, category);
+
+    return Row(
+      children: [
+        Container(
+          width: _typeSheetIconBox,
+          height: _typeSheetIconBox,
+          decoration: BoxDecoration(
+            color: style.tint,
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
+          child: Center(
+            child: StrokeIcon(style.glyph, color: style.foreground),
+          ),
+        ),
+        const SizedBox(width: _typeSheetGap),
+        Expanded(
+          child: Text(
+            _documentCategoryLabel(strings, category),
+            style: AppTypography.bodyMedium.copyWith(
+              fontWeight: AppTypography.semiBold,
+              color: AppColors.of(context).ink,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _documentCategoryLabel(AppStrings s, DocumentCategory category) =>
+    switch (category) {
+      DocumentCategory.appointment => s.documentCategoryAppointment,
+      DocumentCategory.invoice => s.documentCategoryInvoice,
+      DocumentCategory.government => s.documentCategoryGovernment,
+      DocumentCategory.education => s.documentCategoryEducation,
+      DocumentCategory.other => s.documentCategoryOther,
+    };
 
 /// The pill's text for [outcome] — always paired with a color, never color
 /// alone (CLAUDE.md).
@@ -970,92 +1440,6 @@ class _ReadingSpeedSheet extends StatelessWidget {
                 title: speed.label,
                 selected: speed == current,
                 onTap: () => onSelected(speed),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Reading-voice picker sheet (F11-T07)
-// ---------------------------------------------------------------------------
-
-void _showReadingVoicePicker(
-  BuildContext context, {
-  required TtsVoice? current,
-  required List<TtsVoice> voices,
-}) {
-  showModalBottomSheet<void>(
-    context: context,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
-    ),
-    backgroundColor: AppColors.of(context).card,
-    builder: (_) => _ReadingVoiceSheet(
-      current: current,
-      voices: voices,
-      onSelected: (voice) {
-        context.read<SettingsCubit>().setDefaultReadingVoice(voice);
-        Navigator.of(context).pop();
-      },
-    ),
-  );
-}
-
-class _ReadingVoiceSheet extends StatelessWidget {
-  const _ReadingVoiceSheet({
-    required this.current,
-    required this.voices,
-    required this.onSelected,
-  });
-
-  final TtsVoice? current;
-  final List<TtsVoice> voices;
-  final ValueChanged<TtsVoice?> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          _sheetPaddingH,
-          _sheetPaddingTop,
-          _sheetPaddingH,
-          _sheetPaddingBottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Semantics(
-              header: true,
-              child: Text(
-                strings.settingsAudioVoiceLabel,
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: AppTypography.bold,
-                  color: colors.ink,
-                ),
-              ),
-            ),
-            const SizedBox(height: _sheetTitleGap),
-            _RadioOption(
-              title: strings.settingsAudioVoiceDefault,
-              selected: current == null,
-              onTap: () => onSelected(null),
-            ),
-            for (final voice in voices) ...[
-              const SizedBox(height: _optionGap),
-              _RadioOption(
-                title: voice.name,
-                selected: voice == current,
-                onTap: () => onSelected(voice),
               ),
             ],
           ],

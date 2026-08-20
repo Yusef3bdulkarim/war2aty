@@ -47,6 +47,7 @@ import 'package:war2aty/core/reminders/reminders_repository.dart';
 import 'package:war2aty/core/reminders/upcoming_reminder.dart';
 import 'package:war2aty/core/reminders/upcoming_reminder_repository.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/settings/app_settings_repository.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/core/storage/analysis_session_storage.dart';
 import 'package:war2aty/core/storage/secure_storage_service.dart';
@@ -342,9 +343,16 @@ final class FakeNotificationPermissionRepository
 
   PermissionOutcome status;
   PermissionOutcome afterRequest;
-  final bool fails;
+
+  /// Mutable like [status] — a test can flip a fake that started healthy to
+  /// simulate a platform failure on a later call (e.g. a refresh after a
+  /// successful load), not just at construction (F11-T09).
+  bool fails;
 
   int requestCount = 0;
+
+  /// «فتح إعدادات الإشعارات» calls (F11-T09).
+  int openSettingsCount = 0;
 
   @override
   Future<Result<PermissionOutcome, AppFailure>> currentStatus() async =>
@@ -356,6 +364,12 @@ final class FakeNotificationPermissionRepository
     if (fails) return const Err(NotificationPermissionFailure());
     status = afterRequest;
     return Ok(status);
+  }
+
+  @override
+  Future<Result<bool, AppFailure>> openSettings() async {
+    openSettingsCount++;
+    return fails ? const Err(NotificationPermissionFailure()) : const Ok(true);
   }
 }
 
@@ -832,6 +846,12 @@ final class FakeDocumentImageStore implements DocumentImageStore {
 
   @override
   Future<void> delete(String documentId) async => deletedIds.add(documentId);
+
+  /// Whether [deleteAll] was called (F11-T11).
+  bool deleteAllCalled = false;
+
+  @override
+  Future<void> deleteAll() async => deleteAllCalled = true;
 }
 
 /// In-memory [DocumentsRepository] the test drives by hand — the read side
@@ -983,6 +1003,19 @@ final class FakeDocumentsRepository implements DocumentsRepository {
     lastNoteSet = note;
     noteDeleted = note == null;
     return setNoteOutcome;
+  }
+
+  /// Outcome of [deleteAllDocuments]. Default success; set to an [Err] to
+  /// test failures (F11-T11).
+  Result<void, AppFailure> deleteAllOutcome = const Ok(null);
+
+  /// Whether [deleteAllDocuments] was called.
+  bool deleteAllCalled = false;
+
+  @override
+  Future<Result<void, AppFailure>> deleteAllDocuments() async {
+    deleteAllCalled = true;
+    return deleteAllOutcome;
   }
 }
 
@@ -1246,6 +1279,19 @@ final class FakeReminderScheduler implements ReminderScheduler {
   Future<Result<int, AppFailure>> reconcile() async {
     reconcileCount++;
     return outcome;
+  }
+}
+
+/// Scriptable [AppSettingsRepository] — no Drift, records whether it was
+/// asked to clear everything (F11-T11).
+final class FakeAppSettingsRepository implements AppSettingsRepository {
+  Result<void, AppFailure> clearOutcome = const Ok(null);
+  bool clearCalled = false;
+
+  @override
+  Future<Result<void, AppFailure>> clearAllSettingsAndUsageCache() async {
+    clearCalled = true;
+    return clearOutcome;
   }
 }
 

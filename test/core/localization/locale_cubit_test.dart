@@ -50,4 +50,30 @@ void main() {
     await sub.cancel();
     expect(emitted, isEmpty);
   });
+
+  group('resetToDefault (F11-T11)', () {
+    test('reverts to Arabic without persisting anything', () async {
+      final store = FakeLocaleStore();
+      final cubit = buildCubit(store);
+      await cubit.setLanguage('en');
+
+      cubit.resetToDefault();
+
+      expect(cubit.state, const Locale('ar'));
+      // Unchanged: the caller clears the store's row itself (F11-T11's
+      // «حذف كل بيانات التطبيق») — resetToDefault only updates memory.
+      expect(await store.readLanguageCode(), 'en');
+    });
+
+    test('is a no-op when already on the default', () {
+      final cubit = buildCubit(FakeLocaleStore());
+      final emitted = <Locale>[];
+      final sub = cubit.stream.listen(emitted.add);
+
+      cubit.resetToDefault();
+
+      sub.cancel();
+      expect(emitted, isEmpty);
+    });
+  });
 }

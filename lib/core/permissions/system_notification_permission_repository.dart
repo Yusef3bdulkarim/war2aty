@@ -21,6 +21,10 @@ final class SystemNotificationPermissionRepository
   Future<Result<PermissionOutcome, AppFailure>> request() =>
       _guard(() => _permissions.request(AppPermission.notifications));
 
+  @override
+  Future<Result<bool, AppFailure>> openSettings() =>
+      _guard(_permissions.openSettings);
+
   Future<Result<T, AppFailure>> _guard<T>(Future<T> Function() run) async {
     try {
       return Ok(await run());

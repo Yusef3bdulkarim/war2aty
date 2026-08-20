@@ -142,6 +142,15 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteSetting(String key) =>
       (delete(appSettings)..where((t) => t.key.equals(key))).go();
 
+  /// Deletes every row of `app_settings` — settings' «حذف كل بيانات التطبيق»
+  /// (F11-T11). Every `Get*` use case already falls back to its documented
+  /// default once a key is unset, so nothing needs to be written back here.
+  Future<void> clearAppSettings() => delete(appSettings).go();
+
+  /// Deletes every row of `usage_cache` (F11-T11) — the next sync from the
+  /// backend, the source of truth, repopulates it.
+  Future<void> clearUsageCache() => delete(usageCache).go();
+
   /// Reads the cached usage row for a Cairo [date], or `null`.
   Future<UsageCacheData?> usageForDate(DateTime date) {
     return (select(

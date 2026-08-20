@@ -6,17 +6,23 @@ import '../../../../core/analysis/usecases/get_processing_mode.dart';
 import '../../../../core/analysis/usecases/set_analysis_consent.dart';
 import '../../../../core/analysis/usecases/set_processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
-import '../../../../core/audio/tts_voice.dart';
-import '../../../../core/audio/usecases/get_available_voices.dart';
 import '../../../../core/audio/usecases/get_default_reading_speed.dart';
 import '../../../../core/audio/usecases/get_default_reading_voice.dart';
 import '../../../../core/audio/usecases/get_resume_reading_enabled.dart';
 import '../../../../core/audio/usecases/preview_default_voice.dart';
 import '../../../../core/audio/usecases/set_default_reading_speed.dart';
-import '../../../../core/audio/usecases/set_default_reading_voice.dart';
 import '../../../../core/audio/usecases/set_resume_reading_enabled.dart';
+import '../../../../core/documents/usecases/delete_all_documents.dart';
+import '../../../../core/env/usecases/get_app_version.dart';
 import '../../../../core/localization/app_strings.dart';
 import '../../../../core/permissions/permission_service.dart';
+import '../../../../core/permissions/usecases/get_notification_permission.dart';
+import '../../../../core/permissions/usecases/open_notification_permission_settings.dart';
+import '../../../../core/reminders/usecases/delete_all_reminders.dart';
+import '../../../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import '../../../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
+import '../../../../core/settings/usecases/delete_all_app_data.dart';
+import '../../../../core/usage/usecases/get_daily_usage.dart';
 import '../../../capture/domain/usecases/get_camera_permission.dart';
 import '../../../capture/domain/usecases/open_permission_settings.dart';
 import 'settings_state.dart';
@@ -31,13 +37,22 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required GetDefaultReadingSpeed getDefaultReadingSpeed,
     required SetDefaultReadingSpeed setDefaultReadingSpeed,
     required GetDefaultReadingVoice getDefaultReadingVoice,
-    required SetDefaultReadingVoice setDefaultReadingVoice,
     required GetResumeReadingEnabled getResumeReadingEnabled,
     required SetResumeReadingEnabled setResumeReadingEnabled,
-    required GetAvailableVoices getAvailableVoices,
     required PreviewDefaultVoice previewDefaultVoice,
     required GetCameraPermission getCameraPermission,
     required OpenPermissionSettings openPermissionSettings,
+    required GetNotificationPermission getNotificationPermission,
+    required OpenNotificationPermissionSettings openNotificationSettings,
+    required GetHideSensitiveNotificationDetails
+    getHideSensitiveNotificationDetails,
+    required SetHideSensitiveNotificationDetails
+    setHideSensitiveNotificationDetails,
+    required DeleteAllDocuments deleteAllDocuments,
+    required DeleteAllReminders deleteAllReminders,
+    required DeleteAllAppData deleteAllAppData,
+    required GetDailyUsage getDailyUsage,
+    required GetAppVersion getAppVersion,
   }) : _getAnalysisConsent = getAnalysisConsent,
        _setAnalysisConsent = setAnalysisConsent,
        _getProcessingMode = getProcessingMode,
@@ -45,13 +60,22 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _getDefaultReadingSpeed = getDefaultReadingSpeed,
        _setDefaultReadingSpeed = setDefaultReadingSpeed,
        _getDefaultReadingVoice = getDefaultReadingVoice,
-       _setDefaultReadingVoice = setDefaultReadingVoice,
        _getResumeReadingEnabled = getResumeReadingEnabled,
        _setResumeReadingEnabled = setResumeReadingEnabled,
-       _getAvailableVoices = getAvailableVoices,
        _previewDefaultVoice = previewDefaultVoice,
        _getCameraPermission = getCameraPermission,
        _openPermissionSettings = openPermissionSettings,
+       _getNotificationPermission = getNotificationPermission,
+       _openNotificationSettings = openNotificationSettings,
+       _getHideSensitiveNotificationDetails =
+           getHideSensitiveNotificationDetails,
+       _setHideSensitiveNotificationDetails =
+           setHideSensitiveNotificationDetails,
+       _deleteAllDocuments = deleteAllDocuments,
+       _deleteAllReminders = deleteAllReminders,
+       _deleteAllAppData = deleteAllAppData,
+       _getDailyUsage = getDailyUsage,
+       _getAppVersion = getAppVersion,
        super(const SettingsLoading());
 
   final GetAnalysisConsent _getAnalysisConsent;
@@ -61,29 +85,54 @@ final class SettingsCubit extends Cubit<SettingsState> {
   final GetDefaultReadingSpeed _getDefaultReadingSpeed;
   final SetDefaultReadingSpeed _setDefaultReadingSpeed;
   final GetDefaultReadingVoice _getDefaultReadingVoice;
-  final SetDefaultReadingVoice _setDefaultReadingVoice;
   final GetResumeReadingEnabled _getResumeReadingEnabled;
   final SetResumeReadingEnabled _setResumeReadingEnabled;
-  final GetAvailableVoices _getAvailableVoices;
   final PreviewDefaultVoice _previewDefaultVoice;
   final GetCameraPermission _getCameraPermission;
   final OpenPermissionSettings _openPermissionSettings;
+  final GetNotificationPermission _getNotificationPermission;
+  final OpenNotificationPermissionSettings _openNotificationSettings;
+  final GetHideSensitiveNotificationDetails
+  _getHideSensitiveNotificationDetails;
+  final SetHideSensitiveNotificationDetails
+  _setHideSensitiveNotificationDetails;
+  final DeleteAllDocuments _deleteAllDocuments;
+  final DeleteAllReminders _deleteAllReminders;
+  final DeleteAllAppData _deleteAllAppData;
+  final GetDailyUsage _getDailyUsage;
+  final GetAppVersion _getAppVersion;
 
   /// Reads every persisted setting once, on screen mount.
   ///
-  /// [GetAvailableVoices] is the one read here that talks to the OS engine
-  /// rather than a store — a device that fails to report its voices still
-  /// gets a working screen, just with the picker offering only «الصوت
-  /// الافتراضي» (F11-T07).
+  /// Every read below is kicked off together rather than one `await` after
+  /// another — they don't depend on each other, so waiting on them
+  /// sequentially only added up their latencies for no reason (the settings
+  /// screen visibly stalling on open, F11 perceived-hang bug).
   Future<void> load() async {
-    final analysisConsent = await _getAnalysisConsent();
-    final processingMode = await _getProcessingMode();
-    final defaultReadingSpeed = await _getDefaultReadingSpeed();
-    final defaultReadingVoice = await _getDefaultReadingVoice();
-    final resumeReadingEnabled = await _getResumeReadingEnabled();
-    final availableVoices = (await _getAvailableVoices()).valueOrNull ?? [];
+    final analysisConsentFuture = _getAnalysisConsent();
+    final processingModeFuture = _getProcessingMode();
+    final defaultReadingSpeedFuture = _getDefaultReadingSpeed();
+    final defaultReadingVoiceFuture = _getDefaultReadingVoice();
+    final resumeReadingEnabledFuture = _getResumeReadingEnabled();
+    final cameraPermissionFuture = _getCameraPermission();
+    final notificationPermissionFuture = _getNotificationPermission();
+    final hideSensitiveNotificationDetailsFuture =
+        _getHideSensitiveNotificationDetails();
+    final dailyUsageFuture = _getDailyUsage();
+
+    final analysisConsent = await analysisConsentFuture;
+    final processingMode = await processingModeFuture;
+    final defaultReadingSpeed = await defaultReadingSpeedFuture;
+    final defaultReadingVoice = await defaultReadingVoiceFuture;
+    final resumeReadingEnabled = await resumeReadingEnabledFuture;
     final cameraPermission =
-        (await _getCameraPermission()).valueOrNull ?? PermissionOutcome.denied;
+        (await cameraPermissionFuture).valueOrNull ?? PermissionOutcome.denied;
+    final notificationPermission =
+        (await notificationPermissionFuture).valueOrNull ??
+        PermissionOutcome.denied;
+    final hideSensitiveNotificationDetails =
+        await hideSensitiveNotificationDetailsFuture;
+    final dailyUsage = (await dailyUsageFuture).valueOrNull;
     if (isClosed) return;
     emit(
       SettingsReady(
@@ -91,9 +140,12 @@ final class SettingsCubit extends Cubit<SettingsState> {
         processingMode: processingMode,
         defaultReadingSpeed: defaultReadingSpeed,
         defaultReadingVoice: defaultReadingVoice,
-        availableVoices: availableVoices,
         resumeReadingEnabled: resumeReadingEnabled,
         cameraPermission: cameraPermission,
+        notificationPermission: notificationPermission,
+        hideSensitiveNotificationDetails: hideSensitiveNotificationDetails,
+        dailyUsage: dailyUsage,
+        appVersion: _getAppVersion(),
       ),
     );
   }
@@ -128,21 +180,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
     if (current is! SettingsReady) return;
     emit(current.copyWith(defaultReadingSpeed: speed));
     await _setDefaultReadingSpeed(speed);
-  }
-
-  /// Picks «صوت القراءة» (F11-T07) — `null` for «الصوت الافتراضي».
-  ///
-  /// Same emit-first pattern as [setAnalysisConsent].
-  Future<void> setDefaultReadingVoice(TtsVoice? voice) async {
-    final current = state;
-    if (current is! SettingsReady) return;
-    emit(
-      current.copyWith(
-        defaultReadingVoice: voice,
-        clearDefaultReadingVoice: voice == null,
-      ),
-    );
-    await _setDefaultReadingVoice(voice);
   }
 
   /// Toggles «استكمال القراءة من آخر مكان» (F11-T07).
@@ -194,4 +231,61 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// what reflects whatever the user changed there, the same contract
   /// `CameraPermissionCubit.allow()` already uses for this same use case.
   Future<void> openCameraSettings() => _openPermissionSettings().then((_) {});
+
+  /// Re-reads «إذن الإشعارات» without prompting (F11-T09) — same reasoning
+  /// and same denied-on-failure fallback as [refreshCameraPermission].
+  Future<void> refreshNotificationPermission() async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    final notificationPermission =
+        (await _getNotificationPermission()).valueOrNull ??
+        PermissionOutcome.denied;
+    if (isClosed) return;
+    emit(current.copyWith(notificationPermission: notificationPermission));
+  }
+
+  /// «فتح إعدادات الإشعارات» (F11-T09) — same contract as
+  /// [openCameraSettings].
+  Future<void> openNotificationSettings() =>
+      _openNotificationSettings().then((_) {});
+
+  /// Toggles «إخفاء التفاصيل الحساسة من شاشة القفل» (F11-T10) — persists the
+  /// same setting `FlutterLocalNotificationsReminderScheduler` already reads
+  /// on every reminder fire (F09-T14).
+  ///
+  /// Same emit-first pattern as [setAnalysisConsent].
+  Future<void> setHideSensitiveNotificationDetails(bool hide) async {
+    final current = state;
+    if (current is! SettingsReady) return;
+    emit(current.copyWith(hideSensitiveNotificationDetails: hide));
+    await _setHideSensitiveNotificationDetails(hide);
+  }
+
+  /// «حذف كل المستندات» (F11-T11) — after the user confirms on the sheet.
+  ///
+  /// Answers whether it succeeded, for the screen to show a snackbar rather
+  /// than leave a permanent delete unexplained (no silent failures, CLAUDE.md
+  /// §A3). No-ops before [load], the same guard every setter uses.
+  Future<bool> deleteAllDocuments() async {
+    if (state is! SettingsReady) return false;
+    return (await _deleteAllDocuments()).isOk;
+  }
+
+  /// «حذف كل التذكيرات» (F11-T11). Same contract as [deleteAllDocuments].
+  Future<bool> deleteAllReminders() async {
+    if (state is! SettingsReady) return false;
+    return (await _deleteAllReminders()).isOk;
+  }
+
+  /// «حذف كل بيانات التطبيق» (F11-T11). Same contract as [deleteAllDocuments].
+  ///
+  /// On success, every setting this screen owns has just reverted to its
+  /// default — [load] re-reads them so the screen reflects that immediately
+  /// rather than showing stale values until the next launch.
+  Future<bool> deleteAllAppData() async {
+    if (state is! SettingsReady) return false;
+    final result = await _deleteAllAppData();
+    if (result.isOk) await load();
+    return result.isOk;
+  }
 }

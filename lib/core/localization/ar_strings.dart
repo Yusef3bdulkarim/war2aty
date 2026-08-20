@@ -574,6 +574,85 @@ final class ArStrings implements AppStrings {
   @override
   String get settingsOpenCameraSettingsLabel => 'فتح إعدادات الكاميرا';
 
+  // Permissions (F11-T09)
+  @override
+  String get settingsNotificationPermissionLabel => 'إذن الإشعارات';
+  @override
+  String get settingsOpenNotificationSettingsLabel => 'فتح إعدادات الإشعارات';
+
+  // Notification privacy (F11-T10)
+  @override
+  String get settingsNotificationPrivacyLabel =>
+      'إخفاء التفاصيل الحساسة من شاشة القفل';
+  @override
+  String get settingsNotificationPrivacyDescription =>
+      'مش هنظهر المبالغ أو الأرقام المهمة داخل الإشعار.';
+
+  @override
+  String get settingsDeleteAllDocumentsLabel => 'حذف كل المستندات';
+  @override
+  String get settingsDeleteAllAppDataLabel => 'حذف كل بيانات التطبيق';
+  @override
+  String get settingsDeleteAllRemindersLabel => 'حذف كل التذكيرات';
+
+  @override
+  String get settingsDeleteAllConfirmAction => 'حذف الكل';
+
+  @override
+  String get settingsDeleteAllDocumentsConfirmTitle => 'حذف كل المستندات؟';
+  @override
+  String get settingsDeleteAllDocumentsConfirmMessage =>
+      'هيتم حذف كل المستندات المحفوظة وصورها نهائيًا، ومش هتقدر ترجعها تاني.';
+  @override
+  String get settingsDeleteAllDocumentsSuccess => 'تم حذف كل المستندات.';
+  @override
+  String get settingsDeleteAllDocumentsError =>
+      'مقدرناش نحذف المستندات. جرّب تاني.';
+
+  @override
+  String get settingsDeleteAllAppDataConfirmTitle => 'حذف كل بيانات التطبيق؟';
+  @override
+  String get settingsDeleteAllAppDataConfirmMessage =>
+      'هيتم حذف كل المستندات والتذكيرات نهائيًا، وإعادة كل إعدادات '
+      'التطبيق لوضعها الافتراضي.';
+  @override
+  String get settingsDeleteAllAppDataSuccess => 'تم حذف كل بيانات التطبيق.';
+  @override
+  String get settingsDeleteAllAppDataError =>
+      'مقدرناش نحذف بيانات التطبيق. جرّب تاني.';
+
+  @override
+  String get settingsDeleteAllRemindersConfirmTitle => 'حذف كل التذكيرات؟';
+  @override
+  String get settingsDeleteAllRemindersConfirmMessage =>
+      'هيتم حذف التذكيرات القادمة والفائتة والمكتملة نهائيًا.';
+  @override
+  String get settingsDeleteAllRemindersSuccess => 'تم حذف كل التذكيرات.';
+  @override
+  String get settingsDeleteAllRemindersError =>
+      'مقدرناش نحذف التذكيرات. جرّب تاني.';
+
+  @override
+  String get settingsAboutSection => 'عن التطبيق';
+
+  @override
+  String get settingsPrivacyPolicyLabel => 'سياسة الخصوصية';
+
+  @override
+  String get settingsSupportedDocumentTypesLabel => 'أنواع الأوراق المدعومة';
+
+  @override
+  String get settingsUsageLimitLabel => 'حدود الاستخدام';
+
+  @override
+  String settingsUsageLimitValue(int used, int limit) => '$used / $limit';
+
+  @override
+  String get settingsUsageLimitUnavailable => 'غير متاح دلوقتي';
+
+  @override
+  String settingsVersionLabel(String version) => 'الإصدار $version';
+
   // OCR processing
   @override
   String get ocrProcessing => 'بنقرأ الورقة...';

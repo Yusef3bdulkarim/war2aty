@@ -430,6 +430,16 @@ void main() {
       expect(kept!.keyInformation.map((i) => i.label), ['رقم العداد']);
     });
   });
+
+  test('deleteAllDocuments empties the table (F11-T11)', () async {
+    await dao.saveDocument(DocumentWrite(document: _document('d1')));
+    await dao.saveDocument(DocumentWrite(document: _document('d2')));
+
+    await dao.deleteAllDocuments();
+
+    expect(await dao.documentById('d1'), isNull);
+    expect(await dao.documentById('d2'), isNull);
+  });
 }
 
 DocumentsCompanion _document(

@@ -2,6 +2,7 @@ import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/permissions/permission_service.dart';
+import '../../../../core/usage/daily_usage.dart';
 
 /// States of the settings screen (F11-T02 onward).
 sealed class SettingsState {
@@ -27,9 +28,12 @@ final class SettingsReady extends SettingsState {
     required this.processingMode,
     required this.defaultReadingSpeed,
     required this.defaultReadingVoice,
-    required this.availableVoices,
     required this.resumeReadingEnabled,
     required this.cameraPermission,
+    required this.notificationPermission,
+    required this.hideSensitiveNotificationDetails,
+    required this.dailyUsage,
+    required this.appVersion,
   });
 
   /// «السماح بإرسال النص للتحليل» (F11-T02).
@@ -43,13 +47,11 @@ final class SettingsReady extends SettingsState {
 
   /// «صوت القراءة» (F11-T07) — `null` is «الصوت الافتراضي», the automatic
   /// script match `SelectVoiceForReading` picks with nothing overriding it.
+  ///
+  /// The voice picker was removed from the Settings UI (most device voices
+  /// are unsuitable for Arabic) but the stored preference is still loaded and
+  /// used by the audio reader and the preview button.
   final TtsVoice? defaultReadingVoice;
-
-  /// The device's installed voices, for the «صوت القراءة» picker (F11-T07) —
-  /// empty on a device that reports none, or while `GetAvailableVoices`
-  /// could not read them; either way the picker still offers «الصوت
-  /// الافتراضي» on its own.
-  final List<TtsVoice> availableVoices;
 
   /// «استكمال القراءة من آخر مكان» (F11-T07).
   final bool resumeReadingEnabled;
@@ -57,15 +59,32 @@ final class SettingsReady extends SettingsState {
   /// «إذن الكاميرا» (F11-T08).
   final PermissionOutcome cameraPermission;
 
+  /// «إذن الإشعارات» (F11-T09).
+  final PermissionOutcome notificationPermission;
+
+  /// «إخفاء التفاصيل الحساسة من شاشة القفل» (F11-T10).
+  final bool hideSensitiveNotificationDetails;
+
+  /// Today's cached analysis quota, for the «حدود الاستخدام» row (F11-T12).
+  /// `null` when nothing has been cached yet — a real state, not an error.
+  final DailyUsage? dailyUsage;
+
+  /// «الإصدار» line (F11-T12), read from the platform bundle at launch.
+  final String appVersion;
+
   SettingsReady copyWith({
     bool? analysisConsent,
     ProcessingMode? processingMode,
     ReadingSpeed? defaultReadingSpeed,
     TtsVoice? defaultReadingVoice,
     bool clearDefaultReadingVoice = false,
-    List<TtsVoice>? availableVoices,
     bool? resumeReadingEnabled,
     PermissionOutcome? cameraPermission,
+    PermissionOutcome? notificationPermission,
+    bool? hideSensitiveNotificationDetails,
+    DailyUsage? dailyUsage,
+    bool clearDailyUsage = false,
+    String? appVersion,
   }) => SettingsReady(
     analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
@@ -73,9 +92,15 @@ final class SettingsReady extends SettingsState {
     defaultReadingVoice: clearDefaultReadingVoice
         ? null
         : defaultReadingVoice ?? this.defaultReadingVoice,
-    availableVoices: availableVoices ?? this.availableVoices,
     resumeReadingEnabled: resumeReadingEnabled ?? this.resumeReadingEnabled,
     cameraPermission: cameraPermission ?? this.cameraPermission,
+    notificationPermission:
+        notificationPermission ?? this.notificationPermission,
+    hideSensitiveNotificationDetails:
+        hideSensitiveNotificationDetails ??
+        this.hideSensitiveNotificationDetails,
+    dailyUsage: clearDailyUsage ? null : dailyUsage ?? this.dailyUsage,
+    appVersion: appVersion ?? this.appVersion,
   );
 
   @override
@@ -86,9 +111,13 @@ final class SettingsReady extends SettingsState {
           other.processingMode == processingMode &&
           other.defaultReadingSpeed == defaultReadingSpeed &&
           other.defaultReadingVoice == defaultReadingVoice &&
-          _listEquals(other.availableVoices, availableVoices) &&
           other.resumeReadingEnabled == resumeReadingEnabled &&
-          other.cameraPermission == cameraPermission;
+          other.cameraPermission == cameraPermission &&
+          other.notificationPermission == notificationPermission &&
+          other.hideSensitiveNotificationDetails ==
+              hideSensitiveNotificationDetails &&
+          other.dailyUsage == dailyUsage &&
+          other.appVersion == appVersion;
 
   @override
   int get hashCode => Object.hash(
@@ -96,17 +125,11 @@ final class SettingsReady extends SettingsState {
     processingMode,
     defaultReadingSpeed,
     defaultReadingVoice,
-    Object.hashAll(availableVoices),
     resumeReadingEnabled,
     cameraPermission,
+    notificationPermission,
+    hideSensitiveNotificationDetails,
+    dailyUsage,
+    appVersion,
   );
-}
-
-bool _listEquals(List<TtsVoice> a, List<TtsVoice> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
 }

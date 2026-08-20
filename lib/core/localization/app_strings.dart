@@ -424,6 +424,74 @@ abstract interface class AppStrings {
   /// «فتح إعدادات الكاميرا» (F11-T08).
   String get settingsOpenCameraSettingsLabel;
 
+  /// The notification permission row's label (F11-T09).
+  String get settingsNotificationPermissionLabel;
+
+  /// «فتح إعدادات الإشعارات» (F11-T09).
+  String get settingsOpenNotificationSettingsLabel;
+
+  /// The notification-privacy toggle's row label (F11-T10) — persists the
+  /// same setting `FlutterLocalNotificationsReminderScheduler` already reads
+  /// (`GetHideSensitiveNotificationDetails`, F09-T14); this is its first UI.
+  String get settingsNotificationPrivacyLabel;
+
+  /// The explanatory line under [settingsNotificationPrivacyLabel] (F11-T10).
+  String get settingsNotificationPrivacyDescription;
+
+  /// The delete-all rows' labels (F11-T11).
+  String get settingsDeleteAllDocumentsLabel;
+  String get settingsDeleteAllAppDataLabel;
+  String get settingsDeleteAllRemindersLabel;
+
+  /// The confirm button shared by every delete-all sheet (F11-T11); cancel
+  /// reuses [actionCancel].
+  String get settingsDeleteAllConfirmAction;
+
+  /// «حذف كل المستندات؟» confirmation sheet (F11-T11).
+  String get settingsDeleteAllDocumentsConfirmTitle;
+  String get settingsDeleteAllDocumentsConfirmMessage;
+  String get settingsDeleteAllDocumentsSuccess;
+  String get settingsDeleteAllDocumentsError;
+
+  /// «حذف كل بيانات التطبيق؟» confirmation sheet (F11-T11).
+  String get settingsDeleteAllAppDataConfirmTitle;
+  String get settingsDeleteAllAppDataConfirmMessage;
+  String get settingsDeleteAllAppDataSuccess;
+  String get settingsDeleteAllAppDataError;
+
+  /// «حذف كل التذكيرات؟» confirmation sheet (F11-T11) — copy matches the
+  /// design's `sheetDeleteAllRem` exactly.
+  String get settingsDeleteAllRemindersConfirmTitle;
+  String get settingsDeleteAllRemindersConfirmMessage;
+  String get settingsDeleteAllRemindersSuccess;
+  String get settingsDeleteAllRemindersError;
+
+  /// The settings screen's «عن التطبيق» section (F11-T12).
+  String get settingsAboutSection;
+
+  /// Opens [PrivacyPolicyScreen] — the same four promises [privacyTitle] and
+  /// its points make on first run, read back at any time.
+  String get settingsPrivacyPolicyLabel;
+
+  /// Opens the read-only sheet listing every [DocumentCategory] the app
+  /// recognises — reuses the `documentCategory*` labels, nothing new.
+  String get settingsSupportedDocumentTypesLabel;
+
+  /// The «حدود الاستخدام» row — today's quota, read once like every other
+  /// [SettingsReady] field rather than followed live.
+  String get settingsUsageLimitLabel;
+
+  /// The row's pill, e.g. «1 / 3». Numerals stay Western in both languages,
+  /// matching every other count in this screen.
+  String settingsUsageLimitValue(int used, int limit);
+
+  /// Shown instead of a count when today's quota has never been cached
+  /// locally (F11-T12) — a real answer, not a blank pill.
+  String get settingsUsageLimitUnavailable;
+
+  /// «الإصدار 1.0.0», read from the platform bundle at launch.
+  String settingsVersionLabel(String version);
+
   // OCR processing
   String get ocrProcessing;
   String get ocrErrorTitle;

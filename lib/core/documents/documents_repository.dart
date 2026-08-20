@@ -82,4 +82,10 @@ abstract interface class DocumentsRepository {
   /// the encrypted file. Once F09 lands, a linked reminder should be
   /// cancelled here as well — for now there is nothing to cancel.
   Future<Result<void, AppFailure>> deleteDocument(String id);
+
+  /// Deletes every saved document, its children, and every encrypted image —
+  /// settings' «حذف كل المستندات» and «حذف كل بيانات التطبيق» (F11-T11).
+  ///
+  /// The FK cascade also removes any reminder linked to a deleted document.
+  Future<Result<void, AppFailure>> deleteAllDocuments();
 }

@@ -439,6 +439,53 @@ void main() {
       expect(outcome, const Ok<void, AppFailure>(null));
     });
   });
+
+  group('deleteAllDocuments (F11-T11)', () {
+    test('wipes every image and every row', () async {
+      await repository.saveResultOnly(
+        analysis: _analysis(),
+        extractedText: 'أ',
+      );
+
+      final outcome = await repository.deleteAllDocuments();
+
+      expect(outcome, const Ok<void, AppFailure>(null));
+      expect(images.deleteAllCalled, isTrue);
+      expect(await dao.documentById('doc-1'), isNull);
+    });
+
+    test('reconciles the scheduler once the delete succeeds', () async {
+      final scheduler = FakeReminderScheduler();
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-1',
+        clock: () => DateTime(2026, 7, 29),
+        reminderScheduler: scheduler,
+      );
+      await repo.saveResultOnly(analysis: _analysis(), extractedText: 'أ');
+
+      await repo.deleteAllDocuments();
+      // The reconcile is fired-and-forgotten; give its microtask a turn.
+      await pumpEventQueue();
+
+      expect(scheduler.reconcileCount, 1);
+    });
+
+    test('deleting still succeeds with no scheduler wired in', () async {
+      final repo = DriftDocumentsRepository(
+        dao,
+        images,
+        idGenerator: () => 'doc-1',
+        clock: () => DateTime(2026, 7, 29),
+      );
+      await repo.saveResultOnly(analysis: _analysis(), extractedText: 'أ');
+
+      final outcome = await repo.deleteAllDocuments();
+
+      expect(outcome, const Ok<void, AppFailure>(null));
+    });
+  });
 }
 
 /// A DAO whose write and single-document read always fail, so the
