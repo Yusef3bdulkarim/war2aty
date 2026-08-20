@@ -66,10 +66,16 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   build_runner: ^2.15.1
+  # Already resolved transitively via image_picker; declared directly because
+  # system_image_picker_service_test.dart fakes the platform interface to
+  # assert the resize cap without a real device or gallery.
+  cross_file: ^0.3.4+2
   drift_dev: ^2.34.0
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  image_picker_platform_interface: ^2.11.1
+  plugin_platform_interface: ^2.1.8
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
