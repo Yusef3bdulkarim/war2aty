@@ -31,7 +31,11 @@ class _PulsingDotsState extends State<PulsingDots>
       mainAxisSize: MainAxisSize.min,
       children: List.generate(3, (i) {
         return Padding(
-          padding: EdgeInsets.only(right: i == 2 ? 0 : 8),
+          // Directional, not `EdgeInsets.only(right:)` (F12-T02): under RTL
+          // (the app's default) a literal right-inset stays on the physical
+          // right after the Row mirrors, leaving two dots touching and
+          // stranding the gap at the row's far edge instead of between dots.
+          padding: EdgeInsetsDirectional.only(end: i == 2 ? 0 : 8),
           child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
