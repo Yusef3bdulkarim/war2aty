@@ -10,12 +10,16 @@ import 'package:war2aty/core/theme/app_theme.dart';
 /// `pumpAndSettle` never returns while one is running.
 /// Pass [textScaler] to check a screen under Large Text (a project
 /// requirement for every new screen).
+/// Pass [navigatorObservers] for a screen that reacts to `RouteAware`
+/// callbacks (e.g. `appRouteObserver`) — a plain `home:` widget otherwise
+/// sits under a `Navigator` with no observers attached.
 Future<void> pumpApp(
   WidgetTester tester,
   Widget child, {
   Locale locale = AppLocalizations.arabic,
   bool settle = true,
   TextScaler? textScaler,
+  List<NavigatorObserver> navigatorObservers = const [],
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -23,6 +27,7 @@ Future<void> pumpApp(
       theme: AppTheme.light(),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: AppLocalizations.delegates,
+      navigatorObservers: navigatorObservers,
       home: textScaler == null
           ? child
           : Builder(

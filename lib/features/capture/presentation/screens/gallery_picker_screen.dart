@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_route_observer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -32,10 +33,34 @@ class GalleryPickerScreen extends StatefulWidget {
   State<GalleryPickerScreen> createState() => _GalleryPickerScreenState();
 }
 
-class _GalleryPickerScreenState extends State<GalleryPickerScreen> {
+class _GalleryPickerScreenState extends State<GalleryPickerScreen>
+    with RouteAware {
   @override
   void initState() {
     super.initState();
+    context.read<GalleryPickerCubit>().pick();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  /// Fires when a route pushed on top of this one (the crop/preview screen)
+  /// is popped back to it. A finished pick leaves the cubit parked on the
+  /// terminal [GalleryPickerSelected] state, which the builder does not
+  /// treat as done — without this, the screen is stuck on the "opening"
+  /// spinner forever instead of reopening the system picker.
+  @override
+  void didPopNext() {
     context.read<GalleryPickerCubit>().pick();
   }
 

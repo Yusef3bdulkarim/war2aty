@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/navigation/app_route_observer.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/pick_image_from_gallery.dart';
 import 'package:war2aty/features/capture/presentation/cubit/gallery_picker_cubit.dart';
@@ -106,6 +109,50 @@ void main() {
         ),
         TextDirection.rtl,
       );
+    });
+
+    testWidgets('reopens the picker when revealed again by a pop, instead of '
+        'staying stuck on the "opening" state (regression, bug: retake/back '
+        'loops forever without opening the gallery)', (tester) async {
+      const picked = CapturedPhoto('/tmp/bill.jpg');
+      final picker = FakeImagePickerService(photo: picked);
+      final cubit = GalleryPickerCubit(
+        pickImageFromGallery: PickImageFromGallery(picker),
+      );
+      addTearDown(cubit.close);
+
+      // A real host app: a Navigator with the shared route observer, and a
+      // second, pushed route standing in for `/preview` — this screen is
+      // never the very first route in the bug's real repro.
+      await pumpApp(
+        tester,
+        BlocProvider<GalleryPickerCubit>.value(
+          value: cubit,
+          child: GalleryPickerScreen(onPicked: (_) {}, onCancelled: () {}),
+        ),
+        settle: false,
+        navigatorObservers: [appRouteObserver],
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(picker.pickCount, 1);
+
+      // Push a screen on top (the preview screen stand-in), then pop back
+      // — mirroring "retake" or the device back button.
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+        ),
+      );
+      await tester.pump();
+      navigator.pop();
+      await tester.pump();
+      await tester.pump();
+
+      // The picker must have been reopened rather than left parked on its
+      // already-consumed "selected" state.
+      expect(picker.pickCount, 2);
     });
 
     testWidgets('the error survives Large Text without overflowing', (

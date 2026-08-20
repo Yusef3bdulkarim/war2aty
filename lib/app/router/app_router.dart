@@ -8,6 +8,7 @@ import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/documents/analysis_date.dart';
 import '../../core/documents/recent_document.dart';
 import '../../core/localization/app_localizations.dart';
+import '../../core/navigation/app_route_observer.dart';
 import '../../core/reminders/reminder.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../features/analysis/domain/entities/analysis_source.dart';
@@ -112,6 +113,11 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
     refreshListenable: _CubitListenable(onboardingGate.stream),
     redirect: (context, state) =>
         _firstRunRedirect(onboardingGate.state, state.matchedLocation),
+    // Lets a screen notice it has been popped back onto (see
+    // `appRouteObserver`'s doc) — used by the camera and gallery capture
+    // screens to re-arm themselves instead of showing a stale, already
+    // hand-off-consumed state.
+    observers: [appRouteObserver],
     routes: [
       GoRoute(
         path: AppRoutes.onboarding,
