@@ -93,6 +93,22 @@ against the old code before the fix, and pass after.
   follows — so this is left as-is rather than changed unilaterally. Noted
   here in case design has a different intent for it.
 
+## Addendum — extended over F11-T09..T12 (post-merge)
+
+Same reason as F12-T01's addendum: F11-T09..T12 landed on `develop` after
+this audit first ran, then `feature/hardening` was rebased on top. Re-swept
+the same files for literal `EdgeInsets.only(left:/right:)`,
+`Positioned(left:/right:)`, hardcoded `TextDirection`/`TextAlign.left/right`,
+and directional icons.
+
+**Checked, no change needed**: `settings_section.dart`, `settings_screen.dart`'s
+new sections, `destructive_confirm_sheet.dart`, and `privacy_policy_content.dart`
+use only symmetric `EdgeInsets`/`.fromLTRB` (equal left/right) or
+`TextAlign.center`. `privacy_policy_screen.dart`'s top bar already checks
+`Directionality.of(context) == TextDirection.ltr` and mirrors its back arrow
+via `Transform.flip` — the same correct pattern this audit already found
+everywhere else, present here from the start rather than a gap.
+
 ## Out of scope (deferred)
 
 - Golden-image visual regression tests — no existing golden-test setup in

@@ -113,6 +113,30 @@ which Flutter already exposes correctly with no `Semantics` wrapper needed.
 The enumerable-call-site method above (not a per-feature file count) is the
 one that found the real gaps.
 
+## Addendum — extended over F11-T09..T12 (post-merge)
+
+This audit originally ran against `develop` while `feature/settings` still had
+F11-T09..T12 (notification permission, notification-privacy toggle,
+delete-all, about/privacy-policy) sitting unmerged — those sections did not
+exist yet and so were not swept. Once that work landed and `feature/hardening`
+was rebased on top, the same method (enumerate every `IconButton`/`InkWell`/
+`GestureDetector`, `SizedBox.square` tap target, and selection-by-color-only
+row) was re-run against every file that PR touched.
+
+**Fixed**: `privacy_policy_screen.dart`'s `_TopBar` — new in F11-T12, built
+before this migration existed, so it still had the hand-duplicated
+`SizedBox.square(dimension: 40, child: IconButton(...))` shape this audit
+already replaced everywhere else. Migrated to
+[`TopBarIconButton`](../../lib/core/widgets/top_bar_icon_button.dart) like
+the rest.
+
+**Checked, no change needed**: `settings_section.dart`'s new/reused rows
+(`SettingsStatusRow`, `SettingsLinkRow`, `SettingsNavRow`,
+`SettingsToggleRow`), `destructive_confirm_sheet.dart` (standard
+`FilledButton`/`OutlinedButton`, 50dp), and `privacy_policy_content.dart` —
+none introduce a new selectable-by-color-only state; the genuine gap category
+this audit found (radio-style option rows) doesn't recur here.
+
 ## Out of scope (deferred)
 
 - Golden-image visual regression tests — no existing golden-test setup in
