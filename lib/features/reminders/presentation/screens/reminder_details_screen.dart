@@ -662,20 +662,22 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: _actionHeight,
-      child: FilledButton(
-        onPressed: onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(_actionRadius),
-          ),
-          textStyle: AppTypography.labelLarge,
+    return FilledButton(
+      onPressed: onTap,
+      style: FilledButton.styleFrom(
+        backgroundColor: background,
+        foregroundColor: foreground,
+        // A minimum, not a fixed, height — Large Text needs more room than
+        // this to draw the label without clipping, and the button is free
+        // to take it. Matches `reminder_list_item.dart`'s `_ActionChip`,
+        // which draws the same two labels.
+        minimumSize: const Size(0, _actionHeight),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(_actionRadius),
         ),
-        child: Text(label, textAlign: TextAlign.center),
+        textStyle: AppTypography.labelLarge,
       ),
+      child: Text(label, textAlign: TextAlign.center),
     );
   }
 }

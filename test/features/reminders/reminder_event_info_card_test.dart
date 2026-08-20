@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/reminders/presentation/widgets/reminder_event_info_card.dart';
@@ -35,5 +36,19 @@ void main() {
 
     expect(find.text(ar.reminderEventTimeMissing), findsOneWidget);
     expect(find.textContaining(':'), findsNothing);
+  });
+
+  testWidgets('survives large text without overflowing', (tester) async {
+    await pumpApp(
+      tester,
+      ReminderEventInfoCard(
+        eventDate: DateTime(2026, 8, 25),
+        eventMinuteOfDay: 10 * 60,
+      ),
+      textScaler: const TextScaler.linear(2),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('10:00'), findsOneWidget);
   });
 }

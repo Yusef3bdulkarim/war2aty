@@ -137,19 +137,25 @@ class _Row extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            value ?? placeholder!,
-            style: value == null
-                ? AppTypography.labelCard.copyWith(
-                    fontSize: _labelFontSize,
-                    fontWeight: AppTypography.bold,
-                    color: colors.textPlaceholder,
-                  )
-                : AppTypography.labelCard.copyWith(
-                    fontSize: _valueFontSize,
-                    fontWeight: AppTypography.extraBold,
-                    color: colors.ink,
-                  ),
+          // Flexible, not bare — unlike the label above, the value has no
+          // Expanded of its own to shrink into under Large Text.
+          Flexible(
+            child: Text(
+              value ?? placeholder!,
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+              style: value == null
+                  ? AppTypography.labelCard.copyWith(
+                      fontSize: _labelFontSize,
+                      fontWeight: AppTypography.bold,
+                      color: colors.textPlaceholder,
+                    )
+                  : AppTypography.labelCard.copyWith(
+                      fontSize: _valueFontSize,
+                      fontWeight: AppTypography.extraBold,
+                      color: colors.ink,
+                    ),
+            ),
           ),
         ],
       ),

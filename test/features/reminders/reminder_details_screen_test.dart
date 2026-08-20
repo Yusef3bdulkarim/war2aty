@@ -275,6 +275,29 @@ void main() {
       await pumpScreen(tester, textScaler: const TextScaler.linear(2));
 
       expect(tester.takeException(), isNull);
+
+      // Regression for F12-T04: the complete/snooze buttons used to sit in
+      // a SizedBox fixed to the design's own height. `takeException()` alone
+      // wouldn't catch a scaled-up label clipping inside it — Flutter's box
+      // protocol clamps a RenderParagraph's own reported size to whatever
+      // height it's given, so `tester.getSize()` on the label would silently
+      // report the clamped (wrong) height too. Ask the label's render object
+      // for its true *intrinsic* height instead — unaffected by the
+      // constraint it was actually laid out with — and check the button
+      // grew to fit it.
+      final buttonHeight = tester
+          .getSize(
+            find.widgetWithText(FilledButton, ar.reminderDetailsCompleteAction),
+          )
+          .height;
+      final label = tester.renderObject<RenderBox>(
+        find.text(ar.reminderDetailsCompleteAction),
+      );
+      final intrinsicLabelHeight = label.getMaxIntrinsicHeight(
+        label.size.width,
+      );
+
+      expect(buttonHeight, greaterThanOrEqualTo(intrinsicLabelHeight));
     });
   });
 }

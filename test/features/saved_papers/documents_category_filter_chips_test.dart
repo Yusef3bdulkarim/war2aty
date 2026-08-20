@@ -75,5 +75,34 @@ void main() {
         isSemantics(isButton: true, isSelected: false),
       );
     });
+
+    testWidgets('grows to fit the chip label under Large Text', (tester) async {
+      // Regression for F12-T04: the row used to sit in a SizedBox fixed to
+      // the design's 34dp with no vertical padding, so a scaled-up label
+      // clipped instead of the box growing with it. `tester.getSize()` on
+      // the label itself would not have caught this — the label's own
+      // fixed-height ancestor forces Flutter's box protocol to clamp its
+      // *reported* size down to fit, same trap as F12-T04's reminder-
+      // details-screen fix. Ask its render object for the true intrinsic
+      // height instead, unaffected by the constraint it was laid out with.
+      await pumpApp(
+        tester,
+        chipsUnderTest(),
+        textScaler: const TextScaler.linear(2),
+      );
+
+      final rowHeight = tester
+          .getSize(find.byType(DocumentsCategoryFilterChips))
+          .height;
+      final label = tester.renderObject<RenderBox>(
+        find.text(ar.documentsFilterAll),
+      );
+      final intrinsicLabelHeight = label.getMaxIntrinsicHeight(
+        label.size.width,
+      );
+
+      expect(rowHeight, greaterThanOrEqualTo(intrinsicLabelHeight));
+      expect(tester.takeException(), isNull);
+    });
   });
 }

@@ -31,7 +31,11 @@ class DocumentsCategoryFilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: _height,
+      // Scales with the text size rather than staying fixed at the design's
+      // 34dp — at that fixed height a single Large Text line clips (the
+      // chip's own vertical padding is zero, see `_Chip` below), so the box
+      // needs to grow at the same rate as the label it holds.
+      height: MediaQuery.textScalerOf(context).scale(_height),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: DocumentCategory.values.length + 1,
@@ -97,6 +101,8 @@ class _Chip extends StatelessWidget {
             child: Center(
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.bodySmall.copyWith(
                   fontWeight: AppTypography.bold,
                   color: isSelected ? colors.onBrand : colors.textSecondary,
