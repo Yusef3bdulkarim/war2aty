@@ -6,16 +6,26 @@ import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
-import 'package:war2aty/core/audio/usecases/get_available_voices.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
 import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/set_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
+import 'package:war2aty/core/env/app_environment.dart';
+import 'package:war2aty/core/env/usecases/get_app_version.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/delete_all_reminders.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -36,6 +46,14 @@ void main() {
     FakeResumeReadingEnabledStore? resumeStore,
     FakeTextToSpeechService? tts,
     FakeCameraPermissionRepository? cameraPermissionRepo,
+    FakeNotificationPermissionRepository? notificationPermissionRepo,
+    FakeNotificationPrivacyStore? notificationPrivacyStore,
+    FakeDocumentsRepository? documentsRepository,
+    FakeRemindersRepository? remindersRepository,
+    FakeReminderScheduler? reminderScheduler,
+    FakeAppSettingsRepository? settingsRepository,
+    FakeUsageRepository? usageRepository,
+    String appVersion = '1.0.0',
   }) {
     final consent = consentStore ?? FakeAnalysisConsentStore();
     final mode = modeStore ?? FakeProcessingModeStore();
@@ -46,6 +64,15 @@ void main() {
     final cameraPermission =
         cameraPermissionRepo ??
         FakeCameraPermissionRepository(status: PermissionOutcome.granted);
+    final notificationPermission =
+        notificationPermissionRepo ?? FakeNotificationPermissionRepository();
+    final notificationPrivacy =
+        notificationPrivacyStore ?? FakeNotificationPrivacyStore();
+    final documents = documentsRepository ?? FakeDocumentsRepository();
+    final reminders = remindersRepository ?? FakeRemindersRepository();
+    final scheduler = reminderScheduler ?? FakeReminderScheduler();
+    final settings = settingsRepository ?? FakeAppSettingsRepository();
+    final usage = usageRepository ?? FakeUsageRepository();
     final cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consent),
       setAnalysisConsent: SetAnalysisConsent(consent),
@@ -54,16 +81,37 @@ void main() {
       getDefaultReadingSpeed: GetDefaultReadingSpeed(speed),
       setDefaultReadingSpeed: SetDefaultReadingSpeed(speed),
       getDefaultReadingVoice: GetDefaultReadingVoice(voice),
-      setDefaultReadingVoice: SetDefaultReadingVoice(voice),
       getResumeReadingEnabled: GetResumeReadingEnabled(resume),
       setResumeReadingEnabled: SetResumeReadingEnabled(resume),
-      getAvailableVoices: GetAvailableVoices(ttsService),
       previewDefaultVoice: PreviewDefaultVoice(
         ttsService,
         const SelectVoiceForReading(),
       ),
       getCameraPermission: GetCameraPermission(cameraPermission),
       openPermissionSettings: OpenPermissionSettings(cameraPermission),
+      getNotificationPermission: GetNotificationPermission(
+        notificationPermission,
+      ),
+      openNotificationSettings: OpenNotificationPermissionSettings(
+        notificationPermission,
+      ),
+      getHideSensitiveNotificationDetails: GetHideSensitiveNotificationDetails(
+        notificationPrivacy,
+      ),
+      setHideSensitiveNotificationDetails: SetHideSensitiveNotificationDetails(
+        notificationPrivacy,
+      ),
+      deleteAllDocuments: DeleteAllDocuments(documents),
+      deleteAllReminders: DeleteAllReminders(reminders, scheduler),
+      deleteAllAppData: DeleteAllAppData(
+        DeleteAllDocuments(documents),
+        DeleteAllReminders(reminders, scheduler),
+        settings,
+      ),
+      getDailyUsage: GetDailyUsage(usage),
+      getAppVersion: GetAppVersion(
+        AppEnvironment.dev(isAndroid: false, appVersion: appVersion),
+      ),
     );
     addTearDown(cubit.close);
     addTearDown(ttsService.dispose);
@@ -75,9 +123,12 @@ void main() {
     processingMode: ProcessingMode.smartAnalysis,
     defaultReadingSpeed: ReadingSpeed.normal,
     defaultReadingVoice: null,
-    availableVoices: [],
     resumeReadingEnabled: true,
     cameraPermission: PermissionOutcome.granted,
+    notificationPermission: PermissionOutcome.granted,
+    hideSensitiveNotificationDetails: true,
+    dailyUsage: null,
+    appVersion: '1.0.0',
   );
 
   test('starts loading', () {
@@ -175,22 +226,11 @@ void main() {
           readyDefaults.copyWith(
             defaultReadingSpeed: ReadingSpeed.faster,
             defaultReadingVoice: voice,
-            availableVoices: const [voice],
             resumeReadingEnabled: false,
           ),
         );
       },
     );
-
-    test('load() offers an empty voice list when getVoices fails', () async {
-      final cubit = buildCubit(
-        tts: FakeTextToSpeechService(getVoicesFails: true),
-      );
-
-      await cubit.load();
-
-      expect(cubit.state, readyDefaults);
-    });
 
     test('setDefaultReadingSpeed() emits and persists', () async {
       final store = FakeDefaultReadingSpeedStore();
@@ -215,37 +255,6 @@ void main() {
       expect(cubit.state, const SettingsLoading());
       expect(await store.readSpeed(), isNull);
     });
-
-    test(
-      'setDefaultReadingVoice() emits and persists an explicit voice',
-      () async {
-        const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
-        final store = FakeDefaultReadingVoiceStore();
-        final cubit = buildCubit(voiceStore: store);
-        await cubit.load();
-
-        await cubit.setDefaultReadingVoice(voice);
-
-        expect(cubit.state, readyDefaults.copyWith(defaultReadingVoice: voice));
-        expect(await store.readVoice(), voice);
-      },
-    );
-
-    test(
-      'setDefaultReadingVoice(null) resets back to «الصوت الافتراضي»',
-      () async {
-        const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
-        final store = FakeDefaultReadingVoiceStore(voice);
-        final cubit = buildCubit(voiceStore: store);
-        await cubit.load();
-
-        await cubit.setDefaultReadingVoice(null);
-
-        // Back to the untouched defaults — `defaultReadingVoice` is null again.
-        expect(cubit.state, readyDefaults);
-        expect(await store.readVoice(), isNull);
-      },
-    );
 
     test('setResumeReadingEnabled() emits and persists', () async {
       final store = FakeResumeReadingEnabledStore();
@@ -411,5 +420,334 @@ void main() {
         expect(repo.openSettingsCount, 1);
       },
     );
+  });
+
+  group('notification permission status (F11-T09)', () {
+    test('load() reflects a denied notification permission', () async {
+      final cubit = buildCubit(
+        notificationPermissionRepo: FakeNotificationPermissionRepository(
+          status: PermissionOutcome.denied,
+        ),
+      );
+
+      await cubit.load();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(
+          notificationPermission: PermissionOutcome.denied,
+        ),
+      );
+    });
+
+    test(
+      'load() reflects a permanently-denied notification permission',
+      () async {
+        final cubit = buildCubit(
+          notificationPermissionRepo: FakeNotificationPermissionRepository(
+            status: PermissionOutcome.permanentlyDenied,
+          ),
+        );
+
+        await cubit.load();
+
+        expect(
+          cubit.state,
+          readyDefaults.copyWith(
+            notificationPermission: PermissionOutcome.permanentlyDenied,
+          ),
+        );
+      },
+    );
+
+    test('load() falls back to denied when the read fails', () async {
+      final cubit = buildCubit(
+        notificationPermissionRepo: FakeNotificationPermissionRepository(
+          fails: true,
+        ),
+      );
+
+      await cubit.load();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(
+          notificationPermission: PermissionOutcome.denied,
+        ),
+      );
+    });
+
+    test(
+      'refreshNotificationPermission() updates only notificationPermission',
+      () async {
+        final repo = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
+        final cubit = buildCubit(notificationPermissionRepo: repo);
+        await cubit.load();
+
+        repo.status = PermissionOutcome.granted;
+        await cubit.refreshNotificationPermission();
+
+        expect(
+          cubit.state,
+          readyDefaults.copyWith(
+            notificationPermission: PermissionOutcome.granted,
+          ),
+        );
+      },
+    );
+
+    test('refreshNotificationPermission() before load() is a no-op', () async {
+      final cubit = buildCubit();
+
+      await cubit.refreshNotificationPermission();
+
+      expect(cubit.state, const SettingsLoading());
+    });
+
+    test('refreshNotificationPermission() falls back to denied, same as '
+        'load(), when the re-check fails after a successful load()', () async {
+      final repo = FakeNotificationPermissionRepository();
+      final cubit = buildCubit(notificationPermissionRepo: repo);
+      await cubit.load();
+      expect(cubit.state, readyDefaults);
+
+      repo.fails = true;
+      await cubit.refreshNotificationPermission();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(
+          notificationPermission: PermissionOutcome.denied,
+        ),
+      );
+    });
+
+    test(
+      'openNotificationSettings() calls through to the repository',
+      () async {
+        final repo = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.permanentlyDenied,
+        );
+        final cubit = buildCubit(notificationPermissionRepo: repo);
+        await cubit.load();
+
+        await cubit.openNotificationSettings();
+
+        expect(repo.openSettingsCount, 1);
+      },
+    );
+
+    test(
+      'openNotificationSettings() does not throw when the repository fails',
+      () async {
+        final repo = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.permanentlyDenied,
+          fails: true,
+        );
+        final cubit = buildCubit(notificationPermissionRepo: repo);
+        await cubit.load();
+
+        await cubit.openNotificationSettings();
+
+        expect(repo.openSettingsCount, 1);
+      },
+    );
+  });
+
+  group('notification-privacy toggle (F11-T10)', () {
+    test('load() defaults to hidden (on)', () async {
+      final cubit = buildCubit();
+
+      await cubit.load();
+
+      expect(cubit.state, readyDefaults);
+    });
+
+    test('load() reflects a previously revealed choice', () async {
+      final cubit = buildCubit(
+        notificationPrivacyStore: FakeNotificationPrivacyStore(false),
+      );
+
+      await cubit.load();
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(hideSensitiveNotificationDetails: false),
+      );
+    });
+
+    test('setHideSensitiveNotificationDetails() emits and persists', () async {
+      final store = FakeNotificationPrivacyStore();
+      final cubit = buildCubit(notificationPrivacyStore: store);
+      await cubit.load();
+
+      await cubit.setHideSensitiveNotificationDetails(false);
+
+      expect(
+        cubit.state,
+        readyDefaults.copyWith(hideSensitiveNotificationDetails: false),
+      );
+      expect(await store.readHideSensitiveDetails(), isFalse);
+    });
+
+    test(
+      'setHideSensitiveNotificationDetails() before load() is a no-op',
+      () async {
+        final store = FakeNotificationPrivacyStore();
+        final cubit = buildCubit(notificationPrivacyStore: store);
+
+        await cubit.setHideSensitiveNotificationDetails(false);
+
+        expect(cubit.state, const SettingsLoading());
+        expect(await store.readHideSensitiveDetails(), isNull);
+      },
+    );
+  });
+
+  group('delete all documents (F11-T11)', () {
+    test('deleteAllDocuments() calls through to the repository', () async {
+      final repo = FakeDocumentsRepository();
+      final cubit = buildCubit(documentsRepository: repo);
+      await cubit.load();
+
+      final ok = await cubit.deleteAllDocuments();
+
+      expect(ok, isTrue);
+      expect(repo.deleteAllCalled, isTrue);
+    });
+
+    test('deleteAllDocuments() answers false on failure', () async {
+      final repo = FakeDocumentsRepository()
+        ..deleteAllOutcome = const Err(LocalDatabaseFailure());
+      final cubit = buildCubit(documentsRepository: repo);
+      await cubit.load();
+
+      final ok = await cubit.deleteAllDocuments();
+
+      expect(ok, isFalse);
+    });
+
+    test('deleteAllDocuments() before load() is a no-op', () async {
+      final repo = FakeDocumentsRepository();
+      final cubit = buildCubit(documentsRepository: repo);
+
+      final ok = await cubit.deleteAllDocuments();
+
+      expect(ok, isFalse);
+      expect(repo.deleteAllCalled, isFalse);
+    });
+  });
+
+  group('delete all reminders (F11-T11)', () {
+    test('deleteAllReminders() calls through and reconciles', () async {
+      final repo = FakeRemindersRepository();
+      final scheduler = FakeReminderScheduler();
+      final cubit = buildCubit(
+        remindersRepository: repo,
+        reminderScheduler: scheduler,
+      );
+      await cubit.load();
+
+      final ok = await cubit.deleteAllReminders();
+
+      expect(ok, isTrue);
+      expect(repo.deleteAllCalled, isTrue);
+      expect(scheduler.reconcileCount, 1);
+    });
+
+    test('deleteAllReminders() answers false on failure', () async {
+      final repo = FakeRemindersRepository()
+        ..deleteAllOutcome = const Err(LocalDatabaseFailure());
+      final cubit = buildCubit(remindersRepository: repo);
+      await cubit.load();
+
+      final ok = await cubit.deleteAllReminders();
+
+      expect(ok, isFalse);
+    });
+
+    test('deleteAllReminders() before load() is a no-op', () async {
+      final repo = FakeRemindersRepository();
+      final cubit = buildCubit(remindersRepository: repo);
+
+      final ok = await cubit.deleteAllReminders();
+
+      expect(ok, isFalse);
+      expect(repo.deleteAllCalled, isFalse);
+    });
+  });
+
+  group('delete all app data (F11-T11)', () {
+    test('deleteAllAppData() clears everything and reloads', () async {
+      final settings = FakeAppSettingsRepository();
+      final cubit = buildCubit(settingsRepository: settings);
+      await cubit.load();
+
+      final ok = await cubit.deleteAllAppData();
+
+      expect(ok, isTrue);
+      expect(settings.clearCalled, isTrue);
+      // load() re-ran after the wipe, so the state is still SettingsReady —
+      // not left stale from before the wipe.
+      expect(cubit.state, isA<SettingsReady>());
+    });
+
+    test('deleteAllAppData() does not reload on failure', () async {
+      final settings = FakeAppSettingsRepository()
+        ..clearOutcome = const Err(LocalDatabaseFailure());
+      final cubit = buildCubit(settingsRepository: settings);
+      await cubit.load();
+      final before = cubit.state;
+
+      final ok = await cubit.deleteAllAppData();
+
+      expect(ok, isFalse);
+      expect(cubit.state, same(before));
+    });
+
+    test('deleteAllAppData() before load() is a no-op', () async {
+      final settings = FakeAppSettingsRepository();
+      final cubit = buildCubit(settingsRepository: settings);
+
+      final ok = await cubit.deleteAllAppData();
+
+      expect(ok, isFalse);
+      expect(settings.clearCalled, isFalse);
+    });
+  });
+
+  group('about section (F11-T12)', () {
+    test('load() reflects nothing cached yet as a null dailyUsage', () async {
+      final cubit = buildCubit();
+
+      await cubit.load();
+
+      expect(cubit.state, readyDefaults);
+      expect((cubit.state as SettingsReady).dailyUsage, isNull);
+    });
+
+    test('load() reflects today\'s cached quota', () async {
+      final usage = FakeUsageRepository(
+        seed: usageWith(limit: 3, remaining: 2),
+      );
+      final cubit = buildCubit(usageRepository: usage);
+
+      await cubit.load();
+
+      expect(
+        (cubit.state as SettingsReady).dailyUsage,
+        usageWith(limit: 3, remaining: 2),
+      );
+    });
+
+    test('load() reads the platform version', () async {
+      final cubit = buildCubit(appVersion: '2.3.1');
+
+      await cubit.load();
+
+      expect((cubit.state as SettingsReady).appVersion, '2.3.1');
+    });
   });
 }

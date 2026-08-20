@@ -191,6 +191,24 @@ final class DriftDocumentsRepository
     }
   }
 
+  @override
+  Future<Result<void, AppFailure>> deleteAllDocuments() async {
+    try {
+      // Same ordering and reasoning as [deleteDocument]: the image directory
+      // lives outside the database cascade, so it is wiped first and
+      // unconditionally, then the rows (children cascade with them).
+      await _images.deleteAll();
+      await _dao.deleteAllDocuments();
+      // The FK cascade just removed every reminder linked to a document; a
+      // reconcile brings the OS notifications in line with that, same as
+      // [deleteDocument].
+      unawaited(_reminderScheduler?.reconcile());
+      return const Ok(null);
+    } on Object {
+      return const Err(LocalDatabaseFailure());
+    }
+  }
+
   Future<Result<String, AppFailure>> _writeRow({
     required String id,
     required DocumentAnalysis analysis,

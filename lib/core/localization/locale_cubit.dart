@@ -36,4 +36,18 @@ final class LocaleCubit extends Cubit<Locale> {
     await _setLocale(languageCode);
     emit(Locale(languageCode));
   }
+
+  /// Reverts to the default locale in memory, without persisting anything —
+  /// for «حذف كل بيانات التطبيق» (F11-T11), once its own `app_settings` row
+  /// is already gone.
+  ///
+  /// Unlike [load], this doesn't need [GetSavedLocale] — the caller already
+  /// knows the persisted choice was just cleared, and [GetSavedLocale] has no
+  /// built-in fallback the way `GetTextSize`/`GetHighContrast` do, so a plain
+  /// [load] here would leave the in-memory locale stuck on whatever it was
+  /// until the next full app restart.
+  void resetToDefault() {
+    if (state == AppLocalizations.arabic) return;
+    emit(AppLocalizations.arabic);
+  }
 }

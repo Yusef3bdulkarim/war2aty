@@ -574,6 +574,88 @@ final class EnStrings implements AppStrings {
   @override
   String get settingsOpenCameraSettingsLabel => 'Open camera settings';
 
+  // Permissions (F11-T09)
+  @override
+  String get settingsNotificationPermissionLabel => 'Notification permission';
+  @override
+  String get settingsOpenNotificationSettingsLabel =>
+      'Open notification settings';
+
+  // Notification privacy (F11-T10)
+  @override
+  String get settingsNotificationPrivacyLabel =>
+      'Hide sensitive details on the lock screen';
+  @override
+  String get settingsNotificationPrivacyDescription =>
+      "We won't show amounts or important numbers inside the notification.";
+
+  @override
+  String get settingsDeleteAllDocumentsLabel => 'Delete all documents';
+  @override
+  String get settingsDeleteAllAppDataLabel => 'Delete all app data';
+  @override
+  String get settingsDeleteAllRemindersLabel => 'Delete all reminders';
+
+  @override
+  String get settingsDeleteAllConfirmAction => 'Delete all';
+
+  @override
+  String get settingsDeleteAllDocumentsConfirmTitle => 'Delete all documents?';
+  @override
+  String get settingsDeleteAllDocumentsConfirmMessage =>
+      'This will permanently delete every saved document and its picture — '
+      "you won't be able to get them back.";
+  @override
+  String get settingsDeleteAllDocumentsSuccess => 'All documents deleted.';
+  @override
+  String get settingsDeleteAllDocumentsError =>
+      "Couldn't delete the documents. Try again.";
+
+  @override
+  String get settingsDeleteAllAppDataConfirmTitle => 'Delete all app data?';
+  @override
+  String get settingsDeleteAllAppDataConfirmMessage =>
+      'This will permanently delete every document and reminder, and reset '
+      'every app setting to its default.';
+  @override
+  String get settingsDeleteAllAppDataSuccess => 'All app data deleted.';
+  @override
+  String get settingsDeleteAllAppDataError =>
+      "Couldn't delete the app data. Try again.";
+
+  @override
+  String get settingsDeleteAllRemindersConfirmTitle => 'Delete all reminders?';
+  @override
+  String get settingsDeleteAllRemindersConfirmMessage =>
+      'This will permanently delete upcoming, missed, and completed '
+      'reminders.';
+  @override
+  String get settingsDeleteAllRemindersSuccess => 'All reminders deleted.';
+  @override
+  String get settingsDeleteAllRemindersError =>
+      "Couldn't delete the reminders. Try again.";
+
+  @override
+  String get settingsAboutSection => 'About';
+
+  @override
+  String get settingsPrivacyPolicyLabel => 'Privacy policy';
+
+  @override
+  String get settingsSupportedDocumentTypesLabel => 'Supported paper types';
+
+  @override
+  String get settingsUsageLimitLabel => 'Usage limit';
+
+  @override
+  String settingsUsageLimitValue(int used, int limit) => '$used / $limit';
+
+  @override
+  String get settingsUsageLimitUnavailable => 'Not available right now';
+
+  @override
+  String settingsVersionLabel(String version) => 'Version $version';
+
   // OCR processing
   @override
   String get ocrProcessing => 'Reading the document...';

@@ -56,6 +56,17 @@ final class FileDocumentImageStore implements DocumentImageStore {
     }
   }
 
+  @override
+  Future<void> deleteAll() async {
+    try {
+      final support = await _supportDirectory();
+      final dir = Directory(p.join(support.path, kDocumentImagesDirName));
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } on Object {
+      // Best-effort, same reasoning as [delete].
+    }
+  }
+
   Future<Result<String, AppFailure>> _write(
     String documentId,
     String sourcePath,

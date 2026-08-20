@@ -14,4 +14,8 @@ abstract interface class NotificationPermissionRepository {
 
   /// Shows the OS permission prompt and reports the answer.
   Future<Result<PermissionOutcome, AppFailure>> request();
+
+  /// Sends the user to the app's page in the OS settings app, for when the
+  /// prompt will not appear again (F11-T09).
+  Future<Result<bool, AppFailure>> openSettings();
 }

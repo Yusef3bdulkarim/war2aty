@@ -14,15 +14,16 @@ import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
 import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
-import 'package:war2aty/core/audio/tts_voice.dart';
-import 'package:war2aty/core/audio/usecases/get_available_voices.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
 import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/set_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
+import 'package:war2aty/core/env/app_environment.dart';
+import 'package:war2aty/core/env/usecases/get_app_version.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -30,6 +31,15 @@ import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/delete_all_reminders.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
+import 'package:war2aty/core/widgets/skeleton.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -39,10 +49,11 @@ import 'package:war2aty/features/settings/presentation/screens/settings_screen.d
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 
-// F11-T01/T02/T03/T04/T05/T06/T07/T08: the settings scaffold, the analysis
-// consent toggle, the processing-mode picker, the language switch, the
-// text-size picker, the high-contrast toggle, the audio prefs, and the
-// camera permission status row.
+// F11-T01/T02/T03/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the
+// analysis consent toggle, the processing-mode picker, the language switch,
+// the text-size picker, the high-contrast toggle, the audio prefs, the
+// camera/notification permission status rows, and the notification-privacy
+// toggle.
 void main() {
   const ar = ArStrings();
 
@@ -56,6 +67,13 @@ void main() {
   late FakeResumeReadingEnabledStore resumeStore;
   late FakeTextToSpeechService tts;
   late FakeCameraPermissionRepository cameraPermissionRepo;
+  late FakeNotificationPermissionRepository notificationPermissionRepo;
+  late FakeNotificationPrivacyStore notificationPrivacyStore;
+  late FakeDocumentsRepository documentsRepository;
+  late FakeRemindersRepository remindersRepository;
+  late FakeReminderScheduler reminderScheduler;
+  late FakeAppSettingsRepository settingsRepository;
+  late FakeUsageRepository usageRepository;
   late SettingsCubit cubit;
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
@@ -74,6 +92,13 @@ void main() {
     cameraPermissionRepo = FakeCameraPermissionRepository(
       status: PermissionOutcome.granted,
     );
+    notificationPermissionRepo = FakeNotificationPermissionRepository();
+    notificationPrivacyStore = FakeNotificationPrivacyStore();
+    documentsRepository = FakeDocumentsRepository();
+    remindersRepository = FakeRemindersRepository();
+    reminderScheduler = FakeReminderScheduler();
+    settingsRepository = FakeAppSettingsRepository();
+    usageRepository = FakeUsageRepository();
     cubit = SettingsCubit(
       getAnalysisConsent: GetAnalysisConsent(consentStore),
       setAnalysisConsent: SetAnalysisConsent(consentStore),
@@ -82,16 +107,40 @@ void main() {
       getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
       setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
       getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
-      setDefaultReadingVoice: SetDefaultReadingVoice(voiceStore),
       getResumeReadingEnabled: GetResumeReadingEnabled(resumeStore),
       setResumeReadingEnabled: SetResumeReadingEnabled(resumeStore),
-      getAvailableVoices: GetAvailableVoices(tts),
       previewDefaultVoice: PreviewDefaultVoice(
         tts,
         const SelectVoiceForReading(),
       ),
       getCameraPermission: GetCameraPermission(cameraPermissionRepo),
       openPermissionSettings: OpenPermissionSettings(cameraPermissionRepo),
+      getNotificationPermission: GetNotificationPermission(
+        notificationPermissionRepo,
+      ),
+      openNotificationSettings: OpenNotificationPermissionSettings(
+        notificationPermissionRepo,
+      ),
+      getHideSensitiveNotificationDetails: GetHideSensitiveNotificationDetails(
+        notificationPrivacyStore,
+      ),
+      setHideSensitiveNotificationDetails: SetHideSensitiveNotificationDetails(
+        notificationPrivacyStore,
+      ),
+      deleteAllDocuments: DeleteAllDocuments(documentsRepository),
+      deleteAllReminders: DeleteAllReminders(
+        remindersRepository,
+        reminderScheduler,
+      ),
+      deleteAllAppData: DeleteAllAppData(
+        DeleteAllDocuments(documentsRepository),
+        DeleteAllReminders(remindersRepository, reminderScheduler),
+        settingsRepository,
+      ),
+      getDailyUsage: GetDailyUsage(usageRepository),
+      getAppVersion: GetAppVersion(
+        AppEnvironment.dev(isAndroid: false, appVersion: '2.3.1'),
+      ),
     );
     localeCubit = LocaleCubit(
       getSavedLocale: GetSavedLocale(localeStore),
@@ -119,6 +168,7 @@ void main() {
     WidgetTester tester, {
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
+    VoidCallback? onOpenPrivacyPolicy,
   }) async {
     await cubit.load();
     await textSizeCubit.load();
@@ -136,12 +186,72 @@ void main() {
         // draws no `Scaffold` (unlike `AnalysisResultScreen`), relying on the
         // bottom-nav shell's own — needed here so «تجربة الصوت»'s failure
         // snackbar (F11-T07) has somewhere to attach to.
-        child: const Scaffold(body: SettingsScreen()),
+        child: Scaffold(
+          body: SettingsScreen(onOpenPrivacyPolicy: onOpenPrivacyPolicy),
+        ),
       ),
       locale: locale,
       textScaler: textScaler,
     );
   }
+
+  group('the loading skeleton (perceived-hang fix)', () {
+    testWidgets(
+      'shows a skeleton for each SettingsCubit-backed section instead of a '
+      'bare gap, without holding back the sections that load elsewhere',
+      (tester) async {
+        // Deliberately skips `cubit.load()` — `pumpScreen` always awaits it
+        // first, which is exactly the case this regression slipped through:
+        // it only ever exercised the screen *after* SettingsCubit had
+        // already reached SettingsReady.
+        await textSizeCubit.load();
+        await highContrastCubit.load();
+        await pumpApp(
+          tester,
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<SettingsCubit>.value(value: cubit),
+              BlocProvider<LocaleCubit>.value(value: localeCubit),
+              BlocProvider<TextSizeCubit>.value(value: textSizeCubit),
+              BlocProvider<HighContrastCubit>.value(value: highContrastCubit),
+            ],
+            child: const Scaffold(body: SettingsScreen()),
+          ),
+          // The skeleton's Shimmer repeats indefinitely — pumpAndSettle
+          // would never return (same reasoning `upcoming_reminder_card_test`
+          // already documents for its own skeleton).
+          settle: false,
+        );
+
+        // The sections with their own app-wide cubit render immediately...
+        expect(find.text(ar.settingsGeneralSection), findsOneWidget);
+        expect(find.text(ar.settingsDisplaySection), findsOneWidget);
+        expect(find.text(ar.settingsAccessibilitySection), findsOneWidget);
+
+        // ...while the four sections still waiting on SettingsCubit show a
+        // skeleton, not their real title or content yet (F11-T12 added the
+        // «عن التطبيق» section as the fourth).
+        expect(find.text(ar.settingsPrivacySection), findsNothing);
+        expect(find.text(ar.settingsAudioSection), findsNothing);
+        expect(find.text(ar.settingsPermissionsSection), findsNothing);
+        expect(find.text(ar.settingsAboutSection), findsNothing);
+        expect(find.byType(Shimmer), findsNWidgets(4));
+        expect(find.bySemanticsLabel(ar.stateLoading), findsNWidgets(4));
+      },
+    );
+
+    testWidgets('gives way to the real sections once load() settles', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      expect(find.byType(Shimmer), findsNothing);
+      expect(find.text(ar.settingsPrivacySection), findsOneWidget);
+      expect(find.text(ar.settingsAudioSection), findsOneWidget);
+      expect(find.text(ar.settingsPermissionsSection), findsOneWidget);
+      expect(find.text(ar.settingsAboutSection), findsOneWidget);
+    });
+  });
 
   testWidgets('shows the page heading', (tester) async {
     await pumpScreen(tester);
@@ -417,6 +527,10 @@ void main() {
     testWidgets('turning it on persists through the cubit', (tester) async {
       await pumpScreen(tester);
 
+      // The delete-all rows (F11-T11) added above this section can push it
+      // below the fold, same reasoning every other row-tap in this file
+      // already scrolls for.
+      await tester.ensureVisible(highContrastSwitch());
       await tester.tap(highContrastSwitch());
       await tester.pumpAndSettle();
 
@@ -431,32 +545,22 @@ void main() {
       matching: find.byType(Switch),
     );
 
-    testWidgets('shows the section with 1x, the default voice and resume on', (
-      tester,
-    ) async {
+    testWidgets('shows the section with 1x and resume on', (tester) async {
       await pumpScreen(tester);
 
       expect(find.text(ar.settingsAudioSection), findsOneWidget);
       expect(find.text(ar.settingsAudioSpeedLabel), findsOneWidget);
       expect(find.text(ReadingSpeed.normal.label), findsOneWidget);
-      expect(find.text(ar.settingsAudioVoiceLabel), findsOneWidget);
-      expect(find.text(ar.settingsAudioVoiceDefault), findsOneWidget);
       expect(find.text(ar.settingsAudioPreviewLabel), findsOneWidget);
       expect(tester.widget<Switch>(resumeSwitch()).value, isTrue);
     });
 
-    testWidgets('reflects a persisted speed, voice and resume choice', (
-      tester,
-    ) async {
-      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
+    testWidgets('reflects a persisted speed and resume choice', (tester) async {
       await speedStore.writeSpeed(ReadingSpeed.faster);
-      await voiceStore.writeVoice(voice);
       await resumeStore.writeEnabled(false);
-      tts.voices = const [voice];
       await pumpScreen(tester);
 
       expect(find.text(ReadingSpeed.faster.label), findsOneWidget);
-      expect(find.text(voice.name), findsOneWidget);
       expect(tester.widget<Switch>(resumeSwitch()).value, isFalse);
     });
 
@@ -486,56 +590,6 @@ void main() {
 
       expect(await speedStore.readSpeed(), ReadingSpeed.fastest);
       expect(find.text(ReadingSpeed.fastest.label), findsOneWidget);
-    });
-
-    testWidgets('tapping the voice row lists the device voices', (
-      tester,
-    ) async {
-      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
-      tts.voices = const [voice];
-      await pumpScreen(tester);
-
-      await tester.ensureVisible(find.text(ar.settingsAudioVoiceLabel));
-      await tester.tap(find.text(ar.settingsAudioVoiceLabel));
-      await tester.pumpAndSettle();
-
-      expect(find.text(ar.settingsAudioVoiceDefault), findsWidgets);
-      expect(find.text(voice.name), findsOneWidget);
-    });
-
-    testWidgets('selecting a device voice persists and updates the row', (
-      tester,
-    ) async {
-      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
-      tts.voices = const [voice];
-      await pumpScreen(tester);
-
-      await tester.ensureVisible(find.text(ar.settingsAudioVoiceLabel));
-      await tester.tap(find.text(ar.settingsAudioVoiceLabel));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(voice.name));
-      await tester.pumpAndSettle();
-
-      expect(await voiceStore.readVoice(), voice);
-      expect(find.text(voice.name), findsOneWidget);
-    });
-
-    testWidgets('selecting «الصوت الافتراضي» again resets a picked voice', (
-      tester,
-    ) async {
-      const voice = TtsVoice(name: 'Maged', locale: 'ar-EG');
-      await voiceStore.writeVoice(voice);
-      tts.voices = const [voice];
-      await pumpScreen(tester);
-
-      await tester.ensureVisible(find.text(voice.name));
-      await tester.tap(find.text(voice.name));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(ar.settingsAudioVoiceDefault).last);
-      await tester.pumpAndSettle();
-
-      expect(await voiceStore.readVoice(), isNull);
-      expect(find.text(ar.settingsAudioVoiceDefault), findsOneWidget);
     });
 
     testWidgets('tapping «تجربة الصوت» plays the sample text', (tester) async {
@@ -588,7 +642,9 @@ void main() {
       await tester.ensureVisible(find.text(ar.settingsPermissionsSection));
       expect(find.text(ar.settingsPermissionsSection), findsOneWidget);
       expect(find.text(ar.settingsCameraPermissionLabel), findsOneWidget);
-      expect(find.text(ar.settingsPermissionGranted), findsOneWidget);
+      // Both rows default to granted (F11-T09 added the notification row
+      // alongside this one), so the pill text appears twice.
+      expect(find.text(ar.settingsPermissionGranted), findsNWidgets(2));
       expect(find.text(ar.settingsOpenCameraSettingsLabel), findsOneWidget);
     });
 
@@ -622,5 +678,280 @@ void main() {
         expect(cameraPermissionRepo.openSettingsCount, 1);
       },
     );
+  });
+
+  group('notification permission status (F11-T09)', () {
+    testWidgets('shows the section with the granted pill by default', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPermissionLabel),
+      );
+      expect(find.text(ar.settingsNotificationPermissionLabel), findsOneWidget);
+      // Both rows default to granted (the camera row alongside this one), so
+      // the pill text appears twice.
+      expect(find.text(ar.settingsPermissionGranted), findsNWidgets(2));
+      expect(
+        find.text(ar.settingsOpenNotificationSettingsLabel),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('reflects a denied status', (tester) async {
+      notificationPermissionRepo.status = PermissionOutcome.denied;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPermissionLabel),
+      );
+      expect(find.text(ar.settingsPermissionDenied), findsOneWidget);
+    });
+
+    testWidgets('reflects a permanently-denied status', (tester) async {
+      notificationPermissionRepo.status = PermissionOutcome.permanentlyDenied;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPermissionLabel),
+      );
+      expect(find.text(ar.settingsPermissionBlocked), findsOneWidget);
+    });
+
+    testWidgets(
+      'tapping «فتح إعدادات الإشعارات» calls through to the repository',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.ensureVisible(
+          find.byKey(settingsOpenNotificationSettingsButtonKey),
+        );
+        await tester.tap(find.byKey(settingsOpenNotificationSettingsButtonKey));
+        await tester.pumpAndSettle();
+
+        expect(notificationPermissionRepo.openSettingsCount, 1);
+      },
+    );
+  });
+
+  group('the notification-privacy toggle (F11-T10)', () {
+    Finder privacySwitch() => find.descendant(
+      of: find.byKey(settingsNotificationPrivacyToggleKey),
+      matching: find.byType(Switch),
+    );
+
+    testWidgets('shows the row, hidden (on) by default', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(
+        find.text(ar.settingsNotificationPrivacyLabel),
+      );
+      expect(find.text(ar.settingsNotificationPrivacyLabel), findsOneWidget);
+      expect(
+        find.text(ar.settingsNotificationPrivacyDescription),
+        findsOneWidget,
+      );
+      expect(tester.widget<Switch>(privacySwitch()).value, isTrue);
+    });
+
+    testWidgets('reflects a previously revealed choice', (tester) async {
+      await notificationPrivacyStore.writeHideSensitiveDetails(false);
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(privacySwitch());
+      expect(tester.widget<Switch>(privacySwitch()).value, isFalse);
+    });
+
+    testWidgets('turning it off persists through the cubit', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(privacySwitch());
+      await tester.tap(privacySwitch());
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<Switch>(privacySwitch()).value, isFalse);
+      expect(
+        await notificationPrivacyStore.readHideSensitiveDetails(),
+        isFalse,
+      );
+    });
+  });
+
+  group('delete all documents (F11-T11)', () {
+    testWidgets('shows the row', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllDocumentsLabel));
+      expect(find.text(ar.settingsDeleteAllDocumentsLabel), findsOneWidget);
+    });
+
+    testWidgets('cancel dismisses without deleting anything', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllDocumentsLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllDocumentsLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.actionCancel));
+      await tester.pumpAndSettle();
+
+      expect(documentsRepository.deleteAllCalled, isFalse);
+    });
+
+    testWidgets('confirming deletes and shows a success snackbar', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllDocumentsLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllDocumentsLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.settingsDeleteAllConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(documentsRepository.deleteAllCalled, isTrue);
+      expect(find.text(ar.settingsDeleteAllDocumentsSuccess), findsOneWidget);
+    });
+
+    testWidgets('a failure shows an error snackbar', (tester) async {
+      documentsRepository.deleteAllOutcome = const Err(LocalDatabaseFailure());
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllDocumentsLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllDocumentsLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.settingsDeleteAllConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.settingsDeleteAllDocumentsError), findsOneWidget);
+    });
+  });
+
+  group('delete all reminders (F11-T11)', () {
+    testWidgets('confirming deletes and reconciles', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllRemindersLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllRemindersLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.settingsDeleteAllConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(remindersRepository.deleteAllCalled, isTrue);
+      expect(reminderScheduler.reconcileCount, 1);
+      expect(find.text(ar.settingsDeleteAllRemindersSuccess), findsOneWidget);
+    });
+
+    testWidgets('cancel dismisses without deleting anything', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllRemindersLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllRemindersLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.actionCancel));
+      await tester.pumpAndSettle();
+
+      expect(remindersRepository.deleteAllCalled, isFalse);
+    });
+  });
+
+  group('delete all app data (F11-T11)', () {
+    testWidgets('confirming clears everything and shows a snackbar', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllAppDataLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllAppDataLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.settingsDeleteAllConfirmAction));
+      await tester.pumpAndSettle();
+
+      expect(documentsRepository.deleteAllCalled, isTrue);
+      expect(remindersRepository.deleteAllCalled, isTrue);
+      expect(settingsRepository.clearCalled, isTrue);
+      expect(find.text(ar.settingsDeleteAllAppDataSuccess), findsOneWidget);
+    });
+
+    testWidgets('cancel dismisses without clearing anything', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsDeleteAllAppDataLabel));
+      await tester.tap(find.text(ar.settingsDeleteAllAppDataLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.actionCancel));
+      await tester.pumpAndSettle();
+
+      expect(settingsRepository.clearCalled, isFalse);
+    });
+  });
+
+  group('the about section (F11-T12)', () {
+    testWidgets('shows the section, the two nav rows, and the version line', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAboutSection));
+      expect(find.text(ar.settingsAboutSection), findsOneWidget);
+      expect(find.text(ar.settingsPrivacyPolicyLabel), findsOneWidget);
+      expect(find.text(ar.settingsSupportedDocumentTypesLabel), findsOneWidget);
+      expect(find.text(ar.settingsUsageLimitLabel), findsOneWidget);
+      expect(find.text(ar.settingsVersionLabel('2.3.1')), findsOneWidget);
+    });
+
+    testWidgets('tapping «سياسة الخصوصية» calls the router callback', (
+      tester,
+    ) async {
+      var opened = false;
+      await pumpScreen(tester, onOpenPrivacyPolicy: () => opened = true);
+
+      await tester.ensureVisible(find.text(ar.settingsPrivacyPolicyLabel));
+      await tester.tap(find.text(ar.settingsPrivacyPolicyLabel));
+      await tester.pumpAndSettle();
+
+      expect(opened, isTrue);
+    });
+
+    testWidgets(
+      'tapping «أنواع الأوراق المدعومة» opens a sheet listing every category',
+      (tester) async {
+        await pumpScreen(tester);
+
+        await tester.ensureVisible(
+          find.text(ar.settingsSupportedDocumentTypesLabel),
+        );
+        await tester.tap(find.text(ar.settingsSupportedDocumentTypesLabel));
+        await tester.pumpAndSettle();
+
+        // The row's own label doubles as the sheet's title — two now.
+        expect(
+          find.text(ar.settingsSupportedDocumentTypesLabel),
+          findsNWidgets(2),
+        );
+        expect(find.text(ar.documentCategoryAppointment), findsOneWidget);
+        expect(find.text(ar.documentCategoryInvoice), findsOneWidget);
+        expect(find.text(ar.documentCategoryGovernment), findsOneWidget);
+        expect(find.text(ar.documentCategoryEducation), findsOneWidget);
+        expect(find.text(ar.documentCategoryOther), findsOneWidget);
+      },
+    );
+
+    testWidgets('shows «غير متاح دلوقتي» when nothing is cached yet', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsUsageLimitLabel));
+      expect(find.text(ar.settingsUsageLimitUnavailable), findsOneWidget);
+    });
+
+    testWidgets('shows the cached quota as a pill', (tester) async {
+      usageRepository.emit(usageWith(limit: 3, remaining: 1));
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsUsageLimitLabel));
+      expect(find.text(ar.settingsUsageLimitValue(2, 3)), findsOneWidget);
+    });
   });
 }

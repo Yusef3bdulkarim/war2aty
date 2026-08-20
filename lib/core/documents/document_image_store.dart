@@ -25,4 +25,8 @@ abstract interface class DocumentImageStore {
 
   /// Deletes a document's encrypted picture, if it has one (F08-T11).
   Future<void> delete(String documentId);
+
+  /// Deletes every saved document's encrypted picture in one call — settings'
+  /// «حذف كل المستندات» / «حذف كل بيانات التطبيق» (F11-T11).
+  Future<void> deleteAll();
 }
