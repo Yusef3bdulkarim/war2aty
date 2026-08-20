@@ -6,6 +6,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/features/home/presentation/widgets/scan_actions.dart';
 
+import '../../support/mirrored_icon.dart';
 import '../../support/pump_app.dart';
 
 void main() {
@@ -88,30 +89,23 @@ void main() {
     testWidgets('the chevron points along the reading direction', (
       tester,
     ) async {
-      double chevronScaleX(WidgetTester tester) {
-        final transform = tester.widget<Transform>(
-          find
-              .ancestor(
-                of: find.byWidgetPredicate(
-                  (w) =>
-                      w is StrokeIcon && w.glyph == StrokeGlyph.chevronForward,
-                ),
-                matching: find.byType(Transform),
-              )
-              .first,
-        );
-        return transform.transform.getRow(0)[0];
-      }
-
       await pumpApp(tester, buildActions().widget);
-      expect(chevronScaleX(tester), 1, reason: 'RTL: points left as drawn');
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.chevronForward),
+        1,
+        reason: 'RTL: points left as drawn',
+      );
 
       await pumpApp(
         tester,
         buildActions().widget,
         locale: AppLocalizations.english,
       );
-      expect(chevronScaleX(tester), -1, reason: 'LTR: mirrored to point right');
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.chevronForward),
+        -1,
+        reason: 'LTR: mirrored to point right',
+      );
     });
 
     testWidgets('announces the camera card as one activatable button', (

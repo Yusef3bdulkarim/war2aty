@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/features/settings/presentation/screens/privacy_policy_screen.dart';
 
+import '../../../../support/mirrored_icon.dart';
 import '../../../../support/pump_app.dart';
 
 // F11-T12: the settings screen's «سياسة الخصوصية» row opens this — the same
@@ -55,6 +57,14 @@ void main() {
     expect(
       Directionality.of(tester.element(find.byType(PrivacyPolicyScreen))),
       TextDirection.ltr,
+    );
+    // F12-T03: the back icon is drawn once for the Arabic default and
+    // mirrored by hand under LTR — confirms it actually flips here rather
+    // than pointing the wrong way in English.
+    expect(
+      mirrorScaleX(tester, StrokeGlyph.arrowBack),
+      -1,
+      reason: 'LTR: mirrored to point left',
     );
   });
 

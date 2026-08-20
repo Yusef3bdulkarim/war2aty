@@ -8,6 +8,7 @@ import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -35,6 +36,7 @@ import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
 import '../../../support/fakes.dart';
+import '../../../support/mirrored_icon.dart';
 import '../../../support/pump_app.dart';
 import '../analysis_fixtures.dart';
 
@@ -382,5 +384,59 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+  });
+
+  // F12-T03: the design's back arrow is drawn once for the Arabic default and
+  // mirrored by hand wherever `Directionality` is left-to-right — this locks
+  // that flip in for both the state page and its own text-only fallback, so
+  // the mirroring found correct during the audit cannot silently regress.
+  group('back icon mirroring (F12-T03)', () {
+    testWidgets('the state page mirrors its back icon under English', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const NoInternetFailure());
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        1,
+        reason: 'RTL: points right as drawn',
+      );
+
+      await pumpFailure(
+        tester,
+        const NoInternetFailure(),
+        locale: AppLocalizations.english,
+      );
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        -1,
+        reason: 'LTR: mirrored to point left',
+      );
+    });
+
+    testWidgets(
+      'the extracted-text fallback mirrors its own back icon under English',
+      (tester) async {
+        await pumpApp(
+          tester,
+          const ExtractedTextOnlyView(text: 'النص المستخرج'),
+        );
+        expect(
+          mirrorScaleX(tester, StrokeGlyph.arrowBack),
+          1,
+          reason: 'RTL: points right as drawn',
+        );
+
+        await pumpApp(
+          tester,
+          const ExtractedTextOnlyView(text: 'النص المستخرج'),
+          locale: AppLocalizations.english,
+        );
+        expect(
+          mirrorScaleX(tester, StrokeGlyph.arrowBack),
+          -1,
+          reason: 'LTR: mirrored to point left',
+        );
+      },
+    );
   });
 }

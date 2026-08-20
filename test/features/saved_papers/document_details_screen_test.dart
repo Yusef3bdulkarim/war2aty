@@ -13,6 +13,7 @@ import 'package:war2aty/core/documents/usecases/set_document_note.dart';
 import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -31,6 +32,7 @@ import 'package:war2aty/features/saved_papers/presentation/cubit/document_detail
 import 'package:war2aty/features/saved_papers/presentation/screens/document_details_screen.dart';
 
 import '../../support/fakes.dart';
+import '../../support/mirrored_icon.dart';
 import '../../support/pump_app.dart';
 
 void main() {
@@ -170,6 +172,27 @@ void main() {
       await pumpScreen(tester, locale: AppLocalizations.english);
 
       expect(find.text(en.documentDetailsTitle), findsOneWidget);
+    });
+
+    testWidgets('the back icon mirrors under English (F12-T03)', (
+      tester,
+    ) async {
+      repository.emitDocument(savedDocumentWith());
+      cubit.start();
+
+      await pumpScreen(tester);
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        1,
+        reason: 'RTL: points right as drawn',
+      );
+
+      await pumpScreen(tester, locale: AppLocalizations.english);
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        -1,
+        reason: 'LTR: mirrored to point left',
+      );
     });
 
     testWidgets('survives large text without overflowing', (tester) async {

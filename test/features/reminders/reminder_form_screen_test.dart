@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
@@ -14,6 +16,7 @@ import 'package:war2aty/features/reminders/presentation/models/reminder_from_doc
 import 'package:war2aty/features/reminders/presentation/screens/reminder_form_screen.dart';
 
 import '../../support/fakes.dart';
+import '../../support/mirrored_icon.dart';
 import '../../support/pump_app.dart';
 
 void main() {
@@ -47,6 +50,7 @@ void main() {
     ReminderFormCubit cubit, {
     ValueChanged<Reminder>? onSaved,
     VoidCallback? onClose,
+    Locale locale = AppLocalizations.arabic,
   }) => pumpApp(
     tester,
     BlocProvider<ReminderFormCubit>.value(
@@ -57,6 +61,7 @@ void main() {
         onClose: onClose,
       ),
     ),
+    locale: locale,
   );
 
   testWidgets('shows the prefilled title and the paper\'s event date/time', (
@@ -79,6 +84,35 @@ void main() {
 
     expect(find.text('دفع فاتورة الكهرباء'), findsOneWidget);
     expect(find.textContaining('10:00'), findsOneWidget);
+  });
+
+  testWidgets('the back icon mirrors under English (F12-T03)', (tester) async {
+    final cubit = ReminderFormCubit.fromDocument(
+      createFromDocumentDate: createFromDocumentDate,
+      createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
+      args: ReminderFromDocumentArgs(
+        title: 'دفع فاتورة الكهرباء',
+        eventDate: DateTime(2026, 8, 25),
+        eventMinuteOfDay: 600,
+      ),
+    );
+    addTearDown(cubit.close);
+
+    await pumpScreen(tester, cubit);
+    expect(
+      mirrorScaleX(tester, StrokeGlyph.arrowBack),
+      1,
+      reason: 'RTL: points right as drawn',
+    );
+
+    await pumpScreen(tester, cubit, locale: AppLocalizations.english);
+    expect(
+      mirrorScaleX(tester, StrokeGlyph.arrowBack),
+      -1,
+      reason: 'LTR: mirrored to point left',
+    );
   });
 
   testWidgets('shows the linked document when one is set', (tester) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -15,6 +16,7 @@ import 'package:war2aty/features/reminders/presentation/cubit/reminder_details_c
 import 'package:war2aty/features/reminders/presentation/screens/reminder_details_screen.dart';
 
 import '../../support/fakes.dart';
+import '../../support/mirrored_icon.dart';
 import '../../support/pump_app.dart';
 
 // F09-T12: «تفاصيل التذكير».
@@ -85,6 +87,55 @@ void main() {
       expect(find.text(ar.reminderDetailsTitle), findsOneWidget);
       expect(find.text('فاتورة الكهرباء'), findsOneWidget);
     });
+
+    testWidgets('the back icon mirrors under English (F12-T03)', (
+      tester,
+    ) async {
+      remindersRepository.emitReminder('r1', fakeReminder());
+      cubit.start('r1');
+
+      await pumpScreen(tester);
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        1,
+        reason: 'RTL: points right as drawn',
+      );
+
+      await pumpScreen(tester, locale: AppLocalizations.english);
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        -1,
+        reason: 'LTR: mirrored to point left',
+      );
+    });
+
+    testWidgets(
+      'the linked-document row mirrors its chevron under English (F12-T03)',
+      (tester) async {
+        remindersRepository.emitReminder(
+          'r1',
+          fakeReminder(documentId: 'doc-1'),
+        );
+        documentsRepository.emitDocument(
+          savedDocumentWith(title: 'فاتورة كهرباء'),
+        );
+        cubit.start('r1');
+
+        await pumpScreen(tester);
+        expect(
+          mirrorScaleX(tester, StrokeGlyph.chevronForward),
+          1,
+          reason: 'RTL: points left as drawn',
+        );
+
+        await pumpScreen(tester, locale: AppLocalizations.english);
+        expect(
+          mirrorScaleX(tester, StrokeGlyph.chevronForward),
+          -1,
+          reason: 'LTR: mirrored to point right',
+        );
+      },
+    );
 
     testWidgets('shows complete/snooze only while pending', (tester) async {
       remindersRepository.emitReminder(

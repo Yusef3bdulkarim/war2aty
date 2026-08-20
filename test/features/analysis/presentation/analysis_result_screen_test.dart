@@ -12,6 +12,7 @@ import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -44,6 +45,7 @@ import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
 import '../../../support/fakes.dart';
+import '../../../support/mirrored_icon.dart';
 import '../../../support/pump_app.dart';
 import '../analysis_fixtures.dart';
 
@@ -204,6 +206,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(closed, 1);
+    });
+
+    testWidgets('the back icon mirrors under English (F12-T03)', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        1,
+        reason: 'RTL: points right as drawn',
+      );
+
+      await pumpScreen(tester, locale: AppLocalizations.english);
+      expect(
+        mirrorScaleX(tester, StrokeGlyph.arrowBack),
+        -1,
+        reason: 'LTR: mirrored to point left',
+      );
     });
 
     testWidgets('lays out under Large Text and in English', (tester) async {

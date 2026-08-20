@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/hardening` · **Milestone:** M9
 - **Depends on:** all · **Feeds:** — (terminal)
-- **Progress:** 2 / 12 DONE
+- **Progress:** 3 / 12 DONE
 
 Cross-cutting sweeps against the Definition-of-Done (§16) and store readiness.
 
@@ -12,7 +12,7 @@ Cross-cutting sweeps against the Definition-of-Done (§16) and store readiness.
 |---|---|---|---|---|
 | 1 | F12-T01 | Accessibility audit | semantics, tap targets, contrast | DONE |
 | 2 | F12-T02 | RTL audit | Arabic layouts correct throughout | DONE |
-| 3 | F12-T03 | LTR audit | English layouts correct throughout | TODO |
+| 3 | F12-T03 | LTR audit | English layouts correct throughout | DONE |
 | 4 | F12-T04 | Large-text pass | no overflow at largest text size | TODO |
 | 5 | F12-T05 | Performance profiling | heavy work off UI thread; jank check | TODO |
 | 6 | F12-T06 | Cache cleanup verification | temp/session files reliably removed | TODO |
@@ -31,3 +31,5 @@ Real-device pass on Android + iOS; no blocker bugs; DoD §16 satisfied; store-re
   [F12-T01-accessibility-audit.md](F12-T01-accessibility-audit.md).
 - **F12-T02**: findings, fixes, and deferred items — see
   [F12-T02-rtl-audit.md](F12-T02-rtl-audit.md).
+- **F12-T03**: findings, fixes, and deferred items — see
+  [F12-T03-ltr-audit.md](F12-T03-ltr-audit.md).
