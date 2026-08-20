@@ -181,80 +181,88 @@ class _ModeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    return Material(
-      color: selected ? colors.surfaceTeal : colors.card,
-      borderRadius: BorderRadius.circular(_optionRadius),
-      child: InkWell(
+    // Selection is otherwise conveyed only by the dot fill + border color —
+    // invisible to a screen reader without this (F12-T01).
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$title. $subtitle',
+      excludeSemantics: true,
+      child: Material(
+        color: selected ? colors.surfaceTeal : colors.card,
         borderRadius: BorderRadius.circular(_optionRadius),
-        onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: selected ? colors.brandPrimary : colors.borderSoft,
-              width: _optionBorderWidth,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(_optionRadius),
+          onTap: onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: selected ? colors.brandPrimary : colors.borderSoft,
+                width: _optionBorderWidth,
+              ),
+              borderRadius: BorderRadius.circular(_optionRadius),
             ),
-            borderRadius: BorderRadius.circular(_optionRadius),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: _optionPaddingH,
-            vertical: _optionPaddingV,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Container(
-                  width: _dotOuter,
-                  height: _dotOuter,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: selected ? colors.brandPrimary : colors.border,
-                      width: _optionBorderWidth,
+            padding: const EdgeInsets.symmetric(
+              horizontal: _optionPaddingH,
+              vertical: _optionPaddingV,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Container(
+                    width: _dotOuter,
+                    height: _dotOuter,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected ? colors.brandPrimary : colors.border,
+                        width: _optionBorderWidth,
+                      ),
                     ),
-                  ),
-                  child: selected
-                      ? Center(
-                          child: Container(
-                            width: _dotInner,
-                            height: _dotInner,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: colors.brandPrimary,
+                    child: selected
+                        ? Center(
+                            child: Container(
+                              width: _dotInner,
+                              height: _dotInner,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: colors.brandPrimary,
+                              ),
                             ),
-                          ),
-                        )
-                      : null,
+                          )
+                        : null,
+                  ),
                 ),
-              ),
-              const SizedBox(width: _dotGap),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: AppTypography.labelCard.copyWith(
-                        fontSize: _optionTitleFontSize,
-                        fontWeight: AppTypography.bold,
-                        color: colors.ink,
+                const SizedBox(width: _dotGap),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: AppTypography.labelCard.copyWith(
+                          fontSize: _optionTitleFontSize,
+                          fontWeight: AppTypography.bold,
+                          color: colors.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: _optionSubtitleGapAbove),
-                    Text(
-                      subtitle,
-                      style: AppTypography.caption.copyWith(
-                        fontSize: _optionSubtitleFontSize,
-                        fontWeight: AppTypography.medium,
-                        height: _optionSubtitleHeight,
-                        color: colors.textSecondary,
+                      const SizedBox(height: _optionSubtitleGapAbove),
+                      Text(
+                        subtitle,
+                        style: AppTypography.caption.copyWith(
+                          fontSize: _optionSubtitleFontSize,
+                          fontWeight: AppTypography.medium,
+                          height: _optionSubtitleHeight,
+                          color: colors.textSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

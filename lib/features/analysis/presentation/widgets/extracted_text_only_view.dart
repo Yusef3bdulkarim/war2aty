@@ -8,11 +8,11 @@ import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/top_bar_icon_button.dart';
 
 // From `Waraqti.dc.html` → the text-only page.
 const double _topBarTop = 56 - 52;
 const double _topBarBottom = 12;
-const double _topBarButton = 40;
 const double _topBarGap = 8;
 const double _topBarFontSize = 16;
 const double _bodyPadding = 18;
@@ -182,19 +182,15 @@ class _TopBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox.square(
-                dimension: _topBarButton,
-                child: IconButton(
-                  onPressed: onBack,
-                  padding: EdgeInsets.zero,
-                  tooltip: strings.analysisResultBackLabel,
-                  icon: Transform.flip(
-                    flipX: mirror,
-                    child: StrokeIcon(
-                      StrokeGlyph.arrowBack,
-                      color: colors.ink,
-                      strokeWidth: 2,
-                    ),
+              TopBarIconButton(
+                onPressed: onBack,
+                tooltip: strings.analysisResultBackLabel,
+                icon: Transform.flip(
+                  flipX: mirror,
+                  child: StrokeIcon(
+                    StrokeGlyph.arrowBack,
+                    color: colors.ink,
+                    strokeWidth: 2,
                   ),
                 ),
               ),
@@ -215,7 +211,7 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(width: _topBarGap),
               // Balances the back button so the title stays centred.
-              const SizedBox.square(dimension: _topBarButton),
+              const SizedBox.square(dimension: TopBarIconButton.dimension),
             ],
           ),
         ),

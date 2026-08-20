@@ -93,6 +93,22 @@ void main() {
       expect(find.text(_strings.saveModeWithImageTitle), findsOneWidget);
     });
 
+    testWidgets(
+      'exposes which option is selected to assistive tech (F12-T01)',
+      (tester) async {
+        await pumpSheet(tester);
+
+        expect(
+          tester.getSemantics(find.text(_strings.saveModeResultOnlyTitle)),
+          isSemantics(isSelected: true),
+        );
+        expect(
+          tester.getSemantics(find.text(_strings.saveModeWithImageTitle)),
+          isSemantics(isSelected: false),
+        );
+      },
+    );
+
     testWidgets('lays out under Large Text', (tester) async {
       await pumpSheet(tester, textScaler: const TextScaler.linear(2));
 

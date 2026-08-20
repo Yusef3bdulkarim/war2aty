@@ -30,6 +30,7 @@ import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
+import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
@@ -42,7 +43,6 @@ const double _topBarTop = 56 - 52;
 const double _topBarBottom = 12;
 const double _topBarSide = AppSpacing.screenHorizontal;
 const double _topBarGap = 8;
-const double _topBarButton = 40;
 const double _pageSide = 18;
 const double _pageTop = 18;
 const double _pageBottom = 24;
@@ -362,19 +362,15 @@ class _TopBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox.square(
-                dimension: _topBarButton,
-                child: IconButton(
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  tooltip: strings.analysisResultBackLabel,
-                  icon: Transform.flip(
-                    flipX: mirror,
-                    child: StrokeIcon(
-                      StrokeGlyph.arrowBack,
-                      color: colors.ink,
-                      strokeWidth: 2,
-                    ),
+              TopBarIconButton(
+                onPressed: onClose,
+                tooltip: strings.analysisResultBackLabel,
+                icon: Transform.flip(
+                  flipX: mirror,
+                  child: StrokeIcon(
+                    StrokeGlyph.arrowBack,
+                    color: colors.ink,
+                    strokeWidth: 2,
                   ),
                 ),
               ),
@@ -394,7 +390,7 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(width: _topBarGap),
               // Balances the back button so the title stays centred.
-              const SizedBox.square(dimension: _topBarButton),
+              const SizedBox.square(dimension: TopBarIconButton.dimension),
             ],
           ),
         ),

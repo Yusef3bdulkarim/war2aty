@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/time/cairo_day.dart';
+import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/reminder_form_cubit.dart';
 import '../cubit/reminder_form_state.dart';
 import '../widgets/notification_permission_sheet.dart';
@@ -23,7 +24,6 @@ const double _topBarTop = 56 - 52;
 const double _topBarBottom = 12;
 const double _topBarSide = AppSpacing.screenHorizontal;
 const double _topBarGap = 8;
-const double _topBarButton = 40;
 const double _pageSide = 18;
 const double _pageTop = 18;
 const double _pageBottom = 20;
@@ -252,19 +252,15 @@ class _TopBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox.square(
-                dimension: _topBarButton,
-                child: IconButton(
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  tooltip: strings.actionBack,
-                  icon: Transform.flip(
-                    flipX: mirror,
-                    child: StrokeIcon(
-                      StrokeGlyph.arrowBack,
-                      color: colors.ink,
-                      strokeWidth: 2,
-                    ),
+              TopBarIconButton(
+                onPressed: onClose,
+                tooltip: strings.actionBack,
+                icon: Transform.flip(
+                  flipX: mirror,
+                  child: StrokeIcon(
+                    StrokeGlyph.arrowBack,
+                    color: colors.ink,
+                    strokeWidth: 2,
                   ),
                 ),
               ),
@@ -283,7 +279,7 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: _topBarGap),
-              const SizedBox.square(dimension: _topBarButton),
+              const SizedBox.square(dimension: TopBarIconButton.dimension),
             ],
           ),
         ),

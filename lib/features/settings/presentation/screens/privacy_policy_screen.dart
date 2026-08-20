@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/privacy_policy_content.dart';
+import '../../../../core/widgets/top_bar_icon_button.dart';
 
 // Mirrors `ReminderDetailsScreen`'s own top bar shape — the app's established
 // pushed-screen header (card background, centered title, a back button
@@ -14,7 +15,6 @@ const double _topBarTop = 56 - 52;
 const double _topBarBottom = 12;
 const double _topBarSide = AppSpacing.screenHorizontal;
 const double _topBarGap = 8;
-const double _topBarButton = 40;
 const double _pageSide = 26;
 const double _pageTop = 22;
 const double _pageBottom = 32;
@@ -84,19 +84,15 @@ class _TopBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox.square(
-                dimension: _topBarButton,
-                child: IconButton(
-                  onPressed: onClose,
-                  padding: EdgeInsets.zero,
-                  tooltip: strings.analysisResultBackLabel,
-                  icon: Transform.flip(
-                    flipX: mirror,
-                    child: StrokeIcon(
-                      StrokeGlyph.arrowBack,
-                      color: colors.ink,
-                      strokeWidth: 2,
-                    ),
+              TopBarIconButton(
+                onPressed: onClose,
+                tooltip: strings.analysisResultBackLabel,
+                icon: Transform.flip(
+                  flipX: mirror,
+                  child: StrokeIcon(
+                    StrokeGlyph.arrowBack,
+                    color: colors.ink,
+                    strokeWidth: 2,
                   ),
                 ),
               ),
@@ -116,7 +112,7 @@ class _TopBar extends StatelessWidget {
               ),
               // Balances the back button so the title stays centred, the
               // same trick `ReminderDetailsScreen`'s top bar uses.
-              const SizedBox(width: _topBarButton),
+              const SizedBox(width: TopBarIconButton.dimension),
             ],
           ),
         ),

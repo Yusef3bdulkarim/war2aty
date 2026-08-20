@@ -11,7 +11,11 @@ import '../theme/app_typography.dart';
 const double _topPaddingTop = 56 - 52;
 const double _topPaddingH = 16;
 const double _topPaddingBottom = 12;
-const double _backButton = 40;
+// 48dp — Material / WCAG 2.5.5 minimum tap target (F12-T01). Kept as its own
+// constant rather than `TopBarIconButton.dimension`: this button sits inside
+// a floating circular card, a different shape from the plain top-bar row
+// icon `TopBarIconButton` covers.
+const double _backButton = 48;
 const double _backIconSize = 22;
 const double _bodyPaddingH = 30;
 const double _bodyPaddingV = 20;

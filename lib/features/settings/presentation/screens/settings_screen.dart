@@ -362,38 +362,46 @@ class _RadioOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(
-              color: selected ? colors.brandPrimary : colors.surfaceAlt,
-              width: selected ? 2 : 1,
+    // Selection is otherwise conveyed only by border color/weight (the
+    // `_Radio` dot) — invisible to a screen reader without this (F12-T01).
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: title,
+      excludeSemantics: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              border: Border.all(
+                color: selected ? colors.brandPrimary : colors.surfaceAlt,
+                width: selected ? 2 : 1,
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _optionPaddingH,
-              vertical: _optionPaddingV,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: AppTypography.semiBold,
-                      color: colors.ink,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _optionPaddingH,
+                vertical: _optionPaddingV,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: AppTypography.bodyMedium.copyWith(
+                        fontWeight: AppTypography.semiBold,
+                        color: colors.ink,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _Radio(selected: selected),
-              ],
+                  const SizedBox(width: 12),
+                  _Radio(selected: selected),
+                ],
+              ),
             ),
           ),
         ),
@@ -540,51 +548,59 @@ class _TextSizeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(
-              color: selected ? colors.brandPrimary : colors.surfaceAlt,
-              width: selected ? 2 : 1,
+    // Selection is otherwise conveyed only by border color/weight (the
+    // `_Radio` dot) — invisible to a screen reader without this (F12-T01).
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$title. $description',
+      excludeSemantics: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              border: Border.all(
+                color: selected ? colors.brandPrimary : colors.surfaceAlt,
+                width: selected ? 2 : 1,
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _optionPaddingH,
-              vertical: _optionPaddingV,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: AppTypography.bodyMedium.copyWith(
-                          fontWeight: AppTypography.semiBold,
-                          color: colors.ink,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _optionPaddingH,
+                vertical: _optionPaddingV,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: AppTypography.bodyMedium.copyWith(
+                            fontWeight: AppTypography.semiBold,
+                            color: colors.ink,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        style: AppTypography.caption.copyWith(
-                          fontSize: 13,
-                          color: colors.textSecondary,
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 13,
+                            color: colors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _Radio(selected: selected),
-              ],
+                  const SizedBox(width: 12),
+                  _Radio(selected: selected),
+                ],
+              ),
             ),
           ),
         ),
@@ -823,51 +839,59 @@ class _ModeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.md),
-            border: Border.all(
-              color: selected ? colors.brandPrimary : colors.surfaceAlt,
-              width: selected ? 2 : 1,
+    // Selection is otherwise conveyed only by border color/weight (the
+    // `_Radio` dot) — invisible to a screen reader without this (F12-T01).
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$title. $description',
+      excludeSemantics: true,
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              border: Border.all(
+                color: selected ? colors.brandPrimary : colors.surfaceAlt,
+                width: selected ? 2 : 1,
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _optionPaddingH,
-              vertical: _optionPaddingV,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: AppTypography.bodyMedium.copyWith(
-                          fontWeight: AppTypography.semiBold,
-                          color: colors.ink,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: _optionPaddingH,
+                vertical: _optionPaddingV,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: AppTypography.bodyMedium.copyWith(
+                            fontWeight: AppTypography.semiBold,
+                            color: colors.ink,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        style: AppTypography.caption.copyWith(
-                          fontSize: 13,
-                          color: colors.textSecondary,
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 13,
+                            color: colors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                _Radio(selected: selected),
-              ],
+                  const SizedBox(width: 12),
+                  _Radio(selected: selected),
+                ],
+              ),
             ),
           ),
         ),
