@@ -346,10 +346,17 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                 create: (_) => getIt<AudioReaderCubit>(),
               ),
             ],
-            child: DocumentDetailsScreen(
-              onClose: context.pop,
-              onCreateReminder: (date) =>
-                  _startReminderFromDocumentDate(context, date),
+            // The outer `context` sits *above* this provider, so callbacks
+            // built from it can't `read` the cubit — the same
+            // `ProviderNotFoundException` trap the `/ocr` and `/ocr-review`
+            // routes above already work around. This [Builder] gives the
+            // callbacks a context from below the provider instead.
+            child: Builder(
+              builder: (context) => DocumentDetailsScreen(
+                onClose: context.pop,
+                onCreateReminder: (date) =>
+                    _startReminderFromDocumentDate(context, date),
+              ),
             ),
           );
         },
