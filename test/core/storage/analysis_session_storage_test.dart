@@ -166,4 +166,74 @@ void main() {
       );
     });
   });
+
+  group('deleteSession', () {
+    test('deletes the session directory and everything inside it', () async {
+      seedSession('session-a');
+      final resized = File(
+        p.join(sessionsDir().path, 'session-a', 'ocr_resized_1.jpg'),
+      )..writeAsBytesSync([9]);
+
+      await storage.deleteSession('session-a');
+
+      expect(
+        Directory(p.join(sessionsDir().path, 'session-a')).existsSync(),
+        isFalse,
+      );
+      expect(resized.existsSync(), isFalse);
+    });
+
+    test('does not touch other sessions', () async {
+      seedSession('session-a');
+      seedSession('session-b');
+
+      await storage.deleteSession('session-a');
+
+      expect(
+        Directory(p.join(sessionsDir().path, 'session-b')).existsSync(),
+        isTrue,
+      );
+    });
+
+    test('is a no-op when the session does not exist', () async {
+      sessionsDir().createSync(recursive: true);
+
+      // Must not throw.
+      await storage.deleteSession('never-existed');
+    });
+
+    test('is a no-op when the sessions folder never existed', () async {
+      // Must not throw.
+      await storage.deleteSession('anything');
+    });
+
+    test('swallows a filesystem failure instead of throwing', () async {
+      final broken = FileAnalysisSessionStorage(
+        cacheDirectory: () async => throw const FileSystemException('nope'),
+      );
+
+      // Must not throw.
+      await broken.deleteSession('session-a');
+    });
+
+    test(
+      'refuses a path-traversal id instead of deleting outside the sessions '
+      'folder (defense in depth — id is never network input today)',
+      () async {
+        seedSession('session-a');
+        final outside = File(p.join(cacheRoot.path, 'keep-me.txt'))
+          ..writeAsStringSync('hi');
+
+        await storage.deleteSession('../keep-me.txt');
+        await storage.deleteSession('..');
+        await storage.deleteSession('');
+
+        expect(outside.existsSync(), isTrue);
+        expect(
+          Directory(p.join(sessionsDir().path, 'session-a')).existsSync(),
+          isTrue,
+        );
+      },
+    );
+  });
 }

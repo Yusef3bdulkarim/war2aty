@@ -27,6 +27,7 @@ import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/storage/usecases/cleanup_analysis_session.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
@@ -251,11 +252,16 @@ void main() {
       // The result route also mounts these two (F09 save, F10 audio reader) —
       // not this suite's concern, but the router builds them unconditionally,
       // so they must resolve for the failure page underneath to render at all.
-      ..registerFactory<SaveDocumentCubit>(() {
+      ..registerFactoryParam<SaveDocumentCubit, AnalysisSession, void>((
+        session,
+        _,
+      ) {
         final documents = FakeDocumentsRepository();
         return SaveDocumentCubit(
           SaveDocument(documents),
           SaveDocumentWithImage(documents),
+          sessionId: session.id,
+          cleanupSession: CleanupAnalysisSession(FakeAnalysisSessionStorage()),
         );
       })
       ..registerFactory<AudioReaderCubit>(() {

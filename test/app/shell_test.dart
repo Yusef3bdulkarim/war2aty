@@ -191,6 +191,7 @@ void main() {
             DeleteAllDocuments(documentsRepository),
             DeleteAllReminders(remindersRepository, reminderScheduler),
             settingsRepository,
+            FakeAnalysisSessionStorage(),
           ),
           getDailyUsage: GetDailyUsage(usage),
           getAppVersion: GetAppVersion(AppEnvironment.dev(isAndroid: false)),

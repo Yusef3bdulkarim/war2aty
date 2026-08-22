@@ -14,6 +14,7 @@ void main() {
   late FakeRemindersRepository remindersRepository;
   late FakeReminderScheduler scheduler;
   late FakeAppSettingsRepository settingsRepository;
+  late FakeAnalysisSessionStorage sessionStorage;
   late DeleteAllAppData useCase;
 
   setUp(() {
@@ -21,10 +22,12 @@ void main() {
     remindersRepository = FakeRemindersRepository();
     scheduler = FakeReminderScheduler();
     settingsRepository = FakeAppSettingsRepository();
+    sessionStorage = FakeAnalysisSessionStorage();
     useCase = DeleteAllAppData(
       DeleteAllDocuments(documentsRepository),
       DeleteAllReminders(remindersRepository, scheduler),
       settingsRepository,
+      sessionStorage,
     );
   });
   tearDown(() => documentsRepository.dispose());
@@ -68,5 +71,13 @@ void main() {
     final result = await useCase();
 
     expect(result, const Err<void, AppFailure>(LocalDatabaseFailure()));
+  });
+
+  // F12-T06: a stale scan-session temp folder should not have to wait for
+  // the next app launch once the user has explicitly wiped everything.
+  test('also sweeps any leftover scan-session temp files', () async {
+    await useCase();
+
+    expect(sessionStorage.deleteStaleSessionsCallCount, 1);
   });
 }

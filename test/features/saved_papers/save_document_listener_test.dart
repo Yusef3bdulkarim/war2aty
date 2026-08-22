@@ -17,9 +17,11 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/storage/usecases/cleanup_analysis_session.dart';
 import 'package:war2aty/features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import 'package:war2aty/features/saved_papers/presentation/widgets/save_document_listener.dart';
 
+import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
 
 void main() {
@@ -31,6 +33,8 @@ void main() {
     cubit = SaveDocumentCubit(
       SaveDocument(repository),
       SaveDocumentWithImage(repository),
+      sessionId: 'session-1',
+      cleanupSession: CleanupAnalysisSession(FakeAnalysisSessionStorage()),
     );
   });
   tearDown(() => cubit.close());

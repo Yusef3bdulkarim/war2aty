@@ -136,6 +136,7 @@ void main() {
         DeleteAllDocuments(documentsRepository),
         DeleteAllReminders(remindersRepository, reminderScheduler),
         settingsRepository,
+        FakeAnalysisSessionStorage(),
       ),
       getDailyUsage: GetDailyUsage(usageRepository),
       getAppVersion: GetAppVersion(

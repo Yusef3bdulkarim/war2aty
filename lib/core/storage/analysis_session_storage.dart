@@ -33,6 +33,20 @@ abstract interface class AnalysisSessionStorage {
   Future<Result<AnalysisSession, AppFailure>> createSession(
     CapturedPhoto photo,
   );
+
+  /// Deletes one session's working directory once its owner is done with it.
+  ///
+  /// Explicit, immediate cleanup rather than waiting for the next launch's
+  /// [deleteStaleSessions] sweep — privacy §7 says no unencrypted temp copy
+  /// should outlive the flow that created it, not just "until next cold
+  /// start". `SaveDocumentCubit` is the one caller today: it owns the last
+  /// read of a session's processed photo (a save with image, or none at
+  /// all), so it knows exactly when this is safe to call.
+  ///
+  /// Best-effort, matching every other cleanup in this app: a missing/
+  /// already-gone directory is not an error, and a filesystem failure is
+  /// swallowed rather than surfaced.
+  Future<void> deleteSession(String id);
 }
 
 /// Filesystem-backed [AnalysisSessionStorage].
@@ -83,6 +97,28 @@ final class FileAnalysisSessionStorage implements AnalysisSessionStorage {
       return Ok(AnalysisSession(id: id, imagePath: dest));
     } on Object {
       return const Err(FileStorageFailure());
+    }
+  }
+
+  @override
+  Future<void> deleteSession(String id) async {
+    // [id] only ever comes from a session this app generated locally
+    // (`createSession`'s own `Uuid().v4()`) — never from network input. This
+    // guard is defense in depth, not a response to a known caller: it keeps
+    // a future caller that (mistakenly) passes something else from ever
+    // deleting outside the sessions folder.
+    if (id.isEmpty ||
+        id.contains('/') ||
+        id.contains(r'\') ||
+        id.contains('..')) {
+      return;
+    }
+    try {
+      final cache = await _cacheDirectory();
+      final dir = Directory(p.join(cache.path, kAnalysisSessionsDirName, id));
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } on Object {
+      // Best-effort — see the interface doc comment.
     }
   }
 }

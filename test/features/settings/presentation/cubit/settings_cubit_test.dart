@@ -107,6 +107,7 @@ void main() {
         DeleteAllDocuments(documents),
         DeleteAllReminders(reminders, scheduler),
         settings,
+        FakeAnalysisSessionStorage(),
       ),
       getDailyUsage: GetDailyUsage(usage),
       getAppVersion: GetAppVersion(

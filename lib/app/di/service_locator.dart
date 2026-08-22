@@ -102,6 +102,7 @@ import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/storage/usecases/cleanup_analysis_session.dart';
 import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_remote_data_source.dart';
@@ -663,8 +664,19 @@ void _registerSavedPapers() {
     ..registerFactory<SaveDocumentWithImage>(
       () => SaveDocumentWithImage(getIt()),
     )
-    ..registerFactory<SaveDocumentCubit>(
-      () => SaveDocumentCubit(getIt(), getIt()),
+    ..registerFactory<CleanupAnalysisSession>(
+      () => CleanupAnalysisSession(getIt()),
+    )
+    // Parameterised by the analysis session (F12-T06): it owns the last
+    // possible read of that session's processed photo, so it needs the id
+    // to clean up the session's leftover temp files once it's done with it.
+    ..registerFactoryParam<SaveDocumentCubit, AnalysisSession, void>(
+      (session, _) => SaveDocumentCubit(
+        getIt(),
+        getIt(),
+        sessionId: session.id,
+        cleanupSession: getIt(),
+      ),
     )
     ..registerFactory<WatchDocuments>(() => WatchDocuments(getIt()))
     ..registerFactory<DocumentsListCubit>(() => DocumentsListCubit(getIt()))
@@ -897,7 +909,7 @@ void _registerSettings() {
       () => DriftAppSettingsRepository(getIt()),
     )
     ..registerFactory<DeleteAllAppData>(
-      () => DeleteAllAppData(getIt(), getIt(), getIt()),
+      () => DeleteAllAppData(getIt(), getIt(), getIt(), getIt()),
     )
     ..registerFactory<GetAppVersion>(() => GetAppVersion(getIt()))
     ..registerFactory<SettingsCubit>(

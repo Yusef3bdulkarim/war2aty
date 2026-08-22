@@ -296,7 +296,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                       ..analyze(),
               ),
               BlocProvider<SaveDocumentCubit>(
-                create: (_) => getIt<SaveDocumentCubit>(),
+                create: (_) => getIt<SaveDocumentCubit>(param1: session),
               ),
               BlocProvider<AudioReaderCubit>(
                 create: (_) => getIt<AudioReaderCubit>(),
