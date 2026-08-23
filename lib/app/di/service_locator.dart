@@ -467,7 +467,9 @@ void _registerCapture() {
         preview: camera,
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
+        cropToGuideBox: getIt(),
         disposeCamera: DisposeCamera(camera),
+        cleanupFiles: getIt(),
       );
     })
     ..registerLazySingleton<ImagePickerService>(SystemImagePickerService.new)

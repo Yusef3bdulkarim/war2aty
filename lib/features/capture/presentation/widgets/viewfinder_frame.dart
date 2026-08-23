@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 
 // From `Waraqti.dc.html` → `camera`.
-const double _frameWidth = 290;
-const double _frameHeight = 380;
 const double _frameRadius = 14;
 const double _bracket = 34;
 const double _bracketStroke = 3;
@@ -12,19 +10,26 @@ const double _bracketStroke = 3;
 /// The dashed guide the user lines the paper up inside, with mint corner
 /// brackets and a sweeping scan line.
 ///
-/// Purely decorative: it frames the shot and signals "hold it here", but the
-/// camera captures the full frame regardless of where this sits. The scan line
+/// Signals "hold it here" — the camera screen (F15) measures this box's real
+/// on-screen position at capture time and crops to it (with a safety
+/// margin), so what's kept is (approximately) what was framed. The scan line
 /// animates continuously, so any screen showing it must be pumped without
 /// `pumpAndSettle` in tests.
 class ViewfinderFrame extends StatelessWidget {
   const ViewfinderFrame({super.key});
 
+  /// The guide box's fixed size, from `Waraqti.dc.html` → `camera`. Public so
+  /// the camera screen can compute the box's on-screen rect without
+  /// duplicating these numbers.
+  static const double width = 290;
+  static const double height = 380;
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: SizedBox(
-        width: _frameWidth,
-        height: _frameHeight,
+        width: width,
+        height: height,
         child: Stack(
           children: [
             // The faint field the design fills the frame with. A dashed border

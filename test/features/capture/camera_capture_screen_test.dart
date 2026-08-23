@@ -7,6 +7,9 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/navigation/app_route_observer.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
+import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_to_guide_box.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
@@ -30,7 +33,9 @@ Future<_Result> _pumpViewfinder(
     preview: const FakeCameraPreview(),
     initializeCamera: InitializeCamera(camera),
     capturePhoto: CapturePhoto(camera),
+    cropToGuideBox: CropToGuideBox(CropImage(FakeImageCropper())),
     disposeCamera: DisposeCamera(camera),
+    cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
   );
   addTearDown(cubit.close);
 
@@ -118,7 +123,9 @@ void main() {
         preview: const FakeCameraPreview(),
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
+        cropToGuideBox: CropToGuideBox(CropImage(FakeImageCropper())),
         disposeCamera: DisposeCamera(camera),
+        cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
       );
       addTearDown(cubit.close);
 

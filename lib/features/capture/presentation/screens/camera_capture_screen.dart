@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/camera_capture_cubit.dart';
 import '../cubit/camera_capture_state.dart';
@@ -43,6 +44,16 @@ class CameraCaptureScreen extends StatefulWidget {
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with WidgetsBindingObserver, RouteAware {
+  /// Wraps the whole framing area — the same box both the live preview and
+  /// [ViewfinderFrame] fill via `Positioned.fill`. Used with [_previewKey] to
+  /// measure the guide box's position as a fraction of what the camera
+  /// actually captured (F15-T03).
+  final GlobalKey _stackKey = GlobalKey();
+
+  /// Wraps the live preview widget itself, so its real rendered rect (after
+  /// `CameraPreview`'s internal aspect-ratio fit) can be measured.
+  final GlobalKey _previewKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -92,6 +103,52 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     context.read<CameraCaptureCubit>().start();
   }
 
+  /// Measures the guide box, then fires the shutter.
+  void _capture() {
+    context.read<CameraCaptureCubit>().capture(guideBox: _measureGuideBox());
+  }
+
+  /// The guide box's position as a fraction of the live preview's own
+  /// rendered rect — not the whole screen — so the crop lines up with what
+  /// was actually captured regardless of screen size or how `CameraPreview`
+  /// fits its feed inside the available space.
+  ///
+  /// Falls back to [UnitRect.full] (skips the crop) if either box hasn't
+  /// been laid out yet or has a degenerate size — a capture must never be
+  /// blocked on a measurement glitch.
+  UnitRect _measureGuideBox() {
+    final stackObject = _stackKey.currentContext?.findRenderObject();
+    final previewObject = _previewKey.currentContext?.findRenderObject();
+    if (stackObject is! RenderBox || !stackObject.hasSize) {
+      return UnitRect.full;
+    }
+    if (previewObject is! RenderBox || !previewObject.hasSize) {
+      return UnitRect.full;
+    }
+
+    final stackRect = stackObject.localToGlobal(Offset.zero) & stackObject.size;
+    final previewRect =
+        previewObject.localToGlobal(Offset.zero) & previewObject.size;
+    if (previewRect.width <= 0 || previewRect.height <= 0) {
+      return UnitRect.full;
+    }
+
+    // The guide box is centered within the same area the preview
+    // occupies — both are Positioned.fill children of the same Stack.
+    final guideRect = Rect.fromCenter(
+      center: stackRect.center,
+      width: ViewfinderFrame.width,
+      height: ViewfinderFrame.height,
+    );
+
+    return UnitRect(
+      left: (guideRect.left - previewRect.left) / previewRect.width,
+      top: (guideRect.top - previewRect.top) / previewRect.height,
+      right: (guideRect.right - previewRect.left) / previewRect.width,
+      bottom: (guideRect.bottom - previewRect.top) / previewRect.height,
+    ).clamped();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,7 +178,9 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               _ => _Viewfinder(
                 state: state,
                 onClose: widget.onClose,
-                onShutter: context.read<CameraCaptureCubit>().capture,
+                onShutter: _capture,
+                stackKey: _stackKey,
+                previewKey: _previewKey,
               ),
             },
           ),
@@ -137,22 +196,36 @@ class _Viewfinder extends StatelessWidget {
     required this.state,
     required this.onClose,
     required this.onShutter,
+    required this.stackKey,
+    required this.previewKey,
   });
 
   final CameraCaptureState state;
   final VoidCallback onClose;
   final VoidCallback onShutter;
 
+  /// See `_CameraCaptureScreenState`'s fields of the same name — used to
+  /// measure the guide box against the live preview's real rect at capture
+  /// time (F15-T03).
+  final GlobalKey stackKey;
+  final GlobalKey previewKey;
+
   @override
   Widget build(BuildContext context) {
     final isReady = state is CameraReady || state is CameraCapturing;
 
     return Stack(
+      key: stackKey,
       children: [
         if (isReady)
           Positioned.fill(
             child: Center(
-              child: context.read<CameraCaptureCubit>().preview.build(context),
+              child: KeyedSubtree(
+                key: previewKey,
+                child: context.read<CameraCaptureCubit>().preview.build(
+                  context,
+                ),
+              ),
             ),
           )
         else
