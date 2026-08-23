@@ -269,11 +269,17 @@ export function createAnalyzeHandler(
 
     const { body, report } = outcome.value;
 
+    // `document_type` is deliberately NOT logged (F12-T07). It is the model's
+    // reading of the paper — derived analysis content, which §29's privacy
+    // guarantee excludes by name, and the enum includes `medical`, `legal`
+    // and `financial`. It is also joinable back to a person: `request_id`
+    // keys `analysis_attempts`, whose `installation_hash` is the identifier
+    // this backend hashes precisely so nobody can tell which install did
+    // what. Logging the category next to the id hands that back.
     logEvent("analyze.completed", {
       request_id: requestId,
       session_id: parsed.sessionId,
       status: body.status,
-      document_type: body.document_type.type,
       counted: outcome.finalize.outcome === "succeeded",
       used_today: outcome.finalize.usedToday,
       daily_limit: config.dailyLimit,

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/hardening` · **Milestone:** M9
 - **Depends on:** all · **Feeds:** — (terminal)
-- **Progress:** 6 / 12 DONE
+- **Progress:** 7 / 12 DONE
 
 Cross-cutting sweeps against the Definition-of-Done (§16) and store readiness.
 
@@ -16,7 +16,7 @@ Cross-cutting sweeps against the Definition-of-Done (§16) and store readiness.
 | 4 | F12-T04 | Large-text pass | no overflow at largest text size | DONE |
 | 5 | F12-T05 | Performance profiling | heavy work off UI thread; jank check | DONE |
 | 6 | F12-T06 | Cache cleanup verification | temp/session files reliably removed | DONE |
-| 7 | F12-T07 | Security review | no secrets; no doc content in logs; encryption verified | TODO |
+| 7 | F12-T07 | Security review | no secrets; no doc content in logs; encryption verified | DONE |
 | 8 | F12-T08 | OCR regression dataset | labeled set + runner; baseline recorded | TODO |
 | 9 | F12-T09 | Integration test: invoice | capture→OCR→analyze→result→reminder→save→home | TODO |
 | 10 | F12-T10 | Integration test: appointment + failure | medical warning path + AI-timeout OCR-only path | TODO |
@@ -39,3 +39,5 @@ Real-device pass on Android + iOS; no blocker bugs; DoD §16 satisfied; store-re
   [F12-T05-performance-profiling.md](F12-T05-performance-profiling.md).
 - **F12-T06**: findings, fixes, and deferred items — see
   [F12-T06-cache-cleanup-verification.md](F12-T06-cache-cleanup-verification.md).
+- **F12-T07**: findings, fixes, and deferred items — see
+  [F12-T07-security-review.md](F12-T07-security-review.md).

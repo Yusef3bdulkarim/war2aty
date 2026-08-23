@@ -4,6 +4,7 @@ import 'dart:io' show FileSystemException;
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/identity/installation_id_provider.dart';
 import 'package:war2aty/core/logging/app_logger.dart';
@@ -459,6 +460,141 @@ void main() {
       );
       expect(harness.dataSource.sentImage!.toJson()['input_type'], 'image');
     });
+  });
+
+  group('analyzeImage — EXIF stripping (F12-T07)', () {
+    /// A real, decodable JPEG carrying EXIF the way a camera or a gallery
+    /// pick would — camera make/model plus a GPS position — so the test
+    /// exercises the actual strip path, not a stand-in.
+    Uint8List jpegWithExif() {
+      final image = img.Image(width: 4, height: 4);
+      image.exif.imageIfd['Make'] = 'TestCam';
+      image.exif.imageIfd['Model'] = 'TestCam 9000';
+      image.exif.gpsIfd['GPSLatitude'] = [30, 1, 1];
+      image.exif.gpsIfd['GPSLatitudeRef'] = 'N';
+      image.exif.gpsIfd['GPSLongitude'] = [31, 1, 1];
+      image.exif.gpsIfd['GPSLongitudeRef'] = 'E';
+      return img.encodeJpg(image);
+    }
+
+    test(
+      'an uploaded photo carries no EXIF, even when the source did',
+      () async {
+        final harness = _build(
+          response: _ok(_successBody()),
+          readImageBytes: (path) async => jpegWithExif(),
+        );
+
+        await harness.repository.analyzeImage(_imageRequest);
+
+        final uploaded = base64Decode(
+          harness.dataSource.sentImage!.imageBase64,
+        );
+        final decoded = img.decodeImage(uploaded);
+        expect(
+          decoded,
+          isNotNull,
+          reason: 'the stripped bytes must stay a valid image',
+        );
+        expect(decoded!.exif.isEmpty, isTrue);
+        // The point of the fix: GPS specifically must not survive.
+        expect(decoded.exif.gpsIfd.isEmpty, isTrue);
+      },
+    );
+
+    test('ocrImage strips EXIF the same way analyzeImage does', () async {
+      final harness = _build(
+        response: _ok(_ocrSuccessBody()),
+        readImageBytes: (path) async => jpegWithExif(),
+      );
+
+      await harness.repository.ocrImage(_imageRequest);
+
+      final uploaded = base64Decode(
+        harness.dataSource.sentOcrImage!.imageBase64,
+      );
+      expect(img.decodeImage(uploaded)!.exif.isEmpty, isTrue);
+    });
+
+    test(
+      'pixel content survives the strip — this is not a black image',
+      () async {
+        final source = img.Image(width: 4, height: 4);
+        source.exif.imageIfd['Make'] = 'TestCam';
+        img.fillRect(
+          source,
+          x1: 0,
+          y1: 0,
+          x2: 3,
+          y2: 3,
+          color: img.ColorRgb8(200, 10, 10),
+        );
+        final harness = _build(
+          response: _ok(_successBody()),
+          readImageBytes: (path) async => img.encodeJpg(source),
+        );
+
+        await harness.repository.analyzeImage(_imageRequest);
+
+        final uploaded = base64Decode(
+          harness.dataSource.sentImage!.imageBase64,
+        );
+        final decoded = img.decodeImage(uploaded)!;
+        final pixel = decoded.getPixel(0, 0);
+        // JPEG is lossy, so the exact channel is not asserted — only that the
+        // image still reads as strongly red, i.e. this is the real photo, not
+        // an empty/corrupted stand-in.
+        expect(pixel.r, greaterThan(150));
+      },
+    );
+
+    test(
+      'undecodable bytes pass through unchanged rather than erroring',
+      () async {
+        // Covers the non-image fixture other tests in this file already
+        // rely on ([1, 2, 3]) — decodeImage returns null for it, and the
+        // strip step must hand it back rather than throw.
+        final harness = _build(
+          response: _ok(_successBody()),
+          readImageBytes: (path) async => Uint8List.fromList([1, 2, 3]),
+        );
+
+        await harness.repository.analyzeImage(_imageRequest);
+
+        expect(
+          harness.dataSource.sentImage!.imageBase64,
+          base64Encode([1, 2, 3]),
+        );
+      },
+    );
+
+    test(
+      'a PNG photo is re-encoded as PNG, not JPEG, after stripping',
+      () async {
+        final source = img.Image(width: 2, height: 2);
+        source.exif.imageIfd['Make'] = 'TestCam';
+        final harness = _build(
+          response: _ok(_successBody()),
+          readImageBytes: (path) async => img.encodePng(source),
+        );
+
+        await harness.repository.analyzeImage(
+          const AnalysisImageRequest(
+            sessionId: 'session-1',
+            photo: CapturedPhoto('/tmp/warped.png'),
+          ),
+        );
+
+        final uploaded = base64Decode(
+          harness.dataSource.sentImage!.imageBase64,
+        );
+        // A JPEG never starts with PNG's magic bytes — decoding as PNG only
+        // succeeds if encodePng, not encodeJpg, actually ran.
+        expect(uploaded[0], 0x89);
+        expect(uploaded[1], 0x50); // 'P'
+        expect(img.decodeImage(uploaded)!.exif.isEmpty, isTrue);
+      },
+    );
   });
 
   group('analyzeImage — outcomes', () {

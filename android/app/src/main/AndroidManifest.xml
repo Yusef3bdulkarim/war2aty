@@ -23,10 +23,27 @@
          without one must still be able to install it. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
+    <!-- F12-T07 · Auto Backup is ON by default, and it would copy
+         `war2aty.sqlite` — every saved paper's analysis in plain text: the
+         summary, the key information, the amounts, the dates — to the user's
+         Google Drive. The saved-papers screen promises the opposite in so
+         many words: «بنحفظ الملخص والتفاصيل وصورة الورقة مشفّرة على جهازك.»
+         — on YOUR device. That is the claim Auto Backup quietly breaks.
+
+         It would also restore flutter_secure_storage's wrapped key material
+         without the Keystore key that unwraps it, which that package's own
+         README documents as an `InvalidKeyException: Failed to unwrap key`
+         crash rather than a graceful degrade.
+
+         Both are off here. `data_extraction_rules` is what covers
+         device-to-device transfer on API 31+, which `allowBackup` alone does
+         not; see that file for the reasoning and the tradeoff it accepts. -->
     <application
         android:label="${appName}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"

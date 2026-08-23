@@ -599,3 +599,63 @@ Deno.test("the response carries phones/references once the pipeline supplies ver
   assertEquals(body.phones[0].needsUserReview, true);
   assertEquals(body.references.length, 1);
 });
+
+// ── §51 · nothing from the document reaches a log line (F12-T07) ───────────
+
+/** Runs `body` with `console.log` captured, and returns every line emitted. */
+async function logLinesFor(
+  test: Harness,
+  body?: unknown,
+): Promise<string[]> {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (line: unknown) => void lines.push(String(line));
+  try {
+    await test.call(body);
+  } finally {
+    console.log = original;
+  }
+  return lines;
+}
+
+Deno.test("no analysis value from the document appears in any log line", async () => {
+  const lines = await logLinesFor(harness());
+  const logged = lines.join("\n");
+
+  assert(lines.length > 0, "the run must actually have logged something");
+
+  // Every one of these is a value the model reported off the user's paper.
+  // §29's privacy guarantee allows envelope fields and status codes only, so
+  // none of them may appear anywhere in the emitted JSON.
+  for (
+    const value of [
+      "invoice", // document_type.type — the classification itself
+      "فاتورة كهرباء", // document_type.title
+      "12345678", // key_information — an account number
+      "850.5", // amounts — what the paper demands
+      "2026-08-15", // dates — the deadline
+      "رقم الحساب", // a label read off the page
+      OCR_TEXT,
+    ]
+  ) {
+    assert(
+      !logged.includes(value),
+      `document content leaked into a log line: ${value}`,
+    );
+  }
+});
+
+Deno.test("the completion log still carries the envelope needed to trace a request", async () => {
+  const lines = await logLinesFor(harness());
+  const completed = lines
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .find((record) => record.event === "analyze.completed");
+
+  assert(completed !== undefined, "the completion line must still be emitted");
+  assertEquals(completed.request_id, REQUEST_ID);
+  assertEquals(completed.session_id, SESSION_ID);
+  assertEquals(completed.status, "success");
+  assertEquals(completed.counted, true);
+  // Removed by F12-T07 — asserted explicitly so a well-meaning re-add fails.
+  assertEquals(completed.document_type, undefined);
+});

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 import '../../../../core/documents/analysis_status.dart';
@@ -36,6 +38,52 @@ import '../validators/analysis_response_validator.dart';
 typedef ImageBytesReader = Future<Uint8List> Function(String path);
 
 Future<Uint8List> _readFileBytes(String path) => File(path).readAsBytes();
+
+/// Strips EXIF metadata — camera make/model, timestamp and, when present,
+/// GPS coordinates — before an image leaves the device (F12-T07).
+///
+/// Nothing upstream of [_buildImageRequest] guarantees this file is clean:
+/// a direct camera capture already carries the device's own EXIF block, a
+/// gallery pick can carry another app's GPS tag, and neither rotation
+/// ([ImagePackageRotator]) nor perspective correction (doclens) is written
+/// to strip it — rotation round-trips `image.exif` through its own
+/// re-encode, and an undetected page (`quad == null`) skips correction
+/// entirely and hands the original file straight through. So this is the one
+/// place that can actually promise it, and it is exactly the choke point the
+/// class doc below already names as "the one place ... that turns image
+/// bytes into something that leaves the device".
+///
+/// Runs off the UI thread — same reasoning as [ImagePackageRotator]: decode
+/// and re-encode is CPU-heavy on a full-resolution photo. Skips the
+/// (lossy) re-encode when there is nothing to strip — undecodable bytes, or
+/// an image whose `exif` is already empty (doclens's warped output usually
+/// has none) — so the common online-review-photo case pays no quality cost.
+///
+/// `decodeImage` is not a clean "returns null on anything it cannot read":
+/// while sniffing an unrecognised or truncated byte sequence it can throw
+/// (verified — a 3-byte input drives the PSD probe's header read past the
+/// end of the buffer with a raw `RangeError`, before any format is chosen).
+/// That must not become an [ImageProcessingFailure] for what is, from this
+/// function's point of view, simply "nothing to strip" — [_buildImageRequest]
+/// turns any exception here into exactly that failure, which would make a
+/// privacy hardening pass newly reject uploads the pre-F12-T07 code accepted.
+Future<Uint8List> _stripExif(Uint8List bytes, {required bool isPng}) {
+  return Isolate.run(() {
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null || decoded.exif.isEmpty) return bytes;
+      decoded.exif.clear();
+      // Same JPEG quality as ImagePackageRotator — legible for OCR, not
+      // archival, and consistent with the compression a rotated photo
+      // already accepts on this same path.
+      return isPng
+          ? img.encodePng(decoded)
+          : img.encodeJpg(decoded, quality: 92);
+    } on Object {
+      return bytes;
+    }
+  });
+}
 
 /// Request contract version this build speaks (API_CONTRACT §29).
 ///
@@ -217,14 +265,17 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
     return _validator.validate(response.body).flatMap(_rejectUnsupported);
   }
 
-  /// Assembles the §29b wire request: reads the perspective-corrected file
-  /// and base64-encodes it. This is the one place in the app that turns image
-  /// bytes into something that leaves the device (F13 locked decisions).
+  /// Assembles the §29b wire request: reads the perspective-corrected file,
+  /// strips its EXIF metadata (F12-T07), and base64-encodes it. This is the
+  /// one place in the app that turns image bytes into something that leaves
+  /// the device (F13 locked decisions).
   Future<AnalysisImageRequestDto> _buildImageRequest(
     AnalysisImageRequest request,
     String installationId,
   ) async {
-    final bytes = await _readImageBytes(request.photo.path);
+    final mimeType = _mimeTypeFor(request.photo.path);
+    final rawBytes = await _readImageBytes(request.photo.path);
+    final bytes = await _stripExif(rawBytes, isPng: mimeType == 'image/png');
 
     return AnalysisImageRequestDto(
       schemaVersion: kAnalysisRequestSchemaVersion,
@@ -232,7 +283,7 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
       installationId: installationId,
       appVersion: _appVersion,
       imageBase64: base64Encode(bytes),
-      mimeType: _mimeTypeFor(request.photo.path),
+      mimeType: mimeType,
     );
   }
 

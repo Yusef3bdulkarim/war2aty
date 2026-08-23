@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  F12-T07 · Android 12+ (API 31) backup/transfer rules: nothing leaves the
+  device.
+
+  `android:allowBackup="false"` on <application> already turns off cloud
+  backup, but on API 31+ it does NOT govern device-to-device transfer — that
+  is what this file is for. Both sections exclude every domain, so neither
+  Google Drive nor a phone-to-phone migration can carry this app's data.
+
+  What would otherwise be copied is the whole point:
+
+  - `database`/`file` hold `war2aty.sqlite` — every saved paper's ANALYSIS in
+    plain text: the summary, the key information (account numbers, amounts),
+    the dates, and the reminders built from them. That is exactly what the
+    privacy promise says stays on this phone, and Auto Backup is on by
+    default, so leaving this unset published it to the user's Drive.
+  - `file` also holds `documents/*/original.enc`, the AES-256-GCM pictures.
+    Ciphertext, but the key lives in the Android Keystore, which is never
+    backed up — so a restore produces files nothing can ever read again.
+  - `sharedpref` holds `flutter_secure_storage`'s wrapped key material. Its
+    own README warns that restoring it without the Keystore key raises
+    `java.security.InvalidKeyException: Failed to unwrap key` — a crash on
+    first launch after a restore, not a graceful degrade.
+
+  Consequence, stated plainly: saved papers do not survive a new phone. They
+  already did not — the pictures were unreadable and secure storage was
+  broken after any restore — so this makes the real behaviour honest instead
+  of half-working, and stops the analysis text leaking in the process.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>
