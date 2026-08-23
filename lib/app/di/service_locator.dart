@@ -142,6 +142,7 @@ import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
 import '../../features/capture/data/services/doclens_perspective_corrector.dart';
+import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
 import '../../features/capture/data/services/platform_camera_service.dart';
@@ -149,6 +150,7 @@ import '../../features/capture/data/services/system_image_picker_service.dart';
 import '../../features/capture/domain/entities/captured_photo.dart';
 import '../../features/capture/domain/repositories/camera_permission_repository.dart';
 import '../../features/capture/domain/services/capture_file_cleanup.dart';
+import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
@@ -158,6 +160,8 @@ import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/domain/usecases/correct_perspective.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
+import '../../features/capture/domain/usecases/crop_image.dart';
+import '../../features/capture/domain/usecases/crop_to_guide_box.dart';
 import '../../features/capture/domain/usecases/decide_analysis_route.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
@@ -473,6 +477,12 @@ void _registerCapture() {
     )
     ..registerLazySingleton<ImageRotator>(ImagePackageRotator.new)
     ..registerFactory<RotateImage>(() => RotateImage(getIt()))
+    // Shared by the guide-box crop (capture) and the manual drag-crop
+    // (preview screen) — both compute a UnitRect their own way and hand it
+    // to the same cropper (F15).
+    ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
+    ..registerFactory<CropImage>(() => CropImage(getIt()))
+    ..registerFactory<CropToGuideBox>(() => CropToGuideBox(getIt()))
     ..registerLazySingleton<ImageQualityService>(DartImageQualityService.new)
     ..registerFactory<AssessImageQuality>(() => AssessImageQuality(getIt()))
     ..registerFactory<CreateAnalysisSession>(

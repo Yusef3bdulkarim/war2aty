@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/document-crop` · **Milestone:** post-M9
 - **Depends on:** F03 (capture/review — modifies the capture and preview screens), F13 (perspective-correction — amends locked decision #1) · **Feeds:** F04 (local OCR — offline route now perspective-corrected first), F13's online pipeline (input shape unchanged)
-- **Progress:** 1 / 10 DONE
+- **Progress:** 2 / 10 DONE
 
 Today the camera's guide frame is purely decorative (the full sensor frame is
 kept regardless of where it sits) and the preview screen's crop brackets are a
@@ -57,7 +57,7 @@ implementation.
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F15-T01 | Branch + doc scaffold | Branch `feature/document-crop` off `develop`; this doc + README row added | DONE |
-| 2 | F15-T02 | Guide-box → pixel crop (domain + data) | New domain step converts a guide-box rect (+ margin) into a pixel crop; pixel crop executed via `image` pkg in a background isolate (mirrors `ImagePackageRotator`); unit tests for the geometry math (margin, clamping to photo bounds) and the pixel crop itself | TODO |
+| 2 | F15-T02 | Guide-box → pixel crop (domain + data) | New domain step converts a guide-box rect (+ margin) into a pixel crop; pixel crop executed via `image` pkg in a background isolate (mirrors `ImagePackageRotator`); unit tests for the geometry math (margin, clamping to photo bounds) and the pixel crop itself | DONE |
 | 3 | F15-T03 | Wire guide-box crop into capture flow | Runs immediately after `takePicture()`, before the preview screen opens; camera-only; new intermediate file tracked for cleanup | TODO |
 | 4 | F15-T04 | `PerspectiveCorrector` on both routes | `ImagePreviewCubit.proceed()` restructured so doclens runs before `CreateAnalysisSession` on offline **and** online; F13 doc locked decision #1 + every citing code comment (`CorrectPerspective`, `PerspectiveCorrector`, `DecideAnalysisRoute`, etc.) updated; F13-T16's no-silent-fallback guarantee re-verified; tests cover offline now invoking doclens | TODO |
 | 5 | F15-T05 | Crop-overlay design proposal | Mockup of the draggable free-form crop interaction using existing teal/mint tokens, presented for approval before widget work starts | TODO |

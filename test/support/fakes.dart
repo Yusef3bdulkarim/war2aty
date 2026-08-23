@@ -57,9 +57,11 @@ import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
+import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
 import 'package:war2aty/features/capture/domain/services/camera_service.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
+import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
@@ -499,6 +501,33 @@ final class FakeImageRotator implements ImageRotator {
     if (fails) return const Err(ImageProcessingFailure());
     // A no-op rotation returns the original, mirroring the real rotator.
     return Ok(quarterTurns % 4 == 0 ? photo : output);
+  }
+}
+
+/// Scriptable [ImageCropper] — no `image` package/isolate work.
+final class FakeImageCropper implements ImageCropper {
+  FakeImageCropper({this.output, this.fails = false});
+
+  /// The cropped photo to return. `null` means "hand the input back
+  /// unchanged", mirroring the real cropper's [UnitRect.isFull] no-op.
+  CapturedPhoto? output;
+  bool fails;
+
+  int cropCount = 0;
+  CapturedPhoto? lastPhoto;
+  UnitRect? lastRegion;
+
+  @override
+  Future<Result<CapturedPhoto, AppFailure>> crop(
+    CapturedPhoto photo,
+    UnitRect region,
+  ) async {
+    cropCount++;
+    lastPhoto = photo;
+    lastRegion = region;
+    if (fails) return const Err(ImageProcessingFailure());
+    // A no-op crop returns the original, mirroring the real cropper.
+    return Ok(region.isFull ? photo : (output ?? photo));
   }
 }
 
