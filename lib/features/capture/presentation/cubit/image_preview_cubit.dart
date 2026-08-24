@@ -6,10 +6,12 @@ import '../../../../core/connectivity/analysis_route.dart';
 import '../../../analysis/presentation/image_analysis_session_holder.dart';
 import '../../../ocr/presentation/ocr_session_holder.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../../domain/entities/unit_rect.dart';
 import '../../domain/usecases/assess_image_quality.dart';
 import '../../domain/usecases/cleanup_capture_files.dart';
 import '../../domain/usecases/correct_perspective.dart';
 import '../../domain/usecases/create_analysis_session.dart';
+import '../../domain/usecases/crop_image.dart';
 import '../../domain/usecases/decide_analysis_route.dart';
 import '../../domain/usecases/rotate_image.dart';
 import 'image_preview_state.dart';
@@ -26,6 +28,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   ImagePreviewCubit({
     required CapturedPhoto source,
     required RotateImage rotate,
+    required CropImage cropImage,
     required AssessImageQuality assessQuality,
     required DecideAnalysisRoute decideRoute,
     required CorrectPerspective correctPerspective,
@@ -35,6 +38,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     required CleanupCaptureFiles cleanupFiles,
   }) : _source = source,
        _rotate = rotate,
+       _cropImage = cropImage,
        _assessQuality = assessQuality,
        _decideRoute = decideRoute,
        _correctPerspective = correctPerspective,
@@ -47,6 +51,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// The image the user acquired (camera or gallery) before any rotation.
   final CapturedPhoto _source;
   final RotateImage _rotate;
+  final CropImage _cropImage;
   final AssessImageQuality _assessQuality;
   final DecideAnalysisRoute _decideRoute;
   final CorrectPerspective _correctPerspective;
@@ -58,6 +63,12 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// Path of the rotated file produced by [confirm], when the rotation differs
   /// from the source. Tracked so [close] can delete it alongside the source.
   String? _rotatedPath;
+
+  /// Path of the manually-cropped file produced by [confirm] when the user
+  /// dragged the crop handles (F15 locked decision #5). Tracked for the same
+  /// reason as [_rotatedPath] — an unencrypted temp copy of the user's
+  /// document must not survive past this screen (CLAUDE.md §7).
+  String? _croppedPath;
 
   /// Path of the perspective-corrected file produced by [proceed] on the
   /// online route, when it differs from the confirmed photo. Tracked for the
@@ -74,13 +85,28 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   bool _handedOffToOnline = false;
 
   /// Turns the image 90° clockwise. Ignored while a confirm is in flight so the
-  /// rotation cannot change under the export.
+  /// rotation cannot change under the export. Resets the crop rect to full
+  /// extents rather than remapping it across the turn (F15 locked decision #7).
   void rotateClockwise() {
     if (isClosed || state is ImagePreviewProcessing) return;
     emit(ImagePreviewReady((state.quarterTurns + 1) % 4));
   }
 
-  /// Bakes the current rotation into a file, assesses quality, and hands on.
+  /// Stores the crop rect the user set by dragging the preview screen's
+  /// handles (F15 locked decision #5). Called on drag end (not every frame)
+  /// to avoid flooding the state stream. Ignored outside [ImagePreviewReady].
+  void updateCrop(UnitRect rect) {
+    final current = state;
+    if (isClosed || current is! ImagePreviewReady) return;
+    emit(ImagePreviewReady(current.quarterTurns, cropRect: rect));
+  }
+
+  /// Bakes rotation and crop into a file, assesses quality, and hands on.
+  ///
+  /// The pipeline is: rotate → crop → quality-check (F15 locked decision #8).
+  /// Both steps are no-ops when the user left them at the default (0 turns,
+  /// full crop rect), and the quality check runs on the *final* image — not
+  /// the pre-crop rotation.
   ///
   /// A no-op once already confirmed: the terminal state's [quarterTurns] reads
   /// as 0, so re-entering here would re-export the *un-rotated* source and hand
@@ -92,25 +118,58 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
       return;
     }
     final turns = state.quarterTurns;
+    final cropRect = switch (state) {
+      ImagePreviewReady(:final cropRect) => cropRect,
+      _ => UnitRect.full,
+    };
     emit(ImagePreviewProcessing(turns));
 
+    // 1. Rotate.
     final rotateResult = await _rotate(_source, turns);
-    if (isClosed) return;
+    final rotated = rotateResult.valueOrNull;
+    if (isClosed) {
+      // close() already ran its cleanup sweep with whatever paths were
+      // tracked *before* this await started — a file produced after that
+      // point is untracked and would survive as an orphaned temp copy
+      // unless it's cleaned up right here (privacy §7).
+      if (rotated != null && rotated.path != _source.path) {
+        unawaited(_cleanupFiles([rotated.path]));
+      }
+      return;
+    }
 
-    final photo = rotateResult.valueOrNull;
-    if (photo == null) {
+    if (rotated == null) {
       emit(ImagePreviewFailed(turns));
       return;
     }
 
-    if (photo.path != _source.path) _rotatedPath = photo.path;
+    if (rotated.path != _source.path) _rotatedPath = rotated.path;
 
-    final qualityResult = await _assessQuality(photo);
+    // 2. Crop (no-op when the user left the handles at full extents).
+    final cropResult = await _cropImage(rotated, cropRect);
+    final cropped = cropResult.valueOrNull;
+    if (isClosed) {
+      if (cropped != null && cropped.path != rotated.path) {
+        unawaited(_cleanupFiles([cropped.path]));
+      }
+      return;
+    }
+
+    if (cropped == null) {
+      emit(ImagePreviewFailed(turns));
+      return;
+    }
+
+    if (cropped.path != rotated.path) _croppedPath = cropped.path;
+
+    // 3. Quality-check on the final (rotated + cropped) image. Produces no
+    // new file, so there is nothing extra to clean up if this races close().
+    final qualityResult = await _assessQuality(cropped);
     if (isClosed) return;
 
     emit(
       qualityResult.fold(
-        (quality) => ImagePreviewConfirmed(photo, quality),
+        (quality) => ImagePreviewConfirmed(cropped, quality),
         (_) => ImagePreviewFailed(turns),
       ),
     );
@@ -139,9 +198,16 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     _onlineHandoff.clear();
 
     final correctedResult = await _correctPerspective(current.photo);
-    if (isClosed) return;
-
     final corrected = correctedResult.valueOrNull;
+    if (isClosed) {
+      // Same reasoning as confirm()'s rotate/crop steps: an untracked file
+      // produced after close() already swept must be cleaned up here.
+      if (corrected != null && corrected.path != current.photo.path) {
+        unawaited(_cleanupFiles([corrected.path]));
+      }
+      return;
+    }
+
     if (corrected == null) {
       emit(const ImagePreviewFailed(0));
       return;
@@ -176,6 +242,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     final cleanupPaths = <String>{_source.path};
     final rotated = _rotatedPath;
     if (rotated != null) cleanupPaths.add(rotated);
+    final manuallyCropped = _croppedPath;
+    if (manuallyCropped != null) cleanupPaths.add(manuallyCropped);
     final correctedP = _correctedPath;
     if (correctedP != null) cleanupPaths.add(correctedP);
 
@@ -195,6 +263,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
       final paths = <String>{_source.path};
       final rotated = _rotatedPath;
       if (rotated != null) paths.add(rotated);
+      final manuallyCropped = _croppedPath;
+      if (manuallyCropped != null) paths.add(manuallyCropped);
       final corrected = _correctedPath;
       if (corrected != null) paths.add(corrected);
       unawaited(_cleanupFiles(paths.toList()));

@@ -508,6 +508,7 @@ void _registerCapture() {
       (path, _) => ImagePreviewCubit(
         source: CapturedPhoto(path),
         rotate: getIt(),
+        cropImage: getIt(),
         assessQuality: getIt(),
         decideRoute: getIt(),
         correctPerspective: getIt(),

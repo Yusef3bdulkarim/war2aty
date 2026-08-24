@@ -9,6 +9,7 @@ import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.da
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
@@ -38,6 +39,7 @@ Future<_Result> _pumpPreview(
   final cubit = ImagePreviewCubit(
     source: const CapturedPhoto(_imagePath),
     rotate: RotateImage(rotator ?? FakeImageRotator()),
+    cropImage: CropImage(FakeImageCropper()),
     assessQuality: AssessImageQuality(quality ?? FakeImageQualityService()),
     decideRoute: DecideAnalysisRoute(
       connectivity ?? FakeConnectivityService(connected: false),

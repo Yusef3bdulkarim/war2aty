@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
+import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
@@ -28,6 +32,7 @@ const _goodQuality = ImageQualityResult(
 
 ImagePreviewCubit cubitFor(
   FakeImageRotator rotator, {
+  FakeImageCropper? cropper,
   FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
   FakeCaptureFileCleanup? cleanup,
@@ -55,6 +60,7 @@ ImagePreviewCubit cubitFor(
   return ImagePreviewCubit(
     source: _source,
     rotate: RotateImage(rotator),
+    cropImage: CropImage(cropper ?? FakeImageCropper()),
     assessQuality: AssessImageQuality(q),
     decideRoute: DecideAnalysisRoute(conn, u),
     correctPerspective: CorrectPerspective(corrector),
@@ -154,20 +160,25 @@ void main() {
       expect(cubit.state, const ImagePreviewConfirmed(_source, poorQuality));
     });
 
-    test('quality assessment receives the rotated photo', () async {
-      const rotated = CapturedPhoto('/tmp/spun.jpg');
-      final quality = FakeImageQualityService();
-      final cubit = cubitFor(
-        FakeImageRotator(output: rotated),
-        quality: quality,
-      );
-      addTearDown(cubit.close);
+    test(
+      'quality assessment receives the final (rotated + cropped) photo',
+      () async {
+        const rotated = CapturedPhoto('/tmp/spun.jpg');
+        final quality = FakeImageQualityService();
+        // Default cropper: no output set, crop is a no-op (returns input
+        // unchanged when cropRect is full). So quality sees the rotated file.
+        final cubit = cubitFor(
+          FakeImageRotator(output: rotated),
+          quality: quality,
+        );
+        addTearDown(cubit.close);
 
-      cubit.rotateClockwise();
-      await cubit.confirm();
+        cubit.rotateClockwise();
+        await cubit.confirm();
 
-      expect(quality.lastPhoto, rotated);
-    });
+        expect(quality.lastPhoto, rotated);
+      },
+    );
 
     test('rotate is ignored while a confirm is in flight', () async {
       final cubit = cubitFor(FakeImageRotator());
@@ -521,4 +532,221 @@ void main() {
       expect(cleanup.deleteCalls, isEmpty);
     });
   });
+
+  group('ImagePreviewCubit manual crop (F15)', () {
+    const cropRect = UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85);
+
+    test('updateCrop stores the rect in the state', () {
+      final cubit = cubitFor(FakeImageRotator());
+      addTearDown(cubit.close);
+
+      cubit.updateCrop(cropRect);
+
+      expect(cubit.state, const ImagePreviewReady(0, cropRect: cropRect));
+    });
+
+    test(
+      'rotateClockwise resets cropRect to full (F15 locked decision #7)',
+      () {
+        final cubit = cubitFor(FakeImageRotator());
+        addTearDown(cubit.close);
+
+        cubit.updateCrop(cropRect);
+        cubit.rotateClockwise();
+
+        expect(cubit.state, const ImagePreviewReady(1));
+        expect((cubit.state as ImagePreviewReady).cropRect, UnitRect.full);
+      },
+    );
+
+    test(
+      'confirm crops after rotating — quality check sees cropped photo',
+      () async {
+        const cropped = CapturedPhoto('/tmp/cropped.jpg');
+        final fakeCropper = FakeImageCropper(output: cropped);
+        final quality = FakeImageQualityService();
+        final cubit = cubitFor(
+          FakeImageRotator(),
+          cropper: fakeCropper,
+          quality: quality,
+        );
+        addTearDown(cubit.close);
+
+        cubit.updateCrop(cropRect);
+        await cubit.confirm();
+
+        expect(fakeCropper.cropCount, 1);
+        expect(fakeCropper.lastRegion, cropRect);
+        // Quality check runs on the final, cropped photo.
+        expect(quality.lastPhoto, cropped);
+        expect(cubit.state, const ImagePreviewConfirmed(cropped, _goodQuality));
+      },
+    );
+
+    test('confirm with full cropRect skips the crop entirely', () async {
+      final fakeCropper = FakeImageCropper();
+      final cubit = cubitFor(FakeImageRotator(), cropper: fakeCropper);
+      addTearDown(cubit.close);
+
+      // No updateCrop — rect stays at UnitRect.full.
+      await cubit.confirm();
+
+      // The cropper's no-op path runs (region.isFull returns input unchanged)
+      // but no new file is produced.
+      expect(cubit.state, const ImagePreviewConfirmed(_source, _goodQuality));
+    });
+
+    test('a failed crop surfaces the error', () async {
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cropper: FakeImageCropper(fails: true),
+      );
+      addTearDown(cubit.close);
+
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
+
+      expect(cubit.state, const ImagePreviewFailed(0));
+    });
+
+    test('close after crop deletes source + rotated + cropped files', () async {
+      const rotated = CapturedPhoto('/tmp/spun.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeImageRotator(output: rotated),
+        cropper: FakeImageCropper(output: cropped),
+        cleanup: cleanup,
+      );
+
+      cubit.rotateClockwise();
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
+      await cubit.close();
+
+      expect(cleanup.deleteCalls, hasLength(1));
+      expect(
+        cleanup.deleteCalls.first,
+        unorderedEquals([_source.path, rotated.path, cropped.path]),
+      );
+    });
+
+    test('online handoff includes the cropped file in cleanup paths', () async {
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      const corrected = CapturedPhoto('/tmp/corrected.jpg');
+      final cleanup = FakeCaptureFileCleanup();
+      final handoff = ImageAnalysisSessionHolder();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cropper: FakeImageCropper(output: cropped),
+        cleanup: cleanup,
+        connectivity: FakeConnectivityService(),
+        perspectiveCorrector: FakePerspectiveCorrector(output: corrected),
+        onlineHandoff: handoff,
+      );
+
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
+      await cubit.proceed();
+      await cubit.close();
+
+      // close() skips cleanup — holder owns all temp files.
+      expect(cleanup.deleteCalls, isEmpty);
+      // The holder received the corrected photo.
+      expect(handoff.photo, corrected);
+    });
+  });
+
+  group(
+    'ImagePreviewCubit orphaned temp-file cleanup on close race (F15-T09)',
+    () {
+      test('close racing an in-flight rotate cleans up the orphaned rotated '
+          'file', () async {
+        const rotated = CapturedPhoto('/tmp/spun.jpg');
+        final gate = Completer<void>();
+        final rotator = FakeImageRotator(output: rotated)..gate = gate;
+        final cleanup = FakeCaptureFileCleanup();
+        final cubit = cubitFor(rotator, cleanup: cleanup);
+
+        cubit.rotateClockwise();
+        final confirming = cubit.confirm();
+        // Let confirm() reach the awaiting-rotate point.
+        await Future<void>.delayed(Duration.zero);
+
+        await cubit.close();
+
+        // The stale rotate now resolves — its file must never reach a
+        // terminal state, and must not be left as an orphaned temp file.
+        gate.complete();
+        await confirming;
+
+        // close()'s own sweep already deleted the source; the orphaned
+        // rotated file is a second, separate cleanup call made once the
+        // stale await notices isClosed.
+        expect(cleanup.deleteCalls, hasLength(2));
+        expect(cleanup.deleteCalls[0], [_source.path]);
+        expect(cleanup.deleteCalls[1], [rotated.path]);
+      });
+
+      test(
+        'close racing an in-flight crop cleans up the orphaned cropped file',
+        () async {
+          const cropped = CapturedPhoto('/tmp/cropped.jpg');
+          final gate = Completer<void>();
+          final cropper = FakeImageCropper(output: cropped)..gate = gate;
+          final cleanup = FakeCaptureFileCleanup();
+          final cubit = cubitFor(
+            FakeImageRotator(),
+            cropper: cropper,
+            cleanup: cleanup,
+          );
+
+          cubit.updateCrop(
+            const UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85),
+          );
+          final confirming = cubit.confirm();
+          // Let confirm() clear the (gate-less) rotate and reach the
+          // awaiting-crop point.
+          await Future<void>.delayed(Duration.zero);
+
+          await cubit.close();
+
+          gate.complete();
+          await confirming;
+
+          expect(cleanup.deleteCalls, hasLength(2));
+          expect(cleanup.deleteCalls[0], [_source.path]);
+          expect(cleanup.deleteCalls[1], [cropped.path]);
+        },
+      );
+
+      test('close racing an in-flight perspective-correct cleans up the '
+          'orphaned corrected file', () async {
+        const corrected = CapturedPhoto('/tmp/corrected.jpg');
+        final gate = Completer<void>();
+        final corrector = FakePerspectiveCorrector(output: corrected)
+          ..gate = gate;
+        final cleanup = FakeCaptureFileCleanup();
+        final cubit = cubitFor(
+          FakeImageRotator(),
+          cleanup: cleanup,
+          perspectiveCorrector: corrector,
+        );
+
+        await cubit.confirm();
+        final proceeding = cubit.proceed();
+        // Let proceed() reach the awaiting-perspective-correct point.
+        await Future<void>.delayed(Duration.zero);
+
+        await cubit.close();
+
+        gate.complete();
+        await proceeding;
+
+        expect(cleanup.deleteCalls, hasLength(2));
+        expect(cleanup.deleteCalls[0], [_source.path]);
+        expect(cleanup.deleteCalls[1], [corrected.path]);
+      });
+    },
+  );
 }

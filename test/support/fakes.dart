@@ -395,6 +395,10 @@ final class FakeCameraService implements CameraService {
   /// camera "opening" and interleave a suspend/close with it.
   Completer<void>? initializeGate;
 
+  /// When set, [capturePhoto] waits on it before returning — lets a test hold
+  /// the shutter in flight and interleave a suspend()/close() with it.
+  Completer<void>? captureGate;
+
   int initializeCount = 0;
   int captureCount = 0;
   int disposeCount = 0;
@@ -410,6 +414,8 @@ final class FakeCameraService implements CameraService {
   @override
   Future<Result<CapturedPhoto, AppFailure>> capturePhoto() async {
     captureCount++;
+    final gate = captureGate;
+    if (gate != null) await gate.future;
     return captureFails ? const Err(ImageProcessingFailure()) : Ok(photo);
   }
 
@@ -488,6 +494,10 @@ final class FakeImageRotator implements ImageRotator {
   final CapturedPhoto output;
   bool fails;
 
+  /// When set, [rotate] waits on it before returning — lets a test hold the
+  /// rotate step in flight and interleave a close()/suspend() with it.
+  Completer<void>? gate;
+
   int rotateCount = 0;
   int? lastQuarterTurns;
 
@@ -498,6 +508,8 @@ final class FakeImageRotator implements ImageRotator {
   ) async {
     rotateCount++;
     lastQuarterTurns = quarterTurns;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
     if (fails) return const Err(ImageProcessingFailure());
     // A no-op rotation returns the original, mirroring the real rotator.
     return Ok(quarterTurns % 4 == 0 ? photo : output);
@@ -513,6 +525,10 @@ final class FakeImageCropper implements ImageCropper {
   CapturedPhoto? output;
   bool fails;
 
+  /// When set, [crop] waits on it before returning — lets a test hold the
+  /// crop step in flight and interleave a close()/suspend() with it.
+  Completer<void>? gate;
+
   int cropCount = 0;
   CapturedPhoto? lastPhoto;
   UnitRect? lastRegion;
@@ -525,6 +541,8 @@ final class FakeImageCropper implements ImageCropper {
     cropCount++;
     lastPhoto = photo;
     lastRegion = region;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
     if (fails) return const Err(ImageProcessingFailure());
     // A no-op crop returns the original, mirroring the real cropper.
     return Ok(region.isFull ? photo : (output ?? photo));
@@ -561,6 +579,11 @@ final class FakePerspectiveCorrector implements PerspectiveCorrector {
   CapturedPhoto? output;
   bool fails;
 
+  /// When set, [correct] waits on it before returning — lets a test hold the
+  /// perspective-correct step in flight and interleave a close()/suspend()
+  /// with it.
+  Completer<void>? gate;
+
   int correctCount = 0;
   CapturedPhoto? lastPhoto;
 
@@ -568,6 +591,8 @@ final class FakePerspectiveCorrector implements PerspectiveCorrector {
   Future<Result<CapturedPhoto, AppFailure>> correct(CapturedPhoto photo) async {
     correctCount++;
     lastPhoto = photo;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
     if (fails) return const Err(ImageProcessingFailure());
     return Ok(output ?? photo);
   }

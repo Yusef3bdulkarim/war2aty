@@ -285,4 +285,126 @@ void main() {
       );
     },
   );
+
+  group('CameraCaptureCubit orphaned temp-file cleanup on suspend/close race '
+      '(F15-T09)', () {
+    test('suspend racing an in-flight shutter cleans up the orphaned raw '
+        'photo', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      final gate = Completer<void>();
+      final camera = FakeCameraService(photo: shot)..captureGate = gate;
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(camera, cleanup: cleanup);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      final capturing = cubit.capture(guideBox: UnitRect.full);
+      // Let capture() reach the awaiting-shutter point.
+      await Future<void>.delayed(Duration.zero);
+
+      // App backgrounds mid-shutter.
+      await cubit.suspend();
+      expect(cubit.state, const CameraInitializing());
+
+      // The stale shutter now resolves — its photo must never reach a
+      // terminal state, and must not be left as an orphaned temp file.
+      gate.complete();
+      await capturing;
+
+      expect(cubit.state, const CameraInitializing());
+      expect(cleanup.deleteCalls, [
+        [shot.path],
+      ]);
+    });
+
+    test(
+      'close racing an in-flight shutter cleans up the orphaned raw photo',
+      () async {
+        const shot = CapturedPhoto('/tmp/paper.jpg');
+        final gate = Completer<void>();
+        final camera = FakeCameraService(photo: shot)..captureGate = gate;
+        final cleanup = FakeCaptureFileCleanup();
+        final cubit = cubitFor(camera, cleanup: cleanup);
+
+        await cubit.start();
+        final capturing = cubit.capture(guideBox: UnitRect.full);
+        await Future<void>.delayed(Duration.zero);
+
+        await cubit.close();
+
+        gate.complete();
+        await capturing;
+
+        expect(cleanup.deleteCalls, [
+          [shot.path],
+        ]);
+      },
+    );
+
+    test('suspend racing an in-flight crop cleans up both the raw and '
+        'cropped orphans', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final gate = Completer<void>();
+      final cropper = FakeImageCropper(output: cropped)..gate = gate;
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeCameraService(photo: shot),
+        cropper: cropper,
+        cleanup: cleanup,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      final capturing = cubit.capture(
+        guideBox: const UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8),
+      );
+      // Let capture() clear the shutter and reach the awaiting-crop point.
+      await Future<void>.delayed(Duration.zero);
+
+      await cubit.suspend();
+      expect(cubit.state, const CameraInitializing());
+
+      gate.complete();
+      await capturing;
+
+      expect(cubit.state, const CameraInitializing());
+      expect(cleanup.deleteCalls, hasLength(1));
+      expect(
+        cleanup.deleteCalls.first,
+        unorderedEquals([shot.path, cropped.path]),
+      );
+    });
+
+    test('close racing an in-flight crop cleans up both the raw and cropped '
+        'orphans', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final gate = Completer<void>();
+      final cropper = FakeImageCropper(output: cropped)..gate = gate;
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeCameraService(photo: shot),
+        cropper: cropper,
+        cleanup: cleanup,
+      );
+
+      await cubit.start();
+      final capturing = cubit.capture(
+        guideBox: const UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      await cubit.close();
+
+      gate.complete();
+      await capturing;
+
+      expect(cleanup.deleteCalls, hasLength(1));
+      expect(
+        cleanup.deleteCalls.first,
+        unorderedEquals([shot.path, cropped.path]),
+      );
+    });
+  });
 }

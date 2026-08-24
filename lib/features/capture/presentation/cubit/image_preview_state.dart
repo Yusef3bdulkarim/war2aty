@@ -1,6 +1,7 @@
 import '../../../../core/storage/analysis_session.dart';
 import '../../domain/entities/captured_photo.dart';
 import '../../domain/entities/image_quality_result.dart';
+import '../../domain/entities/unit_rect.dart';
 
 /// Where the crop/rotate preview stands.
 ///
@@ -24,11 +25,28 @@ sealed class ImagePreviewState {
 }
 
 /// Editing: the image is shown with the crop frame, controls are live.
+///
+/// [cropRect] tracks the user's manual crop selection (F15 locked decision #5).
+/// Starts at [UnitRect.full] (the whole image); resets to full on rotate
+/// (F15 locked decision #7).
 final class ImagePreviewReady extends ImagePreviewState {
-  const ImagePreviewReady(this.quarterTurns);
+  const ImagePreviewReady(this.quarterTurns, {this.cropRect = UnitRect.full});
 
   @override
   final int quarterTurns;
+
+  /// The drag-crop region the user has chosen, as fractions of the
+  /// (visually rotated) image. Updated by [ImagePreviewCubit.updateCrop].
+  final UnitRect cropRect;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImagePreviewReady &&
+      other.quarterTurns == quarterTurns &&
+      other.cropRect == cropRect;
+
+  @override
+  int get hashCode => Object.hash(runtimeType, quarterTurns, cropRect);
 }
 
 /// Baking the rotation into a file after confirm. Controls are disabled so the

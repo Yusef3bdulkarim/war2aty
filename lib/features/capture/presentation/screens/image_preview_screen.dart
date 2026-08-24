@@ -10,10 +10,11 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/image_quality_result.dart';
+import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/image_preview_cubit.dart';
 import '../cubit/image_preview_state.dart';
-import '../widgets/crop_frame.dart';
+import '../widgets/draggable_crop_overlay.dart';
 import '../widgets/quality_alert_sheet.dart';
 
 // From `Waraqti.dc.html` → `preview`.
@@ -117,7 +118,13 @@ class ImagePreviewScreen extends StatelessWidget {
                   child: _ImageArea(
                     imagePath: imagePath,
                     quarterTurns: state.quarterTurns,
+                    cropRect: state is ImagePreviewReady
+                        ? state.cropRect
+                        : UnitRect.full,
                     isProcessing: isProcessing,
+                    onCropChanged: isProcessing
+                        ? null
+                        : context.read<ImagePreviewCubit>().updateCrop,
                   ),
                 ),
                 _ActionBar(
@@ -180,17 +187,22 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// The framed, rotatable image, with a processing veil while it exports.
+/// The framed, rotatable image with the draggable crop overlay (F15), and a
+/// processing veil while it exports.
 class _ImageArea extends StatelessWidget {
   const _ImageArea({
     required this.imagePath,
     required this.quarterTurns,
+    required this.cropRect,
     required this.isProcessing,
+    required this.onCropChanged,
   });
 
   final String imagePath;
   final int quarterTurns;
+  final UnitRect cropRect;
   final bool isProcessing;
+  final ValueChanged<UnitRect>? onCropChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +217,10 @@ class _ImageArea extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: _imageMaxWidth),
-                child: CropFrame(
+                child: DraggableCropOverlay(
+                  cropRect: cropRect,
+                  onCropChanged: onCropChanged,
+                  enabled: !isProcessing,
                   child: RotatedBox(
                     quarterTurns: quarterTurns,
                     child: Image.file(

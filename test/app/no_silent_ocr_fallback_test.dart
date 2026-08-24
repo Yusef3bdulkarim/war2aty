@@ -54,6 +54,7 @@ import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.da
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -200,6 +201,7 @@ void main() {
         (path, _) => ImagePreviewCubit(
           source: CapturedPhoto(path),
           rotate: RotateImage(FakeImageRotator()),
+          cropImage: CropImage(FakeImageCropper()),
           assessQuality: AssessImageQuality(FakeImageQualityService()),
           decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
           correctPerspective: CorrectPerspective(FakePerspectiveCorrector()),

@@ -75,7 +75,14 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     emit(const CameraCapturing());
 
     final captureResult = await _capturePhoto();
-    if (isClosed || generation != _generation) return;
+    if (isClosed || generation != _generation) {
+      // A stray suspend()/close() during the shutter itself made this run
+      // stale — nothing downstream will ever see this file, so it has to be
+      // cleaned up right here or it survives as an orphaned temp copy.
+      final orphan = captureResult.valueOrNull;
+      if (orphan != null) unawaited(_cleanupFiles([orphan.path]));
+      return;
+    }
 
     final photo = captureResult.valueOrNull;
     if (photo == null) {
@@ -84,7 +91,17 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     }
 
     final cropResult = await _cropToGuideBox(photo, guideBox);
-    if (isClosed || generation != _generation) return;
+    if (isClosed || generation != _generation) {
+      // Same reasoning, one step later: clean up whatever this stale run
+      // produced — the raw photo, and the cropped file if it's a distinct one.
+      final cropped = cropResult.valueOrNull;
+      final orphans = <String>{photo.path};
+      if (cropped != null && cropped.path != photo.path) {
+        orphans.add(cropped.path);
+      }
+      unawaited(_cleanupFiles(orphans.toList()));
+      return;
+    }
 
     // The raw pre-crop file is superseded the moment cropping produces a
     // genuinely new one (or the crop fails outright, in which case nothing

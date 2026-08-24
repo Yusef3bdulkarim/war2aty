@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/document-crop` · **Milestone:** post-M9
 - **Depends on:** F03 (capture/review — modifies the capture and preview screens), F13 (perspective-correction — amends locked decision #1) · **Feeds:** F04 (local OCR — offline route now perspective-corrected first), F13's online pipeline (input shape unchanged)
-- **Progress:** 4 / 10 DONE
+- **Progress:** 9 / 10 DONE
 
 Today the camera's guide frame is purely decorative (the full sensor frame is
 kept regardless of where it sits) and the preview screen's crop brackets are a
@@ -60,11 +60,11 @@ implementation.
 | 2 | F15-T02 | Guide-box → pixel crop (domain + data) | New domain step converts a guide-box rect (+ margin) into a pixel crop; pixel crop executed via `image` pkg in a background isolate (mirrors `ImagePackageRotator`); unit tests for the geometry math (margin, clamping to photo bounds) and the pixel crop itself | DONE |
 | 3 | F15-T03 | Wire guide-box crop into capture flow | Runs immediately after `takePicture()`, before the preview screen opens; camera-only; new intermediate file tracked for cleanup | DONE |
 | 4 | F15-T04 | `PerspectiveCorrector` on both routes | `ImagePreviewCubit.proceed()` restructured so doclens runs before `CreateAnalysisSession` on offline **and** online; F13 doc locked decision #1 + every citing code comment (`CorrectPerspective`, `PerspectiveCorrector`, `DecideAnalysisRoute`, etc.) updated; F13-T16's no-silent-fallback guarantee re-verified; tests cover offline now invoking doclens | DONE |
-| 5 | F15-T05 | Crop-overlay design proposal | Mockup of the draggable free-form crop interaction using existing teal/mint tokens, presented for approval before widget work starts | TODO |
-| 6 | F15-T06 | Manual-crop domain/data | New crop-rect entity + usecase baking an arbitrary rect into a file via `image` pkg in a background isolate (mirrors `ImagePackageRotator`); unit tests | TODO |
-| 7 | F15-T07 | Draggable crop widget (presentation) | Replaces the static `CropFrame`; always-active free-form drag on 4 edges + 4 corners; RTL-correct, Large-Text/High-Contrast safe, accessible handle semantics; widget tests | TODO |
-| 8 | F15-T08 | Wire crop into `ImagePreviewCubit`/state | Tracks the live crop rect; rotate resets it to full extents; confirm bakes rotation + crop together; `AssessImageQuality` runs on the final baked image; cubit tests | TODO |
-| 9 | F15-T09 | Temp-file lifecycle sweep | Every new intermediate file (guide-box-cropped, manually-cropped) tracked and deleted on cancel/exit/save/discard, extending F03-T10/F12-T06's guarantees | TODO |
+| 5 | F15-T05 | Crop-overlay design proposal | Mockup of the draggable free-form crop interaction using existing teal/mint tokens, presented for approval before widget work starts | DONE (approved; embodied in `DraggableCropOverlay`'s design constants, tagged "F15-T05 proposal") |
+| 6 | F15-T06 | Manual-crop domain/data | New crop-rect entity + usecase baking an arbitrary rect into a file via `image` pkg in a background isolate (mirrors `ImagePackageRotator`); unit tests | DONE (covered by T02: UnitRect + CropImage + ImagePackageCropper) |
+| 7 | F15-T07 | Draggable crop widget (presentation) | Replaces the static `CropFrame`; always-active free-form drag on 4 edges + 4 corners; RTL-correct, Large-Text/High-Contrast safe, accessible handle semantics; widget tests | DONE (`DraggableCropOverlay`; wired into `ImagePreviewScreen`; RTL/Large-Text covered by `image_preview_screen_test.dart`) |
+| 8 | F15-T08 | Wire crop into `ImagePreviewCubit`/state | Tracks the live crop rect; rotate resets it to full extents; confirm bakes rotation + crop together; `AssessImageQuality` runs on the final baked image; cubit tests | DONE (`updateCrop`/`cropRect` in `ImagePreviewCubit`/`ImagePreviewState`; 46 passing tests across `image_preview_cubit_test.dart` + `image_preview_screen_test.dart`) |
+| 9 | F15-T09 | Temp-file lifecycle sweep | Every new intermediate file (guide-box-cropped, manually-cropped) tracked and deleted on cancel/exit/save/discard, extending F03-T10/F12-T06's guarantees | DONE (found + fixed a real orphaned-temp-file race: `capture()`, `confirm()`, and `proceed()` now clean up a stale await's result when `isClosed`/generation changes mid-flight, instead of dropping it untracked; regression tests added in `camera_capture_cubit_test.dart` and `image_preview_cubit_test.dart`) |
 | 10 | F15-T10 | End-to-end verification | Real-device pass: camera + gallery entry points, offline + online routes, RTL, Large Text, High Contrast | TODO |
 
 ## Exit DoD
