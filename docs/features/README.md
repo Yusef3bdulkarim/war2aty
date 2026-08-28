@@ -29,9 +29,10 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F11 | Settings & privacy | [F11-settings-privacy.md](F11-settings-privacy.md) | `feature/settings` | M8 | 12 |
 | F12 | Hardening & release | [F12-hardening-release.md](F12-hardening-release.md) | `feature/hardening` | M9 | 12 |
 | F13 | OCR provider migration | [F13-ocr-provider-migration.md](F13-ocr-provider-migration.md) | `feature/ocr-provider-migration` | post-M6 | 19 |
-| F15 | Document crop | [F15-document-crop.md](F15-document-crop.md) | `feature/document-crop` | post-M9 | 10 |
+| F15 | Document crop | [F15-document-crop.md](F15-document-crop.md) | `feature/document-crop` | post-M9 | 12 |
+| F16 | Live edge detection | [F16-live-edge-detection.md](F16-live-edge-detection.md) | `feature/live-edge-detection` | post-M9 | 10 |
 
-**Total: 184 tasks across 15 features.**
+**Total: 196 tasks across 16 features.**
 
 ## Critical path
-`F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place.
+`F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place. F16 branches off F15 and is purely additive — it changes what the camera guide *shows*, while `doclens` stays the source of geometric truth, so it can be dropped without affecting the pipeline.
