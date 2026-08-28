@@ -44,11 +44,10 @@ class CameraCaptureScreen extends StatefulWidget {
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with WidgetsBindingObserver, RouteAware {
-  /// Wraps the whole framing area — the same box both the live preview and
-  /// [ViewfinderFrame] fill via `Positioned.fill`. Used with [_previewKey] to
-  /// measure the guide box's position as a fraction of what the camera
+  /// Sits on the guide box inside [ViewfinderFrame]. Used with [_previewKey]
+  /// to measure the guide box's position as a fraction of what the camera
   /// actually captured (F15-T03).
-  final GlobalKey _stackKey = GlobalKey();
+  final GlobalKey _frameKey = GlobalKey();
 
   /// Wraps the live preview widget itself, so its real rendered rect (after
   /// `CameraPreview`'s internal aspect-ratio fit) can be measured.
@@ -113,33 +112,29 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// was actually captured regardless of screen size or how `CameraPreview`
   /// fits its feed inside the available space.
   ///
+  /// Both rects are read off the real render tree, so the crop follows the
+  /// guide box wherever and at whatever size it ends up (F15-T12) rather than
+  /// re-deriving it from constants that then have to be kept in sync.
+  ///
   /// Falls back to [UnitRect.full] (skips the crop) if either box hasn't
   /// been laid out yet or has a degenerate size — a capture must never be
   /// blocked on a measurement glitch.
   UnitRect _measureGuideBox() {
-    final stackObject = _stackKey.currentContext?.findRenderObject();
+    final frameObject = _frameKey.currentContext?.findRenderObject();
     final previewObject = _previewKey.currentContext?.findRenderObject();
-    if (stackObject is! RenderBox || !stackObject.hasSize) {
+    if (frameObject is! RenderBox || !frameObject.hasSize) {
       return UnitRect.full;
     }
     if (previewObject is! RenderBox || !previewObject.hasSize) {
       return UnitRect.full;
     }
 
-    final stackRect = stackObject.localToGlobal(Offset.zero) & stackObject.size;
+    final guideRect = frameObject.localToGlobal(Offset.zero) & frameObject.size;
     final previewRect =
         previewObject.localToGlobal(Offset.zero) & previewObject.size;
     if (previewRect.width <= 0 || previewRect.height <= 0) {
       return UnitRect.full;
     }
-
-    // The guide box is centered within the same area the preview
-    // occupies — both are Positioned.fill children of the same Stack.
-    final guideRect = Rect.fromCenter(
-      center: stackRect.center,
-      width: ViewfinderFrame.width,
-      height: ViewfinderFrame.height,
-    );
 
     return UnitRect(
       left: (guideRect.left - previewRect.left) / previewRect.width,
@@ -179,7 +174,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 state: state,
                 onClose: widget.onClose,
                 onShutter: _capture,
-                stackKey: _stackKey,
+                frameKey: _frameKey,
                 previewKey: _previewKey,
               ),
             },
@@ -196,7 +191,7 @@ class _Viewfinder extends StatelessWidget {
     required this.state,
     required this.onClose,
     required this.onShutter,
-    required this.stackKey,
+    required this.frameKey,
     required this.previewKey,
   });
 
@@ -207,7 +202,7 @@ class _Viewfinder extends StatelessWidget {
   /// See `_CameraCaptureScreenState`'s fields of the same name — used to
   /// measure the guide box against the live preview's real rect at capture
   /// time (F15-T03).
-  final GlobalKey stackKey;
+  final GlobalKey frameKey;
   final GlobalKey previewKey;
 
   @override
@@ -215,7 +210,6 @@ class _Viewfinder extends StatelessWidget {
     final isReady = state is CameraReady || state is CameraCapturing;
 
     return Stack(
-      key: stackKey,
       children: [
         if (isReady)
           Positioned.fill(
@@ -230,7 +224,8 @@ class _Viewfinder extends StatelessWidget {
           )
         else
           const Positioned.fill(child: _Opening()),
-        if (isReady) const Positioned.fill(child: ViewfinderFrame()),
+        if (isReady)
+          Positioned.fill(child: ViewfinderFrame(frameKey: frameKey)),
         Positioned(
           top: 8,
           left: AppSpacing.xl,
