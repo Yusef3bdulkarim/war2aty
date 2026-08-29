@@ -14,14 +14,25 @@ sealed class ImagePreviewState {
   /// Quarter-turns applied so far. Zero for terminal states.
   int get quarterTurns => 0;
 
+  /// The crop region the user has selected, as fractions of the (visually
+  /// rotated) image. Full extents for terminal states.
+  ///
+  /// Lives on the base for the same reason [quarterTurns] does: the screen
+  /// paints the overlay from whatever state is current, so a state that
+  /// dropped the selection would snap it back to the whole image — visibly,
+  /// mid-export — and [ImagePreviewCubit.confirm] reads it back when the user
+  /// retries after a failure, which would silently discard their crop.
+  UnitRect get cropRect => UnitRect.full;
+
   @override
   bool operator ==(Object other) =>
       other.runtimeType == runtimeType &&
       other is ImagePreviewState &&
-      other.quarterTurns == quarterTurns;
+      other.quarterTurns == quarterTurns &&
+      other.cropRect == cropRect;
 
   @override
-  int get hashCode => Object.hash(runtimeType, quarterTurns);
+  int get hashCode => Object.hash(runtimeType, quarterTurns, cropRect);
 }
 
 /// Editing: the image is shown with the crop frame, controls are live.
@@ -37,6 +48,7 @@ final class ImagePreviewReady extends ImagePreviewState {
 
   /// The drag-crop region the user has chosen, as fractions of the
   /// (visually rotated) image. Updated by [ImagePreviewCubit.updateCrop].
+  @override
   final UnitRect cropRect;
 
   @override
@@ -51,11 +63,20 @@ final class ImagePreviewReady extends ImagePreviewState {
 
 /// Baking the rotation into a file after confirm. Controls are disabled so the
 /// image cannot be rotated out from under the export.
+///
+/// Carries [cropRect] so the overlay keeps showing the selection being baked
+/// instead of snapping open behind the processing veil.
 final class ImagePreviewProcessing extends ImagePreviewState {
-  const ImagePreviewProcessing(this.quarterTurns);
+  const ImagePreviewProcessing(
+    this.quarterTurns, {
+    this.cropRect = UnitRect.full,
+  });
 
   @override
   final int quarterTurns;
+
+  @override
+  final UnitRect cropRect;
 }
 
 /// The upright image is ready; the screen hands [photo] and [quality] to the
@@ -78,12 +99,16 @@ final class ImagePreviewConfirmed extends ImagePreviewState {
 }
 
 /// Baking the rotation failed. The screen surfaces a message and drops back to
-/// editing (same [quarterTurns]) so the user can try again.
+/// editing (same [quarterTurns] and [cropRect]) so the user can try again
+/// without having to redo their crop.
 final class ImagePreviewFailed extends ImagePreviewState {
-  const ImagePreviewFailed(this.quarterTurns);
+  const ImagePreviewFailed(this.quarterTurns, {this.cropRect = UnitRect.full});
 
   @override
   final int quarterTurns;
+
+  @override
+  final UnitRect cropRect;
 }
 
 /// Creating the session directory and copying the processed image into it.

@@ -94,11 +94,22 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
 
   /// Stores the crop rect the user set by dragging the preview screen's
   /// handles (F15 locked decision #5). Called on drag end (not every frame)
-  /// to avoid flooding the state stream. Ignored outside [ImagePreviewReady].
+  /// to avoid flooding the state stream.
+  ///
+  /// Also accepted from [ImagePreviewFailed] — the handles are live again in
+  /// that state (the screen only disables them while exporting), so ignoring
+  /// the drag would leave them moving under the finger and springing back.
+  /// The failure has already been surfaced by then, so returning to editing
+  /// is the right resting place.
   void updateCrop(UnitRect rect) {
-    final current = state;
-    if (isClosed || current is! ImagePreviewReady) return;
-    emit(ImagePreviewReady(current.quarterTurns, cropRect: rect));
+    if (isClosed) return;
+    final turns = switch (state) {
+      ImagePreviewReady(:final quarterTurns) => quarterTurns,
+      ImagePreviewFailed(:final quarterTurns) => quarterTurns,
+      _ => null,
+    };
+    if (turns == null) return;
+    emit(ImagePreviewReady(turns, cropRect: rect));
   }
 
   /// Bakes rotation and crop into a file, assesses quality, and hands on.
@@ -118,11 +129,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
       return;
     }
     final turns = state.quarterTurns;
-    final cropRect = switch (state) {
-      ImagePreviewReady(:final cropRect) => cropRect,
-      _ => UnitRect.full,
-    };
-    emit(ImagePreviewProcessing(turns));
+    final cropRect = state.cropRect;
+    emit(ImagePreviewProcessing(turns, cropRect: cropRect));
 
     // 1. Rotate.
     final rotateResult = await _rotate(_source, turns);
@@ -139,7 +147,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     }
 
     if (rotated == null) {
-      emit(ImagePreviewFailed(turns));
+      emit(ImagePreviewFailed(turns, cropRect: cropRect));
       return;
     }
 
@@ -156,7 +164,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     }
 
     if (cropped == null) {
-      emit(ImagePreviewFailed(turns));
+      emit(ImagePreviewFailed(turns, cropRect: cropRect));
       return;
     }
 
@@ -170,7 +178,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     emit(
       qualityResult.fold(
         (quality) => ImagePreviewConfirmed(cropped, quality),
-        (_) => ImagePreviewFailed(turns),
+        (_) => ImagePreviewFailed(turns, cropRect: cropRect),
       ),
     );
   }

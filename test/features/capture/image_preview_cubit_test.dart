@@ -596,7 +596,7 @@ void main() {
       expect(cubit.state, const ImagePreviewConfirmed(_source, _goodQuality));
     });
 
-    test('a failed crop surfaces the error', () async {
+    test('a failed crop surfaces the error, keeping the rect', () async {
       final cubit = cubitFor(
         FakeImageRotator(),
         cropper: FakeImageCropper(fails: true),
@@ -606,7 +606,72 @@ void main() {
       cubit.updateCrop(cropRect);
       await cubit.confirm();
 
-      expect(cubit.state, const ImagePreviewFailed(0));
+      expect(cubit.state, const ImagePreviewFailed(0, cropRect: cropRect));
+    });
+
+    // ── The crop rect survives leaving ImagePreviewReady (F15-T13) ──
+    //
+    // It used to live only on that state, so the screen — which paints the
+    // overlay from whatever state is current — showed the selection spring
+    // back open the moment confirm() started, and a retry after a failure
+    // silently exported the whole image.
+
+    test('confirm carries the crop rect into the processing state', () async {
+      final cubit = cubitFor(FakeImageRotator());
+      addTearDown(cubit.close);
+
+      cubit.updateCrop(cropRect);
+      final states = <ImagePreviewState>[];
+      final sub = cubit.stream.listen(states.add);
+      addTearDown(sub.cancel);
+
+      await cubit.confirm();
+
+      final processing = states.whereType<ImagePreviewProcessing>().single;
+      expect(
+        processing.cropRect,
+        cropRect,
+        reason: 'the overlay must not snap open behind the processing veil',
+      );
+    });
+
+    test('retrying after a failure still crops to the chosen rect', () async {
+      // Fails the first crop, succeeds the second — the user taps «استخدم
+      // الصورة» again without touching the handles.
+      final cropper = FakeImageCropper(fails: true);
+      final cubit = cubitFor(FakeImageRotator(), cropper: cropper);
+      addTearDown(cubit.close);
+
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
+      expect(cubit.state, isA<ImagePreviewFailed>());
+
+      cropper.fails = false;
+      await cubit.confirm();
+
+      expect(
+        cropper.lastRegion,
+        cropRect,
+        reason: 'the retry must not fall back to the full image',
+      );
+    });
+
+    test('the crop can still be adjusted after a failure', () async {
+      const second = UnitRect(left: 0.2, top: 0.2, right: 0.7, bottom: 0.7);
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cropper: FakeImageCropper(fails: true),
+      );
+      addTearDown(cubit.close);
+
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
+      expect(cubit.state, isA<ImagePreviewFailed>());
+
+      // The handles are live again in the failed state, so a drag must land.
+      cubit.updateCrop(second);
+
+      expect(cubit.state, const ImagePreviewReady(0, cropRect: second));
     });
 
     test('close after crop deletes source + rotated + cropped files', () async {
