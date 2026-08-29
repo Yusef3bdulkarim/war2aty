@@ -118,9 +118,7 @@ class ImagePreviewScreen extends StatelessWidget {
                   child: _ImageArea(
                     imagePath: imagePath,
                     quarterTurns: state.quarterTurns,
-                    cropRect: state is ImagePreviewReady
-                        ? state.cropRect
-                        : UnitRect.full,
+                    cropRect: state.cropRect,
                     isProcessing: isProcessing,
                     onCropChanged: isProcessing
                         ? null

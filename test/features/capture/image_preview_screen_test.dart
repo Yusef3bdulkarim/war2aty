@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +7,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
@@ -14,6 +17,7 @@ import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.d
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/capture/presentation/screens/image_preview_screen.dart';
+import 'package:war2aty/features/capture/presentation/widgets/draggable_crop_overlay.dart';
 import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 
 import '../../support/fakes.dart';
@@ -179,6 +183,35 @@ void main() {
       expect(find.text(_strings.previewUseImage), findsOneWidget);
     });
 
+    testWidgets('the crop stays on screen while the export runs (F15-T13)', (
+      tester,
+    ) async {
+      const chosen = UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8);
+      // Hold the rotate step so the screen sits in the processing state.
+      final rotator = FakeImageRotator()..gate = Completer<void>();
+      await _pumpPreview(tester, rotator: rotator);
+
+      // Set the crop through the cubit rather than by dragging: `_imagePath`
+      // does not exist, and the placeholder only appears after real file I/O
+      // that a widget test's fake clock never lets complete.
+      BlocProvider.of<ImagePreviewCubit>(
+        tester.element(find.byType(ImagePreviewScreen)),
+      ).updateCrop(chosen);
+      await tester.pump();
+      await tester.pump();
+      expect(_overlayCrop(tester), chosen);
+
+      await tester.tap(find.text(_strings.previewUseImage));
+      await tester.pump();
+      await tester.pump();
+
+      // Mid-export: the overlay used to spring back open behind the veil.
+      expect(_overlayCrop(tester), chosen);
+
+      rotator.gate!.complete();
+      await tester.pump();
+    });
+
     testWidgets('lays out right-to-left', (tester) async {
       await _pumpPreview(tester);
 
@@ -197,6 +230,11 @@ void main() {
 }
 
 /// What the screen handed back to its host.
+/// The crop rect the on-screen overlay is currently showing.
+UnitRect _overlayCrop(WidgetTester tester) => tester
+    .widget<DraggableCropOverlay>(find.byType(DraggableCropOverlay))
+    .cropRect;
+
 final class _Result {
   AnalysisSession? session;
   AnalysisSession? onlineSession;
