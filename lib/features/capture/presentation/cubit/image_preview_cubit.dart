@@ -119,9 +119,9 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// full crop rect), and the quality check runs on the *final* image — not
   /// the pre-crop rotation.
   ///
-  /// A no-op once already confirmed: the terminal state's [quarterTurns] reads
-  /// as 0, so re-entering here would re-export the *un-rotated* source and hand
-  /// back the wrong file. The guard keeps the confirmed result final.
+  /// A no-op once already confirmed — re-entering would export a second copy
+  /// of the same framing and hand back a different file than the one the
+  /// quality sheet is asking about. The guard keeps the confirmed result final.
   Future<void> confirm() async {
     if (isClosed ||
         state is ImagePreviewProcessing ||
@@ -177,7 +177,12 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
 
     emit(
       qualityResult.fold(
-        (quality) => ImagePreviewConfirmed(cropped, quality),
+        (quality) => ImagePreviewConfirmed(
+          cropped,
+          quality,
+          quarterTurns: turns,
+          cropRect: cropRect,
+        ),
         (_) => ImagePreviewFailed(turns, cropRect: cropRect),
       ),
     );
@@ -197,7 +202,11 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     final current = state;
     if (isClosed || current is! ImagePreviewConfirmed) return;
 
-    emit(const ImagePreviewCreatingSession());
+    // The preview stays on screen under the veil, so it keeps the framing
+    // the user confirmed instead of springing back to the raw photo.
+    final turns = current.quarterTurns;
+    final cropRect = current.cropRect;
+    emit(ImagePreviewCreatingSession(quarterTurns: turns, cropRect: cropRect));
 
     // A previous run's hand-off may still be sitting in either holder if it
     // was never consumed — clear both so the result route can't pick up
@@ -239,7 +248,13 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     if (isClosed) return;
 
     if (route == AnalysisRoute.offline) {
-      emit(ImagePreviewSessionCreated(session));
+      emit(
+        ImagePreviewSessionCreated(
+          session,
+          quarterTurns: turns,
+          cropRect: cropRect,
+        ),
+      );
       return;
     }
 
@@ -257,7 +272,9 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
 
     _onlineHandoff.set(session, corrected, cleanupPaths: cleanupPaths.toList());
     _handedOffToOnline = true;
-    emit(ImagePreviewOnlineReady(session));
+    emit(
+      ImagePreviewOnlineReady(session, quarterTurns: turns, cropRect: cropRect),
+    );
   }
 
   @override

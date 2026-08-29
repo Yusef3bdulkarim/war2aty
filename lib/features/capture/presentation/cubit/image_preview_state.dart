@@ -83,11 +83,31 @@ final class ImagePreviewProcessing extends ImagePreviewState {
 /// next stage. The router decides whether to proceed or show a quality warning
 /// based on [quality.overall].
 final class ImagePreviewConfirmed extends ImagePreviewState {
-  const ImagePreviewConfirmed(this.photo, this.quality);
+  const ImagePreviewConfirmed(
+    this.photo,
+    this.quality, {
+    this.quarterTurns = 0,
+    this.cropRect = UnitRect.full,
+  });
 
   final CapturedPhoto photo;
   final ImageQualityResult quality;
 
+  /// The rotation and crop the user settled on.
+  ///
+  /// The screen never swaps to [photo] — it keeps showing the *source* image
+  /// with these applied live — and it stays visible behind the quality sheet.
+  /// Dropping them here would flip the preview back to the raw photo at
+  /// exactly the moment the user is being asked to judge it.
+  @override
+  final int quarterTurns;
+
+  @override
+  final UnitRect cropRect;
+
+  // Equality stays on the result itself: [photo] already determines what the
+  // rotation and crop produced, and every existing expectation compares
+  // against a plain `ImagePreviewConfirmed(photo, quality)`.
   @override
   bool operator ==(Object other) =>
       other is ImagePreviewConfirmed &&
@@ -113,15 +133,40 @@ final class ImagePreviewFailed extends ImagePreviewState {
 
 /// Creating the session directory and copying the processed image into it.
 /// The processing veil stays up until this completes.
+///
+/// Carries the rotation and crop for the same reason [ImagePreviewConfirmed]
+/// does — the preview is still on screen underneath the veil.
 final class ImagePreviewCreatingSession extends ImagePreviewState {
-  const ImagePreviewCreatingSession();
+  const ImagePreviewCreatingSession({
+    this.quarterTurns = 0,
+    this.cropRect = UnitRect.full,
+  });
+
+  @override
+  final int quarterTurns;
+
+  @override
+  final UnitRect cropRect;
 }
 
 /// Terminal, offline route: the session is ready for F04 (OCR + analysis).
 final class ImagePreviewSessionCreated extends ImagePreviewState {
-  const ImagePreviewSessionCreated(this.session);
+  const ImagePreviewSessionCreated(
+    this.session, {
+    this.quarterTurns = 0,
+    this.cropRect = UnitRect.full,
+  });
 
   final AnalysisSession session;
+
+  /// Still carried: the router replaces this screen in response to this
+  /// state, but the builder runs for it first — without these the preview
+  /// flashes back to the raw photo for that frame.
+  @override
+  final int quarterTurns;
+
+  @override
+  final UnitRect cropRect;
 
   @override
   bool operator ==(Object other) =>
@@ -136,9 +181,20 @@ final class ImagePreviewSessionCreated extends ImagePreviewState {
 /// photo itself does not travel in this state; it is already in the
 /// `ImageAnalysisSessionHolder` the result route reads from.
 final class ImagePreviewOnlineReady extends ImagePreviewState {
-  const ImagePreviewOnlineReady(this.session);
+  const ImagePreviewOnlineReady(
+    this.session, {
+    this.quarterTurns = 0,
+    this.cropRect = UnitRect.full,
+  });
 
   final AnalysisSession session;
+
+  /// Carried for the same one-frame reason as [ImagePreviewSessionCreated].
+  @override
+  final int quarterTurns;
+
+  @override
+  final UnitRect cropRect;
 
   @override
   bool operator ==(Object other) =>
