@@ -674,6 +674,49 @@ void main() {
       expect(cubit.state, const ImagePreviewReady(0, cropRect: second));
     });
 
+    test(
+      'the confirmed state keeps the framing the preview is showing',
+      () async {
+        // The screen never swaps to the exported file — it keeps rendering the
+        // source with the rotation and crop applied, and stays visible behind
+        // the quality sheet. Losing either there flips the preview back to the
+        // raw photo exactly while the user is judging it.
+        final cubit = cubitFor(FakeImageRotator());
+        addTearDown(cubit.close);
+
+        cubit.rotateClockwise();
+        cubit.updateCrop(cropRect);
+        await cubit.confirm();
+
+        final confirmed = cubit.state as ImagePreviewConfirmed;
+        expect(confirmed.quarterTurns, 1);
+        expect(confirmed.cropRect, cropRect);
+      },
+    );
+
+    test('the framing survives all the way through proceed', () async {
+      final cubit = cubitFor(FakeImageRotator());
+      addTearDown(cubit.close);
+
+      cubit.rotateClockwise();
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
+
+      final states = <ImagePreviewState>[];
+      final sub = cubit.stream.listen(states.add);
+      addTearDown(sub.cancel);
+
+      await cubit.proceed();
+
+      // The veil state and the terminal state both render before the router
+      // swaps the screen out.
+      expect(states, isNotEmpty);
+      for (final s in states) {
+        expect(s.quarterTurns, 1, reason: '$s dropped the rotation');
+        expect(s.cropRect, cropRect, reason: '$s dropped the crop');
+      }
+    });
+
     test('close after crop deletes source + rotated + cropped files', () async {
       const rotated = CapturedPhoto('/tmp/spun.jpg');
       const cropped = CapturedPhoto('/tmp/cropped.jpg');
