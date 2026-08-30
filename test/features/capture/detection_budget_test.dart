@@ -2,10 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/features/capture/presentation/cubit/detection_budget.dart';
 
 void main() {
-  // The production default, restated so the fixtures below are readable.
-  const budget = Duration(milliseconds: 120);
-  const fast = Duration(milliseconds: 40);
-  const slow = Duration(milliseconds: 200);
+  // A budget of its own rather than the production default, so these tests
+  // keep asserting the same thing if that default is ever retuned.
+  const budget = Duration(milliseconds: 100);
+  const fast = Duration(milliseconds: 30);
+  const slow = Duration(milliseconds: 180);
   const veryLate = Duration(milliseconds: 400);
 
   DetectionBudget fresh() => DetectionBudget(budget: budget);

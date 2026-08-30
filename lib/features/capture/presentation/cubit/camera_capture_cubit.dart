@@ -14,8 +14,8 @@ import '../../domain/usecases/start_frame_stream.dart';
 import '../../domain/usecases/stop_frame_stream.dart';
 import '../camera_preview_port.dart';
 import '../models/detected_document.dart';
-import 'detection_budget.dart';
 import 'camera_capture_state.dart';
+import 'detection_budget.dart';
 
 /// Drives the viewfinder: open the camera, take one photo, crop it to the
 /// guide box the user framed it in, release the camera.
