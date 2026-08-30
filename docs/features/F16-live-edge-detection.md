@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/live-edge-detection` (off `feature/document-crop`) · **Milestone:** post-M9
 - **Depends on:** F15 (the guide box and the guide-box crop it feeds), F03 (the capture screen), F13 (`PerspectiveCorrector`/`doclens`, which stays the source of geometric truth) · **Feeds:** nothing — this is a guidance layer on top of an already-working pipeline
-- **Progress:** 7 / 10 DONE
+- **Progress:** 8 / 10 DONE
 - **Per-task plans:** [`F16-plans/`](F16-plans/README.md) — one implementation plan per task, written before work starts
 
 F15-T12 made the camera's guide box *responsive* — the same share of the
@@ -58,7 +58,7 @@ in the task rows.
 | 5 | F16-T05 | Frame → preview coordinate mapping | Detector output is in sensor space; map it into the preview widget's rect accounting for sensor orientation, front/back mirroring, and how `CameraPreview` fits the feed. Shares the preview-rect measurement already used by `_measureGuideBox`. Unit tests per orientation | DONE |
 | 6 | F16-T06 | Guide box follows the quad | `ViewfinderFrame` draws the detected quad (brackets on its corners) and interpolates toward each new detection so it doesn't jitter; a detection that drops out briefly holds the last quad instead of snapping; falls back to the F15-T12 static box per locked decision #4. Widget tests incl. RTL, Large Text, High Contrast | DONE |
 | 7 | F16-T07 | Cubit/state wiring | Detection state exposed through the capture cubit via a use case (locked decision #5); no `BuildContext` in the cubit; detection lifecycle tied to the camera's; cubit tests | DONE |
-| 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | TODO |
+| 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | DONE |
 | 9 | F16-T09 | Perf & thermal guard | Detection auto-disables (silently, per locked decision #4) when frames are consistently late or the isolate can't keep up; measured frame budget documented; no jank on the shutter path | TODO |
 | 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | TODO |
 

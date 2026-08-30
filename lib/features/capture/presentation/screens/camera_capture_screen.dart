@@ -7,10 +7,12 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../../domain/entities/document_quad.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/camera_capture_cubit.dart';
 import '../cubit/camera_capture_state.dart';
+import '../frame_preview_mapper.dart';
 import '../widgets/viewfinder_frame.dart';
 
 // From `Waraqti.dc.html` → `camera`.
@@ -116,6 +118,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// guide box wherever and at whatever size it ends up (F15-T12) rather than
   /// re-deriving it from constants that then have to be kept in sync.
   ///
+  /// When live detection is showing a document (F16), that same key rides on
+  /// the **drawn** quad's bounding box, so this measures what the user was
+  /// actually looking at — mid-animation included — rather than the latest
+  /// detection in the cubit's state, which the guide may not have reached yet
+  /// (F16-T08).
+  ///
   /// Falls back to [UnitRect.full] (skips the crop) if either box hasn't
   /// been laid out yet or has a degenerate size — a capture must never be
   /// blocked on a measurement glitch.
@@ -129,13 +137,24 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
     final guideRect = frameObject.localToGlobal(Offset.zero) & frameObject.size;
 
-    return UnitRect(
+    final region = UnitRect(
       left: (guideRect.left - previewRect.left) / previewRect.width,
       top: (guideRect.top - previewRect.top) / previewRect.height,
       right: (guideRect.right - previewRect.left) / previewRect.width,
       bottom: (guideRect.bottom - previewRect.top) / previewRect.height,
     ).clamped();
+
+    // A detection can collapse to a sliver; keeping the whole photo is always
+    // recoverable, cropping to a hairline is not.
+    if (region.width < _minGuideExtent || region.height < _minGuideExtent) {
+      return UnitRect.full;
+    }
+    return region;
   }
+
+  /// The smallest share of the preview a guide box may cover before the crop
+  /// declines to follow it.
+  static const double _minGuideExtent = 0.1;
 
   /// The live preview's real rendered rect in global coordinates, or `null`
   /// when it has not been laid out (or came out degenerate).
@@ -150,6 +169,32 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     final rect = previewObject.localToGlobal(Offset.zero) & previewObject.size;
     if (rect.width <= 0 || rect.height <= 0) return null;
     return rect;
+  }
+
+  /// The detected document in the preview's own coordinates, ready for
+  /// [ViewfinderFrame] to draw — or `null` when there is nothing to draw.
+  ///
+  /// The cubit carries the quad in sensor space, since it cannot see layout;
+  /// the mapping needs the preview's aspect, which only the render tree knows
+  /// (F16-T05). Reading the render box during build gives the previous
+  /// frame's layout, which is exactly right here: the preview's rect is
+  /// settled long before the first detection arrives, and a missing
+  /// measurement simply means no overlay this frame.
+  DocumentQuad? _quadForPreview(CameraCaptureState state) {
+    if (state is! CameraReady) return null;
+    final document = state.document;
+    if (document == null) return null;
+
+    final previewRect = _measurePreview();
+    if (previewRect == null) return null;
+
+    return FramePreviewMapper.mapToPreview(
+      document.quad,
+      sensorOrientation: document.sensorOrientation,
+      isMirrored: document.isMirrored,
+      frameAspect: document.frameAspect,
+      previewAspect: previewRect.width / previewRect.height,
+    );
   }
 
   @override
@@ -180,6 +225,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               ),
               _ => _Viewfinder(
                 state: state,
+                quad: _quadForPreview(state),
                 onClose: widget.onClose,
                 onShutter: _capture,
                 frameKey: _frameKey,
@@ -197,6 +243,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 class _Viewfinder extends StatelessWidget {
   const _Viewfinder({
     required this.state,
+    required this.quad,
     required this.onClose,
     required this.onShutter,
     required this.frameKey,
@@ -204,6 +251,10 @@ class _Viewfinder extends StatelessWidget {
   });
 
   final CameraCaptureState state;
+
+  /// The detected document in the preview's own coordinates, or `null` for
+  /// the static guide box (F16 locked decision #4).
+  final DocumentQuad? quad;
   final VoidCallback onClose;
   final VoidCallback onShutter;
 
@@ -222,18 +273,27 @@ class _Viewfinder extends StatelessWidget {
         if (isReady)
           Positioned.fill(
             child: Center(
+              // The guide sits *inside* the measured preview rather than over
+              // the whole screen, so the detected quad, the guide box and the
+              // capture crop all speak one coordinate space (F16-T05/T08).
+              // The Stack takes its size from the preview, its only
+              // unpositioned child, so the static box resolves against the
+              // live feed exactly as F15-T12 intended.
               child: KeyedSubtree(
                 key: previewKey,
-                child: context.read<CameraCaptureCubit>().preview.build(
-                  context,
+                child: Stack(
+                  children: [
+                    context.read<CameraCaptureCubit>().preview.build(context),
+                    Positioned.fill(
+                      child: ViewfinderFrame(frameKey: frameKey, quad: quad),
+                    ),
+                  ],
                 ),
               ),
             ),
           )
         else
           const Positioned.fill(child: _Opening()),
-        if (isReady)
-          Positioned.fill(child: ViewfinderFrame(frameKey: frameKey)),
         Positioned(
           top: 8,
           left: AppSpacing.xl,
