@@ -121,20 +121,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// blocked on a measurement glitch.
   UnitRect _measureGuideBox() {
     final frameObject = _frameKey.currentContext?.findRenderObject();
-    final previewObject = _previewKey.currentContext?.findRenderObject();
     if (frameObject is! RenderBox || !frameObject.hasSize) {
       return UnitRect.full;
     }
-    if (previewObject is! RenderBox || !previewObject.hasSize) {
-      return UnitRect.full;
-    }
+    final previewRect = _measurePreview();
+    if (previewRect == null) return UnitRect.full;
 
     final guideRect = frameObject.localToGlobal(Offset.zero) & frameObject.size;
-    final previewRect =
-        previewObject.localToGlobal(Offset.zero) & previewObject.size;
-    if (previewRect.width <= 0 || previewRect.height <= 0) {
-      return UnitRect.full;
-    }
 
     return UnitRect(
       left: (guideRect.left - previewRect.left) / previewRect.width,
@@ -142,6 +135,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       right: (guideRect.right - previewRect.left) / previewRect.width,
       bottom: (guideRect.bottom - previewRect.top) / previewRect.height,
     ).clamped();
+  }
+
+  /// The live preview's real rendered rect in global coordinates, or `null`
+  /// when it has not been laid out (or came out degenerate).
+  ///
+  /// The one place that rect is read: the guide-box measurement above and the
+  /// detected-quad overlay (F16-T05) both need it, and two copies of this
+  /// would be two things to keep in sync.
+  Rect? _measurePreview() {
+    final previewObject = _previewKey.currentContext?.findRenderObject();
+    if (previewObject is! RenderBox || !previewObject.hasSize) return null;
+
+    final rect = previewObject.localToGlobal(Offset.zero) & previewObject.size;
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return rect;
   }
 
   @override
