@@ -55,6 +55,7 @@ import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_frame.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
@@ -399,13 +400,37 @@ final class FakeCameraService implements CameraService {
   /// the shutter in flight and interleave a suspend()/close() with it.
   Completer<void>? captureGate;
 
+  /// Set to make [startFrameStream] fail — the live edge detector never
+  /// getting off the ground, which must stay invisible to the user (F16
+  /// locked decision #4).
+  bool streamFails = false;
+
   int initializeCount = 0;
   int captureCount = 0;
   int disposeCount = 0;
+  int startStreamCount = 0;
+  int stopStreamCount = 0;
+
+  /// Every call in order, so a test can assert *sequence* — notably that the
+  /// frame stream is stopped before the shutter fires.
+  final List<String> calls = [];
+
+  /// The consumer handed to [startFrameStream]; call [deliverFrame] to push a
+  /// frame through it as the camera would.
+  Future<void> Function(CameraFrame frame)? onFrame;
+
+  /// Pushes one frame to the current stream consumer, awaiting it the way the
+  /// real service's throttle does before admitting another.
+  Future<void> deliverFrame(CameraFrame frame) async {
+    final consumer = onFrame;
+    if (consumer == null) return;
+    await consumer(frame);
+  }
 
   @override
   Future<Result<void, AppFailure>> initialize() async {
     initializeCount++;
+    calls.add('initialize');
     final gate = initializeGate;
     if (gate != null) await gate.future;
     return initFails ? const Err(ImageProcessingFailure()) : const Ok(null);
@@ -414,13 +439,35 @@ final class FakeCameraService implements CameraService {
   @override
   Future<Result<CapturedPhoto, AppFailure>> capturePhoto() async {
     captureCount++;
+    calls.add('capturePhoto');
     final gate = captureGate;
     if (gate != null) await gate.future;
     return captureFails ? const Err(ImageProcessingFailure()) : Ok(photo);
   }
 
   @override
-  Future<void> dispose() async => disposeCount++;
+  Future<Result<void, AppFailure>> startFrameStream(
+    Future<void> Function(CameraFrame frame) onFrame,
+  ) async {
+    startStreamCount++;
+    calls.add('startFrameStream');
+    if (streamFails) return const Err(ImageProcessingFailure());
+    this.onFrame = onFrame;
+    return const Ok(null);
+  }
+
+  @override
+  Future<void> stopFrameStream() async {
+    stopStreamCount++;
+    calls.add('stopFrameStream');
+    onFrame = null;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposeCount++;
+    calls.add('dispose');
+  }
 }
 
 /// Scriptable [ImagePickerService] — no plugin, no OS picker.
