@@ -57,11 +57,13 @@ import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_frame.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/entities/document_quad.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
 import 'package:war2aty/features/capture/domain/services/camera_service.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
+import 'package:war2aty/features/capture/domain/services/document_edge_detector.dart';
 import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
@@ -467,6 +469,44 @@ final class FakeCameraService implements CameraService {
   Future<void> dispose() async {
     disposeCount++;
     calls.add('dispose');
+  }
+}
+
+/// Scriptable [DocumentEdgeDetector] — no isolate, no pixels.
+///
+/// Defaults to finding nothing, which is the detector's ordinary answer and
+/// the one the viewfinder renders as its static guide box. Queue results with
+/// [script], or set [failure] to model a frame the detector could not read —
+/// which must look identical to "nothing found" from the user's side (F16
+/// locked decision #4).
+final class FakeDocumentEdgeDetector implements DocumentEdgeDetector {
+  FakeDocumentEdgeDetector({this.quad, this.failure});
+
+  /// Returned for every frame once [script] runs out.
+  DocumentQuad? quad;
+  AppFailure? failure;
+
+  /// Results to hand back, in order, before falling through to [quad].
+  final List<DocumentQuad?> script = [];
+
+  /// When set, [detect] waits on it — lets a test hold a detection in flight
+  /// and interleave a suspend/capture with it.
+  Completer<void>? gate;
+
+  int detectCount = 0;
+  final List<CameraFrame> frames = [];
+
+  @override
+  Future<Result<DocumentQuad?, AppFailure>> detect(CameraFrame frame) async {
+    detectCount++;
+    frames.add(frame);
+    final held = gate;
+    if (held != null) await held.future;
+
+    final fails = failure;
+    if (fails != null) return Err(fails);
+    if (script.isNotEmpty) return Ok(script.removeAt(0));
+    return Ok(quad);
   }
 }
 

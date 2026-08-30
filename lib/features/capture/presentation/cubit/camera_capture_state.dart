@@ -1,5 +1,6 @@
 import '../../../../core/error/app_failure.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../models/detected_document.dart';
 
 /// Where the viewfinder stands.
 ///
@@ -21,8 +22,23 @@ final class CameraInitializing extends CameraCaptureState {
 }
 
 /// The live preview is running; the shutter is armed.
+///
+/// [document] is the document the live detector currently sees, or `null` when
+/// it sees none — which the viewfinder renders as F15-T12's static guide box
+/// (F16 locked decision #4). It is deliberately not a separate state: nothing
+/// about the screen's behaviour changes when a document appears, only what the
+/// guide is drawn around.
 final class CameraReady extends CameraCaptureState {
-  const CameraReady();
+  const CameraReady({this.document});
+
+  final DetectedDocument? document;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CameraReady && other.document == document;
+
+  @override
+  int get hashCode => document.hashCode;
 }
 
 /// A shot is being taken. The shutter is disabled so a second tap cannot fire
