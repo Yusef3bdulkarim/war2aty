@@ -2,7 +2,8 @@
 
 - **Branch:** `feature/live-edge-detection` (off `feature/document-crop`) · **Milestone:** post-M9
 - **Depends on:** F15 (the guide box and the guide-box crop it feeds), F03 (the capture screen), F13 (`PerspectiveCorrector`/`doclens`, which stays the source of geometric truth) · **Feeds:** nothing — this is a guidance layer on top of an already-working pipeline
-- **Progress:** 1 / 10 DONE
+- **Progress:** 2 / 10 DONE
+- **Per-task plans:** [`F16-plans/`](F16-plans/README.md) — one implementation plan per task, written before work starts
 
 F15-T12 made the camera's guide box *responsive* — the same share of the
 preview on every screen. It still does not know where the paper is: it sits in
@@ -51,7 +52,7 @@ in the task rows.
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F16-T01 | Branch + doc scaffold | Branch `feature/live-edge-detection` off `feature/document-crop`; this doc + `docs/features/README.md` row added | DONE |
-| 2 | F16-T02 | `DocumentQuad` entity + detector interface | Immutable 4-corner quad in normalised (0..1) frame coordinates, with `boundingRect` → `UnitRect` and ordering/validity helpers (convex, non-degenerate, corners sorted TL/TR/BR/BL); `DocumentEdgeDetector` interface in `domain/services`, pure Dart, returns `Result<DocumentQuad?, AppFailure>`; unit tests for the geometry helpers | TODO |
+| 2 | F16-T02 | `DocumentQuad` entity + detector interface | Immutable 4-corner quad in normalised (0..1) frame coordinates, with `boundingRect` → `UnitRect` and ordering/validity helpers (convex, non-degenerate, corners sorted TL/TR/BR/BL); `DocumentEdgeDetector` interface in `domain/services`, pure Dart, returns `Result<DocumentQuad?, AppFailure>`; unit tests for the geometry helpers | DONE |
 | 3 | F16-T03 | Pure-Dart detector | Luma plane → downscale (~160×120) → blur → Sobel → binarise → largest convex quad; runs in a background isolate; deterministic, injectable thresholds; unit tests against synthetic luma buffers (clean page, rotated page, no page, low contrast) rather than real photos | TODO |
 | 4 | F16-T04 | Camera stream plumbing | `imageFormatGroup` switched to a streamable format per platform (yuv420 / bgra8888) in `PlatformCameraService` with `takePicture` re-verified against the change; stream started/stopped with the existing lifecycle wiring; stream stopped before the shutter fires; frames throttled and **dropped** while a detection is in flight (never queued) | TODO |
 | 5 | F16-T05 | Frame → preview coordinate mapping | Detector output is in sensor space; map it into the preview widget's rect accounting for sensor orientation, front/back mirroring, and how `CameraPreview` fits the feed. Shares the preview-rect measurement already used by `_measureGuideBox`. Unit tests per orientation | TODO |
