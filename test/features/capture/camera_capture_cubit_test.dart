@@ -19,6 +19,7 @@ import 'package:war2aty/features/capture/domain/usecases/start_frame_stream.dart
 import 'package:war2aty/features/capture/domain/usecases/stop_frame_stream.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_state.dart';
+import 'package:war2aty/features/capture/presentation/cubit/detection_budget.dart';
 import 'package:war2aty/features/capture/presentation/models/detected_document.dart';
 
 import '../../support/fakes.dart';
@@ -670,6 +671,123 @@ void main() {
       expect(detector.detectCount, 0);
       camera.captureGate!.complete();
       await capturing;
+    });
+  });
+
+  group('CameraCaptureCubit · perf guard (F16-T09)', () {
+    CameraFrame frameFor() => CameraFrame(
+      bytes: Uint8List(0),
+      width: 640,
+      height: 480,
+      bytesPerRow: 640,
+      format: CameraFrameFormat.luma8,
+    );
+
+    const quad = DocumentQuad(
+      topLeft: UnitPoint(0.2, 0.2),
+      topRight: UnitPoint(0.8, 0.2),
+      bottomRight: UnitPoint(0.8, 0.8),
+      bottomLeft: UnitPoint(0.2, 0.8),
+    );
+
+    /// A budget that gives up after a single recorded detection, so the tests
+    /// do not have to simulate real elapsed time — the thresholds themselves
+    /// are covered in `detection_budget_test.dart`.
+    DetectionBudget immediate() => DetectionBudget(
+      budget: Duration.zero,
+      windowSize: 1,
+      consecutiveLateLimit: 1,
+    );
+
+    CameraCaptureCubit guardedCubit(
+      FakeCameraService camera,
+      FakeDocumentEdgeDetector detector, {
+      DetectionBudget? budget,
+    }) => CameraCaptureCubit(
+      preview: const FakeCameraPreview(),
+      initializeCamera: InitializeCamera(camera),
+      capturePhoto: CapturePhoto(camera),
+      cropToGuideBox: CropToGuideBox(CropImage(FakeImageCropper())),
+      disposeCamera: DisposeCamera(camera),
+      cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
+      startFrameStream: StartFrameStream(camera),
+      stopFrameStream: StopFrameStream(camera),
+      detectDocumentEdges: DetectDocumentEdges(detector),
+      detectionBudget: budget ?? immediate(),
+    );
+
+    test('a phone that cannot keep up stops the stream', () async {
+      final camera = FakeCameraService();
+      final cubit = guardedCubit(camera, FakeDocumentEdgeDetector(quad: quad));
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      expect(camera.stopStreamCount, greaterThanOrEqualTo(1));
+    });
+
+    test('giving up is silent — the static box, never an error', () async {
+      final camera = FakeCameraService();
+      final cubit = guardedCubit(camera, FakeDocumentEdgeDetector(quad: quad));
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      expect(cubit.state, const CameraReady());
+    });
+
+    test(
+      'no further frame reaches the detector once it has given up',
+      () async {
+        final camera = FakeCameraService();
+        final detector = FakeDocumentEdgeDetector(quad: quad);
+        final cubit = guardedCubit(camera, detector);
+        addTearDown(cubit.close);
+
+        await cubit.start();
+        final onFrame = camera.onFrame!;
+        await onFrame(frameFor());
+        await onFrame(frameFor());
+        await onFrame(frameFor());
+
+        expect(detector.detectCount, 1);
+      },
+    );
+
+    test('reopening the camera gives the phone another chance', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = guardedCubit(camera, detector);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+      expect(detector.detectCount, 1);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      expect(detector.detectCount, 2);
+    });
+
+    test('a detection well inside the budget changes nothing', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = guardedCubit(
+        camera,
+        detector,
+        budget: DetectionBudget(budget: const Duration(seconds: 10)),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+      await camera.deliverFrame(frameFor());
+
+      expect(detector.detectCount, 2);
+      expect((cubit.state as CameraReady).document, isNotNull);
     });
   });
 }

@@ -14,6 +14,7 @@ import '../../domain/usecases/start_frame_stream.dart';
 import '../../domain/usecases/stop_frame_stream.dart';
 import '../camera_preview_port.dart';
 import '../models/detected_document.dart';
+import 'detection_budget.dart';
 import 'camera_capture_state.dart';
 
 /// Drives the viewfinder: open the camera, take one photo, crop it to the
@@ -34,7 +35,9 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     required StartFrameStream startFrameStream,
     required StopFrameStream stopFrameStream,
     required DetectDocumentEdges detectDocumentEdges,
-  }) : _initializeCamera = initializeCamera,
+    DetectionBudget? detectionBudget,
+  }) : _budget = detectionBudget ?? DetectionBudget(),
+       _initializeCamera = initializeCamera,
        _capturePhoto = capturePhoto,
        _cropToGuideBox = cropToGuideBox,
        _disposeCamera = disposeCamera,
@@ -68,6 +71,14 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
 
   int _missStreak = 0;
 
+  /// Watches how long detection is taking and says when to stop (F16-T09).
+  final DetectionBudget _budget;
+
+  /// Latched once this session's detection has been abandoned, so no further
+  /// frame is even handed to the detector. Cleared by [start], since a phone
+  /// that has cooled down deserves another try.
+  bool _detectionDisabled = false;
+
   /// Advanced by every start/capture/suspend. An async action that finds the
   /// counter has moved on while it was awaiting drops its result silently, so a
   /// [suspend] (app backgrounded) can never be overwritten by a [start] or
@@ -85,6 +96,8 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     if (isClosed || generation != _generation) return;
 
     _missStreak = 0;
+    _detectionDisabled = false;
+    _budget.reset();
     emit(result.fold((_) => const CameraReady(), CameraCaptureError.new));
     if (result.isErr) return;
 
@@ -101,11 +114,19 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
   /// frame at a time and drops the rest, so there is no backlog to manage
   /// here (F16-T04).
   Future<void> _onFrame(CameraFrame frame) async {
-    if (isClosed || state is! CameraReady) return;
+    if (isClosed || _detectionDisabled || state is! CameraReady) return;
     final generation = _generation;
 
+    final stopwatch = Stopwatch()..start();
     final result = await _detectDocumentEdges(frame);
+    stopwatch.stop();
     if (isClosed || generation != _generation || state is! CameraReady) return;
+
+    _budget.record(stopwatch.elapsed);
+    if (_budget.shouldDisable) {
+      await _disableDetection();
+      return;
+    }
 
     final quad = result.valueOrNull;
     if (quad == null) {
@@ -125,6 +146,16 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
         frameAspect: frame.height == 0 ? 1 : frame.width / frame.height,
       ),
     );
+  }
+
+  /// Gives up on live detection for this session, silently: the stream stops,
+  /// the guide returns to its static box, and nothing is shown or logged
+  /// about it (F16 locked decision #4). Reopening the camera clears this.
+  Future<void> _disableDetection() async {
+    _detectionDisabled = true;
+    _missStreak = 0;
+    _publish(null);
+    await _stopFrameStream();
   }
 
   /// Emits only when the detection actually changed, so a phone held still
