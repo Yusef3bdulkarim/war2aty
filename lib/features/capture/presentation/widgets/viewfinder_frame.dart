@@ -24,12 +24,13 @@ const Duration _followDuration = Duration(milliseconds: 180);
 /// animates continuously, so any screen showing it must be pumped without
 /// `pumpAndSettle` in tests.
 ///
-/// When [quad] is given (F16), the guide leaves the middle of the screen and
-/// follows the detected document instead, gliding toward each new detection
-/// rather than snapping. `null` — no document, detection off, or detection
-/// failed — falls back to the static responsive box above, which is F16
-/// locked decision #4: the user is never shown a detection failure, only
-/// today's behaviour.
+/// When [quad] is given (F16), the detected document is painted **over** that
+/// box as feedback — "we can see your paper, here" — gliding toward each new
+/// detection rather than snapping. It never replaces the box: the T10 device
+/// pass found a detection collapsing to a sliver, and when the crop followed
+/// the quad it discarded most of a real page. `null` — no document, detection
+/// off, or detection failed — simply draws no overlay, which is F16 locked
+/// decision #4: the user is never shown a detection failure.
 class ViewfinderFrame extends StatefulWidget {
   const ViewfinderFrame({required this.frameKey, this.quad, super.key});
 
@@ -37,9 +38,9 @@ class ViewfinderFrame extends StatefulWidget {
   /// that is actually on screen instead of recomputing it from constants —
   /// the crop then follows the frame to whatever size it resolves to.
   ///
-  /// When a [quad] is being shown this rides on **the drawn quad's bounding
-  /// box**, which is what makes the capture crop follow the visible guide
-  /// (F16-T08) without a second geometry path.
+  /// This always rides on the **static** box, detection or not — it is what
+  /// the capture crop measures, and the quad is not reliable enough to decide
+  /// what is kept (F16-T08, reverted after T10).
   final GlobalKey frameKey;
 
   /// The detected document, in fractions of this widget's own box (already
@@ -64,6 +65,12 @@ class ViewfinderFrame extends StatefulWidget {
 
   /// The guide box's width ÷ height.
   static const double aspectRatio = _designWidth / _designHeight;
+
+  /// Marks the overlay that paints the detected quad, so tests can find it —
+  /// and read back the quad actually being drawn this frame — without the
+  /// widget having to expose its animation state.
+  @visibleForTesting
+  static const Key quadOverlayKey = Key('viewfinder-quad-overlay');
 
   /// The largest box with the design's proportions that fits inside [available]
   /// — normally bound by [widthFactor], and by the height on a short screen.
@@ -140,7 +147,16 @@ class _ViewfinderFrameState extends State<ViewfinderFrame>
       animation: _follow,
       builder: (context, _) {
         final quad = _currentQuad;
-        return quad == null ? _buildStaticBox() : _buildQuad(quad);
+        // The static box is always drawn and is always what carries
+        // [frameKey], because it is what the capture crop measures. The
+        // detected quad is painted *over* it as feedback — never instead of
+        // it (F16-T08 reverted; see the feature doc's Risks).
+        return Stack(
+          children: [
+            Positioned.fill(child: _buildStaticBox()),
+            if (quad != null) Positioned.fill(child: _buildQuadOverlay(quad)),
+          ],
+        );
       },
     );
   }
@@ -185,46 +201,29 @@ class _ViewfinderFrameState extends State<ViewfinderFrame>
     );
   }
 
-  /// The guide sitting on the detected document: the same faint field, the
-  /// same mint brackets and the same scan line as the static box, but drawn
-  /// on the paper's real corners so the brackets rotate with it.
-  Widget _buildQuad(DocumentQuad quad) {
+  /// The detected document, painted over the static guide box as feedback:
+  /// "we can see your paper, here". It deliberately carries **no**
+  /// [frameKey] and no scan line — it is not the framing the capture uses.
+  ///
+  /// F16-T08 originally put the crop on this quad's bounding box, so what was
+  /// framed was what was kept. The T10 device pass killed that: a detection
+  /// that collapsed to a sliver cropped a real capture down to a strip and
+  /// silently discarded most of the page. The quad is not reliable enough to
+  /// decide what is kept, so it is back to being purely what is *drawn* —
+  /// F16 locked decision #1, read literally.
+  Widget _buildQuadOverlay(DocumentQuad quad) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.biggest;
-        if (!size.isFinite || size.isEmpty) return _buildStaticBox();
+        if (!size.isFinite || size.isEmpty) return const SizedBox.shrink();
 
         final rect = quad.boundingRect;
-        final left = rect.left * size.width;
-        final top = rect.top * size.height;
-        final width = (rect.right - rect.left) * size.width;
-        final height = (rect.bottom - rect.top) * size.height;
-        // Degenerate detections are drawn as nothing rather than as a sliver;
-        // the crop guards the same case independently (F16-T08).
-        if (width <= 0 || height <= 0) return _buildStaticBox();
+        // A collapsed detection is drawn as nothing rather than as a sliver.
+        if (rect.width <= 0 || rect.height <= 0) return const SizedBox.shrink();
 
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _QuadPainter(
-                  quad: quad,
-                  mint: AppColors.of(context).mint,
-                ),
-              ),
-            ),
-            // The bounding box the capture crop measures. It carries no paint
-            // of its own — the painter above draws the real shape — but it is
-            // what `_measureGuideBox` reads, so the crop follows the guide
-            // the user actually saw (F16-T08).
-            Positioned(
-              left: left,
-              top: top,
-              width: width,
-              height: height,
-              child: SizedBox(key: widget.frameKey, child: const _ScanLine()),
-            ),
-          ],
+        return CustomPaint(
+          key: ViewfinderFrame.quadOverlayKey,
+          painter: QuadPainter(quad: quad, mint: AppColors.of(context).mint),
         );
       },
     );
@@ -234,8 +233,12 @@ class _ViewfinderFrameState extends State<ViewfinderFrame>
 /// Paints the detected document: a faint fill, a hairline outline, and one
 /// mint L-bracket at each corner, aligned to that corner's own two edges so
 /// the brackets turn with the paper.
-class _QuadPainter extends CustomPainter {
-  const _QuadPainter({required this.quad, required this.mint});
+///
+/// Public only so a widget test can read [quad] back and assert what is
+/// actually on screen this frame, mid-glide included.
+@visibleForTesting
+class QuadPainter extends CustomPainter {
+  const QuadPainter({required this.quad, required this.mint});
 
   final DocumentQuad quad;
   final Color mint;
@@ -292,7 +295,7 @@ class _QuadPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_QuadPainter oldDelegate) =>
+  bool shouldRepaint(QuadPainter oldDelegate) =>
       oldDelegate.quad != quad || oldDelegate.mint != mint;
 }
 

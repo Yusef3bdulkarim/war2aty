@@ -57,19 +57,6 @@ Future<void> _pumpQuad(
   await tester.pump();
 }
 
-/// The guide box's rect relative to the box the frame was given, so a quad's
-/// bounding box can be compared with the fractions it came from.
-Rect _guideRect(WidgetTester tester, GlobalKey frameKey) {
-  final frame = tester.getRect(find.byKey(frameKey));
-  final screen = tester.getRect(find.byType(ViewfinderFrame));
-  return Rect.fromLTWH(
-    frame.left - screen.left,
-    frame.top - screen.top,
-    frame.width,
-    frame.height,
-  );
-}
-
 /// A page filling the middle of the frame, tilted so a wrong rotation shows.
 const _quad = DocumentQuad(
   topLeft: UnitPoint(0.15, 0.25),
@@ -156,6 +143,13 @@ void main() {
     // the fractions below map onto exactly these numbers.
     const available = Size(360, 560);
 
+    /// The quad currently being painted, read off the overlay's painter.
+    DocumentQuad? drawnQuad(WidgetTester tester) {
+      final finder = find.byKey(ViewfinderFrame.quadOverlayKey);
+      if (finder.evaluate().isEmpty) return null;
+      return (tester.widget<CustomPaint>(finder).painter! as QuadPainter).quad;
+    }
+
     testWidgets('without a quad it is exactly the F15-T12 static box', (
       tester,
     ) async {
@@ -166,27 +160,31 @@ void main() {
         tester.getSize(find.byKey(frameKey)),
         ViewfinderFrame.resolveSize(available),
       );
+      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
     });
 
-    testWidgets('with a quad the guide box is the quad bounding rect', (
-      tester,
-    ) async {
-      final frameKey = GlobalKey();
-      await _pumpQuad(tester, available, _quad, frameKey);
+    testWidgets(
+      'a detected document does not move the guide box — it is painted over '
+      'it (F16-T08 reverted after the T10 device pass)',
+      (tester) async {
+        final frameKey = GlobalKey();
+        await _pumpQuad(tester, available, _quad, frameKey);
 
-      // This is the assertion F16-T08 depends on: the crop measures this very
-      // box, so the quad's bounds and the measured guide box must be one rect.
-      final rect = _guideRect(tester, frameKey);
-      expect(rect.left, closeTo(0.15 * available.width, 0.5));
-      expect(rect.top, closeTo(0.2 * available.height, 0.5));
-      expect(rect.width, closeTo(0.7 * available.width, 0.5));
-      expect(rect.height, closeTo(0.6 * available.height, 0.5));
-    });
+        // The box the capture crop measures stays the static one, whatever
+        // the detector thinks it sees. This is the assertion that keeps a
+        // collapsed quad from cropping the document away.
+        expect(
+          tester.getSize(find.byKey(frameKey)),
+          ViewfinderFrame.resolveSize(available),
+        );
+        expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsOneWidget);
+        expect(drawnQuad(tester), _quad);
+      },
+    );
 
     testWidgets('a new detection is glided to, not snapped to', (tester) async {
       final frameKey = GlobalKey();
       await _pumpQuad(tester, available, _quad, frameKey);
-      final before = _guideRect(tester, frameKey);
 
       const moved = DocumentQuad(
         topLeft: UnitPoint(0.05, 0.15),
@@ -196,23 +194,25 @@ void main() {
       );
       await _pumpQuad(tester, available, moved, frameKey);
       await tester.pump(const Duration(milliseconds: 60));
-      final during = _guideRect(tester, frameKey);
 
       // Part of the way there: neither where it was nor where it is going.
-      expect(during.left, lessThan(before.left));
-      expect(during.left, greaterThan(0.05 * available.width));
+      final during = drawnQuad(tester)!;
+      expect(during, isNot(_quad));
+      expect(during, isNot(moved));
+      expect(during.topLeft.x, lessThan(_quad.topLeft.x));
+      expect(during.topLeft.x, greaterThan(moved.topLeft.x));
 
       await tester.pump(const Duration(milliseconds: 200));
-      final after = _guideRect(tester, frameKey);
-      expect(after.left, closeTo(0.05 * available.width, 0.5));
+      expect(drawnQuad(tester), moved);
     });
 
-    testWidgets('losing the document returns the static box', (tester) async {
+    testWidgets('losing the document removes the overlay', (tester) async {
       final frameKey = GlobalKey();
       await _pumpQuad(tester, available, _quad, frameKey);
       await _pumpQuad(tester, available, null, frameKey);
       await tester.pump(const Duration(milliseconds: 200));
 
+      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
       expect(
         tester.getSize(find.byKey(frameKey)),
         ViewfinderFrame.resolveSize(available),
@@ -230,13 +230,16 @@ void main() {
         ltrKey,
         locale: AppLocalizations.english,
       );
-      final ltr = _guideRect(tester, ltrKey);
+      final ltr = drawnQuad(tester);
 
       final rtlKey = GlobalKey();
       await _pumpQuad(tester, available, _quad, rtlKey);
-      final rtl = _guideRect(tester, rtlKey);
 
-      expect(rtl, ltr);
+      expect(drawnQuad(tester), ltr);
+      expect(
+        tester.getSize(find.byKey(rtlKey)),
+        ViewfinderFrame.resolveSize(available),
+      );
     });
 
     testWidgets('Large Text leaves the geometry alone', (tester) async {
@@ -249,8 +252,11 @@ void main() {
         textScaler: const TextScaler.linear(2),
       );
 
-      final rect = _guideRect(tester, frameKey);
-      expect(rect.width, closeTo(0.7 * available.width, 0.5));
+      expect(drawnQuad(tester), _quad);
+      expect(
+        tester.getSize(find.byKey(frameKey)),
+        ViewfinderFrame.resolveSize(available),
+      );
       expect(tester.takeException(), isNull);
     });
 
@@ -265,10 +271,11 @@ void main() {
       );
 
       expect(find.byKey(frameKey), findsOneWidget);
+      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a degenerate quad falls back to the static box', (
+    testWidgets('a degenerate quad paints nothing and keeps the box', (
       tester,
     ) async {
       final frameKey = GlobalKey();
@@ -280,6 +287,7 @@ void main() {
       );
       await _pumpQuad(tester, available, collapsed, frameKey);
 
+      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
       expect(
         tester.getSize(find.byKey(frameKey)),
         ViewfinderFrame.resolveSize(available),

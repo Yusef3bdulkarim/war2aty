@@ -118,11 +118,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// guide box wherever and at whatever size it ends up (F15-T12) rather than
   /// re-deriving it from constants that then have to be kept in sync.
   ///
-  /// When live detection is showing a document (F16), that same key rides on
-  /// the **drawn** quad's bounding box, so this measures what the user was
-  /// actually looking at — mid-animation included — rather than the latest
-  /// detection in the cubit's state, which the guide may not have reached yet
-  /// (F16-T08).
+  /// Live detection never moves this box. F16-T08 originally put the crop on
+  /// the detected quad's bounding rect, and the T10 device pass killed that: a
+  /// detection that collapsed to a sliver cropped a real capture down to a
+  /// strip and silently discarded most of the page. The quad is painted over
+  /// the guide as feedback, but the box the user aligns the paper to — and the
+  /// region the crop keeps — stays the static one.
   ///
   /// Falls back to [UnitRect.full] (skips the crop) if either box hasn't
   /// been laid out yet or has a degenerate size — a capture must never be
@@ -137,24 +138,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
     final guideRect = frameObject.localToGlobal(Offset.zero) & frameObject.size;
 
-    final region = UnitRect(
+    return UnitRect(
       left: (guideRect.left - previewRect.left) / previewRect.width,
       top: (guideRect.top - previewRect.top) / previewRect.height,
       right: (guideRect.right - previewRect.left) / previewRect.width,
       bottom: (guideRect.bottom - previewRect.top) / previewRect.height,
     ).clamped();
-
-    // A detection can collapse to a sliver; keeping the whole photo is always
-    // recoverable, cropping to a hairline is not.
-    if (region.width < _minGuideExtent || region.height < _minGuideExtent) {
-      return UnitRect.full;
-    }
-    return region;
   }
-
-  /// The smallest share of the preview a guide box may cover before the crop
-  /// declines to follow it.
-  static const double _minGuideExtent = 0.1;
 
   /// The live preview's real rendered rect in global coordinates, or `null`
   /// when it has not been laid out (or came out degenerate).

@@ -28,6 +28,12 @@ in the task rows.
    margin of F15 locked decision #2), and `doclens` keeps doing the real
    edge-detect/dewarp on the file afterwards. F15's pipeline is not
    restructured.
+   > **Amended after T10 (2026-08-31).** F16-T08 read "the guide box" as the
+   > *detected* quad and pointed the crop at it. On a real device a collapsed
+   > detection then cropped a capture down to a strip and discarded ~85% of the
+   > page. The crop is now always the **static** box; the quad is drawn over it
+   > and never decides what is kept. Read this decision literally: the quad
+   > drives what is drawn, and only that.
 2. **Pure-Dart detector, no new package.** Detection runs on the camera's luma
    plane in-process. No OpenCV, no native detector, and specifically no
    third-party scanner package — those ship their own full-screen camera UI,
@@ -58,7 +64,7 @@ in the task rows.
 | 5 | F16-T05 | Frame → preview coordinate mapping | Detector output is in sensor space; map it into the preview widget's rect accounting for sensor orientation, front/back mirroring, and how `CameraPreview` fits the feed. Shares the preview-rect measurement already used by `_measureGuideBox`. Unit tests per orientation | DONE |
 | 6 | F16-T06 | Guide box follows the quad | `ViewfinderFrame` draws the detected quad (brackets on its corners) and interpolates toward each new detection so it doesn't jitter; a detection that drops out briefly holds the last quad instead of snapping; falls back to the F15-T12 static box per locked decision #4. Widget tests incl. RTL, Large Text, High Contrast | DONE |
 | 7 | F16-T07 | Cubit/state wiring | Detection state exposed through the capture cubit via a use case (locked decision #5); no `BuildContext` in the cubit; detection lifecycle tied to the camera's; cubit tests | DONE |
-| 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | DONE |
+| 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | **REVERTED** — shipped, then undone after the T10 device pass found it cropping ~85% of a real page away. The crop is the static box again; `frameKey` rides on it whatever the detector sees. Tests now assert the inverse, including a regression test built from the collapsed quad T10 caught |
 | 9 | F16-T09 | Perf & thermal guard | Detection auto-disables (silently, per locked decision #4) when frames are consistently late or the isolate can't keep up; measured frame budget documented; no jank on the shutter path | DONE (device numbers land in T10) |
 | 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **BLOCKED** — see [Device pass](#device-pass-f16-t10). The infrastructure legs all pass (T04 shutter re-verification, live YUV stream, no-document fallback, RTL/Large Text/High Contrast, thermals, perf guard). The document legs found a **blocking defect**: a collapsed quad cropped a real capture down to a narrow strip and silently discarded ~85% of the page. Detection quality is also poor under shadow and skew, while the *documented* weak point (white on light) turned out to be the best case. Needs the Risks decision before this task can close |
 
@@ -183,8 +189,8 @@ Checklist: [`F16-plans/F16-T10.md`](F16-plans/F16-T10.md).
 
 ## Risks
 
-- **The crop following the quad is unsafe at the detector's current quality
-  (found in T10, open).** A collapsed detection cropped a real capture down to a
+- **The crop following the quad was unsafe at the detector's current quality
+  (found in T10 — RESOLVED by reverting T08).** A collapsed detection cropped a real capture down to a
   narrow strip and silently discarded ~85% of the page. Whichever way this is
   resolved, it must be resolved before F16 ships. The options:
   1. **Revert T08** — the quad becomes purely what is *drawn*, and the capture
