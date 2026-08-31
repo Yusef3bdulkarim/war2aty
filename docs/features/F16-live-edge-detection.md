@@ -60,7 +60,7 @@ in the task rows.
 | 7 | F16-T07 | Cubit/state wiring | Detection state exposed through the capture cubit via a use case (locked decision #5); no `BuildContext` in the cubit; detection lifecycle tied to the camera's; cubit tests | DONE |
 | 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | DONE |
 | 9 | F16-T09 | Perf & thermal guard | Detection auto-disables (silently, per locked decision #4) when frames are consistently late or the isolate can't keep up; measured frame budget documented; no jank on the shutter path | DONE (device numbers land in T10) |
-| 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **TODO — needs the phone.** Off-device checks done: no frame path touches disk or logs content (diff grepped for `File(`/`writeAs`/`encodeJpg`/`getTemporaryDirectory`/`print`/`log` — none), no new package, no new user-facing copy (so no provider name can leak), `flutter build apk --debug` passes with T04's `imageFormatGroup` change, and `dart format`/`flutter analyze`/`flutter test` are clean. Still outstanding and **not** substitutable by tests: the 8 real-paper scenes, the shutter re-verification carried over from T04, and the battery/heat run. Checklist ready in [`F16-plans/F16-T10.md`](F16-plans/F16-T10.md); the device (ELS NX9) disconnected mid-session |
+| 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **PARTIAL** — see [Device pass](#device-pass-f16-t10). Verified on RMX2001/Android 11: T04's carried-over shutter check passes, the YUV frame stream is genuinely live (~30 fps, 9,061 frames over 5 min), the no-document fallback holds, RTL/Large Text/High Contrast all pass, thermals plateau near 40 °C, and the perf guard never fired. **Open:** the eight real-paper scenes — the detector has never been observed locking onto an actual document, only its no-document fallback — and battery drain off-charge |
 
 ## Measured budget (F16-T09)
 
@@ -74,7 +74,66 @@ The guard's numbers, and what they were set against.
 | Algorithm + `Isolate.run` round trip, same machine | **~1.9 ms** median |
 | Isolate strategy | `Isolate.run` per frame, bytes shipped as `TransferableTypedData`. The measured spawn+transfer overhead is ~0.2 ms — about 0.2% of the budget — so a persistent worker isolate was **not** needed. If the device pass shows otherwise, only `DartDocumentEdgeDetector` changes; T03 keeps the algorithm in a separate pure file for exactly this |
 | Auto-disable | median over budget across 10 detections, **or** 5 consecutive detections over 2× budget. Silent: stream stops, guide returns to the static box, nothing shown or logged (locked decision #4). Reopening the camera clears it |
-| Device numbers | pending T10 |
+| Device numbers (RMX2001, Android 11) | camera screen at 266% of 800% CPU on a profile build (276% on debug — so this is the camera pipeline, not Dart); YUV stream sustained ~30 fps for 5 min with the guard never firing; thermals plateau near 40 degrees C. The detection work was not isolated from the camera baseline, so that figure is the screen total, not F16 cost |
+
+## Device pass (F16-T10)
+
+Run on **RMX2001, Android 11**, dev flavor, against the local Supabase stack
+reached over USB via `adb reverse tcp:54321` (the phone's Wi-Fi was on a
+different network, and the reverse tunnel removes the LAN dependency from the
+dev-run recipe entirely). Both a **debug** and a **profile** build were
+exercised.
+
+### Verified on the device
+
+| Check | Result |
+|---|---|
+| Launch → splash → home | Passes; anonymous auth reaches the local stack |
+| Live preview under the new `imageFormatGroup` | Runs; no error in logcat |
+| **T04's carried-over shutter check** | **Passes** — shutter fires, the JPEG comes back upright and correctly sized, and the crop screen opens on it. This was the one real regression risk in F16 |
+| Guide-box crop still applied | The captured image is the guide box + the 20% margin, as before F16 |
+| Frame stream genuinely live | `dumpsys media.camera` shows three output streams: `ImageReader 1280×720 format 0x11` (YUV_420_888 — the detection stream), `0x21` (JPEG still), `0x23` (preview). The YUV stream produced **9,061 frames over 5 minutes (~30 fps)** |
+| Throttle behaviour | The camera offers ~30 fps; `FrameThrottle` admits ~8/s and drops the rest, exactly as designed |
+| No-document fallback (locked decision #4) | The scene held no paper, and the guide stayed as F15-T12's static box for the whole run — never a flicker, never an error |
+| RTL | Correct throughout |
+| Large Text («كبير جدًا») | Guide geometry unchanged; the Arabic hint scales and still fits its pill; no overflow. Set through the app's own setting (F11-T05) rather than system settings, which is what F15-T10 could not do |
+| High Contrast («تباين عالي») | Brackets take the high-contrast palette; state is still carried by the brackets' shape and position, never by colour alone |
+| Perf-guard did **not** fire | The YUV stream never stopped across the 5-minute soak, so `DetectionBudget` never silently disabled detection — the phone kept inside budget |
+
+### Thermal / battery soak — 5 minutes of continuous preview + detection
+
+| t | battery temp | YUV frames |
+|---|---|---|
+| 0 min | 38.1 °C | 1,889 |
+| 1 min | 38.7 °C | 3,701 |
+| 2 min | 39.3 °C | 5,447 |
+| 3 min | 39.8 °C | 7,258 |
+| 4 min | 40.0 °C | 9,129 |
+| 5 min | 40.2 °C | 10,950 |
+
+The rise flattens (+0.6, +0.6, +0.5, +0.2, +0.2 °C per minute) — a plateau near
+40 °C rather than a runaway — and the phone fell back to 39.1 °C within a
+minute of leaving the camera. **Battery drain was not measurable on this run:
+the phone was on charge throughout (24% → 28%), so that half of the check is
+still open.**
+
+App CPU on the camera screen: **266%** of 800% (8 cores) on the profile build,
+276% on debug — the closeness of the two says this is the camera pipeline and
+the YUV stream delivery, not Dart. On the home screen the app sits at 0%. The
+detection work itself was not isolated from the camera baseline (that would
+need a build with the stream removed), so this number is *the camera screen's
+total*, not the cost F16 adds.
+
+### Still open — needs paper in front of the lens
+
+The eight real-document scenes are the heart of this task and **cannot** be
+substituted by anything above: white page on a light desk (the hard case F16's
+Risks names), angled, partially shadowed, low light, a receipt, a page with a
+coloured border, and a no-document control. Nothing in this run ever put a
+document in frame, so **the detector has never been observed locking onto a
+real page** — only its correct no-document fallback. Whether the quad tracks,
+jitters, or flickers is unmeasured. Battery drain off-charge is likewise still
+open. Checklist: [`F16-plans/F16-T10.md`](F16-plans/F16-T10.md).
 
 ## Risks
 
