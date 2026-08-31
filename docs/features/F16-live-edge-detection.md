@@ -60,7 +60,7 @@ in the task rows.
 | 7 | F16-T07 | Cubit/state wiring | Detection state exposed through the capture cubit via a use case (locked decision #5); no `BuildContext` in the cubit; detection lifecycle tied to the camera's; cubit tests | DONE |
 | 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | DONE |
 | 9 | F16-T09 | Perf & thermal guard | Detection auto-disables (silently, per locked decision #4) when frames are consistently late or the isolate can't keep up; measured frame budget documented; no jank on the shutter path | DONE (device numbers land in T10) |
-| 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **PARTIAL** — see [Device pass](#device-pass-f16-t10). Verified on RMX2001/Android 11: T04's carried-over shutter check passes, the YUV frame stream is genuinely live (~30 fps, 9,061 frames over 5 min), the no-document fallback holds, RTL/Large Text/High Contrast all pass, thermals plateau near 40 °C, and the perf guard never fired. **Open:** the eight real-paper scenes — the detector has never been observed locking onto an actual document, only its no-document fallback — and battery drain off-charge |
+| 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **BLOCKED** — see [Device pass](#device-pass-f16-t10). The infrastructure legs all pass (T04 shutter re-verification, live YUV stream, no-document fallback, RTL/Large Text/High Contrast, thermals, perf guard). The document legs found a **blocking defect**: a collapsed quad cropped a real capture down to a narrow strip and silently discarded ~85% of the page. Detection quality is also poor under shadow and skew, while the *documented* weak point (white on light) turned out to be the best case. Needs the Risks decision before this task can close |
 
 ## Measured budget (F16-T09)
 
@@ -124,18 +124,81 @@ detection work itself was not isolated from the camera baseline (that would
 need a build with the stream removed), so this number is *the camera screen's
 total*, not the cost F16 adds.
 
-### Still open — needs paper in front of the lens
+### Real-document scenes
 
-The eight real-document scenes are the heart of this task and **cannot** be
-substituted by anything above: white page on a light desk (the hard case F16's
-Risks names), angled, partially shadowed, low light, a receipt, a page with a
-coloured border, and a no-document control. Nothing in this run ever put a
-document in frame, so **the detector has never been observed locking onto a
-real page** — only its correct no-document fallback. Whether the quad tracks,
-jitters, or flickers is unmeasured. Battery drain off-charge is likewise still
-open. Checklist: [`F16-plans/F16-T10.md`](F16-plans/F16-T10.md).
+Run over two handwritten notebook pages on three surfaces, ~20 preview frames
+and 4 captures.
+
+| Scene | What the guide did |
+|---|---|
+| Page on a cluttered surface (laptop + patterned fabric) | Locks on and tracks, but corners collapse inward — the quad is often a wedge covering 60% of the page rather than its rectangle |
+| Page on a plain dark desk, hard shadow across it | **Worst case.** Same wedge failure, and unstable frame to frame: two samples three seconds apart on a near-static scene gave a large wedge and then a sliver over ~15% of the page |
+| White page on a white textured surface, square-on, even light | **Best case** — a clean, accurate, stable rectangle inset a few percent from the page edge, holding steady across the burst |
+| Dark/empty scene | Correct fallback to the static box, no wild quad |
+
+The documented expectation is inverted: **low contrast was not the weak point.**
+A white page on a white sheet gave the cleanest detection of the whole run. The
+real weak points are a **hard shadow across the page** and **perspective skew**,
+neither of which F16's Risks anticipated. The likely mechanism is the
+largest-connected-component step swallowing the shadow boundary as if it were
+part of the page outline, which then drags a hull vertex and survives the
+reduce-to-four-corners step.
+
+### Defect found: the crop can discard most of the document
+
+**On a capture taken moments after a clean full-page detection, the kept image
+was a narrow horizontal strip — the last two lines of the page. The top ~85%,
+which held all of the content, was gone.**
+
+The arithmetic leaves only one explanation: a collapsed quad drove the crop. The
+static box would have produced a tall portrait region, and `UnitRect.full` would
+have kept the whole photo; only a quad bounding rect can produce a ~4:1 strip.
+T08's minimum-extent guard did not catch it, because a strip that spans most of
+the frame's width and ~15% of its height clears a 10%-per-axis floor.
+
+This is a **functional regression against F15**, where the crop was the static
+box the user had aligned the paper to. It is not recoverable downstream: F15-T04
+runs `doclens` *after* the guide-box crop, and the preview screen's drag handles
+can only shrink the selection further, so the discarded pixels are gone before
+anything else sees them. It is also silent — nothing tells the user their
+document was cut.
+
+The safety argument in F16 locked decision #1 (an imperfect quad is harmless
+because the crop keeps a 20% margin) holds only while the quad is roughly
+page-shaped. A 20% margin on a sliver is still a sliver. Two earlier captures on
+visibly-wrong-but-page-sized quads did keep the whole page, which is why this
+did not show up until a quad collapsed.
+
+**This needs a decision before F16 ships** — see the Risks section.
+
+### Still open
+
+- **The crop defect above** — open, and blocking. See Risks.
+- **Battery drain off-charge** — the phone was on charge for the whole soak.
+- **Remaining scenes** — low light, a receipt, and a page with a coloured
+  border were not reached; the run stopped once the crop defect was reproduced,
+  since that decides whether the feature ships at all.
+
+Checklist: [`F16-plans/F16-T10.md`](F16-plans/F16-T10.md).
 
 ## Risks
+
+- **The crop following the quad is unsafe at the detector's current quality
+  (found in T10, open).** A collapsed detection cropped a real capture down to a
+  narrow strip and silently discarded ~85% of the page. Whichever way this is
+  resolved, it must be resolved before F16 ships. The options:
+  1. **Revert T08** — the quad becomes purely what is *drawn*, and the capture
+     crop goes back to the static guide box. Costs the "what was framed is what
+     is kept" promise, restores F15's behaviour exactly, and is the smallest
+     change.
+  2. **Gate the crop on a plausible, settled quad** — require a minimum area
+     against the *preview* (not just 10% per axis), a document-like aspect
+     ratio, and N consecutive similar detections before the quad is allowed to
+     drive the crop; otherwise fall back to the static box. Keeps the feature,
+     adds a real stability requirement the current detector may not meet.
+  3. **Fix the detector first** — the shadow/skew failure is the root cause;
+     until corner accuracy and frame-to-frame stability improve, any crop built
+     on it inherits the risk.
 
 - **Accuracy on low contrast** (a white page on a pale surface) is the known
   weak point of a hand-rolled detector and cannot be settled before T10.
