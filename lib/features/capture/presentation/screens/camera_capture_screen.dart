@@ -46,11 +46,6 @@ class CameraCaptureScreen extends StatefulWidget {
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with WidgetsBindingObserver, RouteAware {
-  /// Sits on the guide box inside [ViewfinderFrame]. Used with [_previewKey]
-  /// to measure the guide box's position as a fraction of what the camera
-  /// actually captured (F15-T03).
-  final GlobalKey _frameKey = GlobalKey();
-
   /// Wraps the live preview widget itself, so its real rendered rect (after
   /// `CameraPreview`'s internal aspect-ratio fit) can be measured.
   final GlobalKey _previewKey = GlobalKey();
@@ -104,54 +99,21 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     context.read<CameraCaptureCubit>().start();
   }
 
-  /// Measures the guide box, then fires the shutter.
+  /// Fires the shutter.
+  ///
+  /// The whole frame is kept: there is no static guide box to crop to any
+  /// more, and the detected quad is not reliable enough to crop to — the T10
+  /// device pass had it collapse to a sliver and discard most of a page.
+  /// `doclens` still does the real edge-detect/dewarp on the captured file, on
+  /// the full photo rather than a pre-cropped one.
   void _capture() {
-    context.read<CameraCaptureCubit>().capture(guideBox: _measureGuideBox());
-  }
-
-  /// The guide box's position as a fraction of the live preview's own
-  /// rendered rect — not the whole screen — so the crop lines up with what
-  /// was actually captured regardless of screen size or how `CameraPreview`
-  /// fits its feed inside the available space.
-  ///
-  /// Both rects are read off the real render tree, so the crop follows the
-  /// guide box wherever and at whatever size it ends up (F15-T12) rather than
-  /// re-deriving it from constants that then have to be kept in sync.
-  ///
-  /// Live detection never moves this box. F16-T08 originally put the crop on
-  /// the detected quad's bounding rect, and the T10 device pass killed that: a
-  /// detection that collapsed to a sliver cropped a real capture down to a
-  /// strip and silently discarded most of the page. The quad is painted over
-  /// the guide as feedback, but the box the user aligns the paper to — and the
-  /// region the crop keeps — stays the static one.
-  ///
-  /// Falls back to [UnitRect.full] (skips the crop) if either box hasn't
-  /// been laid out yet or has a degenerate size — a capture must never be
-  /// blocked on a measurement glitch.
-  UnitRect _measureGuideBox() {
-    final frameObject = _frameKey.currentContext?.findRenderObject();
-    if (frameObject is! RenderBox || !frameObject.hasSize) {
-      return UnitRect.full;
-    }
-    final previewRect = _measurePreview();
-    if (previewRect == null) return UnitRect.full;
-
-    final guideRect = frameObject.localToGlobal(Offset.zero) & frameObject.size;
-
-    return UnitRect(
-      left: (guideRect.left - previewRect.left) / previewRect.width,
-      top: (guideRect.top - previewRect.top) / previewRect.height,
-      right: (guideRect.right - previewRect.left) / previewRect.width,
-      bottom: (guideRect.bottom - previewRect.top) / previewRect.height,
-    ).clamped();
+    context.read<CameraCaptureCubit>().capture(guideBox: UnitRect.full);
   }
 
   /// The live preview's real rendered rect in global coordinates, or `null`
   /// when it has not been laid out (or came out degenerate).
   ///
-  /// The one place that rect is read: the guide-box measurement above and the
-  /// detected-quad overlay (F16-T05) both need it, and two copies of this
-  /// would be two things to keep in sync.
+  /// The detected-quad overlay needs it to map out of sensor space (F16-T05).
   Rect? _measurePreview() {
     final previewObject = _previewKey.currentContext?.findRenderObject();
     if (previewObject is! RenderBox || !previewObject.hasSize) return null;
@@ -218,7 +180,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 quad: _quadForPreview(state),
                 onClose: widget.onClose,
                 onShutter: _capture,
-                frameKey: _frameKey,
                 previewKey: _previewKey,
               ),
             },
@@ -236,7 +197,6 @@ class _Viewfinder extends StatelessWidget {
     required this.quad,
     required this.onClose,
     required this.onShutter,
-    required this.frameKey,
     required this.previewKey,
   });
 
@@ -248,10 +208,8 @@ class _Viewfinder extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback onShutter;
 
-  /// See `_CameraCaptureScreenState`'s fields of the same name — used to
-  /// measure the guide box against the live preview's real rect at capture
-  /// time (F15-T03).
-  final GlobalKey frameKey;
+  /// See `_CameraCaptureScreenState`'s field of the same name — wraps the
+  /// live preview so the detected quad can be drawn in its coordinates.
   final GlobalKey previewKey;
 
   @override
@@ -274,9 +232,7 @@ class _Viewfinder extends StatelessWidget {
                 child: Stack(
                   children: [
                     context.read<CameraCaptureCubit>().preview.build(context),
-                    Positioned.fill(
-                      child: ViewfinderFrame(frameKey: frameKey, quad: quad),
-                    ),
+                    Positioned.fill(child: ViewfinderFrame(quad: quad)),
                   ],
                 ),
               ),

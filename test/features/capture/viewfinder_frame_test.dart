@@ -8,35 +8,29 @@ import 'package:war2aty/features/capture/presentation/widgets/viewfinder_frame.d
 
 import '../../support/pump_app.dart';
 
-/// The design's own camera comp (`Waraqti.dc.html` → `camera`): a 290×380
-/// guide box on a 368 pt-wide screen — a 390×844 device mock with an 11 pt
-/// bezel on each side.
-const _designScreen = Size(368, 822);
-const _designWidth = 290.0;
-const _designHeight = 380.0;
+/// Fits inside the 800x600 test surface, so the box is not clamped and the
+/// fractions below map onto exactly these numbers.
+const _available = Size(360, 560);
 
-/// Pumps a [ViewfinderFrame] filling a box of [available] and returns the
-/// guide box's resolved size.
+/// A page filling the middle of the frame, tilted so a wrong rotation shows.
+const _quad = DocumentQuad(
+  topLeft: UnitPoint(0.15, 0.25),
+  topRight: UnitPoint(0.8, 0.2),
+  bottomRight: UnitPoint(0.85, 0.75),
+  bottomLeft: UnitPoint(0.2, 0.8),
+);
+
+/// Pumps a [ViewfinderFrame] filling a box of [_available].
 ///
-/// The frame's scan line animates forever, so this never settles.
-Future<Size> _pumpFrame(WidgetTester tester, Size available) async {
-  final frameKey = GlobalKey();
-  await _pumpQuad(tester, available, null, frameKey);
-  return tester.getSize(find.byKey(frameKey));
-}
-
-/// Pumps a frame following [quad] (or the static box when it is `null`) and
-/// leaves it on screen for the caller to measure or re-pump.
+/// The scan line animates forever, so this never settles.
 Future<void> _pumpQuad(
   WidgetTester tester,
-  Size available,
-  DocumentQuad? quad,
-  GlobalKey frameKey, {
+  DocumentQuad? quad, {
   Locale locale = AppLocalizations.arabic,
   TextScaler? textScaler,
   AppColors? palette,
 }) async {
-  Widget frame = ViewfinderFrame(frameKey: frameKey, quad: quad);
+  Widget frame = ViewfinderFrame(quad: quad);
   if (palette != null) {
     frame = AppColorsScope(colors: palette, child: frame);
   }
@@ -45,8 +39,8 @@ Future<void> _pumpQuad(
     tester,
     Center(
       child: SizedBox(
-        width: available.width,
-        height: available.height,
+        width: _available.width,
+        height: _available.height,
         child: frame,
       ),
     ),
@@ -57,134 +51,39 @@ Future<void> _pumpQuad(
   await tester.pump();
 }
 
-/// A page filling the middle of the frame, tilted so a wrong rotation shows.
-const _quad = DocumentQuad(
-  topLeft: UnitPoint(0.15, 0.25),
-  topRight: UnitPoint(0.8, 0.2),
-  bottomRight: UnitPoint(0.85, 0.75),
-  bottomLeft: UnitPoint(0.2, 0.8),
-);
+/// The quad currently being painted, read off the overlay's painter.
+DocumentQuad? _drawnQuad(WidgetTester tester) {
+  final finder = find.descendant(
+    of: find.byKey(ViewfinderFrame.quadOverlayKey),
+    matching: find.byType(CustomPaint),
+  );
+  if (finder.evaluate().isEmpty) return null;
+  return (tester.widget<CustomPaint>(finder.first).painter! as QuadPainter)
+      .quad;
+}
 
 void main() {
   group('ViewfinderFrame', () {
-    testWidgets('reproduces the design comp exactly at the design size', (
+    testWidgets('draws nothing at all when no document is detected', (
       tester,
     ) async {
-      final size = await _pumpFrame(tester, _designScreen);
+      await _pumpQuad(tester, null);
 
-      expect(size.width, closeTo(_designWidth, 0.5));
-      expect(size.height, closeTo(_designHeight, 0.5));
-    });
-
-    testWidgets('keeps the same share of the width on a narrower screen', (
-      tester,
-    ) async {
-      // A small phone — the old fixed 290 pt box took 91% of this width and
-      // left almost no margin.
-      const available = Size(320, 700);
-      final size = await _pumpFrame(tester, available);
-
-      expect(
-        size.width / available.width,
-        closeTo(_designWidth / _designScreen.width, 0.001),
-        reason: 'the framing should be the same share of the preview',
-      );
-      expect(size.width, lessThan(_designWidth));
-    });
-
-    testWidgets('keeps the same share of the width on a wider screen', (
-      tester,
-    ) async {
-      const available = Size(430, 900);
-      final size = await _pumpFrame(tester, available);
-
-      expect(
-        size.width / available.width,
-        closeTo(_designWidth / _designScreen.width, 0.001),
-      );
-      expect(size.width, greaterThan(_designWidth));
-    });
-
-    testWidgets('holds the design proportions at every size', (tester) async {
-      for (final available in const [
-        _designScreen,
-        Size(320, 700),
-        Size(430, 900),
-        Size(400, 300),
-      ]) {
-        final size = await _pumpFrame(tester, available);
-        expect(
-          size.width / size.height,
-          closeTo(_designWidth / _designHeight, 0.001),
-          reason: 'proportions must not drift at $available',
-        );
-      }
-    });
-
-    testWidgets('the height binds instead of the width on a short screen', (
-      tester,
-    ) async {
-      // 400 × 0.788 = 315 wide would need 413 of height — only 300 is on
-      // offer, so the box must shrink to fit rather than overflow.
-      const available = Size(400, 300);
-      final size = await _pumpFrame(tester, available);
-
-      expect(size.height, closeTo(available.height, 0.5));
-      expect(
-        size.width,
-        lessThan(available.width * ViewfinderFrame.widthFactor),
-      );
+      // The static guide box is gone for good: with no detection there is no
+      // frame on screen, not a fallback rectangle.
+      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
       expect(tester.takeException(), isNull);
     });
-  });
 
-  group('ViewfinderFrame following a detected document (F16-T06)', () {
-    // Fits inside the 800x600 test surface, so the box is not clamped and
-    // the fractions below map onto exactly these numbers.
-    const available = Size(360, 560);
+    testWidgets('draws the detected document', (tester) async {
+      await _pumpQuad(tester, _quad);
 
-    /// The quad currently being painted, read off the overlay's painter.
-    DocumentQuad? drawnQuad(WidgetTester tester) {
-      final finder = find.byKey(ViewfinderFrame.quadOverlayKey);
-      if (finder.evaluate().isEmpty) return null;
-      return (tester.widget<CustomPaint>(finder).painter! as QuadPainter).quad;
-    }
-
-    testWidgets('without a quad it is exactly the F15-T12 static box', (
-      tester,
-    ) async {
-      final frameKey = GlobalKey();
-      await _pumpQuad(tester, available, null, frameKey);
-
-      expect(
-        tester.getSize(find.byKey(frameKey)),
-        ViewfinderFrame.resolveSize(available),
-      );
-      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
+      expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsOneWidget);
+      expect(_drawnQuad(tester), _quad);
     });
 
-    testWidgets(
-      'a detected document does not move the guide box — it is painted over '
-      'it (F16-T08 reverted after the T10 device pass)',
-      (tester) async {
-        final frameKey = GlobalKey();
-        await _pumpQuad(tester, available, _quad, frameKey);
-
-        // The box the capture crop measures stays the static one, whatever
-        // the detector thinks it sees. This is the assertion that keeps a
-        // collapsed quad from cropping the document away.
-        expect(
-          tester.getSize(find.byKey(frameKey)),
-          ViewfinderFrame.resolveSize(available),
-        );
-        expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsOneWidget);
-        expect(drawnQuad(tester), _quad);
-      },
-    );
-
     testWidgets('a new detection is glided to, not snapped to', (tester) async {
-      final frameKey = GlobalKey();
-      await _pumpQuad(tester, available, _quad, frameKey);
+      await _pumpQuad(tester, _quad);
 
       const moved = DocumentQuad(
         topLeft: UnitPoint(0.05, 0.15),
@@ -192,106 +91,63 @@ void main() {
         bottomRight: UnitPoint(0.75, 0.65),
         bottomLeft: UnitPoint(0.1, 0.7),
       );
-      await _pumpQuad(tester, available, moved, frameKey);
+      await _pumpQuad(tester, moved);
       await tester.pump(const Duration(milliseconds: 60));
 
       // Part of the way there: neither where it was nor where it is going.
-      final during = drawnQuad(tester)!;
+      final during = _drawnQuad(tester)!;
       expect(during, isNot(_quad));
       expect(during, isNot(moved));
       expect(during.topLeft.x, lessThan(_quad.topLeft.x));
       expect(during.topLeft.x, greaterThan(moved.topLeft.x));
 
       await tester.pump(const Duration(milliseconds: 200));
-      expect(drawnQuad(tester), moved);
+      expect(_drawnQuad(tester), moved);
     });
 
-    testWidgets('losing the document removes the overlay', (tester) async {
-      final frameKey = GlobalKey();
-      await _pumpQuad(tester, available, _quad, frameKey);
-      await _pumpQuad(tester, available, null, frameKey);
+    testWidgets('losing the document clears the guide', (tester) async {
+      await _pumpQuad(tester, _quad);
+      await _pumpQuad(tester, null);
       await tester.pump(const Duration(milliseconds: 200));
 
       expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
-      expect(
-        tester.getSize(find.byKey(frameKey)),
-        ViewfinderFrame.resolveSize(available),
-      );
     });
 
     testWidgets('RTL does not mirror the quad — it is camera space', (
       tester,
     ) async {
-      final ltrKey = GlobalKey();
-      await _pumpQuad(
-        tester,
-        available,
-        _quad,
-        ltrKey,
-        locale: AppLocalizations.english,
-      );
-      final ltr = drawnQuad(tester);
+      await _pumpQuad(tester, _quad, locale: AppLocalizations.english);
+      final ltr = _drawnQuad(tester);
 
-      final rtlKey = GlobalKey();
-      await _pumpQuad(tester, available, _quad, rtlKey);
+      await _pumpQuad(tester, _quad);
 
-      expect(drawnQuad(tester), ltr);
-      expect(
-        tester.getSize(find.byKey(rtlKey)),
-        ViewfinderFrame.resolveSize(available),
-      );
+      expect(_drawnQuad(tester), ltr);
     });
 
     testWidgets('Large Text leaves the geometry alone', (tester) async {
-      final frameKey = GlobalKey();
-      await _pumpQuad(
-        tester,
-        available,
-        _quad,
-        frameKey,
-        textScaler: const TextScaler.linear(2),
-      );
+      await _pumpQuad(tester, _quad, textScaler: const TextScaler.linear(2));
 
-      expect(drawnQuad(tester), _quad);
-      expect(
-        tester.getSize(find.byKey(frameKey)),
-        ViewfinderFrame.resolveSize(available),
-      );
+      expect(_drawnQuad(tester), _quad);
       expect(tester.takeException(), isNull);
     });
 
     testWidgets('High Contrast renders without falling back', (tester) async {
-      final frameKey = GlobalKey();
-      await _pumpQuad(
-        tester,
-        available,
-        _quad,
-        frameKey,
-        palette: AppColors.highContrast,
-      );
+      await _pumpQuad(tester, _quad, palette: AppColors.highContrast);
 
-      expect(find.byKey(frameKey), findsOneWidget);
       expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('a degenerate quad paints nothing and keeps the box', (
-      tester,
-    ) async {
-      final frameKey = GlobalKey();
+    testWidgets('a degenerate quad paints nothing', (tester) async {
       const collapsed = DocumentQuad(
         topLeft: UnitPoint(0.5, 0.5),
         topRight: UnitPoint(0.5, 0.5),
         bottomRight: UnitPoint(0.5, 0.5),
         bottomLeft: UnitPoint(0.5, 0.5),
       );
-      await _pumpQuad(tester, available, collapsed, frameKey);
+      await _pumpQuad(tester, collapsed);
 
       expect(find.byKey(ViewfinderFrame.quadOverlayKey), findsNothing);
-      expect(
-        tester.getSize(find.byKey(frameKey)),
-        ViewfinderFrame.resolveSize(available),
-      );
       expect(tester.takeException(), isNull);
     });
   });

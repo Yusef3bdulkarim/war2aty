@@ -22,7 +22,6 @@ import 'package:war2aty/features/capture/domain/usecases/start_frame_stream.dart
 import 'package:war2aty/features/capture/domain/usecases/stop_frame_stream.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/capture/presentation/screens/camera_capture_screen.dart';
-import 'package:war2aty/features/capture/presentation/widgets/viewfinder_frame.dart';
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
@@ -211,10 +210,8 @@ void main() {
     });
   });
 
-  group('CameraCaptureScreen · the crop never follows the quad (F16-T08, '
-      'reverted after the T10 device pass)', () {
-    /// A page filling the middle of the frame. The sensor is upright and the
-    /// aspects match, so this arrives on the preview unchanged.
+  group('CameraCaptureScreen · the capture keeps the whole frame', () {
+    /// A page filling the middle of the frame.
     const quad = DocumentQuad(
       topLeft: UnitPoint(0.2, 0.15),
       topRight: UnitPoint(0.75, 0.15),
@@ -223,9 +220,7 @@ void main() {
     );
 
     /// The failure T10 caught on a real device: a detection collapsed to a
-    /// wide, flat sliver. Its bounding rect spans most of the frame's width
-    /// and a fraction of its height, so a per-axis minimum-extent guard lets
-    /// it through — and cropping to it discarded ~85% of the page.
+    /// wide, flat sliver. Cropping to it discarded ~85% of the page.
     const sliver = DocumentQuad(
       topLeft: UnitPoint(0.05, 0.60),
       topRight: UnitPoint(0.95, 0.60),
@@ -243,7 +238,7 @@ void main() {
 
     /// Pumps the viewfinder with a cropper the test can read back, optionally
     /// feeding one detected frame through before the shutter is tapped.
-    Future<({FakeImageCropper cropper, Size preview})> pumpAndCapture(
+    Future<FakeImageCropper> pumpAndCapture(
       WidgetTester tester, {
       DocumentQuad? detected,
     }) async {
@@ -282,67 +277,37 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
       }
 
-      // Measured before the shutter, since the preview leaves the tree the
-      // moment the capture starts.
-      final preview = tester.getSize(find.byKey(FakeCameraPreview.key));
-
       await tester.tap(find.bySemanticsLabel(_strings.cameraShutterLabel));
       await tester.pump();
       await tester.pump();
-      return (cropper: cropper, preview: preview);
+      return cropper;
     }
 
-    /// The static guide box's region, plus the margin `CropToGuideBox` adds.
-    UnitRect expectedRegion(Size preview) {
-      final box = ViewfinderFrame.resolveSize(preview);
-      return UnitRect(
-        left: (preview.width - box.width) / 2 / preview.width,
-        top: (preview.height - box.height) / 2 / preview.height,
-        right: (preview.width + box.width) / 2 / preview.width,
-        bottom: (preview.height + box.height) / 2 / preview.height,
-      ).expanded(CropToGuideBox.margin);
-    }
+    testWidgets('with no document, nothing is cropped', (tester) async {
+      final cropper = await pumpAndCapture(tester);
 
-    void expectRegion(UnitRect actual, UnitRect expected) {
-      expect(actual.left, closeTo(expected.left, 0.01));
-      expect(actual.top, closeTo(expected.top, 0.01));
-      expect(actual.right, closeTo(expected.right, 0.01));
-      expect(actual.bottom, closeTo(expected.bottom, 0.01));
-    }
-
-    testWidgets('with no document, the crop is the F15-T12 static box', (
-      tester,
-    ) async {
-      final (:cropper, :preview) = await pumpAndCapture(tester);
-
-      expectRegion(cropper.lastRegion!, expectedRegion(preview));
+      expect(cropper.lastRegion, UnitRect.full);
     });
 
-    testWidgets('a detected document does not change the crop', (tester) async {
-      final (:cropper, :preview) = await pumpAndCapture(tester, detected: quad);
+    testWidgets('a detected document does not crop the capture', (
+      tester,
+    ) async {
+      final cropper = await pumpAndCapture(tester, detected: quad);
 
-      // The quad is drawn, but the crop is the same region it would have been
-      // with no detection at all.
-      expectRegion(cropper.lastRegion!, expectedRegion(preview));
+      // The guide is drawn on the page, but the file keeps the whole frame —
+      // `doclens` does the real edge-detect/dewarp on it afterwards.
+      expect(cropper.lastRegion, UnitRect.full);
     });
 
     testWidgets(
       'a collapsed detection cannot crop the document away — the regression '
       'T10 found on a real device',
       (tester) async {
-        final (:cropper, :preview) = await pumpAndCapture(
-          tester,
-          detected: sliver,
-        );
+        final cropper = await pumpAndCapture(tester, detected: sliver);
 
         // Following this quad would have kept a band ~12% of the frame tall
         // and thrown the rest of the page away.
-        expectRegion(cropper.lastRegion!, expectedRegion(preview));
-        expect(
-          cropper.lastRegion!.height,
-          greaterThan(0.5),
-          reason: 'the kept region must still be most of the frame',
-        );
+        expect(cropper.lastRegion, UnitRect.full);
       },
     );
   });
