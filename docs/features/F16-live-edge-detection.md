@@ -66,7 +66,7 @@ in the task rows.
 | 7 | F16-T07 | Cubit/state wiring | Detection state exposed through the capture cubit via a use case (locked decision #5); no `BuildContext` in the cubit; detection lifecycle tied to the camera's; cubit tests | DONE |
 | 8 | F16-T08 | Crop follows the visible guide | When a quad is being shown, the guide-box crop uses **its bounding rect** (+ the existing 20% margin) so what was framed is what is kept; falls back to the static box otherwise. Extends F15-T12's render-box measurement rather than re-deriving geometry; tests | **REVERTED** — shipped, then undone after the T10 device pass found it cropping ~85% of a real page away. The crop is the static box again; `frameKey` rides on it whatever the detector sees. Tests now assert the inverse, including a regression test built from the collapsed quad T10 caught |
 | 9 | F16-T09 | Perf & thermal guard | Detection auto-disables (silently, per locked decision #4) when frames are consistently late or the isolate can't keep up; measured frame budget documented; no jank on the shutter path | DONE (device numbers land in T10) |
-| 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **BLOCKED** — see [Device pass](#device-pass-f16-t10). The infrastructure legs all pass (T04 shutter re-verification, live YUV stream, no-document fallback, RTL/Large Text/High Contrast, thermals, perf guard). The document legs found a **blocking defect**: a collapsed quad cropped a real capture down to a narrow strip and silently discarded ~85% of the page. Detection quality is also poor under shadow and skew, while the *documented* weak point (white on light) turned out to be the best case. Needs the Risks decision before this task can close |
+| 10 | F16-T10 | Device verification | Real-device pass over real documents: white page on a light desk (the hard case), angled, partially shadowed, low light, a receipt, a page with a coloured border; RTL, Large Text, High Contrast; battery/heat sanity over a few minutes of continuous preview | **PARTIAL** — see [Device pass](#device-pass-f16-t10). All infrastructure legs pass (T04 shutter, live YUV stream, fallback, RTL/Large Text/High Contrast, thermals, perf guard). Found, fixed and re-verified on-device the blocking crop defect (T08 reverted). Detection quality characterised: shadow and skew are the real weak points; white-on-light — the *documented* weak point — is the best case. **Left:** low light, a receipt, and a coloured-border page; battery drain off-charge |
 
 ## Measured budget (F16-T09)
 
@@ -176,6 +176,15 @@ visibly-wrong-but-page-sized quads did keep the whole page, which is why this
 did not show up until a quad collapsed.
 
 **This needs a decision before F16 ships** — see the Risks section.
+
+### Fix verified on the device
+
+After reverting T08, the same build was reinstalled on the RMX2001 and the
+camera pointed at a page on a cluttered surface. The detector produced another
+badly-wedged quad — and the guide now shows **both**: the static box the user
+aligns to, with the detected quad painted over it. Firing the shutter on that
+frame kept **the whole page**, margins and all. The failure mode that discarded
+85% of a page is closed.
 
 ### Still open
 
