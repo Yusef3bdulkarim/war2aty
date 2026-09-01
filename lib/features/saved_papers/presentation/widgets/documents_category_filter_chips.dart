@@ -13,7 +13,6 @@ import '../cubit/documents_list_cubit.dart';
 const double _height = 34;
 const double _gap = 8;
 const double _paddingH = 16;
-// const double _paddingV = 8;
 
 /// The «مستنداتي» category filter chips (F08-T07): «الكل» plus one chip per
 /// [DocumentCategory], in a row the user scrolls horizontally rather than one

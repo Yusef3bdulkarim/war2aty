@@ -4,9 +4,8 @@
 /// Continuous per-frame work on a preview is the classic source of heat and
 /// battery drain, and a phone that cannot keep up would show a guide lagging
 /// behind the paper — worse than no guide at all. When that happens the
-/// detector is switched off **silently** (F16 locked decision #4): the user
-/// gets F15-T12's static box, which is the behaviour shipped today, and is
-/// told nothing.
+/// detector is switched off **silently** (F16 locked decision #4): the guide
+/// simply stops appearing, and the user is told nothing.
 ///
 /// Pure Dart, no clock of its own — durations are handed in — so every
 /// threshold is testable without waiting for real time.
@@ -70,7 +69,8 @@ final class DetectionBudget {
 
   /// Forgets everything. Called when the camera reopens, so a phone that has
   /// cooled down — or a session that was slow for an unrelated reason — gets
-  /// another chance; the cost of being wrong is only the static box.
+  /// another chance; the cost of being wrong is only a guide that never
+  /// appears.
   void reset() {
     _recent.clear();
     _consecutiveLate = 0;

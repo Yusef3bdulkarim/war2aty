@@ -20,8 +20,8 @@ abstract interface class DocumentEdgeDetector {
   /// Returns the document's corners in [frame]'s own normalised coordinates.
   ///
   /// `Ok(null)` means **no document in this frame** — the ordinary, frequent
-  /// case, not a failure: the viewfinder simply keeps showing its static box
-  /// (locked decision #4). `Err` is reserved for a frame that could not be
+  /// case, not a failure: the viewfinder simply draws no guide (locked
+  /// decision #4). `Err` is reserved for a frame that could not be
   /// processed at all, such as one whose byte length contradicts its
   /// dimensions; it is likewise never surfaced to the user.
   Future<Result<DocumentQuad?, AppFailure>> detect(CameraFrame frame);

@@ -24,8 +24,8 @@ final class CameraInitializing extends CameraCaptureState {
 /// The live preview is running; the shutter is armed.
 ///
 /// [document] is the document the live detector currently sees, or `null` when
-/// it sees none — which the viewfinder renders as F15-T12's static guide box
-/// (F16 locked decision #4). It is deliberately not a separate state: nothing
+/// it sees none — which the viewfinder renders as no guide at all (F16 locked
+/// decision #4). It is deliberately not a separate state: nothing
 /// about the screen's behaviour changes when a document appears, only what the
 /// guide is drawn around.
 final class CameraReady extends CameraCaptureState {

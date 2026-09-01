@@ -17,8 +17,7 @@ import '../models/detected_document.dart';
 import 'camera_capture_state.dart';
 import 'detection_budget.dart';
 
-/// Drives the viewfinder: open the camera, take one photo, crop it to the
-/// guide box the user framed it in, release the camera.
+/// Drives the viewfinder: open the camera, take one photo, release the camera.
 ///
 /// Business actions go through use cases. The one thing that is not a use case
 /// is [preview] — a pure UI port the screen uses to paint the live feed; it
@@ -63,8 +62,8 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
   /// go of the last document it saw.
   ///
   /// A page is not lost because one frame blurred as the hand moved; without
-  /// this the guide would flicker between the paper and the static box on
-  /// every wobble. At F16-T04's ~120 ms throttle this is roughly half a
+  /// this the guide would blink off the paper on every wobble. At F16-T04's
+  /// ~120 ms throttle this is roughly half a
   /// second of grace. Policy with a time constant, so it lives here rather
   /// than in the widget, where it could only be tested by pumping frames.
   static const int maxMisses = 5;
@@ -102,8 +101,8 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     if (result.isErr) return;
 
     // Live edge detection is guidance, not a prerequisite: if the stream will
-    // not start, the viewfinder simply keeps its static guide box and the user
-    // is told nothing (F16 locked decision #4).
+    // not start, the viewfinder simply draws no guide and the user is told
+    // nothing (F16 locked decision #4).
     final streamed = await _startFrameStream(_onFrame);
     if (isClosed || generation != _generation) {
       if (streamed.isOk) await _stopFrameStream();
@@ -149,8 +148,8 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
   }
 
   /// Gives up on live detection for this session, silently: the stream stops,
-  /// the guide returns to its static box, and nothing is shown or logged
-  /// about it (F16 locked decision #4). Reopening the camera clears this.
+  /// the guide disappears, and nothing is shown or logged about it (F16
+  /// locked decision #4). Reopening the camera clears this.
   Future<void> _disableDetection() async {
     _detectionDisabled = true;
     _missStreak = 0;

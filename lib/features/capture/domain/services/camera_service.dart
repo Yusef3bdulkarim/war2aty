@@ -33,7 +33,7 @@ abstract interface class CameraService {
   /// never falls behind the camera, and memory never grows with a backlog.
   ///
   /// Failing to start is not a user-facing error (F16 locked decision #4) —
-  /// the caller simply carries on with the static guide box.
+  /// the caller simply carries on with no guide drawn.
   Future<Result<void, AppFailure>> startFrameStream(
     Future<void> Function(CameraFrame frame) onFrame,
   );

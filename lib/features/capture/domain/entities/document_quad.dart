@@ -6,11 +6,15 @@ import 'unit_rect.dart';
 /// The four corners of a document as seen in a camera frame, in normalised
 /// (0..1) frame coordinates.
 ///
-/// This is *guidance geometry*, not the crop itself (F16 locked decision #1):
-/// it drives what the viewfinder draws, and its [boundingRect] is what the
-/// capture crop uses. `doclens` still re-detects the real edges on the captured
-/// file afterwards, so nothing downstream has to trust these numbers to be
-/// exact.
+/// This is *guidance geometry* and nothing else (F16 locked decision #1): it
+/// drives what the viewfinder draws, and never what the capture keeps. The
+/// T10 device pass settled that — a detection that collapsed to a sliver
+/// cropped a real page away — so the capture keeps the whole frame and
+/// `doclens` re-detects the real edges on the file afterwards. Nothing
+/// downstream has to trust these numbers to be exact.
+///
+/// [boundingRect] is still used, but only to place the guide's scan line and
+/// to reject frame-filling detections in the algorithm.
 ///
 /// Corners are always stored in TL/TR/BR/BL order — [fromPoints] is the only
 /// way in from unordered data, so no consumer has to remember a convention.

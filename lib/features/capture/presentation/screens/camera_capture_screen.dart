@@ -202,8 +202,8 @@ class _Viewfinder extends StatelessWidget {
 
   final CameraCaptureState state;
 
-  /// The detected document in the preview's own coordinates, or `null` for
-  /// the static guide box (F16 locked decision #4).
+  /// The detected document in the preview's own coordinates, or `null` to
+  /// draw no guide at all (F16 locked decision #4).
   final DocumentQuad? quad;
   final VoidCallback onClose;
   final VoidCallback onShutter;
@@ -222,11 +222,10 @@ class _Viewfinder extends StatelessWidget {
           Positioned.fill(
             child: Center(
               // The guide sits *inside* the measured preview rather than over
-              // the whole screen, so the detected quad, the guide box and the
-              // capture crop all speak one coordinate space (F16-T05/T08).
-              // The Stack takes its size from the preview, its only
-              // unpositioned child, so the static box resolves against the
-              // live feed exactly as F15-T12 intended.
+              // the whole screen, so the quad the detector found and the quad
+              // that gets drawn speak one coordinate space (F16-T05). The
+              // Stack takes its size from the preview, its only unpositioned
+              // child, so the overlay covers exactly the live feed.
               child: KeyedSubtree(
                 key: previewKey,
                 child: Stack(
