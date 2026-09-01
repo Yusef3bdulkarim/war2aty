@@ -34,11 +34,11 @@ final class DocumentEdgeAlgorithm {
 
     final blurred = _blur(gray);
     final magnitude = _sobel(blurred);
-    final threshold = _edgeThreshold(magnitude, blurred, tuning);
+    final thresholds = _edgeThresholds(magnitude, blurred, tuning);
     final component = _largestEdgeComponent(
       magnitude,
       blurred,
-      threshold,
+      thresholds,
       tuning,
     );
     if (component == null) return null;
@@ -54,9 +54,17 @@ final class DocumentEdgeAlgorithm {
     if (quad == null) return null;
     if (!quad.isValid(minArea: tuning.minAreaFraction)) return null;
 
+    // A thin wedge — caused by a shadow or binding collapsing one side of the
+    // detection — is not a page. Reject it so the guide draws nothing rather
+    // than highlighting the wrong region.
+    final rect = quad.boundingRect;
+    final rectArea = (rect.right - rect.left) * (rect.bottom - rect.top);
+    if (rectArea > 0 && quad.area / rectArea < tuning.minRectangularity) {
+      return null;
+    }
+
     // A quad hugging every border is the frame itself (or the desk filling the
     // view), not a page lying on something.
-    final rect = quad.boundingRect;
     final margin = tuning.borderMarginFraction;
     if (rect.left <= margin &&
         rect.top <= margin &&
@@ -179,13 +187,15 @@ final class DocumentEdgeAlgorithm {
     return magnitude;
   }
 
-  // ── 4 · Binarise ─────────────────────────────────────────────────────────
+  // ── 4 · Binarise (Canny-style hysteresis) ─────────────────────────────────
   //
-  // The cut is a percentile of this frame's own gradients, so a bright desk
-  // and a dim room need no separate thresholds — but never below an absolute
-  // floor, or a flat, featureless frame would nominate its own noise as edges.
+  // Two thresholds, not one: the high cut seeds connected components, and the
+  // low cut lets them grow through weaker — but still real — edges. This is
+  // what prevents a shadow's strong gradient from suppressing weaker page
+  // edges on the far side of the frame: those edges sit above the low bar and
+  // connect to the page outline through the strong ones.
 
-  static int _edgeThreshold(
+  static ({int high, int low}) _edgeThresholds(
     Int32List magnitude,
     _Gray shape,
     DetectorTuning tuning,
@@ -200,30 +210,45 @@ final class DocumentEdgeAlgorithm {
         total++;
       }
     }
-    if (total == 0) return tuning.minEdgeMagnitude;
-
-    final wanted = ((1 - tuning.edgePercentile) * total).round();
-    var seen = 0;
-    var bucket = 255;
-    while (bucket > 0 && seen < wanted) {
-      seen += histogram[bucket];
-      bucket--;
+    if (total == 0) {
+      return (high: tuning.minEdgeMagnitude, low: tuning.minEdgeMagnitude);
     }
 
-    return math.max(bucket << 3, tuning.minEdgeMagnitude);
+    int percentileFromTop(double percentile) {
+      final wanted = ((1 - percentile) * total).round();
+      var seen = 0;
+      var bucket = 255;
+      while (bucket > 0 && seen < wanted) {
+        seen += histogram[bucket];
+        bucket--;
+      }
+      return math.max(bucket << 3, tuning.minEdgeMagnitude);
+    }
+
+    return (
+      high: percentileFromTop(tuning.edgePercentile),
+      low: percentileFromTop(tuning.edgeLowPercentile),
+    );
   }
 
-  // ── 5 · Largest edge component ───────────────────────────────────────────
+  // ── 5 · Largest edge component (hysteresis growth) ───────────────────────
   //
-  // The page outline is one long connected run of edge pixels; printed text
-  // and clutter are many short ones. Flood-filling 8-connected and keeping the
-  // biggest is what separates them. Iterative, with an explicit stack — a
-  // recursive fill would overflow on a full-frame edge.
+  // Seeds are planted only where the gradient exceeds the HIGH threshold
+  // ("definitely an edge"), but each seed's flood-fill grows through any pixel
+  // above the LOW threshold ("possibly an edge, if connected"). This is the
+  // Canny insight: a shadow line across the page raises the high bar and
+  // suppresses far-away page edges under the old single cut, but those edges
+  // survive the low bar and connect through the page outline to the strong
+  // seed — so the full page contour ends up in one component, with the shadow
+  // line as an interior detail the convex hull absorbs harmlessly.
+  //
+  // Iterative, with an explicit stack — a recursive fill would overflow on a
+  // full-frame edge.
 
   static List<_P>? _largestEdgeComponent(
     Int32List magnitude,
     _Gray shape,
-    int threshold,
+    ({int high, int low}) thresholds,
     DetectorTuning tuning,
   ) {
     final width = shape.width;
@@ -235,7 +260,9 @@ final class DocumentEdgeAlgorithm {
     for (var y = 1; y < height - 1; y++) {
       for (var x = 1; x < width - 1; x++) {
         final seed = y * width + x;
-        if (visited[seed] == 1 || magnitude[seed] < threshold) continue;
+        if (visited[seed] == 1) continue;
+        // Only strong edges may start a component.
+        if (magnitude[seed] < thresholds.high) continue;
 
         final component = <_P>[];
         visited[seed] = 1;
@@ -254,7 +281,8 @@ final class DocumentEdgeAlgorithm {
               if (nx < 1 || nx > width - 2) continue;
               final neighbour = ny * width + nx;
               if (visited[neighbour] == 1) continue;
-              if (magnitude[neighbour] < threshold) continue;
+              // Grow through the LOW threshold — weaker page edges survive.
+              if (magnitude[neighbour] < thresholds.low) continue;
               visited[neighbour] = 1;
               stack.add(neighbour);
             }

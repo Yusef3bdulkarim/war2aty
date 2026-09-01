@@ -8,10 +8,12 @@ final class DetectorTuning {
   const DetectorTuning({
     this.targetWidth = 160,
     this.edgePercentile = 0.92,
+    this.edgeLowPercentile = 0.70,
     this.minEdgeMagnitude = 32,
     this.minAreaFraction = 0.08,
     this.minComponentPixels = 40,
     this.borderMarginFraction = 0.02,
+    this.minRectangularity = 0.5,
   });
 
   /// Frames are sampled down to roughly this width before any pixel work. The
@@ -22,7 +24,21 @@ final class DetectorTuning {
   /// Gradient magnitudes above this percentile count as an edge. A percentile
   /// rather than a fixed level, so the same code copes with a bright desk and
   /// a dim room without a per-scene threshold.
+  ///
+  /// This is the **high** threshold in the Canny-style hysteresis pair: only
+  /// pixels above it seed a connected component. [edgeLowPercentile] controls
+  /// how far those seeds grow.
   final double edgePercentile;
+
+  /// The growth threshold for hysteresis. Edge pixels above this percentile
+  /// are included in a component when they connect (8-connected) to a pixel
+  /// that is above [edgePercentile].
+  ///
+  /// This is what stops a strong shadow from suppressing weaker — but real —
+  /// page edges on the far side of the frame: the shadow seeds the component
+  /// via the high threshold, and the weaker page edges survive because they
+  /// are above this lower bar and connect through the page outline.
+  final double edgeLowPercentile;
 
   /// The floor the percentile cut may never go below, on the Sobel L1 scale.
   ///
@@ -44,4 +60,11 @@ final class DetectorTuning {
   /// A quad whose corners all sit within this fraction of the frame's border
   /// is the desk or the frame itself, not a page lying on it.
   final double borderMarginFraction;
+
+  /// Minimum ratio of a quad's area to its bounding rectangle's area.
+  ///
+  /// A perfect rectangle scores 1.0; a thin wedge scores much less. Quads
+  /// below this ratio are rejected as distorted — typically the artefact of a
+  /// shadow or binding that collapsed one side of the detection.
+  final double minRectangularity;
 }

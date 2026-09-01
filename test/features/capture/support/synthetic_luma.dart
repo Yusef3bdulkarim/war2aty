@@ -28,6 +28,15 @@ CameraFrame syntheticFrame({
   /// Set to `false` for an empty scene — background only.
   bool withPage = true,
 
+  /// A horizontal shadow across the page, at this fraction of the frame's
+  /// height. The shadow darkens the page below it by [shadowDrop] luma steps,
+  /// creating the strong gradient that was collapsing detections on real
+  /// devices (F16-T10 diagnosis). `null` means no shadow.
+  double? shadowY,
+
+  /// How many luma steps the shadow darkens the region below [shadowY].
+  int shadowDrop = 80,
+
   /// Deterministic pseudo-noise amplitude, in luma steps.
   int noise = 0,
 
@@ -74,6 +83,13 @@ CameraFrame syntheticFrame({
         if (px >= left && px <= right && py >= top && py <= bottom) {
           luma = pageLuma;
         }
+      }
+      // A hard shadow across the page: everything below the shadow line loses
+      // brightness. This creates a strong gradient at the shadow boundary that
+      // the old single-threshold algorithm would treat as the dominant edge,
+      // suppressing the weaker page edges further away.
+      if (shadowY != null && y > shadowY * height) {
+        luma = (luma - shadowDrop).clamp(0, 255);
       }
       luma = (luma + noiseAt(x, y)).clamp(0, 255);
 

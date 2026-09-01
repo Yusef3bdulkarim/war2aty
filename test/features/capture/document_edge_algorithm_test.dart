@@ -71,6 +71,50 @@ void main() {
     });
   });
 
+  group('DocumentEdgeAlgorithm · shadow resilience (hysteresis)', () {
+    test('a hard shadow across the page does not collapse the quad', () {
+      // The failure T10 found on two real devices: a shadow cut across the
+      // page, raising the old single threshold so high that the far-side page
+      // edges were suppressed. The resulting "largest component" was a narrow
+      // band around the shadow, and the hull collapsed into a wedge.
+      //
+      // With hysteresis: the shadow seeds the component (high threshold), and
+      // the weaker page edges survive the low threshold and connect through
+      // the outline. The hull is page-shaped; the shadow is interior.
+      final frame = syntheticFrame(shadowY: 0.45, shadowDrop: 80);
+
+      final quad = DocumentEdgeAlgorithm.detect(frame);
+
+      expect(quad, isNotNull, reason: 'should find the page despite a shadow');
+      final rect = quad!.boundingRect;
+      // The page occupies 0.2–0.8 in both axes. The shadow should NOT pull
+      // the quad into a narrow band.
+      expect(rect.bottom - rect.top, greaterThan(0.45),
+          reason: 'the quad must span most of the page height, not a sliver');
+      expect(rect.left, closeTo(0.2, 0.08));
+      expect(rect.right, closeTo(0.8, 0.08));
+    });
+
+    test('a strong shadow on a high-contrast page still detects all four '
+        'corners', () {
+      final frame = syntheticFrame(
+        backgroundLuma: 30,
+        pageLuma: 230,
+        shadowY: 0.5,
+        shadowDrop: 100,
+      );
+
+      final quad = DocumentEdgeAlgorithm.detect(frame);
+
+      expect(quad, isNotNull);
+      expect(quad!.isConvex, isTrue);
+      // All four corners must be roughly at the page edges, not pulled toward
+      // the shadow line.
+      expect(quad.boundingRect.top, closeTo(0.2, 0.06));
+      expect(quad.boundingRect.bottom, closeTo(0.8, 0.06));
+    });
+  });
+
   group('DocumentEdgeAlgorithm · nothing to find', () {
     test('a flat frame yields no quad', () {
       final frame = syntheticFrame(withPage: false);
