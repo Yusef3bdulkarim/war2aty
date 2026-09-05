@@ -1042,6 +1042,8 @@ final class ArStrings implements AppStrings {
   @override
   String get audioReaderModeFull => 'الشرح كامل';
   @override
+  String get audioReaderModeReadAll => 'قراءة كل الشاشة';
+  @override
   String get audioReaderModeExtractedText => 'النص المستخرج';
   @override
   String get audioReaderOptions => 'خيارات';

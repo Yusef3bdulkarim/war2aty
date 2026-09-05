@@ -867,6 +867,10 @@ abstract interface class AppStrings {
   String get audioReaderModeSummaryAndKeyInformation;
   String get audioReaderModeFull;
 
+  /// Reads every section on the result screen, in order — the whole page
+  /// narrated as one continuous reading.
+  String get audioReaderModeReadAll;
+
   /// The fourth mode's own label, for the mini-player's «بيقرأ: …» line when
   /// reading [ReadingMode.extractedText] from a fallback screen — never
   /// offered as a choice in the sheet above.

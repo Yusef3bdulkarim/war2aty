@@ -6,6 +6,7 @@ import '../../features/audio_reader/domain/entities/tts_event.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
+import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -33,6 +34,7 @@ import 'usecases/get_default_reading_voice.dart';
 final class AudioReaderCubit extends Cubit<AudioReaderState> {
   AudioReaderCubit(
     this._startReading,
+    this._startRawReading,
     this._stopReading,
     this._pauseReading,
     this._resumeReading,
@@ -45,6 +47,7 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   }
 
   final StartReading _startReading;
+  final StartRawReading _startRawReading;
   final StopReading _stopReading;
   final PauseReading _pauseReading;
   final ResumeReading _resumeReading;
@@ -136,6 +139,42 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
           _totalLength = length;
           _peakProgress = 0;
           return AudioReaderReading(mode, speed: speed);
+        },
+        err: AudioReaderFailed.new,
+      ),
+    );
+  }
+
+  /// Starts reading a plain text string aloud — the raw-text counterpart of
+  /// [start], used on the OCR review screen where there is no
+  /// [AnalysisResult] yet and the text is read as-is.
+  ///
+  /// Uses [ReadingMode.extractedText] as the mode label, since that is what
+  /// the mini-player displays while the reading is in progress.
+  Future<void> startRaw({
+    required String text,
+    required ReadingSpeed speed,
+  }) async {
+    if (isClosed) return;
+    final rateOutcome = await _setReadingSpeed(speed);
+    if (isClosed) return;
+    if (rateOutcome.failureOrNull case final failure?) {
+      emit(AudioReaderFailed(failure));
+      if (isClosed) return;
+    }
+    final preferredVoice = await _getDefaultReadingVoice();
+    if (isClosed) return;
+    final outcome = await _startRawReading(
+      text: text,
+      preferredVoice: preferredVoice,
+    );
+    if (isClosed) return;
+    emit(
+      outcome.when(
+        ok: (length) {
+          _totalLength = length;
+          _peakProgress = 0;
+          return AudioReaderReading(ReadingMode.extractedText, speed: speed);
         },
         err: AudioReaderFailed.new,
       ),

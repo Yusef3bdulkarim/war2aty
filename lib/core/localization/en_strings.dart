@@ -1054,6 +1054,8 @@ final class EnStrings implements AppStrings {
   @override
   String get audioReaderModeFull => 'Full explanation';
   @override
+  String get audioReaderModeReadAll => 'Read entire screen';
+  @override
   String get audioReaderModeExtractedText => 'Extracted text';
   @override
   String get audioReaderOptions => 'Options';

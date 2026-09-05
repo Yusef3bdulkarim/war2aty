@@ -45,6 +45,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -269,6 +270,7 @@ void main() {
             const SelectVoiceForReading(),
             tts,
           ),
+          StartRawReading(const SelectVoiceForReading(), tts),
           StopReading(tts),
           PauseReading(tts),
           ResumeReading(tts),

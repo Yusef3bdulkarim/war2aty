@@ -18,6 +18,12 @@ enum ReadingMode {
   /// stand on its own (`AnalysisSummary.detailed`).
   fullExplanation,
 
+  /// Everything on the result screen, narrated in section order: title,
+  /// summary, actions, warnings, key information, amounts, dates, required
+  /// documents, instructions, detailed explanation, and extracted text — only
+  /// sections present in the result are read.
+  readAll,
+
   /// The raw OCR text, exactly as extracted — nothing summarised.
   extractedText,
 }

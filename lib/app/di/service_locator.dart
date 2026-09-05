@@ -130,6 +130,7 @@ import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
+import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -844,6 +845,8 @@ void _registerAudioReader() {
     ..registerFactory<StartReading>(
       () => StartReading(getIt(), getIt(), getIt()),
     )
+    // Raw-text TTS for the OCR review screen (pre-analysis).
+    ..registerFactory<StartRawReading>(() => StartRawReading(getIt(), getIt()))
     ..registerFactory<StopReading>(() => StopReading(getIt()))
     // F10-T05.
     ..registerFactory<PauseReading>(() => PauseReading(getIt()))
@@ -888,6 +891,7 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

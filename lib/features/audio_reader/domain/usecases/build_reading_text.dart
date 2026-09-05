@@ -1,9 +1,13 @@
 import '../../../../core/documents/analysis_result.dart';
+import '../../../../core/documents/analysis_section.dart';
 import '../../../../core/documents/confidence_label.dart';
 import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/documents/key_information.dart';
 import '../../../../core/documents/reading_mode.dart';
+import '../../../../core/documents/required_action.dart';
 import '../../../../core/localization/app_strings.dart';
+import '../../../../core/money/document_amount_label.dart';
+import '../../../../core/time/document_date_label.dart';
 import 'normalize_spoken_numbers.dart';
 
 /// Assembles the text `TextToSpeechService.speak` reads for one [ReadingMode].
@@ -39,6 +43,7 @@ final class BuildReadingText {
         result.analysis,
         strings,
       ),
+      ReadingMode.readAll => _readAll(result, strings),
     };
     // The one choke point every reading mode passes through, so a phone
     // number, date, or amount is spoken the same way no matter which mode
@@ -74,5 +79,96 @@ final class BuildReadingText {
 
     final sentence = '${item.label}: ${item.value}';
     return caveats.isEmpty ? sentence : '$sentence. ${caveats.join('. ')}';
+  }
+
+  /// Every section on the result screen, narrated in [AnalysisSection] order.
+  ///
+  /// Only sections present in [result.sections] are included — the same filter
+  /// `BuildAnalysisResult` already applied, so a missing section is never read
+  /// aloud. Each section opens with its heading (reusing the same
+  /// `AppStrings` keys the cards show) and then its content, separated by
+  /// full stops so the TTS engine pauses naturally between them.
+  String _readAll(AnalysisResult result, AppStrings strings) {
+    final analysis = result.analysis;
+    final sentences = <String>[];
+
+    for (final section in result.sections) {
+      switch (section) {
+        case AnalysisSection.header:
+          sentences.add(analysis.title);
+
+        case AnalysisSection.summary:
+          sentences.add(analysis.summary.short.trim());
+
+        case AnalysisSection.actionRequired:
+          sentences.add(strings.resultActionRequiredTitle);
+          for (final action in analysis.actions) {
+            final basis = action.basis == ActionBasis.inferred
+                ? '. ${strings.resultActionInferred}'
+                : '';
+            sentences.add('${action.description.trim()}$basis');
+          }
+
+        case AnalysisSection.warnings:
+          sentences.add(strings.resultWarningsTitle);
+          for (final warning in analysis.warnings) {
+            sentences.add(warning.text.trim());
+          }
+
+        case AnalysisSection.keyInformation:
+          sentences.add(strings.resultKeyInformationTitle);
+          for (final item in analysis.keyInformation) {
+            sentences.add(_keyInformationSentence(item, strings));
+          }
+
+        case AnalysisSection.amounts:
+          sentences.add(strings.resultAmountsTitle);
+          for (final amount in analysis.amounts) {
+            final formatted = formatDocumentAmount(
+              strings,
+              amount.value,
+              amount.currency,
+            );
+            final caveat = confidenceLabel(strings, amount.confidence);
+            final suffix = caveat != null ? '. $caveat' : '';
+            sentences.add('${amount.label}: $formatted$suffix');
+          }
+
+        case AnalysisSection.dates:
+          sentences.add(strings.resultDatesTitle);
+          for (final date in analysis.dates) {
+            final formatted = formatDocumentDate(strings, date.date);
+            final time = date.time;
+            final timeText = time == null
+                ? strings.resultDateNoTime
+                : formatWallClockTime(strings, time.hour, time.minute);
+            final caveat = confidenceLabel(strings, date.confidence);
+            final suffix = caveat != null ? '. $caveat' : '';
+            sentences.add('${date.label}: $formatted, $timeText$suffix');
+          }
+
+        case AnalysisSection.requiredDocuments:
+          sentences.add(strings.resultRequiredDocumentsTitle);
+          for (final doc in analysis.requiredDocuments) {
+            sentences.add(doc.trim());
+          }
+
+        case AnalysisSection.instructions:
+          sentences.add(strings.resultInstructionsTitle);
+          for (final (index, step) in analysis.instructions.indexed) {
+            sentences.add('${index + 1}. ${step.trim()}');
+          }
+
+        case AnalysisSection.detailedExplanation:
+          sentences.add(analysis.summary.detailed.trim());
+
+        case AnalysisSection.extractedText:
+          sentences.add(strings.resultShowExtractedText);
+          sentences.add(result.extractedText.trim());
+      }
+    }
+
+    sentences.removeWhere((s) => s.isEmpty);
+    return sentences.join('. ');
   }
 }
