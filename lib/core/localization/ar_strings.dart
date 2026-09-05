@@ -390,6 +390,9 @@ final class ArStrings implements AppStrings {
   @override
   String get documentDetailsBackToList => 'رجوع للمستندات';
 
+  @override
+  String get documentImageLabel => 'صورة المستند';
+
   // Document notes (F08-T09)
   @override
   String get documentNoteHeading => 'ملاحظتي';

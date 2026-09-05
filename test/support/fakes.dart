@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
@@ -975,6 +976,11 @@ final class FakeDocumentImageStore implements DocumentImageStore {
   /// Every id passed to [delete], in order.
   final List<String> deletedIds = [];
 
+  /// Bytes to return from [load]. When `null` and [fails] is false, returns a
+  /// 1×1 transparent PNG so a test that saves with-image gets something back
+  /// by default.
+  Uint8List? loadResult;
+
   @override
   Future<Result<String, AppFailure>> encryptAndStore({
     required String documentId,
@@ -986,6 +992,12 @@ final class FakeDocumentImageStore implements DocumentImageStore {
   }
 
   @override
+  Future<Result<Uint8List, AppFailure>> load(String documentId) async {
+    if (fails) return const Err(FileStorageFailure());
+    return Ok(loadResult ?? _onePxPng);
+  }
+
+  @override
   Future<void> delete(String documentId) async => deletedIds.add(documentId);
 
   /// Whether [deleteAll] was called (F11-T11).
@@ -993,6 +1005,20 @@ final class FakeDocumentImageStore implements DocumentImageStore {
 
   @override
   Future<void> deleteAll() async => deleteAllCalled = true;
+
+  /// A minimal 1×1 transparent PNG — just enough bytes for [Image.memory] to
+  /// decode without hitting the filesystem.
+  static final Uint8List _onePxPng = Uint8List.fromList(const [
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1×1
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89,
+    0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+    0x78, 0x9C, 0x62, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE5,
+    0x27, 0xDE, 0xFC,
+    0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, // IEND chunk
+    0xAE, 0x42, 0x60, 0x82,
+  ]);
 }
 
 /// In-memory [DocumentsRepository] the test drives by hand — the read side

@@ -249,6 +249,9 @@ abstract interface class AppStrings {
   /// The way out of both states above.
   String get documentDetailsBackToList;
 
+  /// Label for the expandable panel showing the saved document image.
+  String get documentImageLabel;
+
   // Document notes (F08-T09) — «ملاحظتي».
   /// Section heading above the note card.
   String get documentNoteHeading;

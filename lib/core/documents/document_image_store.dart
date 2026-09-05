@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../error/app_failure.dart';
 import '../result/result.dart';
 
@@ -22,6 +24,10 @@ abstract interface class DocumentImageStore {
     required String documentId,
     required String sourcePath,
   });
+
+  /// Decrypts and returns a saved document's image bytes, or a failure if the
+  /// file is missing or cannot be decrypted.
+  Future<Result<Uint8List, AppFailure>> load(String documentId);
 
   /// Deletes a document's encrypted picture, if it has one (F08-T11).
   Future<void> delete(String documentId);

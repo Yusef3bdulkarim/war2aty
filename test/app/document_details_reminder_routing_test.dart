@@ -10,6 +10,7 @@ import 'package:war2aty/core/documents/analysis_date.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
+import 'package:war2aty/core/documents/usecases/load_document_image.dart';
 import 'package:war2aty/core/documents/usecases/set_document_note.dart';
 import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
@@ -98,6 +99,7 @@ void main() {
           SetDocumentNote(documents),
           UpdateDocument(documents),
           DeleteDocument(documents),
+          LoadDocumentImage(FakeDocumentImageStore()),
           documentId: id,
         ),
       )

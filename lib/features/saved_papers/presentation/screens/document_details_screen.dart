@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -50,6 +52,8 @@ const double _pageBottom = 24;
 const double _explanationGapAbove = 14;
 const double _explanationFontSize = 14.5;
 const double _explanationHeight = 1.9;
+const double _imageRadius = 14;
+const double _imageGapBelow = 14;
 
 /// A saved paper's full record (F08-T08): what the analysis understood about
 /// it, read back exactly as it was written down.
@@ -79,10 +83,15 @@ class DocumentDetailsScreen extends StatelessWidget {
       body: BlocBuilder<DocumentDetailsCubit, DocumentDetailsState>(
         builder: (context, state) => switch (state) {
           DocumentDetailsLoading() => const _Loading(),
-          DocumentDetailsAvailable(:final document, :final sections) =>
+          DocumentDetailsAvailable(
+            :final document,
+            :final sections,
+            :final imageBytes,
+          ) =>
             _DetailsBody(
               document: document,
               sections: sections,
+              imageBytes: imageBytes,
               onClose: onClose,
               onCreateReminder: onCreateReminder,
             ),
@@ -170,12 +179,14 @@ class _DetailsBody extends StatefulWidget {
   const _DetailsBody({
     required this.document,
     required this.sections,
+    this.imageBytes,
     this.onClose,
     this.onCreateReminder,
   });
 
   final SavedDocument document;
   final List<AnalysisSection> sections;
+  final Uint8List? imageBytes;
   final VoidCallback? onClose;
   final ValueChanged<AnalysisDate>? onCreateReminder;
 
@@ -220,6 +231,11 @@ class _DetailsBodyState extends State<_DetailsBody> {
                   // the same rule the result screen follows for the same
                   // status.
                   if (document.analysis.isPartial) const PartialResultBanner(),
+                  // The original page picture, when the user chose to keep it
+                  // (F08-T04). Appears above the analysis sections so the user
+                  // sees what was scanned before reading the result.
+                  if (widget.imageBytes != null)
+                    _DocumentImageCard(imageBytes: widget.imageBytes!),
                   for (final section in widget.sections)
                     _section(context, section, strings),
                   // «ملاحظتي» lives between the analysis sections and the
@@ -336,6 +352,89 @@ class _DetailsBodyState extends State<_DetailsBody> {
         onListen: _openAudioSheet,
       ),
     };
+  }
+}
+
+/// The original page picture in a rounded card, tappable to view it full-screen.
+///
+/// Shown only when [DocumentStorageMode.withImage] and the decrypted bytes are
+/// ready. Displayed as a collapsible panel so the analysis stays the primary
+/// content and the image does not push it below the fold.
+class _DocumentImageCard extends StatelessWidget {
+  const _DocumentImageCard({required this.imageBytes});
+
+  final Uint8List imageBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final strings = context.strings;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: _imageGapBelow),
+      child: ExpandablePanel(
+        label: strings.documentImageLabel,
+        child: GestureDetector(
+          onTap: () => _showFullScreen(context),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_imageRadius),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: colors.borderSoft),
+                borderRadius: BorderRadius.circular(_imageRadius),
+              ),
+              child: Image.memory(
+                imageBytes,
+                fit: BoxFit.contain,
+                semanticLabel: strings.documentImageLabel,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFullScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _FullScreenImageView(imageBytes: imageBytes),
+      ),
+    );
+  }
+}
+
+/// Full-screen zoomable view of the original document image.
+class _FullScreenImageView extends StatelessWidget {
+  const _FullScreenImageView({required this.imageBytes});
+
+  final Uint8List imageBytes;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final strings = context.strings;
+
+    return Scaffold(
+      backgroundColor: colors.ink,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        title: Text(strings.documentImageLabel),
+        elevation: 0,
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.memory(
+            imageBytes,
+            fit: BoxFit.contain,
+            semanticLabel: strings.documentImageLabel,
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -388,6 +388,9 @@ final class EnStrings implements AppStrings {
   @override
   String get documentDetailsBackToList => 'Back to documents';
 
+  @override
+  String get documentImageLabel => 'Document image';
+
   // Document notes (F08-T09)
   @override
   String get documentNoteHeading => 'My note';

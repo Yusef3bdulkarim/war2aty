@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../../core/documents/analysis_section.dart';
 import '../../../../core/documents/saved_document.dart';
 import '../../../../core/error/app_failure.dart';
@@ -26,19 +28,41 @@ final class DocumentDetailsAvailable extends DocumentDetailsState {
   const DocumentDetailsAvailable({
     required this.document,
     required this.sections,
+    this.imageBytes,
   });
 
   final SavedDocument document;
   final List<AnalysisSection> sections;
 
+  /// The decrypted picture of the original paper, or `null` when the document
+  /// was saved without its image, or the image is still loading / failed to
+  /// decrypt. Progressive: the document shows immediately; the image appears
+  /// once decryption finishes.
+  final Uint8List? imageBytes;
+
   @override
   bool operator ==(Object other) =>
       other is DocumentDetailsAvailable &&
       other.document == document &&
-      listEquals(other.sections, sections);
+      listEquals(other.sections, sections) &&
+      _bytesEqual(other.imageBytes, imageBytes);
 
   @override
-  int get hashCode => Object.hash(document, Object.hashAll(sections));
+  int get hashCode => Object.hash(
+    document,
+    Object.hashAll(sections),
+    imageBytes == null ? null : Object.hashAll(imageBytes!),
+  );
+}
+
+bool _bytesEqual(Uint8List? a, Uint8List? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null) return false;
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 /// The document is gone — deleted (F08-T11) since the list was opened, or the

@@ -50,6 +50,7 @@ import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/usecases/build_analysis_result.dart';
 import '../../core/documents/usecases/delete_all_documents.dart';
 import '../../core/documents/usecases/delete_document.dart';
+import '../../core/documents/usecases/load_document_image.dart';
 import '../../core/documents/usecases/save_document.dart';
 import '../../core/documents/usecases/save_document_with_image.dart';
 import '../../core/documents/usecases/set_document_note.dart';
@@ -703,12 +704,14 @@ void _registerSavedPapers() {
     ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
     ..registerFactory<UpdateDocument>(() => UpdateDocument(getIt()))
     ..registerFactory<DeleteDocument>(() => DeleteDocument(getIt()))
+    ..registerFactory<LoadDocumentImage>(() => LoadDocumentImage(getIt()))
     // F11-T11.
     ..registerFactory<DeleteAllDocuments>(() => DeleteAllDocuments(getIt()))
     // Parameterised by the document id — one cubit instance per opened
     // details screen, the same shape [ImagePreviewCubit]'s registration uses.
     ..registerFactoryParam<DocumentDetailsCubit, String, void>(
       (documentId, _) => DocumentDetailsCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),
