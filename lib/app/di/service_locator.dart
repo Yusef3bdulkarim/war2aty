@@ -139,6 +139,7 @@ import '../../features/bootstrap/domain/repositories/auth_repository.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
+import '../../features/bootstrap/presentation/splash_timing.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
 import '../../features/capture/data/services/doclens_perspective_corrector.dart';
@@ -345,7 +346,15 @@ void _registerLaunch(AppEnvironment env) {
     ..registerFactory<InitializeApp>(
       () => InitializeApp(_buildLaunchSteps(), logger: getIt()),
     )
-    ..registerFactory<BootstrapCubit>(() => BootstrapCubit(getIt()));
+    ..registerFactory<BootstrapCubit>(
+      // Hold the splash until its entrance animation reports itself finished,
+      // so the mark is never cut off mid-flight on a fast start. The duration
+      // here is only the escape hatch if that report never arrives.
+      () => BootstrapCubit(
+        getIt(),
+        splashEntranceTimeout: kLogoEntranceDuration * 2,
+      ),
+    );
 }
 
 /// The ordered launch sequence.
