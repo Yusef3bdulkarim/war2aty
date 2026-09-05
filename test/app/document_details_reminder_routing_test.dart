@@ -22,6 +22,7 @@ import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
+import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/widgets/date_selection_sheet.dart';
 import 'package:war2aty/core/widgets/result_action_bar.dart';
@@ -118,6 +119,7 @@ void main() {
           GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
         ),
       )
+      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
         (args, _) {
           final reminders = FakeRemindersRepository();

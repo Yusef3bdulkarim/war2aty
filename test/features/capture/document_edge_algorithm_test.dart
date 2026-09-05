@@ -89,8 +89,11 @@ void main() {
       final rect = quad!.boundingRect;
       // The page occupies 0.2–0.8 in both axes. The shadow should NOT pull
       // the quad into a narrow band.
-      expect(rect.bottom - rect.top, greaterThan(0.45),
-          reason: 'the quad must span most of the page height, not a sliver');
+      expect(
+        rect.bottom - rect.top,
+        greaterThan(0.45),
+        reason: 'the quad must span most of the page height, not a sliver',
+      );
       expect(rect.left, closeTo(0.2, 0.08));
       expect(rect.right, closeTo(0.8, 0.08));
     });

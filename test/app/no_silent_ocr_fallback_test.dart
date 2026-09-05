@@ -27,6 +27,7 @@ import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
@@ -320,6 +321,7 @@ void main() {
           'failed online analysis.',
         );
       })
+      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<GoRouter>(
         () => createAppRouter(onboardingGate: getIt()),
       );

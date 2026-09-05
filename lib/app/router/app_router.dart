@@ -11,6 +11,8 @@ import '../../core/localization/app_localizations.dart';
 import '../../core/navigation/app_route_observer.dart';
 import '../../core/reminders/reminder.dart';
 import '../../core/storage/analysis_session.dart';
+import '../../core/usage/usage_hint_holder.dart';
+import '../../core/usage/usecases/get_daily_usage.dart';
 import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
@@ -307,7 +309,10 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               // produced, and this is the only place that knows about both.
               child: Builder(
                 builder: (context) => AnalysisResultScreen(
-                  onClose: () => context.go(AppRoutes.home),
+                  onClose: () async {
+                    await _storeUsageHint();
+                    if (context.mounted) context.go(AppRoutes.home);
+                  },
                   // See the `/ocr` route's `onRetake` above for why this is
                   // `go(home)` + `push(capture)` rather than `pushReplacement`.
                   onCaptureAnother: () {
@@ -672,6 +677,25 @@ void _startReminderFromDocumentDate(BuildContext context, AnalysisDate date) {
       eventDate: date.date,
       eventMinuteOfDay: _minuteOfDayOf(date.time),
     ),
+  );
+}
+
+/// Reads today's cached quota and, when part of it has been used but some
+/// remains, stores the remaining count in [UsageHintHolder] so the nav shell
+/// can show it as a SnackBar.
+///
+/// Called before navigating away from the result screen. The read is a local
+/// DB look-up (sub-millisecond), so the `await` does not delay the transition
+/// perceptibly.
+Future<void> _storeUsageHint() async {
+  final result = await getIt<GetDailyUsage>()();
+  result.when(
+    ok: (usage) {
+      if (usage != null && usage.hasQuotaLeft && usage.usedCount > 0) {
+        getIt<UsageHintHolder>().set(usage.remainingCount);
+      }
+    },
+    err: (_) {},
   );
 }
 

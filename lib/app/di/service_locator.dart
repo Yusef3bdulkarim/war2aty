@@ -104,6 +104,7 @@ import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
+import '../../core/usage/usage_hint_holder.dart';
 import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
 import '../../core/usage/usecases/get_daily_usage.dart';
@@ -426,6 +427,9 @@ void _registerHome() {
     // live stream above reflects the freshly consumed slot (registered here,
     // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
     ..registerFactory<SyncDailyUsage>(() => SyncDailyUsage(getIt()))
+    // One-shot hint shown as a SnackBar when the user leaves the result
+    // screen — set by the router, consumed by `ScaffoldWithNavBar`.
+    ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
     // Likewise replaced when F09 builds the `reminders` table.
     ..registerLazySingleton<UpcomingReminderRepository>(
       StubUpcomingReminderRepository.new,

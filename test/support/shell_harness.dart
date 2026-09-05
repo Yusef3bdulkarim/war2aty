@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/shell/scaffold_with_nav_bar.dart';
+import 'package:war2aty/core/usage/usage_hint_holder.dart';
 
 /// Routes matching the app's four shell branches, for nav-bar tests.
 const List<String> shellPaths = ['/home', '/saved', '/reminders', '/settings'];
@@ -12,6 +14,13 @@ const List<String> shellPaths = ['/home', '/saved', '/reminders', '/settings'];
 /// the bar is exercised through a genuine shell route rather than a stand-in —
 /// which also means these tests cover the real wiring, not a mock of it.
 Widget shellHarness({int currentIndex = 0}) {
+  // `ScaffoldWithNavBar` reads `UsageHintHolder` from get_it — ensure one is
+  // registered. `allowReassignment` avoids a crash if the test file resets
+  // getIt in its own setUp.
+  if (!getIt.isRegistered<UsageHintHolder>()) {
+    getIt.registerLazySingleton<UsageHintHolder>(UsageHintHolder.new);
+  }
+
   final router = GoRouter(
     initialLocation: shellPaths[currentIndex],
     routes: [
