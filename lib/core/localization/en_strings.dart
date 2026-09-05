@@ -728,6 +728,12 @@ final class EnStrings implements AppStrings {
   @override
   String get ocrOnlineAmbiguityNotice => 'Some information may need review';
 
+  @override
+  String get ocrOfflineQualityWarning =>
+      'Results may be less accurate because the scan was done offline';
+  @override
+  String get ocrListenToText => 'Listen to text';
+
   // Analysis — while it runs
   @override
   String get analysisRunningTitle => 'Preparing a simple explanation';

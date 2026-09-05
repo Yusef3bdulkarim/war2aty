@@ -186,6 +186,7 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
 import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
+import '../../features/ocr/domain/entities/extraction_result.dart';
 import '../../features/ocr/domain/repositories/ocr_repository.dart';
 import '../../features/ocr/domain/services/amount_extractor.dart';
 import '../../features/ocr/domain/services/date_extractor.dart';
@@ -663,6 +664,12 @@ void _registerAnalysis(AppEnvironment env) {
         getAnalysisConsent: getIt(),
         imageHolder: getIt<ImageAnalysisSessionHolder>(),
       ),
+    )
+    // Offline variant: Tesseract already ran on `/ocr`, result handed off.
+    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, ExtractionResult>(
+      (session, _) =>
+          OcrReviewCubit.offline(session: session, extractCandidates: getIt()),
+      instanceName: 'offline',
     );
 }
 

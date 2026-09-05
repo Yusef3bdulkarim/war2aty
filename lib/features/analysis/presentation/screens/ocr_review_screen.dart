@@ -4,23 +4,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/audio/audio_reader_cubit.dart';
+import '../../../../core/audio/audio_reader_state.dart';
+import '../../../../core/audio/reading_speed.dart';
+import '../../../../core/documents/reading_mode_label.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../ocr/presentation/widgets/candidate_chips.dart';
+import '../../../../core/widgets/audio_mini_player_bar.dart';
 import '../cubit/ocr_review_cubit.dart';
 import '../cubit/ocr_review_state.dart';
 
-/// The OCR review screen (F14): the online route's stop between Azure OCR
-/// and Groq analysis. Shows the OCR text editable, candidate hints, and an
-/// optional image preview, so the user can correct the reading before it is
-/// spent on an analysis.
+/// The unified OCR review screen: the stop between OCR (online or offline) and
+/// Groq analysis. Shows the OCR text editable, candidate hints, an optional
+/// image preview, and a listen button + mini-player for pre-analysis TTS.
 ///
-/// Structurally mirrors `OcrProcessingScreen` (the offline sibling) — same
-/// layout conventions, same widget reuse — rather than a new design, since
-/// this screen has no `Waraqti.dc.html` frame of its own.
+/// When [OcrReviewReady.isOffline] is `true`, an amber banner warns that OCR
+/// accuracy may be lower, and the bottom button reads "متابعة" instead of
+/// "تحليل الورقة".
 class OcrReviewScreen extends StatelessWidget {
   const OcrReviewScreen({
     required this.onAnalyze,
@@ -258,126 +261,158 @@ class _ReadyBodyState extends State<_ReadyBody> {
     final colors = AppColors.of(context);
     final state = widget.state;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenHorizontal,
-            AppSpacing.lg,
-            AppSpacing.screenHorizontal,
-            AppSpacing.sm,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      strings.ocrOnlineReviewTitle,
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: colors.ink,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      strings.ocrOnlineReviewSubtitle,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                onPressed: () => _copyText(context, state.reviewedOcrText),
-                icon: Icon(Icons.copy, color: colors.brandPrimary),
-                tooltip: strings.ocrCopyText,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.screenHorizontal,
+    return BlocListener<AudioReaderCubit, AudioReaderState>(
+      listenWhen: (previous, current) => current is AudioReaderFailed,
+      listener: (context, audioState) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
+          );
+      },
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenHorizontal,
+              AppSpacing.lg,
+              AppSpacing.screenHorizontal,
+              AppSpacing.sm,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
               children: [
-                if (state.imagePath case final imagePath?)
-                  _ImageToggle(
-                    imagePath: imagePath,
-                    expanded: _showImage,
-                    onToggle: () => setState(() => _showImage = !_showImage),
-                  ),
-                if (state.imagePath != null)
-                  const SizedBox(height: AppSpacing.md),
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: colors.card,
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    border: Border.all(color: colors.borderSoft),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    onChanged: (text) =>
-                        context.read<OcrReviewCubit>().updateOcrText(text),
-                    maxLines: null,
-                    minLines: 6,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.6,
-                      color: colors.textBody,
-                    ),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        state.isOffline
+                            ? strings.ocrExtractedTextTitle
+                            : strings.ocrOnlineReviewTitle,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          color: colors.ink,
+                        ),
+                      ),
+                      if (!state.isOffline) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          strings.ocrOnlineReviewSubtitle,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                if (state.serverCandidates.totalCandidates > 0) ...[
-                  const SizedBox(height: AppSpacing.xxl),
-                  CandidateChips(result: state.serverCandidates),
-                ],
-                if (state.serverCandidates.hasAmbiguousCandidates) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  _AmbiguityNotice(text: strings.ocrOnlineAmbiguityNotice),
-                ],
-                const SizedBox(height: AppSpacing.xxl),
+                IconButton(
+                  onPressed: () => _startListening(context),
+                  icon: Icon(Icons.volume_up, color: colors.brandPrimary),
+                  tooltip: strings.ocrListenToText,
+                ),
+                IconButton(
+                  onPressed: () => _copyText(context, state.reviewedOcrText),
+                  icon: Icon(Icons.copy, color: colors.brandPrimary),
+                  tooltip: strings.ocrCopyText,
+                ),
               ],
             ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenHorizontal,
-            AppSpacing.sm,
-            AppSpacing.screenHorizontal,
-            AppSpacing.lg,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: widget.onAnalyze,
-              style: FilledButton.styleFrom(
-                backgroundColor: colors.brandPrimary,
-                foregroundColor: colors.onBrand,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.md),
-                ),
+          // Offline quality warning banner.
+          if (state.isOffline)
+            _OfflineWarning(text: strings.ocrOfflineQualityWarning),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenHorizontal,
               ),
-              child: Text(strings.ocrOnlineAnalyze),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (state.imagePath case final imagePath?)
+                    _ImageToggle(
+                      imagePath: imagePath,
+                      expanded: _showImage,
+                      onToggle: () => setState(() => _showImage = !_showImage),
+                    ),
+                  if (state.imagePath != null)
+                    const SizedBox(height: AppSpacing.md),
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: colors.card,
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                      border: Border.all(color: colors.borderSoft),
+                    ),
+                    child: TextField(
+                      controller: _controller,
+                      onChanged: (text) =>
+                          context.read<OcrReviewCubit>().updateOcrText(text),
+                      maxLines: null,
+                      minLines: 6,
+                      style: TextStyle(
+                        fontSize: 15,
+                        height: 1.6,
+                        color: colors.textBody,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xxl),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+          // Mini-player — scoped to its own BlocBuilder (CLAUDE.md §B8).
+          _MiniPlayerSlot(onOptions: () => _showSpeedOptions(context)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenHorizontal,
+              AppSpacing.sm,
+              AppSpacing.screenHorizontal,
+              AppSpacing.lg,
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: widget.onAnalyze,
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.brandPrimary,
+                  foregroundColor: colors.onBrand,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.md),
+                  ),
+                ),
+                child: Text(
+                  state.isOffline
+                      ? strings.ocrContinue
+                      : strings.ocrOnlineAnalyze,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _startListening(BuildContext context) async {
+    final cubit = context.read<AudioReaderCubit>();
+    // If already reading, just stop — a second tap is an implicit "stop".
+    if (cubit.state is AudioReaderReading) {
+      await cubit.stop();
+      return;
+    }
+    final speed = await cubit.loadDefaultSpeed();
+    if (!mounted) return;
+    await cubit.startRaw(text: _controller.text, speed: speed);
   }
 
   void _copyText(BuildContext context, String text) {
@@ -387,6 +422,66 @@ class _ReadyBodyState extends State<_ReadyBody> {
         content: Text(context.strings.ocrTextCopied),
         duration: const Duration(seconds: 2),
       ),
+    );
+  }
+
+  /// Opens a speed-only picker sheet so the user can change TTS pace without
+  /// stopping the current reading — the review screen has only one reading
+  /// mode ([ReadingMode.extractedText]), so the full [AudioOptionsSheet]'s
+  /// mode picker would be misleading here.
+  Future<void> _showSpeedOptions(BuildContext context) async {
+    final cubit = context.read<AudioReaderCubit>();
+    final current = cubit.state;
+    if (current is! AudioReaderReading) return;
+
+    final picked = await showModalBottomSheet<ReadingSpeed>(
+      context: context,
+      backgroundColor: AppColors.of(context).card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.lg)),
+      ),
+      builder: (_) => _SpeedPickerSheet(selected: current.speed),
+    );
+
+    if (picked == null || !mounted) return;
+    await cubit.startRaw(text: _controller.text, speed: picked);
+  }
+}
+
+/// Watches [AudioReaderCubit] on its own, scoped to just the mini-player —
+/// avoids rebuilding the text field and the rest of the page on every
+/// `TtsProgressed` tick (CLAUDE.md §B8).
+class _MiniPlayerSlot extends StatelessWidget {
+  const _MiniPlayerSlot({required this.onOptions});
+
+  /// Called when the user taps the options button on the mini-player.
+  /// On the review screen this restarts listening (no mode picker here).
+  final VoidCallback onOptions;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+
+    return BlocBuilder<AudioReaderCubit, AudioReaderState>(
+      builder: (context, audioState) => switch (audioState) {
+        AudioReaderReading(:final mode, :final isPaused, :final progress) =>
+          AudioMiniPlayerBar(
+            modeLabel: readingModeLabel(strings, mode),
+            isPlaying: !isPaused,
+            progress: progress,
+            onTogglePlayPause: () {
+              final cubit = context.read<AudioReaderCubit>();
+              if (isPaused) {
+                cubit.resume();
+              } else {
+                cubit.pause();
+              }
+            },
+            onOptions: onOptions,
+            onStop: () => context.read<AudioReaderCubit>().stop(),
+          ),
+        _ => const SizedBox.shrink(),
+      },
     );
   }
 }
@@ -459,37 +554,154 @@ class _ImageToggle extends StatelessWidget {
   }
 }
 
-/// The amber notice below the candidate chips when any of them is ambiguous
-/// — an inline hint rather than an auto-opened sheet (F14 locked correction
-/// #6): the user keeps control of when to dig into field-level review.
-class _AmbiguityNotice extends StatelessWidget {
-  const _AmbiguityNotice({required this.text});
+/// Amber warning banner for the offline path — OCR quality may be lower
+/// without internet access. Same amber styling as [_AmbiguityNotice].
+class _OfflineWarning extends StatelessWidget {
+  const _OfflineWarning({required this.text});
 
   final String text;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    return Container(
+    return Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
+        horizontal: AppSpacing.screenHorizontal,
       ),
-      decoration: BoxDecoration(
-        color: colors.warningTint,
-        borderRadius: BorderRadius.circular(AppRadii.md),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.info_outline, size: 16, color: colors.warningInk),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 13, color: colors.warningInk),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: colors.warningTint,
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.wifi_off, size: 16, color: colors.warningInk),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(fontSize: 13, color: colors.warningInk),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Speed-only picker sheet for the review screen's mini-player «خيارات».
+///
+/// The full [AudioOptionsSheet] offers reading-mode + speed, but the review
+/// screen has exactly one mode ([ReadingMode.extractedText]), so only the
+/// speed row is meaningful here. Visually matches the speed pills from
+/// [AudioOptionsSheet] for consistency.
+class _SpeedPickerSheet extends StatefulWidget {
+  const _SpeedPickerSheet({required this.selected});
+
+  final ReadingSpeed selected;
+
+  @override
+  State<_SpeedPickerSheet> createState() => _SpeedPickerSheetState();
+}
+
+class _SpeedPickerSheetState extends State<_SpeedPickerSheet> {
+  late ReadingSpeed _speed = widget.selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final colors = AppColors.of(context);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenHorizontal,
+          AppSpacing.md,
+          AppSpacing.screenHorizontal,
+          AppSpacing.xxxl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: colors.border,
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Text(
+              strings.audioReaderSpeedLabel,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: colors.ink,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final (index, speed) in ReadingSpeed.values.indexed) ...[
+                  if (index > 0) const SizedBox(width: 6),
+                  Material(
+                    color: speed == _speed
+                        ? colors.brandPrimary
+                        : colors.surface,
+                    borderRadius: BorderRadius.circular(AppRadii.pill),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                      onTap: () => setState(() => _speed = speed),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: Text(
+                          speed.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: speed == _speed
+                                ? colors.onBrand
+                                : colors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxl),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(_speed),
+                style: FilledButton.styleFrom(
+                  backgroundColor: colors.brandPrimary,
+                  foregroundColor: colors.onBrand,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.md),
+                  ),
+                ),
+                child: Text(strings.audioReaderStartLabel),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -178,11 +178,12 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             // `ProviderNotFoundException` and the button did nothing.
             child: Builder(
               builder: (context) => OcrProcessingScreen(
-                // Replaces this route: once the text is on its way to be
-                // analysed there is no going back to the OCR view of it.
-                onContinue: () {
+                // Auto-navigates on OCR completion: stores the result in
+                // `OcrSessionHolder` and push-replaces to the unified
+                // review screen.
+                onCompleted: () {
                   context.read<OcrProcessingCubit>().confirm();
-                  context.pushReplacement(AppRoutes.result);
+                  context.pushReplacement(AppRoutes.ocrReview);
                 },
                 // `go(home)` then `push(capture)` rather than
                 // `pushReplacement`: `pushReplacement` only swaps the current
@@ -204,36 +205,64 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           );
         },
       ),
-      // The online route's stop between Azure OCR and Groq analysis (F14).
-      // Also outside the shell, like the routes either side of it.
+      // The unified OCR review screen — serves both the online route (Azure
+      // OCR runs here) and the offline route (Tesseract already finished on
+      // `/ocr`, result handed off via `OcrSessionHolder`). Also outside the
+      // shell, like the routes either side of it.
       GoRoute(
         path: AppRoutes.ocrReview,
         builder: (context, state) {
-          // Read from the hand-off holder rather than `extra`, same reasoning
-          // as the `/result` route below: `extra` is dropped when the OS
-          // kills and restores the app mid-scan.
+          // Detect whether we arrived from the offline or online path.
+          // Only one holder is ever populated at a time — `ImagePreviewCubit`
+          // clears both before populating the route it chose.
+          final ocrHandoff = getIt<OcrSessionHolder>();
           final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
-          final session = onlineHandoff.session;
-          final photo = onlineHandoff.photo;
-          if (session == null || photo == null) return const _BackToHome();
 
-          return BlocProvider<OcrReviewCubit>(
-            create: (_) =>
-                getIt<OcrReviewCubit>(param1: session, param2: photo)..runOcr(),
+          final AnalysisSession? session;
+          final OcrReviewCubit cubit;
+
+          if (ocrHandoff.session != null && ocrHandoff.result != null) {
+            // Offline path: OCR already ran on `/ocr`.
+            session = ocrHandoff.session;
+            cubit = getIt<OcrReviewCubit>(
+              instanceName: 'offline',
+              param1: session,
+              param2: ocrHandoff.result,
+            )..loadOffline(ocrHandoff.result!);
+          } else if (onlineHandoff.session != null &&
+              onlineHandoff.photo != null) {
+            // Online path: Azure OCR runs inside the cubit.
+            session = onlineHandoff.session;
+            cubit = getIt<OcrReviewCubit>(
+              param1: session,
+              param2: onlineHandoff.photo,
+            )..runOcr();
+          } else {
+            return const _BackToHome();
+          }
+
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<OcrReviewCubit>(create: (_) => cubit),
+              BlocProvider<AudioReaderCubit>(
+                create: (_) => getIt<AudioReaderCubit>(),
+              ),
+            ],
             // Same reasoning as the `/ocr` route's `Builder` above: the
             // callbacks need a `context` below the provider to `read` it.
             child: Builder(
               builder: (context) => OcrReviewScreen(
                 // Replaces this route: once the approved text is on its way
-                // to Groq there is no going back to the OCR review of it.
+                // to Groq (online) or the result screen (offline) there is
+                // no going back to the OCR review of it.
                 onAnalyze: () {
-                  final cubit = context.read<OcrReviewCubit>();
-                  final extraction = cubit.buildReviewedResult();
+                  final reviewCubit = context.read<OcrReviewCubit>();
+                  final extraction = reviewCubit.buildReviewedResult();
                   // The re-extracted result, not the server's original
                   // candidates — see `buildReviewedResult`'s doc (locked
                   // correction #1).
-                  getIt<OcrSessionHolder>().set(session, extraction);
-                  cubit.cleanupImage();
+                  getIt<OcrSessionHolder>().set(session!, extraction);
+                  reviewCubit.cleanupImage();
                   context.pushReplacement(AppRoutes.result);
                 },
                 // See the `/ocr` route's `onRetake` above for why this is

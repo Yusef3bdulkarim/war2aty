@@ -533,6 +533,14 @@ abstract interface class AppStrings {
   String get ocrOnlineHideImage;
   String get ocrOnlineAmbiguityNotice;
 
+  /// Amber warning banner shown on the review screen when OCR ran offline
+  /// (Tesseract) — accuracy may be lower than the online (Azure) path.
+  String get ocrOfflineQualityWarning;
+
+  /// "الاستماع للنص" button on the review screen — reads the extracted text
+  /// aloud before analysis.
+  String get ocrListenToText;
+
   // Analysis — while it runs
   String get analysisRunningTitle;
   String get analysisRunningMessage;
