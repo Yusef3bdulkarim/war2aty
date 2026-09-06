@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand teal, midpoint of the splash gradient -->
+    <color name="splash_bg">#FF0A6C76</color>
+</resources>
