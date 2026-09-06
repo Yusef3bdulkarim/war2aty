@@ -9,14 +9,21 @@ import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/bootstrap_stage.dart';
 import '../cubit/bootstrap_cubit.dart';
 import '../cubit/bootstrap_state.dart';
+import '../splash_timing.dart';
+import '../widgets/paper_plane_logo.dart';
 import '../widgets/pulsing_dots.dart';
 
 /// Launch screen: brand splash while initializing, error state with retry if a
 /// critical step fails.
 ///
-/// The splash matches the Waraqti design (teal gradient, tiled document mark,
-/// pulsing dots). The error state reuses the design's centred state-screen
-/// pattern, since the design ships no dedicated launch-error comp.
+/// The splash matches the Waraqti design (teal gradient). The mark itself is
+/// the animation: a folded paper dart glides in, unfolds into the page, and the
+/// magnifier drops onto it — see [PaperPlaneLogo] for the drawing and its own
+/// internal timeline. The screen only adds the copy underneath:
+///   0.75 → 0.85  app name slides up and fades in
+///   0.80 → 0.90  tagline slides up and fades in
+///   0.88 → 0.98  progress dots appear
+/// After the entrance, an ambient loop keeps the mark breathing.
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
@@ -29,16 +36,123 @@ class SplashScreen extends StatelessWidget {
         ),
         BootstrapInitial() ||
         BootstrapInProgress() ||
-        BootstrapSuccess() => _Splash(state: state),
+        BootstrapSuccess() => _AnimatedSplash(
+          state: state,
+          // The launch waits on this rather than on a timer of its own, so the
+          // hand-off happens when the mark has actually finished, not when a
+          // clock started before the first frame says it should have.
+          onEntranceFinished: () =>
+              context.read<BootstrapCubit>().splashEntranceFinished(),
+        ),
       },
     );
   }
 }
 
-class _Splash extends StatelessWidget {
-  const _Splash({required this.state});
+// ---------------------------------------------------------------------------
+// Animated splash
+// ---------------------------------------------------------------------------
+
+class _AnimatedSplash extends StatefulWidget {
+  const _AnimatedSplash({
+    required this.state,
+    required this.onEntranceFinished,
+  });
 
   final BootstrapState state;
+
+  /// Fired once, when the entrance animation has played all the way out.
+  final VoidCallback onEntranceFinished;
+
+  @override
+  State<_AnimatedSplash> createState() => _AnimatedSplashState();
+}
+
+class _AnimatedSplashState extends State<_AnimatedSplash>
+    with TickerProviderStateMixin {
+  // ── Entrance (one-shot: flight, unfold, magnifier, copy) ──
+  late final AnimationController _entrance = AnimationController(
+    vsync: this,
+    duration: kLogoEntranceDuration,
+  );
+
+  // ── Ambient loop (starts after the entrance, drives the mark's breathing) ──
+  late final AnimationController _ambient = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3600),
+  );
+
+  // ── Derived entrance curves ──
+  late final Animation<double> _nameFade = CurvedAnimation(
+    parent: _entrance,
+    curve: const Interval(0.75, 0.85, curve: Curves.easeOut),
+  );
+
+  late final Animation<double> _nameSlide = Tween<double>(begin: 24, end: 0)
+      .animate(
+        CurvedAnimation(
+          parent: _entrance,
+          curve: const Interval(0.75, 0.85, curve: Curves.easeOutCubic),
+        ),
+      );
+
+  late final Animation<double> _taglineFade = CurvedAnimation(
+    parent: _entrance,
+    curve: const Interval(0.80, 0.90, curve: Curves.easeOut),
+  );
+
+  late final Animation<double> _taglineSlide = Tween<double>(begin: 18, end: 0)
+      .animate(
+        CurvedAnimation(
+          parent: _entrance,
+          curve: const Interval(0.80, 0.90, curve: Curves.easeOutCubic),
+        ),
+      );
+
+  late final Animation<double> _dotsFade = CurvedAnimation(
+    parent: _entrance,
+    curve: const Interval(0.88, 0.98, curve: Curves.easeOut),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _entrance.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _ambient.repeat();
+        widget.onEntranceFinished();
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+
+    // Under reduced motion, show the settled mark at once and release the
+    // launch immediately — the hold exists to protect the animation, so with no
+    // animation to protect it would just be six seconds of dead time. Keeps the
+    // ambient ticker idle too, rather than burning frames nobody sees.
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _entrance.value = 1;
+      widget.onEntranceFinished();
+    } else {
+      _entrance.forward();
+    }
+  }
+
+  /// `didChangeDependencies` runs again whenever an ancestor changes; the
+  /// entrance must only ever be kicked off once.
+  bool _started = false;
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    _ambient.dispose();
+    super.dispose();
+  }
 
   /// Localized description of the running stage, for screen readers.
   String? _stageLabel(BuildContext context, BootstrapStage? stage) {
@@ -56,79 +170,97 @@ class _Splash extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final stage = state is BootstrapInProgress
-        ? (state as BootstrapInProgress).stage
+    final stage = widget.state is BootstrapInProgress
+        ? (widget.state as BootstrapInProgress).stage
         : null;
 
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment(-0.35, -1),
-            end: Alignment(0.35, 1),
-            colors: [Color(0xFF0E7C86), Color(0xFF0A5C64)],
-          ),
-        ),
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(40),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 118,
-                  height: 118,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 40,
-                        offset: const Offset(0, 18),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.article_outlined,
-                    size: 60,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                Text(
-                  s.appName,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.displayLarge.copyWith(
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  s.appTagline,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodyLarge.copyWith(
-                    color: Colors.white.withValues(alpha: 0.86),
-                    fontWeight: AppTypography.medium,
-                  ),
-                ),
-                const SizedBox(height: 52),
-                // Progress is the design's pulsing dots; the active stage is
-                // announced to assistive tech without altering the visuals.
-                Semantics(
-                  liveRegion: true,
-                  label: _stageLabel(context, stage),
-                  child: const PulsingDots(),
-                ),
-              ],
+      body: AnimatedBuilder(
+        animation: Listenable.merge([_entrance, _ambient]),
+        builder: (context, _) {
+          return DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment(-0.35, -1),
+                end: Alignment(0.35, 1),
+                colors: [Color(0xFF0E7C86), Color(0xFF0A5C64)],
+              ),
             ),
-          ),
-        ),
+            child: SizedBox.expand(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Spacer(flex: 3),
+
+                  // ── The animated mark ──
+                  PaperPlaneLogo(
+                    progress: _entrance.value,
+                    ambient: _ambient.value,
+                    size: 200,
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // ── App name ──
+                  Transform.translate(
+                    offset: Offset(0, _nameSlide.value),
+                    child: Opacity(
+                      opacity: _nameFade.value,
+                      child: Text(
+                        s.appName,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.displayLarge.copyWith(
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // ── Tagline ──
+                  Transform.translate(
+                    offset: Offset(0, _taglineSlide.value),
+                    child: Opacity(
+                      opacity: _taglineFade.value,
+                      child: Text(
+                        s.appTagline,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyLarge.copyWith(
+                          color: Colors.white.withValues(alpha: 0.86),
+                          fontWeight: AppTypography.medium,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const Spacer(flex: 2),
+
+                  // ── Pulsing dots ──
+                  Opacity(
+                    opacity: _dotsFade.value,
+                    child: Semantics(
+                      liveRegion: true,
+                      label: _stageLabel(context, stage),
+                      child: const PulsingDots(),
+                    ),
+                  ),
+
+                  const SizedBox(height: 60),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Launch error (unchanged from the original design)
+// ---------------------------------------------------------------------------
 
 class _LaunchError extends StatelessWidget {
   const _LaunchError({required this.onRetry});

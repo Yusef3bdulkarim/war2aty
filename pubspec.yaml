@@ -89,6 +89,7 @@ flutter:
         - asset: assets/fonts/Cairo.ttf
 
   assets:
+    - assets/app_icon.png
     - assets/tessdata_config.json
     - assets/tessdata/ara.traineddata
     - assets/tessdata/eng.traineddata
