@@ -46,9 +46,10 @@ final class AppEnvironment {
     );
   }
 
-  /// The `prod` flavor. Both values must be supplied at build time — there is
-  /// no hosted project yet, and a placeholder URL that silently "works" would
-  /// be worse than a build that reports itself unconfigured.
+  /// The `prod` flavor. Both values must be supplied at build time: the hosted
+  /// project's URL and publishable key live in `config/prod.json`, not in a
+  /// default here, so a build that forgot them reports itself unconfigured
+  /// instead of quietly pointing somewhere wrong.
   factory AppEnvironment.prod({String? appVersion}) {
     return AppEnvironment(
       flavor: Flavor.prod,

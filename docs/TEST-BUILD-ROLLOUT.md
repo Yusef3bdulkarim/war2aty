@@ -80,8 +80,9 @@ a follow-up, out of scope here.
   Azure/Google creds already in the project's secrets — verified, not just
   assumed). No change needed; the F14 online-OCR flow this round is testing
   will actually exercise it.
-- `DAILY_ANALYSIS_LIMIT`: raised from 3 → **10** for this test round (revert
-  after testing wraps — it's the `daily_limit` row in `app_runtime_config`).
+- `DAILY_ANALYSIS_LIMIT`: raised from 3 → **10** for this test round.
+  **Reverted to 3 on 2026-09-06**, when this project was promoted to
+  production — see the note at the end of this file.
 
 **What was actually done this session** (link + migrations + most secrets
 already existed from 2026-08-11/13 — verified, not redone):
@@ -120,7 +121,7 @@ isn't unblocked yet.
 1. ✅ Already on `develop` at `e41873d` (Task 1's SHA) when this ran — no
    checkout needed.
 2. ✅ `pubspec.yaml` bumped `1.0.0+1` → `1.0.0+2`.
-3. ✅ `config/staging.json` created (untracked so far — see note below) with
+3. ✅ `config/prod.json` created (untracked so far — see note below) with
    Task 2's `SUPABASE_URL`/`SUPABASE_ANON_KEY`.
 4. First attempt with the plain `flutter build apk --flavor prod --release ...`
    command **failed**: `NoSuchFileException` on
@@ -129,7 +130,7 @@ isn't unblocked yet.
    rebuilding with `--target-platform android-arm64` (physical test phones are
    arm64-v8a; no reason to build/ship x86_64 in this APK anyway). Second build
    succeeded:
-   `flutter build apk --flavor prod --release --target-platform android-arm64 -t lib/main_prod.dart --dart-define-from-file=config/staging.json`
+   `flutter build apk --flavor prod --release --target-platform android-arm64 -t lib/main_prod.dart --dart-define-from-file=config/prod.json`
    → `build/app/outputs/flutter-apk/app-prod-release.apk` (50.5MB), confirmed
    on disk. Release still signs with the debug key (`TODO` left in
    `android/app/build.gradle.kts`) — fine for ad-hoc internal testing, not for
@@ -143,8 +144,37 @@ isn't unblocked yet.
    Africa/Cairo day (raised from 3 in Task 2 for this test round — revert to 3
    after); a fresh install resets it via a new anonymous identity.
 
-**Loose end:** `config/staging.json` and `pubspec.yaml`'s version bump are
-uncommitted on `develop` right now. `config/staging.json` only holds a URL +
+**Loose end:** `config/prod.json` and `pubspec.yaml`'s version bump are
+uncommitted on `develop` right now. `config/prod.json` only holds a URL +
 publishable key (safe to commit, same as `config/dev.usb.json`) — worth a
 small commit + push before this branch drifts, but not done automatically
 here since committing/pushing wasn't asked for in this task.
+
+
+---
+
+## Promoted to production — 2026-09-06
+
+This project stopped being a staging project: it is now the one the shipped
+app talks to. What changed, and what to watch:
+
+- **`daily_limit` reverted 10 → 3.** The raise above was for the test round and
+  outlived it. Left at 10 in production, every user would get three times the
+  intended quota, and three times the Azure and Groq spend behind it.
+- **`config/staging.json` renamed to `config/prod.json`** so the filename says
+  what it is. Contents unchanged: the project URL and its *publishable* key,
+  which is the one key §24 allows inside the app.
+- **The "no hosted project yet" comments are gone** from
+  `lib/core/env/app_environment.dart` and `lib/main_prod.dart`. They were four
+  weeks stale and had already misled one session into reporting the backend as
+  unbuilt when it was fully deployed. Task 2 above flagged them; this is the
+  follow-up it asked for.
+
+Still true of this project, and worth deciding deliberately rather than by
+default:
+
+- **Region is `ap-northeast-2` (Seoul)** — roughly 8,000 km from the users. A
+  region cannot be changed after creation, so moving closer means a new project
+  and a full redeploy.
+- **There is no separate staging environment any more.** Anything tried against
+  this project is tried against production.
