@@ -390,6 +390,9 @@ final class ArStrings implements AppStrings {
   @override
   String get documentDetailsBackToList => 'رجوع للمستندات';
 
+  @override
+  String get documentImageLabel => 'صورة المستند';
+
   // Document notes (F08-T09)
   @override
   String get documentNoteHeading => 'ملاحظتي';
@@ -720,6 +723,12 @@ final class ArStrings implements AppStrings {
   @override
   String get ocrOnlineAmbiguityNotice => 'بعض المعلومات ممكن تحتاج مراجعة';
 
+  @override
+  String get ocrOfflineQualityWarning =>
+      'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
+  @override
+  String get ocrListenToText => 'الاستماع للنص';
+
   // Analysis — while it runs
   @override
   String get analysisRunningTitle => 'بنجهز لك شرح بسيط للورقة';
@@ -1041,6 +1050,8 @@ final class ArStrings implements AppStrings {
       'الخلاصة وأهم المعلومات';
   @override
   String get audioReaderModeFull => 'الشرح كامل';
+  @override
+  String get audioReaderModeReadAll => 'قراءة كل الشاشة';
   @override
   String get audioReaderModeExtractedText => 'النص المستخرج';
   @override

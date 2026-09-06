@@ -10,6 +10,7 @@ import 'package:war2aty/core/documents/analysis_date.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
+import 'package:war2aty/core/documents/usecases/load_document_image.dart';
 import 'package:war2aty/core/documents/usecases/set_document_note.dart';
 import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
@@ -22,6 +23,7 @@ import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
+import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/widgets/date_selection_sheet.dart';
 import 'package:war2aty/core/widgets/result_action_bar.dart';
@@ -30,6 +32,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -96,6 +99,7 @@ void main() {
           SetDocumentNote(documents),
           UpdateDocument(documents),
           DeleteDocument(documents),
+          LoadDocumentImage(FakeDocumentImageStore()),
           documentId: id,
         ),
       )
@@ -109,6 +113,7 @@ void main() {
             const SelectVoiceForReading(),
             tts,
           ),
+          StartRawReading(const SelectVoiceForReading(), tts),
           StopReading(tts),
           PauseReading(tts),
           ResumeReading(tts),
@@ -118,6 +123,7 @@ void main() {
           GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
         ),
       )
+      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
         (args, _) {
           final reminders = FakeRemindersRepository();

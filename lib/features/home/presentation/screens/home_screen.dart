@@ -10,7 +10,6 @@ import '../widgets/home_greeting.dart';
 import '../widgets/recent_documents_strip.dart';
 import '../widgets/scan_actions.dart';
 import '../widgets/upcoming_reminder_card.dart';
-import '../widgets/usage_indicator.dart';
 
 // From `Waraqti.dc.html` → `home`. The 64px top padding is measured from the
 // physical screen top and already contains the 52px status bar, which
@@ -58,12 +57,6 @@ class HomeScreen extends StatelessWidget {
               ScanActions(
                 onScan: onScan ?? () {},
                 onPickImage: onPickImage ?? () {},
-              ),
-              // Rebuilt only when the usage section changes, not on every
-              // Home update — the scan actions above never need to rebuild.
-              BlocSelector<HomeCubit, HomeState, UsageSection>(
-                selector: (state) => state.usage,
-                builder: (context, usage) => UsageIndicator(section: usage),
               ),
               // Order follows the design: the thing with a deadline comes
               // before the archive of things already dealt with.

@@ -4,8 +4,10 @@ import 'package:war2aty/core/documents/analysis_section.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/key_information.dart';
+import 'package:war2aty/core/documents/recent_document.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
+import 'package:war2aty/core/documents/usecases/load_document_image.dart';
 import 'package:war2aty/core/documents/usecases/set_document_note.dart';
 import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
@@ -18,8 +20,12 @@ import '../../support/fakes.dart';
 
 void main() {
   late FakeDocumentsRepository repository;
+  late FakeDocumentImageStore imageStore;
 
-  setUp(() => repository = FakeDocumentsRepository());
+  setUp(() {
+    repository = FakeDocumentsRepository();
+    imageStore = FakeDocumentImageStore();
+  });
   tearDown(() => repository.dispose());
 
   DocumentDetailsCubit buildCubit({String documentId = 'doc-1'}) =>
@@ -29,6 +35,7 @@ void main() {
         SetDocumentNote(repository),
         UpdateDocument(repository),
         DeleteDocument(repository),
+        LoadDocumentImage(imageStore),
         documentId: documentId,
       );
 
@@ -180,6 +187,52 @@ void main() {
       final state = cubit.state as DocumentDetailsAvailable;
       expect(state.sections, isNot(contains(AnalysisSection.keyInformation)));
       expect(state.sections, isNot(contains(AnalysisSection.dates)));
+    });
+  });
+
+  group('document image', () {
+    test('loads the decrypted image for a withImage document', () async {
+      repository.emitDocument(
+        savedDocumentWith(storageMode: DocumentStorageMode.withImage),
+      );
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      cubit.start();
+      await pumpEventQueue();
+
+      final state = cubit.state as DocumentDetailsAvailable;
+      expect(state.imageBytes, isNotNull);
+    });
+
+    test('does not load an image for a resultOnly document', () async {
+      repository.emitDocument(
+        savedDocumentWith(storageMode: DocumentStorageMode.resultOnly),
+      );
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      cubit.start();
+      await pumpEventQueue();
+
+      final state = cubit.state as DocumentDetailsAvailable;
+      expect(state.imageBytes, isNull);
+    });
+
+    test('still shows the document when image decryption fails', () async {
+      imageStore.fails = true;
+      repository.emitDocument(
+        savedDocumentWith(storageMode: DocumentStorageMode.withImage),
+      );
+      final cubit = buildCubit();
+      addTearDown(cubit.close);
+
+      cubit.start();
+      await pumpEventQueue();
+
+      final state = cubit.state as DocumentDetailsAvailable;
+      expect(state.document.storageMode, DocumentStorageMode.withImage);
+      expect(state.imageBytes, isNull);
     });
   });
 

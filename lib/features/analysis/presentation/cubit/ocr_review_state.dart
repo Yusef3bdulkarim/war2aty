@@ -21,6 +21,7 @@ final class OcrReviewReady extends OcrReviewState {
     required this.serverCandidates,
     required this.detectedLanguages,
     required this.imagePath,
+    this.isOffline = false,
   });
 
   /// The text Azure returned, untouched. Kept so [isEdited] can tell whether
@@ -47,6 +48,11 @@ final class OcrReviewReady extends OcrReviewState {
   /// lifecycle) — `null` only if it was already cleaned up.
   final String? imagePath;
 
+  /// `true` when this review came from the offline (Tesseract) OCR path —
+  /// the screen shows an amber quality-warning banner and uses "متابعة"
+  /// instead of "تحليل الورقة".
+  final bool isOffline;
+
   /// Whether the user has changed the text since OCR completed.
   bool get isEdited => originalOcrText != reviewedOcrText;
 
@@ -58,7 +64,8 @@ final class OcrReviewReady extends OcrReviewState {
           other.reviewedOcrText == reviewedOcrText &&
           other.serverCandidates == serverCandidates &&
           _listEquals(other.detectedLanguages, detectedLanguages) &&
-          other.imagePath == imagePath;
+          other.imagePath == imagePath &&
+          other.isOffline == isOffline;
 
   @override
   int get hashCode => Object.hash(
@@ -67,6 +74,7 @@ final class OcrReviewReady extends OcrReviewState {
     serverCandidates,
     Object.hashAll(detectedLanguages),
     imagePath,
+    isOffline,
   );
 }
 

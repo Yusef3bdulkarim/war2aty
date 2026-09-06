@@ -46,6 +46,7 @@ const List<ReadingMode> _offeredModes = [
   ReadingMode.summaryOnly,
   ReadingMode.summaryAndKeyInformation,
   ReadingMode.fullExplanation,
+  ReadingMode.readAll,
 ];
 
 /// What the sheet answers with once the user taps the play control: both the

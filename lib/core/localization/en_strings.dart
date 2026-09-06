@@ -388,6 +388,9 @@ final class EnStrings implements AppStrings {
   @override
   String get documentDetailsBackToList => 'Back to documents';
 
+  @override
+  String get documentImageLabel => 'Document image';
+
   // Document notes (F08-T09)
   @override
   String get documentNoteHeading => 'My note';
@@ -725,6 +728,12 @@ final class EnStrings implements AppStrings {
   @override
   String get ocrOnlineAmbiguityNotice => 'Some information may need review';
 
+  @override
+  String get ocrOfflineQualityWarning =>
+      'Results may be less accurate because the scan was done offline';
+  @override
+  String get ocrListenToText => 'Listen to text';
+
   // Analysis — while it runs
   @override
   String get analysisRunningTitle => 'Preparing a simple explanation';
@@ -1053,6 +1062,8 @@ final class EnStrings implements AppStrings {
       'Summary and key information';
   @override
   String get audioReaderModeFull => 'Full explanation';
+  @override
+  String get audioReaderModeReadAll => 'Read entire screen';
   @override
   String get audioReaderModeExtractedText => 'Extracted text';
   @override

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/widgets.dart';
@@ -55,11 +56,16 @@ import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_frame.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/entities/document_quad.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
+import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
 import 'package:war2aty/features/capture/domain/services/camera_service.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
+import 'package:war2aty/features/capture/domain/services/document_edge_detector.dart';
+import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
@@ -393,13 +399,41 @@ final class FakeCameraService implements CameraService {
   /// camera "opening" and interleave a suspend/close with it.
   Completer<void>? initializeGate;
 
+  /// When set, [capturePhoto] waits on it before returning — lets a test hold
+  /// the shutter in flight and interleave a suspend()/close() with it.
+  Completer<void>? captureGate;
+
+  /// Set to make [startFrameStream] fail — the live edge detector never
+  /// getting off the ground, which must stay invisible to the user (F16
+  /// locked decision #4).
+  bool streamFails = false;
+
   int initializeCount = 0;
   int captureCount = 0;
   int disposeCount = 0;
+  int startStreamCount = 0;
+  int stopStreamCount = 0;
+
+  /// Every call in order, so a test can assert *sequence* — notably that the
+  /// frame stream is stopped before the shutter fires.
+  final List<String> calls = [];
+
+  /// The consumer handed to [startFrameStream]; call [deliverFrame] to push a
+  /// frame through it as the camera would.
+  Future<void> Function(CameraFrame frame)? onFrame;
+
+  /// Pushes one frame to the current stream consumer, awaiting it the way the
+  /// real service's throttle does before admitting another.
+  Future<void> deliverFrame(CameraFrame frame) async {
+    final consumer = onFrame;
+    if (consumer == null) return;
+    await consumer(frame);
+  }
 
   @override
   Future<Result<void, AppFailure>> initialize() async {
     initializeCount++;
+    calls.add('initialize');
     final gate = initializeGate;
     if (gate != null) await gate.future;
     return initFails ? const Err(ImageProcessingFailure()) : const Ok(null);
@@ -408,11 +442,73 @@ final class FakeCameraService implements CameraService {
   @override
   Future<Result<CapturedPhoto, AppFailure>> capturePhoto() async {
     captureCount++;
+    calls.add('capturePhoto');
+    final gate = captureGate;
+    if (gate != null) await gate.future;
     return captureFails ? const Err(ImageProcessingFailure()) : Ok(photo);
   }
 
   @override
-  Future<void> dispose() async => disposeCount++;
+  Future<Result<void, AppFailure>> startFrameStream(
+    Future<void> Function(CameraFrame frame) onFrame,
+  ) async {
+    startStreamCount++;
+    calls.add('startFrameStream');
+    if (streamFails) return const Err(ImageProcessingFailure());
+    this.onFrame = onFrame;
+    return const Ok(null);
+  }
+
+  @override
+  Future<void> stopFrameStream() async {
+    stopStreamCount++;
+    calls.add('stopFrameStream');
+    onFrame = null;
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposeCount++;
+    calls.add('dispose');
+  }
+}
+
+/// Scriptable [DocumentEdgeDetector] — no isolate, no pixels.
+///
+/// Defaults to finding nothing, which is the detector's ordinary answer and
+/// the one the viewfinder renders as its static guide box. Queue results with
+/// [script], or set [failure] to model a frame the detector could not read —
+/// which must look identical to "nothing found" from the user's side (F16
+/// locked decision #4).
+final class FakeDocumentEdgeDetector implements DocumentEdgeDetector {
+  FakeDocumentEdgeDetector({this.quad, this.failure});
+
+  /// Returned for every frame once [script] runs out.
+  DocumentQuad? quad;
+  AppFailure? failure;
+
+  /// Results to hand back, in order, before falling through to [quad].
+  final List<DocumentQuad?> script = [];
+
+  /// When set, [detect] waits on it — lets a test hold a detection in flight
+  /// and interleave a suspend/capture with it.
+  Completer<void>? gate;
+
+  int detectCount = 0;
+  final List<CameraFrame> frames = [];
+
+  @override
+  Future<Result<DocumentQuad?, AppFailure>> detect(CameraFrame frame) async {
+    detectCount++;
+    frames.add(frame);
+    final held = gate;
+    if (held != null) await held.future;
+
+    final fails = failure;
+    if (fails != null) return Err(fails);
+    if (script.isNotEmpty) return Ok(script.removeAt(0));
+    return Ok(quad);
+  }
 }
 
 /// Scriptable [ImagePickerService] — no plugin, no OS picker.
@@ -486,6 +582,10 @@ final class FakeImageRotator implements ImageRotator {
   final CapturedPhoto output;
   bool fails;
 
+  /// When set, [rotate] waits on it before returning — lets a test hold the
+  /// rotate step in flight and interleave a close()/suspend() with it.
+  Completer<void>? gate;
+
   int rotateCount = 0;
   int? lastQuarterTurns;
 
@@ -496,9 +596,44 @@ final class FakeImageRotator implements ImageRotator {
   ) async {
     rotateCount++;
     lastQuarterTurns = quarterTurns;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
     if (fails) return const Err(ImageProcessingFailure());
     // A no-op rotation returns the original, mirroring the real rotator.
     return Ok(quarterTurns % 4 == 0 ? photo : output);
+  }
+}
+
+/// Scriptable [ImageCropper] — no `image` package/isolate work.
+final class FakeImageCropper implements ImageCropper {
+  FakeImageCropper({this.output, this.fails = false});
+
+  /// The cropped photo to return. `null` means "hand the input back
+  /// unchanged", mirroring the real cropper's [UnitRect.isFull] no-op.
+  CapturedPhoto? output;
+  bool fails;
+
+  /// When set, [crop] waits on it before returning — lets a test hold the
+  /// crop step in flight and interleave a close()/suspend() with it.
+  Completer<void>? gate;
+
+  int cropCount = 0;
+  CapturedPhoto? lastPhoto;
+  UnitRect? lastRegion;
+
+  @override
+  Future<Result<CapturedPhoto, AppFailure>> crop(
+    CapturedPhoto photo,
+    UnitRect region,
+  ) async {
+    cropCount++;
+    lastPhoto = photo;
+    lastRegion = region;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
+    if (fails) return const Err(ImageProcessingFailure());
+    // A no-op crop returns the original, mirroring the real cropper.
+    return Ok(region.isFull ? photo : (output ?? photo));
   }
 }
 
@@ -532,6 +667,11 @@ final class FakePerspectiveCorrector implements PerspectiveCorrector {
   CapturedPhoto? output;
   bool fails;
 
+  /// When set, [correct] waits on it before returning — lets a test hold the
+  /// perspective-correct step in flight and interleave a close()/suspend()
+  /// with it.
+  Completer<void>? gate;
+
   int correctCount = 0;
   CapturedPhoto? lastPhoto;
 
@@ -539,6 +679,8 @@ final class FakePerspectiveCorrector implements PerspectiveCorrector {
   Future<Result<CapturedPhoto, AppFailure>> correct(CapturedPhoto photo) async {
     correctCount++;
     lastPhoto = photo;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
     if (fails) return const Err(ImageProcessingFailure());
     return Ok(output ?? photo);
   }
@@ -834,6 +976,11 @@ final class FakeDocumentImageStore implements DocumentImageStore {
   /// Every id passed to [delete], in order.
   final List<String> deletedIds = [];
 
+  /// Bytes to return from [load]. When `null` and [fails] is false, returns a
+  /// 1×1 transparent PNG so a test that saves with-image gets something back
+  /// by default.
+  Uint8List? loadResult;
+
   @override
   Future<Result<String, AppFailure>> encryptAndStore({
     required String documentId,
@@ -845,6 +992,12 @@ final class FakeDocumentImageStore implements DocumentImageStore {
   }
 
   @override
+  Future<Result<Uint8List, AppFailure>> load(String documentId) async {
+    if (fails) return const Err(FileStorageFailure());
+    return Ok(loadResult ?? _onePxPng);
+  }
+
+  @override
   Future<void> delete(String documentId) async => deletedIds.add(documentId);
 
   /// Whether [deleteAll] was called (F11-T11).
@@ -852,6 +1005,20 @@ final class FakeDocumentImageStore implements DocumentImageStore {
 
   @override
   Future<void> deleteAll() async => deleteAllCalled = true;
+
+  /// A minimal 1×1 transparent PNG — just enough bytes for [Image.memory] to
+  /// decode without hitting the filesystem.
+  static final Uint8List _onePxPng = Uint8List.fromList(const [
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1×1
+    0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89,
+    0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+    0x78, 0x9C, 0x62, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0xE5,
+    0x27, 0xDE, 0xFC,
+    0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, // IEND chunk
+    0xAE, 0x42, 0x60, 0x82,
+  ]);
 }
 
 /// In-memory [DocumentsRepository] the test drives by hand — the read side

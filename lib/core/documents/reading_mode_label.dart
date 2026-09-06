@@ -13,5 +13,6 @@ String readingModeLabel(AppStrings strings, ReadingMode mode) => switch (mode) {
   ReadingMode.summaryAndKeyInformation =>
     strings.audioReaderModeSummaryAndKeyInformation,
   ReadingMode.fullExplanation => strings.audioReaderModeFull,
+  ReadingMode.readAll => strings.audioReaderModeReadAll,
   ReadingMode.extractedText => strings.audioReaderModeExtractedText,
 };

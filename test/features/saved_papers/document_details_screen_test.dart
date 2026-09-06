@@ -9,6 +9,7 @@ import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
+import 'package:war2aty/core/documents/usecases/load_document_image.dart';
 import 'package:war2aty/core/documents/usecases/set_document_note.dart';
 import 'package:war2aty/core/documents/usecases/update_document.dart';
 import 'package:war2aty/core/documents/usecases/watch_document.dart';
@@ -24,6 +25,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -38,18 +40,21 @@ void main() {
   const en = EnStrings();
 
   late FakeDocumentsRepository repository;
+  late FakeDocumentImageStore imageStore;
   late DocumentDetailsCubit cubit;
   late FakeTextToSpeechService tts;
   late AudioReaderCubit audioReaderCubit;
 
   setUp(() {
     repository = FakeDocumentsRepository();
+    imageStore = FakeDocumentImageStore();
     cubit = DocumentDetailsCubit(
       WatchDocument(repository),
       const BuildAnalysisResult(),
       SetDocumentNote(repository),
       UpdateDocument(repository),
       DeleteDocument(repository),
+      LoadDocumentImage(imageStore),
       documentId: 'doc-1',
     );
     tts = FakeTextToSpeechService();
@@ -59,6 +64,7 @@ void main() {
         const SelectVoiceForReading(),
         tts,
       ),
+      StartRawReading(const SelectVoiceForReading(), tts),
       StopReading(tts),
       PauseReading(tts),
       ResumeReading(tts),

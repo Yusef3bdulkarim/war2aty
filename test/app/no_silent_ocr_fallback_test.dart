@@ -27,6 +27,7 @@ import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
@@ -44,6 +45,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -54,6 +56,7 @@ import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.da
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -200,6 +203,7 @@ void main() {
         (path, _) => ImagePreviewCubit(
           source: CapturedPhoto(path),
           rotate: RotateImage(FakeImageRotator()),
+          cropImage: CropImage(FakeImageCropper()),
           assessQuality: AssessImageQuality(FakeImageQualityService()),
           decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
           correctPerspective: CorrectPerspective(FakePerspectiveCorrector()),
@@ -266,6 +270,7 @@ void main() {
             const SelectVoiceForReading(),
             tts,
           ),
+          StartRawReading(const SelectVoiceForReading(), tts),
           StopReading(tts),
           PauseReading(tts),
           ResumeReading(tts),
@@ -318,6 +323,7 @@ void main() {
           'failed online analysis.',
         );
       })
+      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<GoRouter>(
         () => createAppRouter(onboardingGate: getIt()),
       );

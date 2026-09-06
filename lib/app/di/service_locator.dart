@@ -50,6 +50,7 @@ import '../../core/documents/recent_documents_repository.dart';
 import '../../core/documents/usecases/build_analysis_result.dart';
 import '../../core/documents/usecases/delete_all_documents.dart';
 import '../../core/documents/usecases/delete_document.dart';
+import '../../core/documents/usecases/load_document_image.dart';
 import '../../core/documents/usecases/save_document.dart';
 import '../../core/documents/usecases/save_document_with_image.dart';
 import '../../core/documents/usecases/set_document_note.dart';
@@ -104,6 +105,7 @@ import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
 import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
+import '../../core/usage/usage_hint_holder.dart';
 import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
 import '../../core/usage/usecases/get_daily_usage.dart';
@@ -129,6 +131,7 @@ import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
+import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
@@ -140,8 +143,10 @@ import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
+import '../../features/capture/data/services/dart_document_edge_detector.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
 import '../../features/capture/data/services/doclens_perspective_corrector.dart';
+import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
 import '../../features/capture/data/services/platform_camera_service.dart';
@@ -149,6 +154,8 @@ import '../../features/capture/data/services/system_image_picker_service.dart';
 import '../../features/capture/domain/entities/captured_photo.dart';
 import '../../features/capture/domain/repositories/camera_permission_repository.dart';
 import '../../features/capture/domain/services/capture_file_cleanup.dart';
+import '../../features/capture/domain/services/document_edge_detector.dart';
+import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
@@ -158,7 +165,10 @@ import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/domain/usecases/correct_perspective.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
+import '../../features/capture/domain/usecases/crop_image.dart';
+import '../../features/capture/domain/usecases/crop_to_guide_box.dart';
 import '../../features/capture/domain/usecases/decide_analysis_route.dart';
+import '../../features/capture/domain/usecases/detect_document_edges.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
 import '../../features/capture/domain/usecases/initialize_camera.dart';
@@ -166,6 +176,8 @@ import '../../features/capture/domain/usecases/open_permission_settings.dart';
 import '../../features/capture/domain/usecases/pick_image_from_gallery.dart';
 import '../../features/capture/domain/usecases/request_camera_permission.dart';
 import '../../features/capture/domain/usecases/rotate_image.dart';
+import '../../features/capture/domain/usecases/start_frame_stream.dart';
+import '../../features/capture/domain/usecases/stop_frame_stream.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
@@ -174,6 +186,7 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
 import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
+import '../../features/ocr/domain/entities/extraction_result.dart';
 import '../../features/ocr/domain/repositories/ocr_repository.dart';
 import '../../features/ocr/domain/services/amount_extractor.dart';
 import '../../features/ocr/domain/services/date_extractor.dart';
@@ -417,6 +430,9 @@ void _registerHome() {
     // live stream above reflects the freshly consumed slot (registered here,
     // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
     ..registerFactory<SyncDailyUsage>(() => SyncDailyUsage(getIt()))
+    // One-shot hint shown as a SnackBar when the user leaves the result
+    // screen — set by the router, consumed by `ScaffoldWithNavBar`.
+    ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
     // Likewise replaced when F09 builds the `reminders` table.
     ..registerLazySingleton<UpcomingReminderRepository>(
       StubUpcomingReminderRepository.new,
@@ -463,9 +479,19 @@ void _registerCapture() {
         preview: camera,
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
+        cropToGuideBox: getIt(),
         disposeCamera: DisposeCamera(camera),
+        cleanupFiles: getIt(),
+        // The live edge detector reads the same device's frames (F16).
+        startFrameStream: StartFrameStream(camera),
+        stopFrameStream: StopFrameStream(camera),
+        detectDocumentEdges: getIt(),
       );
     })
+    // Pure Dart, no plugin and no disk (F16 locked decisions #2/#3), so one
+    // instance is shared by every viewfinder.
+    ..registerLazySingleton<DocumentEdgeDetector>(DartDocumentEdgeDetector.new)
+    ..registerFactory<DetectDocumentEdges>(() => DetectDocumentEdges(getIt()))
     ..registerLazySingleton<ImagePickerService>(SystemImagePickerService.new)
     ..registerFactory<PickImageFromGallery>(() => PickImageFromGallery(getIt()))
     ..registerFactory<GalleryPickerCubit>(
@@ -473,6 +499,12 @@ void _registerCapture() {
     )
     ..registerLazySingleton<ImageRotator>(ImagePackageRotator.new)
     ..registerFactory<RotateImage>(() => RotateImage(getIt()))
+    // Shared by the guide-box crop (capture) and the manual drag-crop
+    // (preview screen) — both compute a UnitRect their own way and hand it
+    // to the same cropper (F15).
+    ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
+    ..registerFactory<CropImage>(() => CropImage(getIt()))
+    ..registerFactory<CropToGuideBox>(() => CropToGuideBox(getIt()))
     ..registerLazySingleton<ImageQualityService>(DartImageQualityService.new)
     ..registerFactory<AssessImageQuality>(() => AssessImageQuality(getIt()))
     ..registerFactory<CreateAnalysisSession>(
@@ -496,6 +528,7 @@ void _registerCapture() {
       (path, _) => ImagePreviewCubit(
         source: CapturedPhoto(path),
         rotate: getIt(),
+        cropImage: getIt(),
         assessQuality: getIt(),
         decideRoute: getIt(),
         correctPerspective: getIt(),
@@ -631,6 +664,12 @@ void _registerAnalysis(AppEnvironment env) {
         getAnalysisConsent: getIt(),
         imageHolder: getIt<ImageAnalysisSessionHolder>(),
       ),
+    )
+    // Offline variant: Tesseract already ran on `/ocr`, result handed off.
+    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, ExtractionResult>(
+      (session, _) =>
+          OcrReviewCubit.offline(session: session, extractCandidates: getIt()),
+      instanceName: 'offline',
     );
 }
 
@@ -672,12 +711,14 @@ void _registerSavedPapers() {
     ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
     ..registerFactory<UpdateDocument>(() => UpdateDocument(getIt()))
     ..registerFactory<DeleteDocument>(() => DeleteDocument(getIt()))
+    ..registerFactory<LoadDocumentImage>(() => LoadDocumentImage(getIt()))
     // F11-T11.
     ..registerFactory<DeleteAllDocuments>(() => DeleteAllDocuments(getIt()))
     // Parameterised by the document id — one cubit instance per opened
     // details screen, the same shape [ImagePreviewCubit]'s registration uses.
     ..registerFactoryParam<DocumentDetailsCubit, String, void>(
       (documentId, _) => DocumentDetailsCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),
@@ -814,6 +855,8 @@ void _registerAudioReader() {
     ..registerFactory<StartReading>(
       () => StartReading(getIt(), getIt(), getIt()),
     )
+    // Raw-text TTS for the OCR review screen (pre-analysis).
+    ..registerFactory<StartRawReading>(() => StartRawReading(getIt(), getIt()))
     ..registerFactory<StopReading>(() => StopReading(getIt()))
     // F10-T05.
     ..registerFactory<PauseReading>(() => PauseReading(getIt()))
@@ -858,6 +901,7 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

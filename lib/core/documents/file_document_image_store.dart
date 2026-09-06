@@ -43,6 +43,28 @@ final class FileDocumentImageStore implements DocumentImageStore {
   }
 
   @override
+  Future<Result<Uint8List, AppFailure>> load(String documentId) async {
+    try {
+      final support = await _supportDirectory();
+      final file = File(
+        p.join(
+          support.path,
+          kDocumentImagesDirName,
+          documentId,
+          'original.enc',
+        ),
+      );
+      if (!await file.exists()) {
+        return const Err(FileStorageFailure());
+      }
+      final ciphertext = await file.readAsBytes();
+      return _encryptor.decrypt(ciphertext);
+    } on Object {
+      return const Err(FileStorageFailure());
+    }
+  }
+
+  @override
   Future<void> delete(String documentId) async {
     try {
       final support = await _supportDirectory();

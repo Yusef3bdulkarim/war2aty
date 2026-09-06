@@ -67,9 +67,10 @@ enable_signup = false
 enable_confirmations = false
 
 [edge_runtime]
-enabled = true
-# One worker per request: closest to the deployed behaviour and avoids state
-# leaking between analyses.
+# Disabled: `supabase start` does not pass `.env` secrets (Azure/Groq/Salt) to
+# the Edge Runtime container. Edge Functions are served separately with
+# `supabase functions serve --env-file supabase/.env` so they see the keys.
+enabled = false
 policy = "oneshot"
 inspector_port = 8083
 

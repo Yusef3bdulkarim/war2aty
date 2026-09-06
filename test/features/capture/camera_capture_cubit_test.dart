@@ -1,22 +1,47 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_frame.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/entities/document_quad.dart';
+import 'package:war2aty/features/capture/domain/entities/unit_point.dart';
+import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
+import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
+import 'package:war2aty/features/capture/domain/usecases/crop_to_guide_box.dart';
+import 'package:war2aty/features/capture/domain/usecases/detect_document_edges.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
+import 'package:war2aty/features/capture/domain/usecases/start_frame_stream.dart';
+import 'package:war2aty/features/capture/domain/usecases/stop_frame_stream.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_state.dart';
+import 'package:war2aty/features/capture/presentation/cubit/detection_budget.dart';
+import 'package:war2aty/features/capture/presentation/models/detected_document.dart';
 
 import '../../support/fakes.dart';
 
-CameraCaptureCubit cubitFor(FakeCameraService camera) {
+CameraCaptureCubit cubitFor(
+  FakeCameraService camera, {
+  FakeImageCropper? cropper,
+  FakeCaptureFileCleanup? cleanup,
+  FakeDocumentEdgeDetector? detector,
+}) {
   return CameraCaptureCubit(
     preview: const FakeCameraPreview(),
     initializeCamera: InitializeCamera(camera),
     capturePhoto: CapturePhoto(camera),
+    cropToGuideBox: CropToGuideBox(CropImage(cropper ?? FakeImageCropper())),
     disposeCamera: DisposeCamera(camera),
+    cleanupFiles: CleanupCaptureFiles(cleanup ?? FakeCaptureFileCleanup()),
+    startFrameStream: StartFrameStream(camera),
+    stopFrameStream: StopFrameStream(camera),
+    detectDocumentEdges: DetectDocumentEdges(
+      detector ?? FakeDocumentEdgeDetector(),
+    ),
   );
 }
 
@@ -55,7 +80,7 @@ void main() {
       addTearDown(cubit.close);
 
       await cubit.start();
-      await cubit.capture();
+      await cubit.capture(guideBox: UnitRect.full);
 
       expect(cubit.state, const CameraCaptured(shot));
     });
@@ -66,7 +91,7 @@ void main() {
       addTearDown(cubit.close);
 
       // Still initializing — no ready state reached yet.
-      await cubit.capture();
+      await cubit.capture(guideBox: UnitRect.full);
 
       expect(camera.captureCount, 0);
       expect(cubit.state, const CameraInitializing());
@@ -77,7 +102,7 @@ void main() {
       addTearDown(cubit.close);
 
       await cubit.start();
-      await cubit.capture();
+      await cubit.capture(guideBox: UnitRect.full);
 
       expect(cubit.state, const CameraCaptureError(ImageProcessingFailure()));
     });
@@ -135,11 +160,634 @@ void main() {
       await cubit.close();
 
       await cubit.start();
-      await cubit.capture();
+      await cubit.capture(guideBox: UnitRect.full);
 
       // Only the close() teardown touched the camera.
       expect(camera.initializeCount, 0);
       expect(camera.captureCount, 0);
+    });
+  });
+
+  group('CameraCaptureCubit guide-box crop (F15)', () {
+    test('captures then crops to the given guide box', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      const guideBox = UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8);
+      final cropper = FakeImageCropper(output: cropped);
+      final cubit = cubitFor(FakeCameraService(photo: shot), cropper: cropper);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await cubit.capture(guideBox: guideBox);
+
+      expect(cropper.lastPhoto, shot);
+      // CropToGuideBox expands the box by its margin before cropping — the
+      // margin math itself is covered by crop_to_guide_box_test.dart, so
+      // here it's enough to confirm the crop actually ran, on the right
+      // photo, and its output reached the terminal state.
+      expect(cropper.cropCount, 1);
+      expect(cubit.state, const CameraCaptured(cropped));
+    });
+
+    test('a full guide box (measurement fallback) skips the crop', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      final cropper = FakeImageCropper();
+      final cubit = cubitFor(FakeCameraService(photo: shot), cropper: cropper);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await cubit.capture(guideBox: UnitRect.full);
+
+      expect(cubit.state, const CameraCaptured(shot));
+    });
+
+    test('a failed crop surfaces the error, not the raw photo', () async {
+      final cubit = cubitFor(
+        FakeCameraService(),
+        cropper: FakeImageCropper(fails: true),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await cubit.capture(
+        guideBox: const UnitRect(left: 0.1, top: 0.1, right: 0.9, bottom: 0.9),
+      );
+
+      expect(cubit.state, const CameraCaptureError(ImageProcessingFailure()));
+    });
+  });
+
+  group(
+    'CameraCaptureCubit raw-photo cleanup after crop (F15, privacy §7)',
+    () {
+      test(
+        'a crop that produces a new file deletes the superseded raw one',
+        () async {
+          const shot = CapturedPhoto('/tmp/paper.jpg');
+          const cropped = CapturedPhoto('/tmp/cropped.jpg');
+          final cleanup = FakeCaptureFileCleanup();
+          final cubit = cubitFor(
+            FakeCameraService(photo: shot),
+            cropper: FakeImageCropper(output: cropped),
+            cleanup: cleanup,
+          );
+          addTearDown(cubit.close);
+
+          await cubit.start();
+          // A guide box tight enough that even after the 20% safety margin
+          // it still doesn't reach the image's full bounds — otherwise the
+          // margin expansion alone would make this a no-op crop instead of
+          // exercising the "produced a new file" path this test is about.
+          await cubit.capture(
+            guideBox: const UnitRect(
+              left: 0.1,
+              top: 0.2,
+              right: 0.9,
+              bottom: 0.8,
+            ),
+          );
+
+          expect(cleanup.deleteCalls, [
+            [shot.path],
+          ]);
+        },
+      );
+
+      test(
+        'a no-op crop (full guide box) leaves the one file untouched',
+        () async {
+          const shot = CapturedPhoto('/tmp/paper.jpg');
+          final cleanup = FakeCaptureFileCleanup();
+          final cubit = cubitFor(
+            FakeCameraService(photo: shot),
+            cleanup: cleanup,
+          );
+          addTearDown(cubit.close);
+
+          await cubit.start();
+          await cubit.capture(guideBox: UnitRect.full);
+
+          expect(cleanup.deleteCalls, isEmpty);
+        },
+      );
+
+      test(
+        'a failed crop also deletes the now-unreachable raw photo',
+        () async {
+          const shot = CapturedPhoto('/tmp/paper.jpg');
+          final cleanup = FakeCaptureFileCleanup();
+          final cubit = cubitFor(
+            FakeCameraService(photo: shot),
+            cropper: FakeImageCropper(fails: true),
+            cleanup: cleanup,
+          );
+          addTearDown(cubit.close);
+
+          await cubit.start();
+          await cubit.capture(
+            guideBox: const UnitRect(
+              left: 0.1,
+              top: 0.1,
+              right: 0.9,
+              bottom: 0.9,
+            ),
+          );
+
+          expect(cleanup.deleteCalls, [
+            [shot.path],
+          ]);
+        },
+      );
+    },
+  );
+
+  group('CameraCaptureCubit orphaned temp-file cleanup on suspend/close race '
+      '(F15-T09)', () {
+    test('suspend racing an in-flight shutter cleans up the orphaned raw '
+        'photo', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      final gate = Completer<void>();
+      final camera = FakeCameraService(photo: shot)..captureGate = gate;
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(camera, cleanup: cleanup);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      final capturing = cubit.capture(guideBox: UnitRect.full);
+      // Let capture() reach the awaiting-shutter point.
+      await Future<void>.delayed(Duration.zero);
+
+      // App backgrounds mid-shutter.
+      await cubit.suspend();
+      expect(cubit.state, const CameraInitializing());
+
+      // The stale shutter now resolves — its photo must never reach a
+      // terminal state, and must not be left as an orphaned temp file.
+      gate.complete();
+      await capturing;
+
+      expect(cubit.state, const CameraInitializing());
+      expect(cleanup.deleteCalls, [
+        [shot.path],
+      ]);
+    });
+
+    test(
+      'close racing an in-flight shutter cleans up the orphaned raw photo',
+      () async {
+        const shot = CapturedPhoto('/tmp/paper.jpg');
+        final gate = Completer<void>();
+        final camera = FakeCameraService(photo: shot)..captureGate = gate;
+        final cleanup = FakeCaptureFileCleanup();
+        final cubit = cubitFor(camera, cleanup: cleanup);
+
+        await cubit.start();
+        final capturing = cubit.capture(guideBox: UnitRect.full);
+        await Future<void>.delayed(Duration.zero);
+
+        await cubit.close();
+
+        gate.complete();
+        await capturing;
+
+        expect(cleanup.deleteCalls, [
+          [shot.path],
+        ]);
+      },
+    );
+
+    test('suspend racing an in-flight crop cleans up both the raw and '
+        'cropped orphans', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final gate = Completer<void>();
+      final cropper = FakeImageCropper(output: cropped)..gate = gate;
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeCameraService(photo: shot),
+        cropper: cropper,
+        cleanup: cleanup,
+      );
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      final capturing = cubit.capture(
+        guideBox: const UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8),
+      );
+      // Let capture() clear the shutter and reach the awaiting-crop point.
+      await Future<void>.delayed(Duration.zero);
+
+      await cubit.suspend();
+      expect(cubit.state, const CameraInitializing());
+
+      gate.complete();
+      await capturing;
+
+      expect(cubit.state, const CameraInitializing());
+      expect(cleanup.deleteCalls, hasLength(1));
+      expect(
+        cleanup.deleteCalls.first,
+        unorderedEquals([shot.path, cropped.path]),
+      );
+    });
+
+    test('close racing an in-flight crop cleans up both the raw and cropped '
+        'orphans', () async {
+      const shot = CapturedPhoto('/tmp/paper.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final gate = Completer<void>();
+      final cropper = FakeImageCropper(output: cropped)..gate = gate;
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeCameraService(photo: shot),
+        cropper: cropper,
+        cleanup: cleanup,
+      );
+
+      await cubit.start();
+      final capturing = cubit.capture(
+        guideBox: const UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      await cubit.close();
+
+      gate.complete();
+      await capturing;
+
+      expect(cleanup.deleteCalls, hasLength(1));
+      expect(
+        cleanup.deleteCalls.first,
+        unorderedEquals([shot.path, cropped.path]),
+      );
+    });
+  });
+
+  group('CameraCaptureCubit · live edge detection (F16-T07)', () {
+    /// A frame with no pixels worth speaking of — the fake detector never
+    /// looks at them, and building a real buffer here would only re-test T03.
+    CameraFrame frameFor({int sensorOrientation = 90, int width = 640}) =>
+        CameraFrame(
+          bytes: Uint8List(0),
+          width: width,
+          height: 480,
+          bytesPerRow: width,
+          format: CameraFrameFormat.luma8,
+          sensorOrientation: sensorOrientation,
+        );
+
+    const quad = DocumentQuad(
+      topLeft: UnitPoint(0.2, 0.2),
+      topRight: UnitPoint(0.8, 0.2),
+      bottomRight: UnitPoint(0.8, 0.8),
+      bottomLeft: UnitPoint(0.2, 0.8),
+    );
+
+    test('opening the camera starts the frame stream', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+
+      expect(camera.startStreamCount, 1);
+    });
+
+    test('a camera that would not open never starts a stream', () async {
+      final camera = FakeCameraService(initFails: true);
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+
+      expect(camera.startStreamCount, 0);
+    });
+
+    test('a stream that will not start is invisible to the user', () async {
+      final camera = FakeCameraService()..streamFails = true;
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+
+      expect(cubit.state, const CameraReady());
+    });
+
+    test(
+      'a detected document reaches the state with its frame geometry',
+      () async {
+        final camera = FakeCameraService();
+        final detector = FakeDocumentEdgeDetector(quad: quad);
+        final cubit = cubitFor(camera, detector: detector);
+        addTearDown(cubit.close);
+
+        await cubit.start();
+        await camera.deliverFrame(frameFor());
+
+        expect(
+          cubit.state,
+          const CameraReady(
+            document: DetectedDocument(
+              quad: quad,
+              sensorOrientation: 90,
+              isMirrored: false,
+              frameAspect: 640 / 480,
+            ),
+          ),
+        );
+      },
+    );
+
+    test('an unchanged detection does not emit a second time', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(
+        camera,
+        detector: FakeDocumentEdgeDetector(quad: quad),
+      );
+      addTearDown(cubit.close);
+
+      final states = <CameraCaptureState>[];
+      final sub = cubit.stream.listen(states.add);
+      addTearDown(sub.cancel);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+      await camera.deliverFrame(frameFor());
+      await camera.deliverFrame(frameFor());
+      await Future<void>.delayed(Duration.zero);
+
+      // CameraReady(null) on open, then CameraReady(document) once — and then
+      // nothing more, however long the phone is held still.
+      expect(states.whereType<CameraReady>(), hasLength(2));
+    });
+
+    test('a brief dropout holds the last document', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = cubitFor(camera, detector: detector);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      detector.quad = null;
+      for (var i = 0; i < CameraCaptureCubit.maxMisses - 1; i++) {
+        await camera.deliverFrame(frameFor());
+      }
+
+      expect((cubit.state as CameraReady).document, isNotNull);
+    });
+
+    test('a sustained dropout lets go of it', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = cubitFor(camera, detector: detector);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      detector.quad = null;
+      for (var i = 0; i < CameraCaptureCubit.maxMisses; i++) {
+        await camera.deliverFrame(frameFor());
+      }
+
+      expect(cubit.state, const CameraReady());
+    });
+
+    test('a detection between misses resets the grace window', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = cubitFor(camera, detector: detector);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      for (var round = 0; round < 3; round++) {
+        detector.quad = null;
+        for (var i = 0; i < CameraCaptureCubit.maxMisses - 1; i++) {
+          await camera.deliverFrame(frameFor());
+        }
+        detector.quad = quad;
+        await camera.deliverFrame(frameFor());
+      }
+
+      expect((cubit.state as CameraReady).document, isNotNull);
+    });
+
+    test(
+      'a detector failure is treated exactly like finding nothing',
+      () async {
+        final camera = FakeCameraService();
+        final detector = FakeDocumentEdgeDetector(
+          failure: const ImageProcessingFailure(),
+        );
+        final cubit = cubitFor(camera, detector: detector);
+        addTearDown(cubit.close);
+
+        await cubit.start();
+        for (var i = 0; i < CameraCaptureCubit.maxMisses + 1; i++) {
+          await camera.deliverFrame(frameFor());
+        }
+
+        expect(cubit.state, const CameraReady());
+      },
+    );
+
+    test('the stream is stopped before the shutter fires', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await cubit.capture(guideBox: UnitRect.full);
+
+      expect(
+        camera.calls.indexOf('stopFrameStream'),
+        lessThan(camera.calls.indexOf('capturePhoto')),
+      );
+    });
+
+    test('suspending stops the stream before releasing the camera', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await cubit.suspend();
+
+      expect(camera.stopStreamCount, greaterThanOrEqualTo(1));
+      expect(
+        camera.calls.indexOf('stopFrameStream'),
+        lessThan(camera.calls.lastIndexOf('dispose')),
+      );
+    });
+
+    test('closing stops the stream', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(camera);
+
+      await cubit.start();
+      await cubit.close();
+
+      expect(camera.stopStreamCount, greaterThanOrEqualTo(1));
+    });
+
+    test('a detection that lands after a suspend emits nothing', () async {
+      final camera = FakeCameraService();
+      final gate = Completer<void>();
+      final detector = FakeDocumentEdgeDetector(quad: quad)..gate = gate;
+      final cubit = cubitFor(camera, detector: detector);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      final pending = camera.deliverFrame(frameFor());
+      await Future<void>.delayed(Duration.zero);
+
+      await cubit.suspend();
+      gate.complete();
+      await pending;
+
+      expect(cubit.state, const CameraInitializing());
+    });
+
+    test('a frame arriving mid-capture is never detected on', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = cubitFor(camera, detector: detector);
+      addTearDown(cubit.close);
+      camera.captureGate = Completer<void>();
+
+      await cubit.start();
+      // Held from before the shutter, since capture() stops the stream and
+      // the service would otherwise have dropped the consumer already.
+      final onFrame = camera.onFrame!;
+      final capturing = cubit.capture(guideBox: UnitRect.full);
+      await Future<void>.delayed(Duration.zero);
+
+      await onFrame(frameFor());
+
+      expect(detector.detectCount, 0);
+      camera.captureGate!.complete();
+      await capturing;
+    });
+  });
+
+  group('CameraCaptureCubit · perf guard (F16-T09)', () {
+    CameraFrame frameFor() => CameraFrame(
+      bytes: Uint8List(0),
+      width: 640,
+      height: 480,
+      bytesPerRow: 640,
+      format: CameraFrameFormat.luma8,
+    );
+
+    const quad = DocumentQuad(
+      topLeft: UnitPoint(0.2, 0.2),
+      topRight: UnitPoint(0.8, 0.2),
+      bottomRight: UnitPoint(0.8, 0.8),
+      bottomLeft: UnitPoint(0.2, 0.8),
+    );
+
+    /// A budget that gives up after a single recorded detection, so the tests
+    /// do not have to simulate real elapsed time — the thresholds themselves
+    /// are covered in `detection_budget_test.dart`.
+    DetectionBudget immediate() => DetectionBudget(
+      budget: Duration.zero,
+      windowSize: 1,
+      consecutiveLateLimit: 1,
+    );
+
+    CameraCaptureCubit guardedCubit(
+      FakeCameraService camera,
+      FakeDocumentEdgeDetector detector, {
+      DetectionBudget? budget,
+    }) => CameraCaptureCubit(
+      preview: const FakeCameraPreview(),
+      initializeCamera: InitializeCamera(camera),
+      capturePhoto: CapturePhoto(camera),
+      cropToGuideBox: CropToGuideBox(CropImage(FakeImageCropper())),
+      disposeCamera: DisposeCamera(camera),
+      cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
+      startFrameStream: StartFrameStream(camera),
+      stopFrameStream: StopFrameStream(camera),
+      detectDocumentEdges: DetectDocumentEdges(detector),
+      detectionBudget: budget ?? immediate(),
+    );
+
+    test('a phone that cannot keep up stops the stream', () async {
+      final camera = FakeCameraService();
+      final cubit = guardedCubit(camera, FakeDocumentEdgeDetector(quad: quad));
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      expect(camera.stopStreamCount, greaterThanOrEqualTo(1));
+    });
+
+    test('giving up is silent — the static box, never an error', () async {
+      final camera = FakeCameraService();
+      final cubit = guardedCubit(camera, FakeDocumentEdgeDetector(quad: quad));
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      expect(cubit.state, const CameraReady());
+    });
+
+    test(
+      'no further frame reaches the detector once it has given up',
+      () async {
+        final camera = FakeCameraService();
+        final detector = FakeDocumentEdgeDetector(quad: quad);
+        final cubit = guardedCubit(camera, detector);
+        addTearDown(cubit.close);
+
+        await cubit.start();
+        final onFrame = camera.onFrame!;
+        await onFrame(frameFor());
+        await onFrame(frameFor());
+        await onFrame(frameFor());
+
+        expect(detector.detectCount, 1);
+      },
+    );
+
+    test('reopening the camera gives the phone another chance', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = guardedCubit(camera, detector);
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+      expect(detector.detectCount, 1);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+
+      expect(detector.detectCount, 2);
+    });
+
+    test('a detection well inside the budget changes nothing', () async {
+      final camera = FakeCameraService();
+      final detector = FakeDocumentEdgeDetector(quad: quad);
+      final cubit = guardedCubit(
+        camera,
+        detector,
+        budget: DetectionBudget(budget: const Duration(seconds: 10)),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.start();
+      await camera.deliverFrame(frameFor());
+      await camera.deliverFrame(frameFor());
+
+      expect(detector.detectCount, 2);
+      expect((cubit.state as CameraReady).document, isNotNull);
     });
   });
 }

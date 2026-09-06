@@ -1,10 +1,15 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/analysis_section.dart';
 import '../../../../core/documents/document_category.dart';
+import '../../../../core/documents/recent_document.dart';
+import '../../../../core/documents/saved_document.dart';
 import '../../../../core/documents/usecases/build_analysis_result.dart';
 import '../../../../core/documents/usecases/delete_document.dart';
+import '../../../../core/documents/usecases/load_document_image.dart';
 import '../../../../core/documents/usecases/set_document_note.dart';
 import '../../../../core/documents/usecases/update_document.dart';
 import '../../../../core/documents/usecases/watch_document.dart';
@@ -21,7 +26,8 @@ final class DocumentDetailsCubit extends Cubit<DocumentDetailsState> {
     this._buildAnalysisResult,
     this._setDocumentNote,
     this._updateDocument,
-    this._deleteDocument, {
+    this._deleteDocument,
+    this._loadDocumentImage, {
     required String documentId,
   }) : _documentId = documentId,
        super(const DocumentDetailsLoading());
@@ -31,32 +37,80 @@ final class DocumentDetailsCubit extends Cubit<DocumentDetailsState> {
   final SetDocumentNote _setDocumentNote;
   final UpdateDocument _updateDocument;
   final DeleteDocument _deleteDocument;
+  final LoadDocumentImage _loadDocumentImage;
   final String _documentId;
 
   StreamSubscription<void>? _subscription;
+
+  /// Cached image bytes so a database-triggered re-emission does not decrypt
+  /// the file again. Cleared when the document disappears or fails.
+  Uint8List? _cachedImageBytes;
 
   /// Starts watching the document. Safe to call more than once.
   void start() {
     if (_subscription != null) return;
     _subscription = _watchDocument(_documentId).listen((result) {
       if (isClosed) return;
-      emit(
-        result.when(
-          ok: (document) => document == null
-              ? const DocumentDetailsNotFound()
-              // The same ordering the result screen draws from, so a saved
-              // paper reads exactly as it did before it was saved (F08-T08).
-              : DocumentDetailsAvailable(
-                  document: document,
-                  sections: _buildAnalysisResult(
-                    analysis: document.analysis,
-                    extractedText: document.extractedText,
-                  ).sections,
-                ),
-          err: DocumentDetailsUnavailable.new,
-        ),
+      result.when(
+        ok: (document) {
+          if (document == null) {
+            _cachedImageBytes = null;
+            emit(const DocumentDetailsNotFound());
+            return;
+          }
+
+          final sections = _buildAnalysisResult(
+            analysis: document.analysis,
+            extractedText: document.extractedText,
+          ).sections;
+
+          // Emit immediately with whatever image we already have.
+          emit(
+            DocumentDetailsAvailable(
+              document: document,
+              sections: sections,
+              imageBytes: _cachedImageBytes,
+            ),
+          );
+
+          // If the document has an image and we haven't loaded it yet, decrypt
+          // it in the background and re-emit.
+          if (document.storageMode == DocumentStorageMode.withImage &&
+              _cachedImageBytes == null) {
+            _loadImage(document, sections);
+          }
+        },
+        err: (failure) {
+          _cachedImageBytes = null;
+          emit(DocumentDetailsUnavailable(failure));
+        },
       );
     });
+  }
+
+  Future<void> _loadImage(
+    SavedDocument document,
+    List<AnalysisSection> sections,
+  ) async {
+    final result = await _loadDocumentImage(_documentId);
+    if (isClosed) return;
+    result.when(
+      ok: (bytes) {
+        _cachedImageBytes = bytes;
+        // Re-emit with the decrypted image.
+        emit(
+          DocumentDetailsAvailable(
+            document: document,
+            sections: sections,
+            imageBytes: bytes,
+          ),
+        );
+      },
+      err: (_) {
+        // Decryption failed — the document is still usable without its image.
+        // No re-emission needed; the screen already shows the analysis.
+      },
+    );
   }
 
   /// Saves or replaces the user's note (F08-T09). The watcher picks up the

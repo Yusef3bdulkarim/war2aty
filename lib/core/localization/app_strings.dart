@@ -249,6 +249,9 @@ abstract interface class AppStrings {
   /// The way out of both states above.
   String get documentDetailsBackToList;
 
+  /// Label for the expandable panel showing the saved document image.
+  String get documentImageLabel;
+
   // Document notes (F08-T09) — «ملاحظتي».
   /// Section heading above the note card.
   String get documentNoteHeading;
@@ -529,6 +532,14 @@ abstract interface class AppStrings {
   String get ocrOnlineShowImage;
   String get ocrOnlineHideImage;
   String get ocrOnlineAmbiguityNotice;
+
+  /// Amber warning banner shown on the review screen when OCR ran offline
+  /// (Tesseract) — accuracy may be lower than the online (Azure) path.
+  String get ocrOfflineQualityWarning;
+
+  /// "الاستماع للنص" button on the review screen — reads the extracted text
+  /// aloud before analysis.
+  String get ocrListenToText;
 
   // Analysis — while it runs
   String get analysisRunningTitle;
@@ -866,6 +877,10 @@ abstract interface class AppStrings {
   String get audioReaderModeSummary;
   String get audioReaderModeSummaryAndKeyInformation;
   String get audioReaderModeFull;
+
+  /// Reads every section on the result screen, in order — the whole page
+  /// narrated as one continuous reading.
+  String get audioReaderModeReadAll;
 
   /// The fourth mode's own label, for the mini-player's «بيقرأ: …» line when
   /// reading [ReadingMode.extractedText] from a fallback screen — never
