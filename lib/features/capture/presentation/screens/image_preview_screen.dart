@@ -10,10 +10,11 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/image_quality_result.dart';
+import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/image_preview_cubit.dart';
 import '../cubit/image_preview_state.dart';
-import '../widgets/crop_frame.dart';
+import '../widgets/draggable_crop_overlay.dart';
 import '../widgets/quality_alert_sheet.dart';
 
 // From `Waraqti.dc.html` → `preview`.
@@ -34,6 +35,7 @@ class ImagePreviewScreen extends StatelessWidget {
   const ImagePreviewScreen({
     required this.imagePath,
     required this.onSessionCreated,
+    required this.onOnlineReady,
     required this.onRetake,
     super.key,
   });
@@ -41,8 +43,13 @@ class ImagePreviewScreen extends StatelessWidget {
   /// The acquired image to preview, before any rotation.
   final String imagePath;
 
-  /// Hands the created analysis session to the next stage (F04).
+  /// Offline route: hands the created analysis session to the next stage
+  /// (F04's OCR screen).
   final void Function(AnalysisSession session) onSessionCreated;
+
+  /// Online route (F13): the perspective-corrected image is ready and
+  /// handed off via `ImageAnalysisSessionHolder` — OCR is skipped entirely.
+  final void Function(AnalysisSession session) onOnlineReady;
 
   /// Backs out to re-acquire the image (camera or gallery).
   final VoidCallback onRetake;
@@ -72,13 +79,16 @@ class ImagePreviewScreen extends StatelessWidget {
         listenWhen: (_, s) =>
             s is ImagePreviewConfirmed ||
             s is ImagePreviewFailed ||
-            s is ImagePreviewSessionCreated,
+            s is ImagePreviewSessionCreated ||
+            s is ImagePreviewOnlineReady,
         listener: (context, state) {
           switch (state) {
             case ImagePreviewConfirmed(:final quality):
               unawaited(_onQualityKnown(context, quality));
             case ImagePreviewSessionCreated(:final session):
               onSessionCreated(session);
+            case ImagePreviewOnlineReady(:final session):
+              onOnlineReady(session);
             case ImagePreviewFailed():
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
@@ -108,7 +118,11 @@ class ImagePreviewScreen extends StatelessWidget {
                   child: _ImageArea(
                     imagePath: imagePath,
                     quarterTurns: state.quarterTurns,
+                    cropRect: state.cropRect,
                     isProcessing: isProcessing,
+                    onCropChanged: isProcessing
+                        ? null
+                        : context.read<ImagePreviewCubit>().updateCrop,
                   ),
                 ),
                 _ActionBar(
@@ -156,7 +170,7 @@ class _TopBar extends StatelessWidget {
               s.previewTitle,
               textAlign: TextAlign.center,
               style: AppTypography.titleMedium.copyWith(
-                color: AppColors.light.onBrand,
+                color: AppColors.of(context).onBrand,
               ),
             ),
           ),
@@ -171,17 +185,22 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// The framed, rotatable image, with a processing veil while it exports.
+/// The framed, rotatable image with the draggable crop overlay (F15), and a
+/// processing veil while it exports.
 class _ImageArea extends StatelessWidget {
   const _ImageArea({
     required this.imagePath,
     required this.quarterTurns,
+    required this.cropRect,
     required this.isProcessing,
+    required this.onCropChanged,
   });
 
   final String imagePath;
   final int quarterTurns;
+  final UnitRect cropRect;
   final bool isProcessing;
+  final ValueChanged<UnitRect>? onCropChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +215,10 @@ class _ImageArea extends StatelessWidget {
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: _imageMaxWidth),
-                child: CropFrame(
+                child: DraggableCropOverlay(
+                  cropRect: cropRect,
+                  onCropChanged: onCropChanged,
+                  enabled: !isProcessing,
                   child: RotatedBox(
                     quarterTurns: quarterTurns,
                     child: Image.file(
@@ -249,7 +271,7 @@ class _ProcessingVeil extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return ColoredBox(
       color: previewBackground.withValues(alpha: 0.6),
@@ -284,7 +306,7 @@ class _ActionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return Container(
       width: double.infinity,
@@ -323,7 +345,7 @@ class _ActionBar extends StatelessWidget {
           _PreviewButton(
             label: s.previewUseImage,
             onPressed: onUse,
-            background: AppColors.light.brandPrimary,
+            background: AppColors.of(context).brandPrimary,
             foreground: onDark,
             height: _primaryHeight,
             fontSize: 17,
@@ -370,7 +392,7 @@ class _CircleButton extends StatelessWidget {
           child: SizedBox(
             width: _controlBox,
             height: _controlBox,
-            child: Icon(icon, color: AppColors.light.onBrand, size: 22),
+            child: Icon(icon, color: AppColors.of(context).onBrand, size: 22),
           ),
         ),
       ),

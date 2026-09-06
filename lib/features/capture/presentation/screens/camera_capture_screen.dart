@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/navigation/app_route_observer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../../domain/entities/document_quad.dart';
+import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/camera_capture_cubit.dart';
 import '../cubit/camera_capture_state.dart';
+import '../frame_preview_mapper.dart';
 import '../widgets/viewfinder_frame.dart';
 
 // From `Waraqti.dc.html` → `camera`.
@@ -41,7 +45,11 @@ class CameraCaptureScreen extends StatefulWidget {
 }
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
+  /// Wraps the live preview widget itself, so its real rendered rect (after
+  /// `CameraPreview`'s internal aspect-ratio fit) can be measured.
+  final GlobalKey _previewKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +58,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) appRouteObserver.subscribe(this, route);
+  }
+
+  @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -68,6 +84,69 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       case AppLifecycleState.detached:
         cubit.suspend();
     }
+  }
+
+  /// Fires when a route pushed on top of this one (the crop/preview screen,
+  /// or — via a "retake" that replaced it — the OCR/OCR-review screen) is
+  /// popped back to it. A finished capture leaves the cubit parked on the
+  /// terminal [CameraCaptured] state, which the viewfinder does not treat as
+  /// ready; without this, the screen is stuck showing its last frame (or the
+  /// "opening camera" spinner) forever, since nothing else re-arms it once
+  /// in-app navigation — as opposed to the app itself being backgrounded —
+  /// reveals it again.
+  @override
+  void didPopNext() {
+    context.read<CameraCaptureCubit>().start();
+  }
+
+  /// Fires the shutter.
+  ///
+  /// The whole frame is kept: there is no static guide box to crop to any
+  /// more, and the detected quad is not reliable enough to crop to — the T10
+  /// device pass had it collapse to a sliver and discard most of a page.
+  /// `doclens` still does the real edge-detect/dewarp on the captured file, on
+  /// the full photo rather than a pre-cropped one.
+  void _capture() {
+    context.read<CameraCaptureCubit>().capture(guideBox: UnitRect.full);
+  }
+
+  /// The live preview's real rendered rect in global coordinates, or `null`
+  /// when it has not been laid out (or came out degenerate).
+  ///
+  /// The detected-quad overlay needs it to map out of sensor space (F16-T05).
+  Rect? _measurePreview() {
+    final previewObject = _previewKey.currentContext?.findRenderObject();
+    if (previewObject is! RenderBox || !previewObject.hasSize) return null;
+
+    final rect = previewObject.localToGlobal(Offset.zero) & previewObject.size;
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return rect;
+  }
+
+  /// The detected document in the preview's own coordinates, ready for
+  /// [ViewfinderFrame] to draw — or `null` when there is nothing to draw.
+  ///
+  /// The cubit carries the quad in sensor space, since it cannot see layout;
+  /// the mapping needs the preview's aspect, which only the render tree knows
+  /// (F16-T05). Reading the render box during build gives the previous
+  /// frame's layout, which is exactly right here: the preview's rect is
+  /// settled long before the first detection arrives, and a missing
+  /// measurement simply means no overlay this frame.
+  DocumentQuad? _quadForPreview(CameraCaptureState state) {
+    if (state is! CameraReady) return null;
+    final document = state.document;
+    if (document == null) return null;
+
+    final previewRect = _measurePreview();
+    if (previewRect == null) return null;
+
+    return FramePreviewMapper.mapToPreview(
+      document.quad,
+      sensorOrientation: document.sensorOrientation,
+      isMirrored: document.isMirrored,
+      frameAspect: document.frameAspect,
+      previewAspect: previewRect.width / previewRect.height,
+    );
   }
 
   @override
@@ -98,8 +177,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               ),
               _ => _Viewfinder(
                 state: state,
+                quad: _quadForPreview(state),
                 onClose: widget.onClose,
-                onShutter: context.read<CameraCaptureCubit>().capture,
+                onShutter: _capture,
+                previewKey: _previewKey,
               ),
             },
           ),
@@ -113,13 +194,23 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 class _Viewfinder extends StatelessWidget {
   const _Viewfinder({
     required this.state,
+    required this.quad,
     required this.onClose,
     required this.onShutter,
+    required this.previewKey,
   });
 
   final CameraCaptureState state;
+
+  /// The detected document in the preview's own coordinates, or `null` to
+  /// draw no guide at all (F16 locked decision #4).
+  final DocumentQuad? quad;
   final VoidCallback onClose;
   final VoidCallback onShutter;
+
+  /// See `_CameraCaptureScreenState`'s field of the same name — wraps the
+  /// live preview so the detected quad can be drawn in its coordinates.
+  final GlobalKey previewKey;
 
   @override
   Widget build(BuildContext context) {
@@ -130,12 +221,24 @@ class _Viewfinder extends StatelessWidget {
         if (isReady)
           Positioned.fill(
             child: Center(
-              child: context.read<CameraCaptureCubit>().preview.build(context),
+              // The guide sits *inside* the measured preview rather than over
+              // the whole screen, so the quad the detector found and the quad
+              // that gets drawn speak one coordinate space (F16-T05). The
+              // Stack takes its size from the preview, its only unpositioned
+              // child, so the overlay covers exactly the live feed.
+              child: KeyedSubtree(
+                key: previewKey,
+                child: Stack(
+                  children: [
+                    context.read<CameraCaptureCubit>().preview.build(context),
+                    Positioned.fill(child: ViewfinderFrame(quad: quad)),
+                  ],
+                ),
+              ),
             ),
           )
         else
           const Positioned.fill(child: _Opening()),
-        if (isReady) const Positioned.fill(child: ViewfinderFrame()),
         Positioned(
           top: 8,
           left: AppSpacing.xl,
@@ -171,7 +274,7 @@ class _Opening extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return Semantics(
       liveRegion: true,
@@ -217,7 +320,7 @@ class _CloseButton extends StatelessWidget {
             height: _controlBox,
             child: Icon(
               Icons.close_rounded,
-              color: AppColors.light.onBrand,
+              color: AppColors.of(context).onBrand,
               size: 22,
             ),
           ),
@@ -250,7 +353,7 @@ class _Hint extends StatelessWidget {
             child: Text(
               s.cameraViewfinderHint,
               style: AppTypography.caption.copyWith(
-                color: AppColors.light.onBrand,
+                color: AppColors.of(context).onBrand,
                 fontWeight: AppTypography.semiBold,
                 fontSize: 14,
               ),
@@ -291,7 +394,7 @@ class _PulsingDotState extends State<_PulsingDot>
         width: 8,
         height: 8,
         decoration: BoxDecoration(
-          color: AppColors.light.mint,
+          color: AppColors.of(context).mint,
           shape: BoxShape.circle,
         ),
       ),
@@ -356,7 +459,7 @@ class _CameraError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.light.onBrand;
+    final onDark = AppColors.of(context).onBrand;
 
     return Stack(
       children: [
@@ -399,7 +502,7 @@ class _CameraError extends StatelessWidget {
                 FilledButton(
                   onPressed: onRetry,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.light.brandPrimary,
+                    backgroundColor: AppColors.of(context).brandPrimary,
                     foregroundColor: onDark,
                     minimumSize: const Size.fromHeight(52),
                     textStyle: AppTypography.labelLarge,

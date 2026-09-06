@@ -1,4 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/documents/analysis_date.dart';
+import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_warning.dart';
+import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
+import 'package:war2aty/core/documents/key_information.dart';
+import 'package:war2aty/core/documents/required_action.dart';
 import 'package:war2aty/features/analysis/data/mappers/analysis_response_mapper.dart';
 import 'package:war2aty/features/analysis/data/models/action_item_dto.dart';
 import 'package:war2aty/features/analysis/data/models/amount_item_dto.dart';
@@ -6,15 +13,10 @@ import 'package:war2aty/features/analysis/data/models/analysis_response_dto.dart
 import 'package:war2aty/features/analysis/data/models/date_item_dto.dart';
 import 'package:war2aty/features/analysis/data/models/document_type_dto.dart';
 import 'package:war2aty/features/analysis/data/models/key_info_item_dto.dart';
+import 'package:war2aty/features/analysis/data/models/phone_item_dto.dart';
+import 'package:war2aty/features/analysis/data/models/reference_item_dto.dart';
 import 'package:war2aty/features/analysis/data/models/summary_dto.dart';
 import 'package:war2aty/features/analysis/data/models/warning_item_dto.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_date.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_status.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_warning.dart';
-import 'package:war2aty/features/analysis/domain/entities/confidence_band.dart';
-import 'package:war2aty/features/analysis/domain/entities/document_kind.dart';
-import 'package:war2aty/features/analysis/domain/entities/key_information.dart';
-import 'package:war2aty/features/analysis/domain/entities/required_action.dart';
 
 AnalysisResponseDto _dto({
   String status = 'success',
@@ -22,6 +24,8 @@ AnalysisResponseDto _dto({
   List<KeyInfoItemDto> keyInformation = const [],
   List<DateItemDto> dates = const [],
   List<AmountItemDto> amounts = const [],
+  List<PhoneItemDto> phones = const [],
+  List<ReferenceItemDto> references = const [],
   List<ActionItemDto> actionsRequired = const [],
   List<String> requiredDocuments = const [],
   List<String> instructions = const [],
@@ -43,6 +47,8 @@ AnalysisResponseDto _dto({
     keyInformation: keyInformation,
     dates: dates,
     amounts: amounts,
+    phones: phones,
+    references: references,
     actionsRequired: actionsRequired,
     requiredDocuments: requiredDocuments,
     instructions: instructions,
@@ -220,12 +226,63 @@ void main() {
       expect(analysis.actions.single.priority, ActionPriority.high);
     });
 
+    test('maps rawValue through for dates and amounts, null included', () {
+      final analysis = _dto(
+        dates: [_dateItem()],
+        amounts: const [
+          AmountItemDto(
+            label: 'الإجمالي',
+            value: 850.5,
+            currency: 'EGP',
+            confidence: 'high',
+            rawValue: '850.50 جنيه',
+          ),
+          AmountItemDto(
+            label: 'رسوم',
+            value: 12,
+            currency: 'EGP',
+            confidence: 'low',
+          ),
+        ],
+      ).toDomain();
+
+      expect(analysis.dates.single.rawValue, isNull);
+      expect(analysis.amounts.first.rawValue, '850.50 جنيه');
+      expect(analysis.amounts.last.rawValue, isNull);
+    });
+
+    test('maps phones and references, including needsUserReview', () {
+      final analysis = _dto(
+        phones: const [
+          PhoneItemDto(
+            rawValue: '0100-123-4567',
+            value: '01001234567',
+            needsUserReview: false,
+          ),
+        ],
+        references: const [
+          ReferenceItemDto(
+            rawValue: 'رقم الفاتورة 12345678',
+            value: '12345678',
+            needsUserReview: true,
+          ),
+        ],
+      ).toDomain();
+
+      expect(analysis.phones.single.value, '01001234567');
+      expect(analysis.phones.single.needsUserReview, isFalse);
+      expect(analysis.references.single.value, '12345678');
+      expect(analysis.references.single.needsUserReview, isTrue);
+    });
+
     test('leaves empty wire lists empty', () {
       final analysis = _dto().toDomain();
 
       expect(analysis.keyInformation, isEmpty);
       expect(analysis.dates, isEmpty);
       expect(analysis.amounts, isEmpty);
+      expect(analysis.phones, isEmpty);
+      expect(analysis.references, isEmpty);
       expect(analysis.actions, isEmpty);
       expect(analysis.warnings, isEmpty);
       expect(analysis.missingFields, isEmpty);

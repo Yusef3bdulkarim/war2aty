@@ -1,3 +1,4 @@
+import '../models/analysis_image_request_dto.dart';
 import '../models/analysis_request_dto.dart';
 import 'analysis_remote_data_source.dart';
 
@@ -17,14 +18,28 @@ final class DisabledAnalysisRemoteDataSource
 
   @override
   Future<AnalysisApiResponse> analyze(AnalysisRequestDto request) async {
-    return const AnalysisApiResponse(
-      statusCode: 503,
-      body: {
-        'error': {
-          'code': 'ANALYSIS_DISABLED',
-          'message': 'No analysis transport is wired in this build.',
-        },
-      },
-    );
+    return _disabledResponse;
+  }
+
+  @override
+  Future<AnalysisApiResponse> analyzeImage(
+    AnalysisImageRequestDto request,
+  ) async {
+    return _disabledResponse;
+  }
+
+  @override
+  Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {
+    return _disabledResponse;
   }
 }
+
+const AnalysisApiResponse _disabledResponse = AnalysisApiResponse(
+  statusCode: 503,
+  body: {
+    'error': {
+      'code': 'ANALYSIS_DISABLED',
+      'message': 'No analysis transport is wired in this build.',
+    },
+  },
+);

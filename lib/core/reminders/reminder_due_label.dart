@@ -1,5 +1,6 @@
 import '../localization/app_strings.dart';
 import '../time/cairo_day.dart';
+import '../time/document_date_label.dart';
 
 /// Renders when a reminder is due, in the user's words.
 ///
@@ -32,23 +33,21 @@ String reminderDueLabel(AppStrings s, DateTime dueAt, {DateTime? now}) {
   };
 }
 
-/// A 12-hour clock reading such as `10:00 صباحًا` / `10:00 PM`.
+/// A 12-hour clock reading of [instant], on the Cairo clock.
 ///
-/// Hand-rolled rather than pulled from `intl`: the app needs one format, in
-/// two languages, and the Egyptian wording is supplied by [AppStrings] anyway.
+/// Shares its wording with the times printed on a paper — a reminder for
+/// «10:00 صباحًا» must not read differently from the appointment it is for.
+///
+/// [cairoWallClockOf], not [cairoLocalOf]: [instant] came from `cairoInstant`
+/// (real, DST-aware), so reading it back must go through the same real zone
+/// — otherwise a summer reminder set for 10:00 would show as 09:00.
 String formatClockTime(AppStrings s, DateTime instant) {
-  final cairo = cairoLocalOf(instant);
-  final isMorning = cairo.hour < 12;
-
-  // 0 and 12 both read as 12 on a 12-hour clock.
-  final hour = cairo.hour % 12 == 0 ? 12 : cairo.hour % 12;
-  final minute = cairo.minute.toString().padLeft(2, '0');
-
-  return '$hour:$minute ${isMorning ? s.timeAm : s.timePm}';
+  final cairo = cairoWallClockOf(instant);
+  return formatWallClockTime(s, cairo.hour, cairo.minute);
 }
 
 /// `25/8` — day then month, as both languages write a short date.
 String _shortDate(DateTime instant) {
-  final cairo = cairoLocalOf(instant);
+  final cairo = cairoWallClockOf(instant);
   return '${cairo.day}/${cairo.month}';
 }

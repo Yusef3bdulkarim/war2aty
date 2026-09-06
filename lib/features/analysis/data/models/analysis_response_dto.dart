@@ -3,6 +3,8 @@ import 'amount_item_dto.dart';
 import 'date_item_dto.dart';
 import 'document_type_dto.dart';
 import 'key_info_item_dto.dart';
+import 'phone_item_dto.dart';
+import 'reference_item_dto.dart';
 import 'summary_dto.dart';
 import 'warning_item_dto.dart';
 
@@ -20,6 +22,8 @@ final class AnalysisResponseDto {
     this.keyInformation = const [],
     this.dates = const [],
     this.amounts = const [],
+    this.phones = const [],
+    this.references = const [],
     this.actionsRequired = const [],
     this.requiredDocuments = const [],
     this.instructions = const [],
@@ -42,6 +46,8 @@ final class AnalysisResponseDto {
       ),
       dates: _objectList(json['dates'], DateItemDto.fromJson),
       amounts: _objectList(json['amounts'], AmountItemDto.fromJson),
+      phones: _objectList(json['phones'], PhoneItemDto.fromJson),
+      references: _objectList(json['references'], ReferenceItemDto.fromJson),
       actionsRequired: _objectList(
         json['actions_required'],
         ActionItemDto.fromJson,
@@ -63,6 +69,15 @@ final class AnalysisResponseDto {
   final List<KeyInfoItemDto> keyInformation;
   final List<DateItemDto> dates;
   final List<AmountItemDto> amounts;
+
+  /// New in API_CONTRACT §30 v2 (F13-T09/T17). Empty unless cross-provider
+  /// verification ran server-side.
+  final List<PhoneItemDto> phones;
+
+  /// New in API_CONTRACT §30 v2 (F13-T09/T17). Empty unless cross-provider
+  /// verification ran server-side.
+  final List<ReferenceItemDto> references;
+
   final List<ActionItemDto> actionsRequired;
   final List<String> requiredDocuments;
   final List<String> instructions;
@@ -78,6 +93,8 @@ final class AnalysisResponseDto {
     'key_information': keyInformation.map((e) => e.toJson()).toList(),
     'dates': dates.map((e) => e.toJson()).toList(),
     'amounts': amounts.map((e) => e.toJson()).toList(),
+    'phones': phones.map((e) => e.toJson()).toList(),
+    'references': references.map((e) => e.toJson()).toList(),
     'actions_required': actionsRequired.map((e) => e.toJson()).toList(),
     'required_documents': requiredDocuments,
     'instructions': instructions,

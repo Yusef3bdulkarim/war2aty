@@ -1,7 +1,7 @@
+import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../entities/analysis_request.dart';
-import '../entities/document_analysis.dart';
 import '../repositories/analysis_repository.dart';
 
 /// Analyses one captured document.

@@ -1,12 +1,25 @@
 # API Contract — War2aty Analysis Service
 
 Defines the JSON contract between the Flutter app and the Supabase Edge Function
-(`analyze-document`). The app sends **text only** — the image never leaves the
-device (privacy §7).
+(`analyze-document`).
+
+**v2 (F13-T09) is a privacy-model change.** Through v1, the app sent text
+only and the image never left the device. From v2, a request's `input_type`
+picks one of two shapes: `"text"` (unchanged — OCR text + on-device
+candidates, image never leaves the device) or `"image"` (new — the photo
+itself is sent, gated behind the `azureOcrEnabled` operator flag, so it can be
+read by Azure/Google Document AI). Every request, either shape, still declares
+`schema_version: "2.0"`; a v1 body (no `input_type`) is rejected with
+`UNSUPPORTED_SCHEMA`. See `docs/features/F13-ocr-provider-migration.md`
+locked decisions #1 and #7.
+
+The image-intake shape is routed (F13-T11), gated behind `azureOcrEnabled`
+(dark by default — see `docs/features/F13-ocr-provider-migration.md`
+task T19 for when it is flipped on).
 
 ---
 
-## §29 · Analysis Request — JSON Schema v1
+## §29 · Analysis Request — Text shape (JSON Schema v2)
 
 ### Endpoint
 
@@ -19,10 +32,11 @@ device (privacy §7).
 ```jsonc
 {
   // ── envelope ──────────────────────────────────────────────────────
-  "schema_version": "1.0",            // locked; reject if mismatch
+  "schema_version": "2.0",            // locked; reject if mismatch
   "session_id":     "uuid-v4",        // AnalysisSession.id
   "installation_id":"uuid-v4",        // per-install identity
   "app_version":    "1.0.0",          // semantic version of the app
+  "input_type":     "text",           // discriminant (v2) — "text" | "image", see §29b
 
   // ── OCR payload ───────────────────────────────────────────────────
   "ocr_text":            "...",        // NormalizedOcrText.cleanedText
@@ -76,15 +90,16 @@ device (privacy §7).
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://war2aty.app/schemas/analyze-request-v1.json",
-  "title": "AnalyzeDocumentRequest",
-  "description": "Request payload for the analyze-document Edge Function (v1).",
+  "$id": "https://war2aty.app/schemas/analyze-request-text-v2.json",
+  "title": "AnalyzeDocumentTextRequest",
+  "description": "Text-shape request payload for the analyze-document Edge Function (v2).",
   "type": "object",
   "required": [
     "schema_version",
     "session_id",
     "installation_id",
     "app_version",
+    "input_type",
     "ocr_text",
     "detected_languages",
     "candidates"
@@ -93,7 +108,7 @@ device (privacy §7).
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0",
+      "const": "2.0",
       "description": "Contract version. Server MUST reject unknown versions."
     },
     "session_id": {
@@ -110,6 +125,11 @@ device (privacy §7).
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
       "description": "Semantic version of the client app."
+    },
+    "input_type": {
+      "type": "string",
+      "const": "text",
+      "description": "Discriminant. This schema only accepts \"text\" — see §29b for \"image\"."
     },
     "ocr_text": {
       "type": "string",
@@ -211,10 +231,11 @@ device (privacy §7).
 
 | JSON field | Source |
 |---|---|
-| `schema_version` | `RuntimeConfig.schemaVersion` (currently `"1.0"`) |
+| `schema_version` | `RuntimeConfig.schemaVersion` (currently `"2.0"`) |
 | `session_id` | `AnalysisSession.id` |
 | `installation_id` | `InstallationIdProvider.getOrCreate()` |
 | `app_version` | `PackageInfo.version` (package_info_plus) |
+| `input_type` | `"text"` — literal, set by the offline/Tesseract capture path |
 | `ocr_text` | `ExtractionResult.text.cleanedText` |
 | `detected_languages` | `OcrResult.detectedLanguages` |
 | `candidates.dates[].raw_text` | `DateCandidate.rawText` |
@@ -237,29 +258,128 @@ device (privacy §7).
 
 ### Validation rules (server-side)
 
-1. **Schema version** — reject `schema_version != "1.0"` with `400 UNSUPPORTED_SCHEMA`.
+1. **Schema version** — reject `schema_version != "2.0"` with `400 UNSUPPORTED_SCHEMA`.
 2. **App version** — reject if below `RuntimeConfig.minimumAppVersion` with `400 UNSUPPORTED_APP_VERSION`.
 3. **OCR text** — reject if empty or exceeds `maxOcrCharacters` (12 000) with `400 INVALID_REQUEST`.
 4. **Daily limit** — check `installation_id` usage count for the current `Africa/Cairo` day. Reject with `429 DAILY_LIMIT_REACHED` and include `reset_at` (Cairo midnight ISO-8601).
 5. **Analysis disabled** — if `RuntimeConfig.analysisEnabled == false`, reject with `503 ANALYSIS_DISABLED`.
 6. **Candidate arrays** — may be empty (document with no extractable fields is valid).
+7. **Global capacity** — a second, independent cap on total calls across *all* users for the
+   current `Africa/Cairo` day. Reject with `429 GLOBAL_CAPACITY_REACHED` (no `reset_at`).
+   Checked atomically inside the same reservation as rule 4, never as a separate pre-check.
+   Unlike rule 4 this cap **fails open**: an unset or non-positive `global_daily_call_cap`
+   means unlimited, because it is an optional spend valve and a misconfigured row must not
+   block every user.
+8. **`input_type`** — must be exactly `"text"` on this shape. A body that otherwise matches
+   §29 but carries a different (or missing) `input_type` is `400 INVALID_REQUEST`, not treated
+   as a v1 client — v1 had no such field and would already fail rule 1.
 
 ### Privacy guarantees
 
-- **No image data.** The request contains text only — no bytes, thumbnails, EXIF, or GPS.
-- **No logging of content.** The Edge Function MUST NOT log `ocr_text`, candidate values, or any derived analysis content. Only envelope fields (`session_id`, `installation_id`, `schema_version`) and status codes may be logged.
+- **No image data on this shape.** A text-shape request contains text only — no bytes,
+  thumbnails, EXIF, or GPS. `additionalProperties: false` means an `image` key here is rejected
+  outright, never silently ignored (§29b is the only shape that may carry image bytes, and only
+  once `azureOcrEnabled` is on).
+- **No logging of content.** The Edge Function MUST NOT log `ocr_text`, candidate values, image
+  bytes, or any derived analysis content. Only envelope fields (`session_id`, `installation_id`,
+  `schema_version`, `input_type`) and status codes may be logged.
 - **Candidates are hints.** The AI uses them as structured hints alongside the raw text. They do not replace the AI's own reading of `ocr_text`.
 
 ---
 
-## §30 · Analysis Response — JSON Schema v1
+## §29b · Analysis Request — Image-intake shape (JSON Schema v2, F13-T09/T11)
+
+Routed behind `RuntimeConfig.azureOcrEnabled` (dark by default).
+
+### Request body
+
+```jsonc
+{
+  // ── envelope — identical meaning to §29 ────────────────────────────
+  "schema_version":  "2.0",
+  "session_id":      "uuid-v4",
+  "installation_id": "uuid-v4",
+  "app_version":      "1.0.0",
+  "input_type":       "image",
+
+  // ── the photo ───────────────────────────────────────────────────────
+  "image": {
+    "data":      "<base64>",       // the perspective-corrected capture (F13-T12), never a thumbnail or the raw sensor frame
+    "mime_type": "image/jpeg"      // "image/jpeg" | "image/png" only
+  }
+}
+```
+
+### JSON Schema (draft-07)
+
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://war2aty.app/schemas/analyze-request-image-v2.json",
+  "title": "AnalyzeDocumentImageRequest",
+  "description": "Image-intake request payload for the analyze-document Edge Function (v2).",
+  "type": "object",
+  "required": ["schema_version", "session_id", "installation_id", "app_version", "input_type", "image"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "2.0" },
+    "session_id":      { "type": "string", "format": "uuid" },
+    "installation_id": { "type": "string", "format": "uuid" },
+    "app_version":     { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "input_type": {
+      "type": "string",
+      "const": "image",
+      "description": "Discriminant. This schema only accepts \"image\" — see §29 for \"text\"."
+    },
+    "image": {
+      "type": "object",
+      "required": ["data", "mime_type"],
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "description": "Base64-encoded image bytes. Rejected 400 INVALID_REQUEST if the decoded size exceeds RuntimeConfig.maxImageBytes."
+        },
+        "mime_type": {
+          "type": "string",
+          "enum": ["image/jpeg", "image/png"]
+        }
+      }
+    }
+  }
+}
+```
+
+### Validation rules (server-side)
+
+1. **Schema version / `input_type`** — same as §29 rules 1 and 8, with `input_type` fixed to `"image"`.
+2. **App version** — same as §29 rule 2.
+3. **`image.mime_type`** — must be `image/jpeg` or `image/png`; anything else is `400 INVALID_REQUEST`.
+4. **`image.data`** — must be well-formed base64; a decoded size over `RuntimeConfig.maxImageBytes`
+   is `400 INVALID_REQUEST`, rejected before the bytes are ever handed to Azure.
+5. **Gate** — `RuntimeConfig.azureOcrEnabled`. Off (the default), a request carrying
+   `input_type: "image"` is refused `400 INVALID_REQUEST` before it is parsed at all —
+   indistinguishable from a shape this deployment does not accept.
+
+### Privacy guarantees
+
+- **The image now legitimately reaches this Edge Function** — this shape exists specifically to
+  send it. It is forwarded to Azure/Google, never logged, never persisted beyond the analysis
+  (Azure's own analyze result is explicitly deleted after being read — F13-T04). No person ever
+  views it; no thumbnail, EXIF, or GPS field exists on this shape to accidentally include.
+- **No logging of the image or its derived text.** Same rule as §29.
+
+---
+
+## §30 · Analysis Response — JSON Schema v2
 
 ### Success response (`200 OK`)
 
 ```jsonc
 {
   // ── envelope ──────────────────────────────────────────────────────
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "session_id":     "uuid-v4",           // echoed from request
   "status":         "success",           // "success" | "partial" | "unsupported"
 
@@ -294,7 +414,8 @@ device (privacy §7).
       "time":               "14:30",       // HH:mm or null if not on document
       "role":               "deadline",    // enum — see §30.2
       "is_reminder_worthy": true,
-      "confidence":         "high"
+      "confidence":         "high",
+      "rawValue":           "15/4/2024"    // literal text this was read from, or null (v2, F13-T09)
     }
   ],
 
@@ -304,7 +425,28 @@ device (privacy §7).
       "label":      "إجمالي المبلغ",
       "value":      850.50,
       "currency":   "EGP",
-      "confidence": "high"
+      "confidence": "high",
+      "rawValue":   "850.50 جنيه"          // literal text this was read from, or null (v2, F13-T09)
+    }
+  ],
+
+  // ── phones & references (v2, F13-T09) ──────────────────────────────
+  // Populated only once cross-provider verification (F13-T08) ran over this
+  // analysis — the online path, once F13-T11 wires it. Empty on the
+  // offline/Tesseract path and on every caller before then; never a raw,
+  // unconfirmed regex hit.
+  "phones": [
+    {
+      "rawValue":        "0100-123-4567",
+      "value":           "01001234567",
+      "needsUserReview": false
+    }
+  ],
+  "references": [
+    {
+      "rawValue":        "رقم الفاتورة 12345678",
+      "value":           "12345678",
+      "needsUserReview": true
     }
   ],
 
@@ -406,9 +548,9 @@ regardless of confidence.
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://war2aty.app/schemas/analyze-response-v1.json",
+  "$id": "https://war2aty.app/schemas/analyze-response-v2.json",
   "title": "AnalyzeDocumentResponse",
-  "description": "Success response from the analyze-document Edge Function (v1).",
+  "description": "Success response from the analyze-document Edge Function (v2).",
   "type": "object",
   "required": [
     "schema_version",
@@ -421,7 +563,7 @@ regardless of confidence.
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0"
+      "const": "2.0"
     },
     "session_id": {
       "type": "string",
@@ -476,6 +618,18 @@ regardless of confidence.
       "type": "array",
       "items": { "type": "string" },
       "default": []
+    },
+    "phones": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/phone_item" },
+      "default": [],
+      "description": "v2 (F13-T09). Empty unless cross-provider verification (F13-T08) ran over this analysis."
+    },
+    "references": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/reference_item" },
+      "default": [],
+      "description": "v2 (F13-T09). Empty unless cross-provider verification (F13-T08) ran over this analysis."
     }
   },
   "definitions": {
@@ -522,7 +676,7 @@ regardless of confidence.
     },
     "date_item": {
       "type": "object",
-      "required": ["label", "date", "role", "is_reminder_worthy", "confidence"],
+      "required": ["label", "date", "role", "is_reminder_worthy", "confidence", "rawValue"],
       "additionalProperties": false,
       "properties": {
         "label":              { "type": "string", "minLength": 1 },
@@ -530,18 +684,40 @@ regardless of confidence.
         "time":               { "type": ["string", "null"], "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
         "role":               { "type": "string", "enum": ["deadline", "appointment", "issued", "expiry", "event", "period_start", "period_end"] },
         "is_reminder_worthy": { "type": "boolean" },
-        "confidence":         { "$ref": "#/definitions/confidence" }
+        "confidence":         { "$ref": "#/definitions/confidence" },
+        "rawValue":           { "type": ["string", "null"], "description": "v2 (F13-T09). Literal text this date was matched from; null when inferred." }
       }
     },
     "amount_item": {
       "type": "object",
-      "required": ["label", "value", "currency", "confidence"],
+      "required": ["label", "value", "currency", "confidence", "rawValue"],
       "additionalProperties": false,
       "properties": {
         "label":      { "type": "string", "minLength": 1 },
         "value":      { "type": "number" },
         "currency":   { "type": "string", "minLength": 1 },
-        "confidence": { "$ref": "#/definitions/confidence" }
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "rawValue":   { "type": ["string", "null"], "description": "v2 (F13-T09). Literal text this amount was matched from; null when inferred." }
+      }
+    },
+    "phone_item": {
+      "type": "object",
+      "required": ["rawValue", "value", "needsUserReview"],
+      "additionalProperties": false,
+      "properties": {
+        "rawValue":        { "type": "string", "minLength": 1 },
+        "value":           { "type": "string", "minLength": 1 },
+        "needsUserReview": { "type": "boolean" }
+      }
+    },
+    "reference_item": {
+      "type": "object",
+      "required": ["rawValue", "value", "needsUserReview"],
+      "additionalProperties": false,
+      "properties": {
+        "rawValue":        { "type": "string", "minLength": 1 },
+        "value":           { "type": "string", "minLength": 1 },
+        "needsUserReview": { "type": "boolean" }
       }
     },
     "action_item": {
@@ -600,6 +776,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
 | 408 | `TIMEOUT` | `RequestTimeoutFailure` | — | Analysis took longer than `analysisTimeout` |
 | 429 | `DAILY_LIMIT_REACHED` | `DailyLimitReachedFailure` | `{ "reset_at": "ISO-8601" }` | Daily quota exhausted for this `installation_id` |
 | 429 | `AI_RATE_LIMITED` | `AiProviderRateLimitFailure` | — | Upstream AI provider rate-limited the request |
+| 429 | `GLOBAL_CAPACITY_REACHED` | `GlobalCapacityReachedFailure` | — | Service-wide daily call cap (`globalDailyCallCap`) exhausted across **all** users — not this caller's own quota (F13-T02) |
 | 500 | `ANALYSIS_FAILED` | `AnalysisServiceFailure` | — | AI returned unusable output or internal error |
 | 500 | `INTERNAL_ERROR` | `AnalysisServiceFailure` | — | Unexpected server error |
 | 503 | `ANALYSIS_DISABLED` | `AnalysisDisabledFailure` | — | `analysisEnabled == false` (maintenance) |
@@ -631,6 +808,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
             "TIMEOUT",
             "DAILY_LIMIT_REACHED",
             "AI_RATE_LIMITED",
+            "GLOBAL_CAPACITY_REACHED",
             "ANALYSIS_FAILED",
             "INTERNAL_ERROR",
             "ANALYSIS_DISABLED"
@@ -662,7 +840,9 @@ client maps to `AppFailure` subtypes and Arabic copy.
 1. **Parse `error.code` only** — never show `error.message` to the user. Map each code
    to an `AppFailure` subtype and let the presentation layer produce Arabic copy.
 2. **`DAILY_LIMIT_REACHED`** — parse `details.reset_at` into `DailyLimitReachedFailure.resetAtCairo`
-   to show the user when they can retry.
+   to show the user when they can retry. Do **not** treat `GLOBAL_CAPACITY_REACHED` as this
+   code: the caller's own quota is untouched, there is no `reset_at`, and the copy must read
+   as a temporary service-side limit rather than "you have used up your analyses".
 3. **Unknown codes** — treat any unrecognized `error.code` as `AnalysisServiceFailure`.
 4. **Non-JSON responses** — treat as `AnalysisServiceFailure` (server returned HTML error page, etc.).
 5. **Network errors** (no response) — map to `NoInternetFailure` or `RequestTimeoutFailure`
@@ -670,3 +850,66 @@ client maps to `AppFailure` subtypes and Arabic copy.
 6. **`status: "unsupported"`** in a 200 response — this is NOT an error. Map to
    `UnsupportedDocumentFailure` in the domain layer; the result screen shows the
    OCR-only fallback (F07-T12/T13). This analysis is **not counted** against the daily limit.
+
+---
+
+## §32 · Supporting endpoints
+
+### `GET /functions/v1/get-usage`
+
+**Auth header:** `Authorization: Bearer <supabase-anon-jwt>` (required).
+
+Returns today's quota for the caller. The user is taken from the **verified
+token**, never from a parameter — a caller cannot read another install's quota.
+
+```jsonc
+{
+  "schema_version":  "2.0",
+  "usage_date":      "2026-07-26",              // Africa/Cairo calendar day (§27)
+  "daily_limit":     3,
+  "used_today":      1,                          // analyses actually consumed
+  "remaining_today": 2,                          // how many may be STARTED now
+  "resets_at":       "2026-07-27T00:00:00+03:00",// real Cairo offset, not fixed +02
+  "analysis_enabled": true                       // the backend kill switch
+}
+```
+
+| Field | Maps to `DailyUsage` |
+|---|---|
+| `usage_date` | `usageDate` |
+| `daily_limit` | `dailyLimit` |
+| `used_today` | `usedCount` |
+| `remaining_today` | `remainingCount` |
+| `resets_at` | `resetsAt` |
+
+`remaining_today` also subtracts **in-flight reservations**, so for the few
+seconds an analysis is running it can be lower than `daily_limit - used_today`.
+That is deliberate: it is the honest answer to "can I start one now?".
+
+Errors use the §31 envelope. Only `UNAUTHORIZED` (401) and `INTERNAL_ERROR`
+(500) are reachable.
+
+### `GET /functions/v1/health`
+
+Unauthenticated liveness probe (`verify_jwt = false`).
+
+```jsonc
+{ "status": "ok", "time": "2026-07-26T09:00:00.000Z" }
+```
+
+It reads no table and returns no config value, count or secret — it answers only
+"is the edge runtime serving?". Anything richer would make an unauthenticated
+endpoint do database work, and would make the probe fail for reasons that are
+not liveness.
+
+### Shared behaviour
+
+All three endpoints:
+
+- accept `x-request-id` (a uuid) and **echo it** on every response, success or
+  error. The same id keys `analysis_attempts`, so reusing one on a retry cannot
+  consume a second slot.
+- answer `204` to a CORS preflight, and `400 INVALID_REQUEST` to a method they
+  do not serve (§31 is a closed enum with no method code).
+- send `Cache-Control: no-store` — an analysis body describes someone's bill and
+  must never sit in a proxy or a disk cache.

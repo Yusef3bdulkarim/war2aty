@@ -1,4 +1,4 @@
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
 
 /// Semantic color palette, sourced exactly from the Waraqti design
 /// (`Waraqti.dc.html`). Two variants are provided: [light] and
@@ -27,18 +27,23 @@ final class AppColors {
     required this.borderStrong,
     required this.success,
     required this.successTint,
+    required this.successInk,
     required this.mint,
+    required this.mintSoft,
     required this.warning,
     required this.warningInk,
     required this.warningTint,
+    required this.warningBorder,
     required this.iconMuted,
     required this.iconSubtle,
     required this.iconInfo,
     required this.textCaption,
+    required this.textPlaceholder,
     required this.accentBlue,
     required this.accentBlueTint,
     required this.error,
     required this.errorTint,
+    required this.switchTrackOff,
   });
 
   final Color brandPrimary;
@@ -92,13 +97,31 @@ final class AppColors {
   /// Caption / reassurance copy sitting under a control.
   final Color textCaption;
 
+  /// Placeholder copy inside an empty input — one step lighter than
+  /// [textMuted], which the design uses for the input's own icon.
+  final Color textPlaceholder;
+
   final Color success;
   final Color successTint;
+
+  /// Text and icons on [successTint] — darker than [success], which is a fill
+  /// colour and does not carry enough contrast as small type.
+  final Color successInk;
   final Color mint;
+
+  /// The pale mint the design writes on top of a brand-teal surface — the
+  /// summary card's label and the audio bar's controls. [mint] itself is too
+  /// close to the teal behind it to read there.
+  final Color mintSoft;
 
   final Color warning;
   final Color warningInk;
   final Color warningTint;
+
+  /// Outline of an amber block — the warnings card and the partial-result
+  /// banner. A tinted panel needs an edge to stay a panel when the surface
+  /// behind it is warm too.
+  final Color warningBorder;
 
   /// Fourth category accent (government papers), alongside teal, amber and
   /// green. Used for icon tints and category chips.
@@ -107,6 +130,10 @@ final class AppColors {
 
   final Color error;
   final Color errorTint;
+
+  /// An off (inactive) toggle switch's track — every settings toggle in the
+  /// design (`الخصوصية`, `تباين عالي`, …) shares this one grey.
+  final Color switchTrackOff;
 
   /// Default light theme — the exact Waraqti hex values.
   static const AppColors light = AppColors(
@@ -133,16 +160,21 @@ final class AppColors {
     iconSubtle: Color(0xFF7A868B),
     iconInfo: Color(0xFF5A7A80),
     textCaption: Color(0xFF6B777C),
+    textPlaceholder: Color(0xFF98A2A7),
     success: Color(0xFF2E9E63),
     successTint: Color(0xFFE1F2E9),
+    successInk: Color(0xFF1E7A48),
     mint: Color(0xFF34D0B4),
+    mintSoft: Color(0xFF8FE6D4),
     warning: Color(0xFFC77B12),
     warningInk: Color(0xFF8A5A0E),
     warningTint: Color(0xFFFBEFD8),
+    warningBorder: Color(0xFFF0D8A8),
     accentBlue: Color(0xFF2C63B6),
     accentBlueTint: Color(0xFFE6EEF9),
     error: Color(0xFFC4362A),
     errorTint: Color(0xFFFBECEA),
+    switchTrackOff: Color(0xFFD7D2C7),
   );
 
   /// High-contrast variant — darker text, stronger borders, deeper brand and
@@ -172,15 +204,55 @@ final class AppColors {
     iconSubtle: Color(0xFF3A474C),
     iconInfo: Color(0xFF2E4A50),
     textCaption: Color(0xFF2E3A3F),
+    // Kept as dark as [textMuted] here rather than one step lighter, unlike
+    // the light variant — high contrast has no room to spare on a color
+    // whose whole job is to be legible against white.
+    textPlaceholder: Color(0xFF465257),
     success: Color(0xFF1E7A48),
     successTint: Color(0xFFDCEEE4),
+    successInk: Color(0xFF13502F),
     mint: Color(0xFF12A98C),
+    mintSoft: Color(0xFFC8F5EA),
     warning: Color(0xFF8A5A0E),
     warningInk: Color(0xFF5E3D08),
     warningTint: Color(0xFFF8E6C6),
+    warningBorder: Color(0xFFB98A3C),
     accentBlue: Color(0xFF1B4489),
     accentBlueTint: Color(0xFFD8E3F5),
     error: Color(0xFFA82217),
     errorTint: Color(0xFFF8E1DE),
+    // Darker than the light variant's, matching [borderStrong] here — an off
+    // switch needs to read clearly against white under high contrast.
+    switchTrackOff: Color(0xFF5A686E),
   );
+
+  /// The active palette for [context] — [light] normally, [highContrast]
+  /// once the user turns on «تباين عالي» (F11-T06).
+  ///
+  /// Screens call this instead of touching [light]/[highContrast] directly,
+  /// so every screen recolors together when [HighContrastCubit] flips —
+  /// exactly as [TextSize.scaler] recolors through [MediaQuery] rather than
+  /// each widget reading a global. Falls back to [light] outside of
+  /// [AppColorsScope] (e.g. a widget test built without the app root) rather
+  /// than throwing, since a missing scope is not a state the setting itself
+  /// can cause.
+  static AppColors of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppColorsScope>()?.colors ??
+      light;
+}
+
+/// Carries the active [AppColors] palette down the tree so [AppColors.of]
+/// can resolve it (F11-T06).
+///
+/// Installed once at the app root ([WaraqtiApp]), swapped by
+/// [HighContrastCubit]'s state — the same shape the root [MediaQuery] takes
+/// for [TextSize].
+class AppColorsScope extends InheritedWidget {
+  const AppColorsScope({required this.colors, required super.child, super.key});
+
+  final AppColors colors;
+
+  @override
+  bool updateShouldNotify(AppColorsScope oldWidget) =>
+      colors != oldWidget.colors;
 }

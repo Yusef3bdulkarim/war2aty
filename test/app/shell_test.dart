@@ -7,15 +7,43 @@ import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/app/shell/scaffold_with_nav_bar.dart';
+import 'package:war2aty/core/accessibility/high_contrast_cubit.dart';
+import 'package:war2aty/core/accessibility/text_size_cubit.dart';
+import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
+import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
+import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
+import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
+import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
+import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
+import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
+import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
+import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
+import 'package:war2aty/core/env/app_environment.dart';
+import 'package:war2aty/core/env/usecases/get_app_version.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/localization/usecases/set_locale.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
+import 'package:war2aty/core/permissions/usecases/open_notification_permission_settings.dart';
+import 'package:war2aty/core/reminders/usecases/delete_all_reminders.dart';
+import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
+import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
+import 'package:war2aty/core/usage/usage_hint_holder.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/capture_source.dart';
@@ -29,6 +57,8 @@ import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/settings/presentation/cubit/settings_cubit.dart';
+import 'package:war2aty/features/settings/presentation/screens/settings_screen.dart';
 
 import '../support/fakes.dart';
 
@@ -95,6 +125,79 @@ void main() {
           ),
         ),
       )
+      ..registerFactory<TextSizeCubit>(() {
+        final store = FakeTextSizeStore();
+        return TextSizeCubit(
+          getTextSize: GetTextSize(store),
+          setTextSize: SetTextSize(store),
+        );
+      })
+      ..registerFactory<HighContrastCubit>(() {
+        final store = FakeHighContrastStore();
+        return HighContrastCubit(
+          getHighContrast: GetHighContrast(store),
+          setHighContrast: SetHighContrast(store),
+        );
+      })
+      ..registerFactory<SettingsCubit>(() {
+        final consentStore = FakeAnalysisConsentStore();
+        final modeStore = FakeProcessingModeStore();
+        final speedStore = FakeDefaultReadingSpeedStore();
+        final voiceStore = FakeDefaultReadingVoiceStore();
+        final resumeStore = FakeResumeReadingEnabledStore();
+        final tts = FakeTextToSpeechService();
+        final cameraPermissions = FakeCameraPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
+        final notificationPermissions = FakeNotificationPermissionRepository(
+          status: PermissionOutcome.denied,
+        );
+        final notificationPrivacyStore = FakeNotificationPrivacyStore();
+        final documentsRepository = FakeDocumentsRepository();
+        final remindersRepository = FakeRemindersRepository();
+        final reminderScheduler = FakeReminderScheduler();
+        final settingsRepository = FakeAppSettingsRepository();
+        return SettingsCubit(
+          getAnalysisConsent: GetAnalysisConsent(consentStore),
+          setAnalysisConsent: SetAnalysisConsent(consentStore),
+          getProcessingMode: GetProcessingMode(modeStore),
+          setProcessingMode: SetProcessingMode(modeStore),
+          getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
+          setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
+          getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
+          getResumeReadingEnabled: GetResumeReadingEnabled(resumeStore),
+          setResumeReadingEnabled: SetResumeReadingEnabled(resumeStore),
+          previewDefaultVoice: PreviewDefaultVoice(
+            tts,
+            const SelectVoiceForReading(),
+          ),
+          getCameraPermission: GetCameraPermission(cameraPermissions),
+          openPermissionSettings: OpenPermissionSettings(cameraPermissions),
+          getNotificationPermission: GetNotificationPermission(
+            notificationPermissions,
+          ),
+          openNotificationSettings: OpenNotificationPermissionSettings(
+            notificationPermissions,
+          ),
+          getHideSensitiveNotificationDetails:
+              GetHideSensitiveNotificationDetails(notificationPrivacyStore),
+          setHideSensitiveNotificationDetails:
+              SetHideSensitiveNotificationDetails(notificationPrivacyStore),
+          deleteAllDocuments: DeleteAllDocuments(documentsRepository),
+          deleteAllReminders: DeleteAllReminders(
+            remindersRepository,
+            reminderScheduler,
+          ),
+          deleteAllAppData: DeleteAllAppData(
+            DeleteAllDocuments(documentsRepository),
+            DeleteAllReminders(remindersRepository, reminderScheduler),
+            settingsRepository,
+          ),
+          getDailyUsage: GetDailyUsage(usage),
+          getAppVersion: GetAppVersion(AppEnvironment.dev(isAndroid: false)),
+        );
+      })
+      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<GoRouter>(
         () => createAppRouter(onboardingGate: getIt()),
       );
@@ -130,6 +233,18 @@ void main() {
     expect(find.text(en.navHome), findsWidgets);
     expect(find.text(en.navSettings), findsWidgets);
     expect(navDirection(tester), TextDirection.ltr);
+  });
+
+  testWidgets('the settings tab opens the real settings screen (F11-T01)', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+    const ar = ArStrings();
+
+    await tester.tap(find.text(ar.navSettings).last);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
   });
 
   group('into capture', () {

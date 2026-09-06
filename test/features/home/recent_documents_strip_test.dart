@@ -253,8 +253,21 @@ void main() {
   });
 
   group('DocumentCategoryStyle', () {
-    test('every category has a distinct look', () {
-      final styles = DocumentCategory.values.map(DocumentCategoryStyle.of);
+    testWidgets('every category has a distinct look', (tester) async {
+      late BuildContext capturedContext;
+      await pumpApp(
+        tester,
+        Builder(
+          builder: (context) {
+            capturedContext = context;
+            return const SizedBox.shrink();
+          },
+        ),
+      );
+
+      final styles = DocumentCategory.values.map(
+        (c) => DocumentCategoryStyle.of(capturedContext, c),
+      );
 
       expect(
         styles.map((s) => s.tint).toSet().length,

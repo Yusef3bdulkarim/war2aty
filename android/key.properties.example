@@ -1,0 +1,12 @@
+# Release signing configuration.
+# Copy this file to android/key.properties (git-ignored) and fill in the values.
+#
+# To generate a keystore:
+#   keytool -genkey -v -keystore war2aty-release.jks \
+#     -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+#     -alias war2aty
+#
+storePassword=<your store password>
+keyPassword=<your key password>
+keyAlias=war2aty
+storeFile=<path to your .jks file, e.g. /Users/you/war2aty-release.jks>

@@ -58,6 +58,17 @@ final class LocalDatabaseFailure extends LocalFailure {
   const LocalDatabaseFailure();
 }
 
+/// A launch step crashed or never finished.
+///
+/// Distinct from the failures a step *returns*: this is the orchestrator
+/// catching something a step was never supposed to do — an unregistered
+/// dependency, a client that failed to initialize. Without its own code these
+/// would be logged as whatever leaf happened to be nearest, sending the next
+/// person debugging a dead splash screen down the wrong path.
+final class LaunchFailure extends LocalFailure {
+  const LaunchFailure();
+}
+
 final class FileEncryptionFailure extends LocalFailure {
   const FileEncryptionFailure();
 }
@@ -76,6 +87,13 @@ final class NotificationSchedulingFailure extends LocalFailure {
 
 final class TtsFailure extends LocalFailure {
   const TtsFailure();
+}
+
+/// The user has turned off «السماح بإرسال النص للتحليل» (F11-T02) — analysis
+/// was never attempted, so this is not a network/business outcome, but a
+/// local, user-controlled setting the request never got past.
+final class AnalysisConsentDeclinedFailure extends LocalFailure {
+  const AnalysisConsentDeclinedFailure();
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +129,19 @@ final class DailyLimitReachedFailure extends NetworkFailure {
 
   @override
   int get hashCode => resetAtCairo.hashCode;
+}
+
+/// The service-wide daily analysis capacity is spent (F13-T02).
+///
+/// Not the user's own quota — [DailyLimitReachedFailure] is that. This one is a
+/// shared spend cap the user cannot influence and has not used up, so the two
+/// must stay distinct: telling someone who has analysed nothing today that they
+/// are out of analyses would be a lie they cannot act on.
+///
+/// Carries no reset instant: capacity also returns when an operator raises the
+/// cap, so any promised time would be a guess.
+final class GlobalCapacityReachedFailure extends NetworkFailure {
+  const GlobalCapacityReachedFailure();
 }
 
 final class AnalysisDisabledFailure extends NetworkFailure {

@@ -40,6 +40,7 @@ final class ExtractCandidates {
 
     return ExtractionResult(
       text: normalized,
+      detectedLanguages: ocrResult.detectedLanguages,
       dates: _dateExtractor.extract(cleaned),
       times: _timeExtractor.extract(cleaned),
       amounts: _amountExtractor.extract(cleaned),

@@ -7,6 +7,8 @@ import '../../core/icons/stroke_icon.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/usage/usage_hint_holder.dart';
+import '../di/service_locator.dart';
 
 /// Nav bar measurements, from `Waraqti.dc.html`.
 const double _barTopPadding = 8;
@@ -26,16 +28,59 @@ const double _maxLabelScale = 1.3;
 /// edge, stroke icons and small bold labels, none of which [NavigationBar]
 /// exposes. Order follows the ambient [Directionality], so tabs read correctly
 /// in both RTL (Arabic) and LTR (English).
-class ScaffoldWithNavBar extends StatelessWidget {
+///
+/// Also consumes [UsageHintHolder]: when the user leaves the analysis result
+/// screen, the router stores the remaining-quota count in the holder, and this
+/// shell shows it as a SnackBar on the first frame after the hint arrives.
+class ScaffoldWithNavBar extends StatefulWidget {
   const ScaffoldWithNavBar({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
+  @override
+  State<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+}
+
+class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
+  late final UsageHintHolder _usageHint;
+
+  @override
+  void initState() {
+    super.initState();
+    _usageHint = getIt<UsageHintHolder>();
+    _usageHint.addListener(_showUsageSnackBar);
+    // Catch a hint set *before* initState (the router sets it synchronously
+    // before `context.go` triggers the shell rebuild).
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showUsageSnackBar());
+  }
+
+  @override
+  void dispose() {
+    _usageHint.removeListener(_showUsageSnackBar);
+    super.dispose();
+  }
+
+  void _showUsageSnackBar() {
+    final remaining = _usageHint.consume();
+    if (remaining == null) return;
+    // Schedule after the current frame so the Scaffold is fully built and
+    // `ScaffoldMessenger.of` resolves to this shell's Scaffold.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final s = context.strings;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(s.homeUsageRemaining(remaining))),
+        );
+    });
+  }
+
   void _goBranch(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
       // Tapping the current tab again pops it back to its root.
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
@@ -47,9 +92,9 @@ class ScaffoldWithNavBar extends StatelessWidget {
       // The bar is translucent, so content scrolls under it rather than
       // stopping short of it.
       extendBody: true,
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: _NavBar(
-        currentIndex: navigationShell.currentIndex,
+        currentIndex: widget.navigationShell.currentIndex,
         onSelected: _goBranch,
         destinations: [
           (StrokeGlyph.navHome, s.navHome),
@@ -75,7 +120,7 @@ class _NavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
     return ClipRect(
@@ -132,7 +177,7 @@ class _Destination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final color = selected ? colors.brandPrimary : colors.iconMuted;
 
     return Semantics(

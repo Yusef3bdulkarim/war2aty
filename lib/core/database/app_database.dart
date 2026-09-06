@@ -1,6 +1,17 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+// Imported for the generated part file: it names these enums in the document
+// row and companion classes, and a part cannot import them itself.
+import '../documents/document_category.dart';
+import '../documents/recent_document.dart';
+import '../reminders/reminder_alert_status.dart';
+import '../reminders/reminder_status.dart';
+import 'daos/documents_dao.dart';
+import 'daos/reminders_dao.dart';
+import 'tables/document_tables.dart';
+import 'tables/reminder_tables.dart';
+
 part 'app_database.g.dart';
 
 /// Key/value application settings (locale, flags, …).
@@ -27,11 +38,26 @@ class UsageCache extends Table {
   Set<Column<Object>> get primaryKey => {usageDate};
 }
 
-/// The local SQLite database (schema v1).
+/// The local SQLite database (schema v3).
 ///
-/// Only foundation tables exist so far; document/reminder tables are added in
-/// later migrations as those features land.
-@DriftDatabase(tables: [AppSettings, UsageCache])
+/// v1 held the foundation tables; v2 added the saved-document tables (F08);
+/// v3 adds the reminder tables (F09).
+@DriftDatabase(
+  tables: [
+    AppSettings,
+    UsageCache,
+    Documents,
+    DocumentKeyInformation,
+    DocumentDates,
+    DocumentAmounts,
+    DocumentActions,
+    DocumentWarnings,
+    DocumentTextItems,
+    Reminders,
+    ReminderAlerts,
+  ],
+  daos: [DocumentsDao, RemindersDao],
+)
 class AppDatabase extends _$AppDatabase {
   /// Opens the on-device database. Pass an [executor] (e.g. an in-memory one)
   /// in tests.
@@ -39,7 +65,57 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'war2aty'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        // Fresh tables only — no v1 data is touched, so an upgrade cannot
+        // lose a user's settings or their usage count.
+        for (final entity in _documentSchema) {
+          await m.create(entity);
+        }
+      }
+      if (from < 3) {
+        for (final entity in _reminderSchema) {
+          await m.create(entity);
+        }
+      }
+    },
+    beforeOpen: (details) async {
+      // Off by default in SQLite, and the document/reminder children rely on
+      // it: only with it on does deleting a paper (or a reminder) take its
+      // children with it.
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
+
+  /// The entities v2 introduced, in dependency order (parent before children,
+  /// tables before their indexes).
+  List<DatabaseSchemaEntity> get _documentSchema => [
+    documents,
+    documentKeyInformation,
+    documentDates,
+    documentAmounts,
+    documentActions,
+    documentWarnings,
+    documentTextItems,
+    documentsSavedAt,
+    documentsCategory,
+  ];
+
+  /// The entities v3 introduced (F09), same ordering rule as
+  /// [_documentSchema].
+  List<DatabaseSchemaEntity> get _reminderSchema => [
+    reminders,
+    reminderAlerts,
+    remindersEventDate,
+    remindersStatus,
+    remindersDocument,
+    reminderAlertsReminder,
+  ];
 
   /// Reads a single setting value, or `null` if unset.
   Future<String?> getSetting(String key) async {
@@ -59,6 +135,21 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
   }
+
+  /// Removes a setting, so a later [getSetting] answers `null` again — how a
+  /// store models "back to automatic" for a value that has no default string
+  /// of its own to overwrite with (F11-T07's default voice, unset).
+  Future<void> deleteSetting(String key) =>
+      (delete(appSettings)..where((t) => t.key.equals(key))).go();
+
+  /// Deletes every row of `app_settings` — settings' «حذف كل بيانات التطبيق»
+  /// (F11-T11). Every `Get*` use case already falls back to its documented
+  /// default once a key is unset, so nothing needs to be written back here.
+  Future<void> clearAppSettings() => delete(appSettings).go();
+
+  /// Deletes every row of `usage_cache` (F11-T11) — the next sync from the
+  /// backend, the source of truth, repopulates it.
+  Future<void> clearUsageCache() => delete(usageCache).go();
 
   /// Reads the cached usage row for a Cairo [date], or `null`.
   Future<UsageCacheData?> usageForDate(DateTime date) {

@@ -1,11 +1,11 @@
+import '../../../../core/documents/document_analysis.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
-import '../../domain/entities/document_analysis.dart';
 import '../mappers/analysis_response_mapper.dart';
 import '../models/analysis_response_dto.dart';
 
 /// Response schema versions this build can read (API_CONTRACT §30).
-const kSupportedAnalysisSchemaVersions = {'1.0'};
+const kSupportedAnalysisSchemaVersions = {'1.0', '2.0'};
 
 /// Turns a decoded analyze-document body into a [DocumentAnalysis], or a
 /// failure — without ever throwing.

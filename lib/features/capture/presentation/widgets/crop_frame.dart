@@ -60,7 +60,7 @@ class _Corner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mint = AppColors.light.mint;
+    final mint = AppColors.of(context).mint;
     final side = BorderSide(color: mint, width: _bracketStroke);
     final isTop = corner.y < 0;
     final isLeft = corner.x < 0;

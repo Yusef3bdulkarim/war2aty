@@ -58,7 +58,7 @@ class UpcomingReminderCard extends StatelessWidget {
     if (reminder == null) return const SizedBox.shrink();
 
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
     final due = reminderDueLabel(s, reminder.dueAt, now: now);
     final radius = BorderRadius.circular(AppRadii.xl);
 
@@ -186,7 +186,7 @@ class _ReminderSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(top: _sectionGapAbove),

@@ -19,9 +19,17 @@ final class ExtractionResult {
     this.amounts = const [],
     this.phones = const [],
     this.references = const [],
+    this.detectedLanguages = const [],
   });
 
   final NormalizedOcrText text;
+
+  /// BCP-47 tags the OCR engine reported for this paper, carried through from
+  /// the raw OCR result. The analysis request sends them along — the detected
+  /// language is one of the few things allowed to leave the phone (§6) — so
+  /// the pipeline must not drop them on the way.
+  final List<String> detectedLanguages;
+
   final List<DateCandidate> dates;
   final List<TimeCandidate> times;
   final List<AmountCandidate> amounts;
@@ -49,6 +57,7 @@ final class ExtractionResult {
       identical(this, other) ||
       other is ExtractionResult &&
           other.text == text &&
+          _listEquals(other.detectedLanguages, detectedLanguages) &&
           _listEquals(other.dates, dates) &&
           _listEquals(other.times, times) &&
           _listEquals(other.amounts, amounts) &&
@@ -58,6 +67,7 @@ final class ExtractionResult {
   @override
   int get hashCode => Object.hash(
     text,
+    Object.hashAll(detectedLanguages),
     Object.hashAll(dates),
     Object.hashAll(times),
     Object.hashAll(amounts),

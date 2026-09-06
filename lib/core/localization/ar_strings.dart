@@ -1,5 +1,22 @@
 import 'app_strings.dart';
 
+/// Gregorian month names as Egypt writes them — the calendar on a bill, a
+/// clinic slip or a government notice.
+const List<String> _monthNames = [
+  'يناير',
+  'فبراير',
+  'مارس',
+  'أبريل',
+  'مايو',
+  'يونيو',
+  'يوليو',
+  'أغسطس',
+  'سبتمبر',
+  'أكتوبر',
+  'نوفمبر',
+  'ديسمبر',
+];
+
 /// Arabic (Egyptian) strings. Simple, everyday dialect (CLAUDE.md).
 final class ArStrings implements AppStrings {
   const ArStrings();
@@ -92,7 +109,8 @@ final class ArStrings implements AppStrings {
   String get privacyPointExtractText => 'بنستخرج النص من الصورة علشان نحلله.';
 
   @override
-  String get privacyPointTextOnly => 'بنرسل النص المستخرج فقط، مش صورة الورقة.';
+  String get privacyPointTextOnly =>
+      'بنقرا الكلام اللي في ورقتك بمعالجة آمنة، لكن مانحفظش صورتها أبدًا — ومحدش بيشوفها.';
 
   @override
   String get privacyPointImageOptIn => 'الصورة مش هتتحفظ إلا بعد موافقتك.';
@@ -235,6 +253,20 @@ final class ArStrings implements AppStrings {
   String get timePm => 'مساءً';
 
   @override
+  String monthName(int month) => _monthNames[month - 1];
+
+  @override
+  String currencyName(String code) => switch (code.toUpperCase()) {
+    'EGP' => 'جنيه',
+    'USD' => 'دولار',
+    'EUR' => 'يورو',
+    'SAR' => 'ريال سعودي',
+    'AED' => 'درهم إماراتي',
+    'KWD' => 'دينار كويتي',
+    _ => code,
+  };
+
+  @override
   String reminderDueToday(String time) => 'النهارده، الساعة $time';
 
   @override
@@ -271,6 +303,156 @@ final class ArStrings implements AppStrings {
   String get documentStoredWithImage => 'النتيجة وصورة الورقة';
 
   @override
+  String get documentSaved => 'تم حفظ النتيجة في مستنداتي — من غير صورة الورقة';
+
+  @override
+  String get documentSavedWithImage =>
+      'تم حفظ النتيجة وصورة الورقة في مستنداتي';
+
+  @override
+  String get documentSaveFailed => 'مقدرناش نحفظ الورقة. جرّب تاني.';
+
+  @override
+  String get saveModeSectionLabel => 'إيه اللي تحفظه؟';
+
+  @override
+  String get saveModeResultOnlyTitle => 'النتيجة فقط';
+
+  @override
+  String get saveModeResultOnlySubtitle =>
+      'بنحفظ الملخص والتفاصيل، من غير صورة الورقة.';
+
+  @override
+  String get saveModeWithImageTitle => 'النتيجة وصورة الورقة';
+
+  @override
+  String get saveModeWithImageSubtitle =>
+      'بنحفظ الملخص والتفاصيل وصورة الورقة مشفّرة على جهازك.';
+
+  @override
+  @override
+  String get documentsEmptyTitle => 'لسه ماحفظتش أي مستند';
+
+  @override
+  String get documentsEmptySubtitle => 'لما تحفظ نتيجة أي ورقة هتظهر هنا.';
+
+  @override
+  String get documentsEmptyCta => 'صوّر أول ورقة';
+
+  @override
+  String get documentsListErrorTitle => 'مقدرناش نجيب مستنداتك دلوقتي.';
+
+  @override
+  String get documentsSearchHint => 'ابحث باسم المستند';
+
+  @override
+  String get documentsSearchNoResultsTitle => 'مفيش نتايج لبحثك';
+
+  @override
+  String get documentsSearchNoResultsSubtitle =>
+      'جرّب اسم تاني أو راجع الإملاء.';
+
+  @override
+  String get documentsFilterAll => 'الكل';
+
+  @override
+  String get documentsFilterAppointment => 'المواعيد';
+
+  @override
+  String get documentsFilterInvoice => 'الفواتير';
+
+  @override
+  String get documentsFilterGovernment => 'الحكومية';
+
+  @override
+  String get documentsFilterEducation => 'التعليمية';
+
+  @override
+  String get documentsFilterOther => 'أخرى';
+
+  @override
+  String get documentDetailsTitle => 'تفاصيل المستند';
+
+  @override
+  String get documentDetailsNotFoundTitle => 'المستند ده مش موجود';
+
+  @override
+  String get documentDetailsNotFoundMessage =>
+      'يمكن يكون اتمسح أو مبقاش موجود.';
+
+  @override
+  String get documentDetailsErrorTitle => 'مقدرناش نفتح المستند';
+
+  @override
+  String get documentDetailsErrorMessage =>
+      'حصلت مشكلة وإحنا بنجيب بيانات المستند. جرّب تاني.';
+
+  @override
+  String get documentDetailsBackToList => 'رجوع للمستندات';
+
+  @override
+  String get documentImageLabel => 'صورة المستند';
+
+  // Document notes (F08-T09)
+  @override
+  String get documentNoteHeading => 'ملاحظتي';
+  @override
+  String get documentNoteEmpty => 'مافيش ملاحظة مضافة.';
+  @override
+  String get documentNoteAdd => 'إضافة ملاحظة';
+  @override
+  String get documentNoteEdit => 'تعديل';
+  @override
+  String get documentNoteDelete => 'حذف الملاحظة';
+  @override
+  String get documentNoteHint => 'ضيف ملاحظة تساعدك تفتكر الورقة.';
+  @override
+  String get documentNoteSave => 'حفظ الملاحظة';
+  @override
+  String get documentNoteDeleteConfirmTitle => 'حذف الملاحظة؟';
+  @override
+  String get documentNoteDeleteConfirmMessage =>
+      'لو حذفت الملاحظة مش هتقدر ترجعها تاني.';
+  @override
+  String get documentNoteSaved => 'تم حفظ الملاحظة.';
+  @override
+  String get documentNoteDeleted => 'تم حذف الملاحظة.';
+  @override
+  String get documentNoteError => 'مقدرناش نحفظ الملاحظة. جرّب تاني.';
+
+  @override
+  String get documentEditTitle => 'تعديل العنوان';
+  @override
+  String get documentEditCategory => 'تعديل التصنيف';
+  @override
+  String get documentEditTitleHeading => 'تعديل العنوان';
+  @override
+  String get documentEditTitleHint => 'اكتب عنوان جديد للمستند.';
+  @override
+  String get documentEditTitleSave => 'حفظ العنوان';
+  @override
+  String get documentEditCategoryHeading => 'تعديل التصنيف';
+  @override
+  String get documentTitleUpdated => 'تم تعديل العنوان.';
+  @override
+  String get documentCategoryUpdated => 'تم تعديل التصنيف.';
+  @override
+  String get documentUpdateError => 'مقدرناش نعدّل المستند. جرّب تاني.';
+
+  // Document delete (F08-T11)
+  @override
+  String get documentDeleteAction => 'حذف المستند';
+  @override
+  String get documentDeleteConfirmTitle => 'حذف المستند؟';
+  @override
+  String get documentDeleteConfirmMessage =>
+      'لو حذفت المستند مش هتقدر ترجعه تاني.';
+  @override
+  String get documentDeleted => 'تم حذف المستند.';
+  @override
+  String get documentDeleteError => 'مقدرناش نحذف المستند. جرّب تاني.';
+
+  @override
   String get navHome => 'الرئيسية';
 
   @override
@@ -283,10 +465,196 @@ final class ArStrings implements AppStrings {
   String get navSettings => 'الإعدادات';
 
   @override
+  String get settingsGeneralSection => 'عام';
+
+  @override
+  String get settingsLanguageLabel => 'لغة التطبيق';
+
+  @override
   String get languageArabic => 'العربية';
 
   @override
   String get languageEnglish => 'الإنجليزية';
+
+  @override
+  String get settingsPrivacySection => 'الخصوصية';
+
+  @override
+  String get settingsAnalysisConsentLabel => 'السماح بإرسال النص للتحليل';
+
+  @override
+  String get settingsProcessingModeLabel => 'طريقة معالجة الأوراق';
+
+  @override
+  String get settingsProcessingModeSmartAnalysis => 'تحليل ذكي';
+
+  @override
+  String get settingsProcessingModeTextOnly => 'استخراج النص فقط';
+
+  @override
+  String get settingsProcessingModeSmartAnalysisDescription =>
+      'الورقة تتقرأ وتتحلل عشان تفهم المهم فيها';
+
+  @override
+  String get settingsProcessingModeTextOnlyDescription =>
+      'بس يطلع النص من الورقة من غير تحليل — كل حاجة تفضل على الموبايل';
+
+  // Display / Accessibility (F11-T05)
+  @override
+  String get settingsDisplaySection => 'العرض';
+
+  @override
+  String get settingsTextSizeLabel => 'حجم الخط';
+
+  @override
+  String get settingsTextSizeNormal => 'عادي';
+
+  @override
+  String get settingsTextSizeLarge => 'كبير';
+
+  @override
+  String get settingsTextSizeVeryLarge => 'كبير جدًا';
+
+  @override
+  String get settingsTextSizeNormalDescription => 'الحجم الأصلي للتطبيق';
+
+  @override
+  String get settingsTextSizeLargeDescription => 'أكبر شوية — أسهل في القراءة';
+
+  @override
+  String get settingsTextSizeVeryLargeDescription =>
+      'أكبر حجم — مناسب لو محتاج خط واضح جدًا';
+
+  // Accessibility (F11-T06)
+  @override
+  String get settingsAccessibilitySection => 'إمكانية الوصول';
+
+  @override
+  String get settingsHighContrastLabel => 'تباين عالي';
+
+  // Audio & reading defaults (F11-T07)
+  @override
+  String get settingsAudioSection => 'الصوت والقراءة';
+
+  @override
+  String get settingsAudioSpeedLabel => 'سرعة القراءة الافتراضية';
+
+  @override
+  String get settingsAudioVoiceLabel => 'صوت القراءة';
+
+  @override
+  String get settingsAudioVoiceDescription =>
+      'الأصوات المتاحة حسب إعدادات الموبايل.';
+
+  @override
+  String get settingsAudioVoiceDefault => 'الصوت الافتراضي';
+
+  @override
+  String get settingsAudioPreviewLabel => 'تجربة الصوت';
+
+  @override
+  String get settingsAudioPreviewSample =>
+      'أهلًا بيك في تطبيق ورقتي بتقول إيه.';
+
+  @override
+  String get settingsAudioPreviewFailedFeedback =>
+      'تعذّر تشغيل عينة الصوت الآن.';
+
+  @override
+  String get settingsAudioResumeLabel => 'استكمال القراءة من آخر مكان';
+
+  // Permissions (F11-T08)
+  @override
+  String get settingsPermissionsSection => 'الأذونات والتنبيهات';
+  @override
+  String get settingsCameraPermissionLabel => 'إذن الكاميرا';
+  @override
+  String get settingsPermissionGranted => 'مسموح';
+  @override
+  String get settingsPermissionDenied => 'غير مسموح';
+  @override
+  String get settingsPermissionBlocked => 'ممنوع';
+  @override
+  String get settingsOpenCameraSettingsLabel => 'فتح إعدادات الكاميرا';
+
+  // Permissions (F11-T09)
+  @override
+  String get settingsNotificationPermissionLabel => 'إذن الإشعارات';
+  @override
+  String get settingsOpenNotificationSettingsLabel => 'فتح إعدادات الإشعارات';
+
+  // Notification privacy (F11-T10)
+  @override
+  String get settingsNotificationPrivacyLabel =>
+      'إخفاء التفاصيل الحساسة من شاشة القفل';
+  @override
+  String get settingsNotificationPrivacyDescription =>
+      'مش هنظهر المبالغ أو الأرقام المهمة داخل الإشعار.';
+
+  @override
+  String get settingsDeleteAllDocumentsLabel => 'حذف كل المستندات';
+  @override
+  String get settingsDeleteAllAppDataLabel => 'حذف كل بيانات التطبيق';
+  @override
+  String get settingsDeleteAllRemindersLabel => 'حذف كل التذكيرات';
+
+  @override
+  String get settingsDeleteAllConfirmAction => 'حذف الكل';
+
+  @override
+  String get settingsDeleteAllDocumentsConfirmTitle => 'حذف كل المستندات؟';
+  @override
+  String get settingsDeleteAllDocumentsConfirmMessage =>
+      'هيتم حذف كل المستندات المحفوظة وصورها نهائيًا، ومش هتقدر ترجعها تاني.';
+  @override
+  String get settingsDeleteAllDocumentsSuccess => 'تم حذف كل المستندات.';
+  @override
+  String get settingsDeleteAllDocumentsError =>
+      'مقدرناش نحذف المستندات. جرّب تاني.';
+
+  @override
+  String get settingsDeleteAllAppDataConfirmTitle => 'حذف كل بيانات التطبيق؟';
+  @override
+  String get settingsDeleteAllAppDataConfirmMessage =>
+      'هيتم حذف كل المستندات والتذكيرات نهائيًا، وإعادة كل إعدادات '
+      'التطبيق لوضعها الافتراضي.';
+  @override
+  String get settingsDeleteAllAppDataSuccess => 'تم حذف كل بيانات التطبيق.';
+  @override
+  String get settingsDeleteAllAppDataError =>
+      'مقدرناش نحذف بيانات التطبيق. جرّب تاني.';
+
+  @override
+  String get settingsDeleteAllRemindersConfirmTitle => 'حذف كل التذكيرات؟';
+  @override
+  String get settingsDeleteAllRemindersConfirmMessage =>
+      'هيتم حذف التذكيرات القادمة والفائتة والمكتملة نهائيًا.';
+  @override
+  String get settingsDeleteAllRemindersSuccess => 'تم حذف كل التذكيرات.';
+  @override
+  String get settingsDeleteAllRemindersError =>
+      'مقدرناش نحذف التذكيرات. جرّب تاني.';
+
+  @override
+  String get settingsAboutSection => 'عن التطبيق';
+
+  @override
+  String get settingsPrivacyPolicyLabel => 'سياسة الخصوصية';
+
+  @override
+  String get settingsSupportedDocumentTypesLabel => 'أنواع الأوراق المدعومة';
+
+  @override
+  String get settingsUsageLimitLabel => 'حدود الاستخدام';
+
+  @override
+  String settingsUsageLimitValue(int used, int limit) => '$used / $limit';
+
+  @override
+  String get settingsUsageLimitUnavailable => 'غير متاح دلوقتي';
+
+  @override
+  String settingsVersionLabel(String version) => 'الإصدار $version';
 
   // OCR processing
   @override
@@ -294,11 +662,13 @@ final class ArStrings implements AppStrings {
   @override
   String get ocrErrorTitle => 'حصل مشكلة';
   @override
-  String get ocrErrorMessage => 'مقدرناش نقرأ الورقة. جرّب تاني أو اختار صورة تانية.';
+  String get ocrErrorMessage =>
+      'مقدرناش نقرأ الورقة. جرّب تاني أو اختار صورة تانية.';
   @override
   String get ocrNoTextTitle => 'مالقيناش كلام واضح';
   @override
-  String get ocrNoTextMessage => 'الصورة مفيهاش كلام واضح. جرّب تصوّر الورقة تاني.';
+  String get ocrNoTextMessage =>
+      'الصورة مفيهاش كلام واضح. جرّب تصوّر الورقة تاني.';
   @override
   String get ocrRetake => 'صوّر تاني';
   @override
@@ -333,4 +703,371 @@ final class ArStrings implements AppStrings {
   String get ocrReviewSubtitle => 'المعلومات دي محتاجة مراجعة — تأكد إنها صح.';
   @override
   String get ocrReviewDone => 'تمام';
+
+  @override
+  String get ocrOnlineReviewTitle => 'النص المقروء من الورقة';
+  @override
+  String get ocrOnlineReviewSubtitle =>
+      'راجع النص وعدّل لو فيه غلط قبل التحليل';
+  @override
+  String get ocrOnlineLoading => 'جاري قراءة الورقة...';
+  @override
+  String get ocrOnlineAnalyze => 'تحليل الورقة';
+  @override
+  String get ocrOnlinePoorQuality =>
+      'مقدرناش نقرا نص واضح من الورقة. حاول صوّرها تاني بإضاءة أحسن.';
+  @override
+  String get ocrOnlineShowImage => 'عرض الصورة الأصلية';
+  @override
+  String get ocrOnlineHideImage => 'إخفاء الصورة';
+  @override
+  String get ocrOnlineAmbiguityNotice => 'بعض المعلومات ممكن تحتاج مراجعة';
+
+  @override
+  String get ocrOfflineQualityWarning =>
+      'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
+  @override
+  String get ocrListenToText => 'الاستماع للنص';
+
+  // Analysis — while it runs
+  @override
+  String get analysisRunningTitle => 'بنجهز لك شرح بسيط للورقة';
+  @override
+  String get analysisRunningMessage =>
+      'ثواني وهنعرض لك أهم المعلومات والمطلوب منك.';
+  @override
+  String get analysisRunningStatus => 'بنقرأ الورقة دلوقتي';
+
+  // Analysis result
+  @override
+  String get analysisResultTitle => 'نتيجة التحليل';
+  @override
+  String get analysisResultBackLabel => 'رجوع';
+  @override
+  String get analysisFailedTitle => 'حصلت مشكلة أثناء التحليل';
+  @override
+  String get analysisFailedMessage =>
+      'مقدرناش نحلل الورقة دلوقتي. جرّب تاني بعد شوية.';
+  @override
+  String get analysisNoInternetTitle => 'محتاجين اتصال بالإنترنت';
+  @override
+  String get analysisNoInternetMessage =>
+      'الإنترنت مطلوب علشان نقدر نشرح الورقة ونرتب معلوماتها.';
+  @override
+  String get analysisLimitReachedTitle => 'استخدمت تحليلات اليوم';
+  @override
+  String get analysisLimitReachedMessage =>
+      'تقدر تحاول تاني بكرة، أو تعرض النص المستخرج وتسمعه دلوقتي.';
+  @override
+  String get analysisBackToHome => 'العودة للرئيسية';
+  @override
+  String get resultListen => 'استمع';
+  @override
+  String get resultSavePaper => 'حفظ الورقة';
+  @override
+  String get resultSummaryLabel => 'الخلاصة';
+  @override
+  String get resultActionRequiredTitle => 'المطلوب منك';
+  @override
+  String get resultActionInferred => 'استنتاج من محتوى الورقة';
+  @override
+  String get resultWarningsTitle => 'تنبيه مهم';
+  @override
+  String get resultKeyInformationTitle => 'أهم المعلومات';
+  @override
+  String resultCopyValueLabel(String label) => 'نسخ $label';
+  @override
+  String get resultDatesTitle => 'التواريخ والمواعيد';
+  @override
+  String get resultDateNoTime => 'الورقة مافيهاش وقت محدد.';
+  @override
+  String get resultCreateReminder => 'إنشاء تذكير';
+  @override
+  String get resultPickDateTitle => 'اختار التاريخ اللي عايز تفتكره';
+  @override
+  String get resultPickDateMessage =>
+      'الورقة فيها أكتر من تاريخ. اختار التاريخ المناسب للتذكير.';
+  @override
+  String get resultDateReminderWorthy => 'مناسب للتذكير';
+  @override
+  String get resultDateDisplayOnly => 'للعرض فقط';
+  @override
+  String get resultAmountsTitle => 'المبالغ';
+  @override
+  String get resultRequiredDocumentsTitle => 'المستندات المطلوبة';
+  @override
+  String get resultInstructionsTitle => 'الخطوات بالترتيب';
+  @override
+  String get resultShowExplanation => 'عرض شرح الورقة بالتفصيل';
+  @override
+  String get resultShowExtractedText => 'عرض النص المستخرج';
+  @override
+  String get resultExtractedTextWarning =>
+      'النص المستخرج ممكن يحتوي على أخطاء قراءة.';
+  @override
+  String get actionCopy => 'نسخ';
+  @override
+  String get resultListenToText => 'استماع';
+  @override
+  String get resultPartialBanner =>
+      'قدرنا نفهم جزء من الورقة، لكن بعض المعلومات محتاجة مراجعتك.';
+  @override
+  String get analysisUnsupportedTitle => 'الورقة دي مش مدعومة بالكامل حاليًا';
+  @override
+  String get analysisUnsupportedMessage =>
+      'نقدر نعرض لك النص المستخرج ونقراه بصوت، لكن مانقدرش نقدم شرح موثوق '
+      'للنوع ده من المستندات.';
+  @override
+  String get analysisConsentDeclinedTitle => 'التحليل الذكي متوقف';
+  @override
+  String get analysisConsentDeclinedMessage =>
+      'إنت قافل «السماح بإرسال النص للتحليل» من الإعدادات، فمقدرناش نشرحلك '
+      'الورقة. النص اللي اتقرا منها لسه متاح تحت.';
+  @override
+  String get analysisConsentDeclinedOpenSettings => 'افتح الإعدادات';
+  @override
+  String get resultListenToExtractedText => 'الاستماع للنص';
+  @override
+  String get analysisCaptureAnother => 'تصوير ورقة تانية';
+  @override
+  String get extractedTextOnlyTitle => 'النص المستخرج';
+  @override
+  String get extractedTextOnlyNote =>
+      'النص المستخرج ممكن يحتوي على أخطاء قراءة. الشرح الذكي مش متاح في '
+      'الوضع ده.';
+
+  // Document kinds
+  @override
+  String get documentKindInvoice => 'فاتورة';
+  @override
+  String get documentKindReceipt => 'إيصال';
+  @override
+  String get documentKindAppointment => 'موعد';
+  @override
+  String get documentKindGovernment => 'حكومي';
+  @override
+  String get documentKindExam => 'نتيجة امتحان';
+  @override
+  String get documentKindMedical => 'تقرير طبي';
+  @override
+  String get documentKindLegal => 'ورقة قانونية';
+  @override
+  String get documentKindFinancial => 'ورقة مالية';
+  @override
+  String get documentKindEducational => 'تعليمي';
+  @override
+  String get documentKindOther => 'أخرى';
+
+  // Confidence
+  @override
+  String get confidenceReview => 'راجع المعلومة';
+  @override
+  String get confidenceUncertain => 'قراءة غير مؤكدة';
+
+  // Reminder form (F09-T02)
+  @override
+  String get reminderFormTitleLabel => 'عنوان التذكير';
+  @override
+  String get reminderFromDocumentInfoHeading => 'معلومات من الورقة';
+  @override
+  String get reminderEventDateLabel => 'تاريخ الحدث';
+  @override
+  String get reminderEventTimeLabel => 'وقت الحدث';
+  @override
+  String get reminderEventTimeMissing => 'غير موجود في الورقة';
+  @override
+  String get reminderAlertsSectionLabel => 'مواعيد التنبيه';
+  @override
+  String get reminderAddAnotherAlert => 'إضافة تنبيه تاني';
+  @override
+  String get reminderRemoveAlertLabel => 'احذف هذا التنبيه';
+  @override
+  String get reminderNoteLabel => 'ملاحظة';
+  @override
+  String get reminderNoteHint => 'ضيف أي تفاصيل محتاج تفتكرها.';
+  @override
+  String get reminderLinkedDocumentSectionLabel => 'ربط بمستند محفوظ';
+  @override
+  String get reminderLinkedDocumentValueLabel => 'مرتبط بـ';
+  @override
+  String get reminderSaveAction => 'حفظ التذكير';
+  @override
+  String get reminderAlertOffsetThreeDays => 'قبل الموعد بـ3 أيام';
+  @override
+  String get reminderAlertOffsetOneDay => 'قبل الموعد بيوم';
+  @override
+  String get reminderAlertOffsetTwoHours => 'قبل الموعد بساعتين';
+  @override
+  String get reminderAlertOffsetAtEventTime => 'في نفس الموعد';
+  @override
+  String get reminderAlertOffsetCustom => 'وقت مخصص';
+  @override
+  String get reminderAlertPickerTitle => 'اختار موعد التنبيه';
+  @override
+  String get reminderMissingEventTimeWarning =>
+      'الورقة مافيهاش وقت محدد. اختار الوقت المناسب للتنبيه.';
+  @override
+  String reminderSuggestedAlertTime(String time) =>
+      'اقتراح: نبّهني الساعة $time';
+  @override
+  String get reminderCreateScreenTitle => 'إنشاء تذكير';
+  @override
+  String get reminderAddAction => 'إضافة تذكير';
+  @override
+  String get reminderSuccessTitle => 'تم إنشاء التذكير بنجاح.';
+  @override
+  String get reminderSuccessViewAction => 'عرض التذكير';
+  @override
+  String get reminderManualTitleHint => 'مثال: دفع فاتورة الكهرباء';
+  @override
+  String get reminderDateLabel => 'التاريخ';
+  @override
+  String get reminderDatePickHint => 'اختار التاريخ';
+  @override
+  String get reminderTimeLabel => 'الوقت';
+  @override
+  String get reminderTimePickHint => 'اختار الوقت';
+  @override
+  String get reminderNotifPermTitle => 'اسمح بالتنبيهات';
+  @override
+  String get reminderNotifPermMessage =>
+      'علشان نفتكرك بالموعد في الوقت اللي اخترته.';
+  @override
+  String get reminderNotifPermAllow => 'السماح بالتنبيهات';
+  @override
+  String get reminderNotifPermSaveWithout => 'حفظ بدون تنبيه';
+  @override
+  String get reminderNotificationChannelName => 'التذكيرات';
+  @override
+  String get reminderNotificationGenericTitle => 'عندك تذكير بموعد قريب';
+  @override
+  String get reminderListTitle => 'التذكيرات';
+  @override
+  String get reminderTabUpcoming => 'القادمة';
+  @override
+  String get reminderTabMissed => 'الفائتة';
+  @override
+  String get reminderTabCompleted => 'المكتملة';
+  @override
+  String get reminderEmptyTitle => 'مافيش تذكيرات لسه';
+  @override
+  String get reminderEmptySubtitle =>
+      'اعمل تذكير يدوي، أو أنشئ تذكير من تاريخ موجود في ورقة.';
+  @override
+  String get reminderEmptyScanCta => 'صوّر ورقة';
+  @override
+  String get reminderEmptyMissedTitle => 'مافيش تذكيرات فائتة.';
+  @override
+  String get reminderEmptyCompletedTitle => 'التذكيرات اللي تنفذها هتظهر هنا.';
+  @override
+  String get reminderStatusUpcoming => 'قادم';
+  @override
+  String get reminderStatusMissed => 'فائت';
+  @override
+  String get reminderStatusCompleted => 'تم';
+  @override
+  String get reminderCompleteAction => 'تم التنفيذ';
+  @override
+  String get reminderSnoozeAction => 'تأجيل';
+  @override
+  String get reminderListErrorTitle => 'مقدرناش نجيب تذكيراتك دلوقتي.';
+
+  // Reminder details (F09-T12)
+  @override
+  String get reminderDetailsTitle => 'تفاصيل التذكير';
+  @override
+  String get reminderDetailsDateLabel => 'التاريخ';
+  @override
+  String get reminderDetailsTimeLabel => 'الوقت';
+  @override
+  String get reminderDetailsAlertLabel => 'موعد التنبيه';
+  @override
+  String get reminderDetailsDescriptionLabel => 'ملاحظة';
+  @override
+  String get reminderDetailsLinkedDocumentLabel => 'عرض المستند المرتبط';
+  @override
+  String get reminderDetailsNotFoundTitle => 'التذكير مش موجود';
+  @override
+  String get reminderDetailsNotFoundMessage =>
+      'ممكن يكون التذكير ده اتحذف، أو الرابط غلط.';
+  @override
+  String get reminderDetailsErrorTitle => 'حصلت مشكلة';
+  @override
+  String get reminderDetailsErrorMessage =>
+      'مقدرناش نعرض تفاصيل التذكير دلوقتي. جرّب تاني.';
+  @override
+  String get reminderDetailsBackToList => 'الرجوع للتذكيرات';
+  @override
+  String get reminderDetailsCompleteAction => 'تم التنفيذ';
+  @override
+  String get reminderDetailsSnoozeAction => 'تأجيل';
+  @override
+  String get reminderDetailsEditAction => 'تعديل';
+  @override
+  String get reminderDetailsDeleteAction => 'حذف';
+
+  // Snooze sheet (F09-T12)
+  @override
+  String get reminderSnoozeSheetTitle => 'تأجيل التذكير';
+  @override
+  String get reminderSnoozeSheetSubtitle =>
+      'التأجيل بيغيّر موعد التنبيه بس، مش التاريخ الأصلي للحدث.';
+  @override
+  String get reminderSnoozeOptionOneHour => 'بعد ساعة';
+  @override
+  String get reminderSnoozeOptionTomorrow => 'بكرة في نفس الوقت';
+  @override
+  String get reminderSnoozeOptionCustom => 'اختيار وقت جديد';
+
+  // Delete confirmation sheet (F09-T12)
+  @override
+  String get reminderDeleteSheetTitle => 'حذف التذكير؟';
+  @override
+  String get reminderDeleteSheetMessage =>
+      'الحذف نهائي ومش هتقدر ترجع التذكير بعد كده.';
+  @override
+  String get reminderDeleteSheetConfirm => 'حذف';
+  @override
+  String get reminderDeleteSheetCancel => 'إلغاء';
+
+  // Action feedback (F09-T12)
+  @override
+  String get reminderCompletedFeedback => 'تم التنفيذ.';
+  @override
+  String get reminderSnoozedFeedback => 'تم تأجيل التذكير.';
+  @override
+  String get reminderDeletedFeedback => 'تم حذف التذكير.';
+  @override
+  String get reminderActionFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
+
+  // Audio reader mini-player (F10-T03)
+  @override
+  String get audioReaderSheetTitle => 'الاستماع للورقة';
+  @override
+  String get audioReaderModeSummary => 'الخلاصة فقط';
+  @override
+  String get audioReaderModeSummaryAndKeyInformation =>
+      'الخلاصة وأهم المعلومات';
+  @override
+  String get audioReaderModeFull => 'الشرح كامل';
+  @override
+  String get audioReaderModeReadAll => 'قراءة كل الشاشة';
+  @override
+  String get audioReaderModeExtractedText => 'النص المستخرج';
+  @override
+  String get audioReaderOptions => 'خيارات';
+  @override
+  String audioReaderNowReading(String mode) => 'بيقرأ: $mode';
+  @override
+  String get audioReaderStartLabel => 'ابدأ الاستماع';
+  @override
+  String get audioReaderPauseLabel => 'إيقاف مؤقت';
+  @override
+  String get audioReaderResumeLabel => 'استكمال القراءة';
+  @override
+  String get audioReaderStopLabel => 'إيقاف القراءة';
+  @override
+  String get audioReaderFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
+  @override
+  String get audioReaderSpeedLabel => 'سرعة القراءة';
 }

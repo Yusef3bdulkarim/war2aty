@@ -63,7 +63,7 @@ class RecentDocumentsStrip extends StatelessWidget {
     if (documents == null) return const SizedBox.shrink();
 
     final s = context.strings;
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(top: _sectionGapAbove),
@@ -132,8 +132,8 @@ class _DocumentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    const colors = AppColors.light;
-    final style = DocumentCategoryStyle.of(document.category);
+    final colors = AppColors.of(context);
+    final style = DocumentCategoryStyle.of(context, document.category);
     final radius = BorderRadius.circular(AppRadii.xl);
     final categoryName = _categoryName(s, document.category);
     final storage = _storageLabel(s, document.storageMode);
@@ -267,7 +267,7 @@ class _DocumentsSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const colors = AppColors.light;
+    final colors = AppColors.of(context);
 
     return Padding(
       padding: const EdgeInsets.only(top: _sectionGapAbove),

@@ -1,14 +1,65 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart'
+    as fln;
 import 'package:get_it/get_it.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 
+import '../../core/accessibility/high_contrast_cubit.dart';
+import '../../core/accessibility/high_contrast_store.dart';
+import '../../core/accessibility/text_size_cubit.dart';
+import '../../core/accessibility/text_size_store.dart';
+import '../../core/accessibility/usecases/get_high_contrast.dart';
+import '../../core/accessibility/usecases/get_text_size.dart';
+import '../../core/accessibility/usecases/set_high_contrast.dart';
+import '../../core/accessibility/usecases/set_text_size.dart';
+import '../../core/analysis/analysis_consent_store.dart';
+import '../../core/analysis/processing_mode_store.dart';
+import '../../core/analysis/usecases/get_analysis_consent.dart';
+import '../../core/analysis/usecases/get_processing_mode.dart';
+import '../../core/analysis/usecases/set_analysis_consent.dart';
+import '../../core/analysis/usecases/set_processing_mode.dart';
+import '../../core/audio/audio_reader_cubit.dart';
+import '../../core/audio/default_reading_speed_store.dart';
+import '../../core/audio/default_reading_voice_store.dart';
+import '../../core/audio/resume_reading_enabled_store.dart';
+import '../../core/audio/usecases/get_available_voices.dart';
+import '../../core/audio/usecases/get_default_reading_speed.dart';
+import '../../core/audio/usecases/get_default_reading_voice.dart';
+import '../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../core/audio/usecases/preview_default_voice.dart';
+import '../../core/audio/usecases/set_default_reading_speed.dart';
+import '../../core/audio/usecases/set_default_reading_voice.dart';
+import '../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
+import '../../core/connectivity/connectivity_plus_service.dart';
+import '../../core/connectivity/connectivity_service.dart';
+import '../../core/crypto/aes_gcm_file_encryptor.dart';
+import '../../core/crypto/document_encryption_key_store.dart';
+import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
+import '../../core/database/daos/documents_dao.dart';
+import '../../core/database/daos/reminders_dao.dart';
+import '../../core/documents/document_image_store.dart';
+import '../../core/documents/documents_repository.dart';
+import '../../core/documents/drift_documents_repository.dart';
+import '../../core/documents/file_document_image_store.dart';
 import '../../core/documents/recent_documents_repository.dart';
-import '../../core/documents/stub_recent_documents_repository.dart';
+import '../../core/documents/usecases/build_analysis_result.dart';
+import '../../core/documents/usecases/delete_all_documents.dart';
+import '../../core/documents/usecases/delete_document.dart';
+import '../../core/documents/usecases/load_document_image.dart';
+import '../../core/documents/usecases/save_document.dart';
+import '../../core/documents/usecases/save_document_with_image.dart';
+import '../../core/documents/usecases/set_document_note.dart';
+import '../../core/documents/usecases/update_document.dart';
+import '../../core/documents/usecases/watch_document.dart';
+import '../../core/documents/usecases/watch_documents.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
+import '../../core/env/usecases/get_app_version.dart';
 import '../../core/identity/installation_id_provider.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
@@ -16,34 +67,87 @@ import '../../core/localization/usecases/get_saved_locale.dart';
 import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/log_sink.dart';
+import '../../core/network/api_client.dart';
+import '../../core/permissions/notification_permission_repository.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
+import '../../core/permissions/system_notification_permission_repository.dart';
+import '../../core/permissions/usecases/get_notification_permission.dart';
+import '../../core/permissions/usecases/open_notification_permission_settings.dart';
+import '../../core/permissions/usecases/request_notification_permission.dart';
+import '../../core/reminders/drift_reminders_repository.dart';
+import '../../core/reminders/flutter_local_notifications_port.dart';
+import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
+import '../../core/reminders/local_notifications_port.dart';
+import '../../core/reminders/notification_privacy_store.dart';
 import '../../core/reminders/reminder_scheduler.dart';
+import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
+import '../../core/reminders/usecases/complete_reminder.dart';
+import '../../core/reminders/usecases/create_manual_reminder.dart';
+import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
+import '../../core/reminders/usecases/delete_all_reminders.dart';
+import '../../core/reminders/usecases/delete_reminder.dart';
+import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import '../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
+import '../../core/reminders/usecases/snooze_reminder.dart';
+import '../../core/reminders/usecases/watch_reminder.dart';
+import '../../core/reminders/usecases/watch_reminders.dart';
 import '../../core/reminders/usecases/watch_upcoming_reminder.dart';
 import '../../core/result/result.dart';
+import '../../core/settings/app_settings_repository.dart';
+import '../../core/settings/drift_app_settings_repository.dart';
+import '../../core/settings/usecases/delete_all_app_data.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
+import '../../core/usage/usage_hint_holder.dart';
+import '../../core/usage/usage_remote_data_source.dart';
 import '../../core/usage/usage_repository.dart';
+import '../../core/usage/usecases/get_daily_usage.dart';
+import '../../core/usage/usecases/sync_daily_usage.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
 import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
+import '../../features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
+import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
+import '../../features/analysis/domain/usecases/analyze_image.dart';
+import '../../features/analysis/domain/usecases/ocr_image.dart';
+import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
+import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
+import '../../features/analysis/presentation/image_analysis_session_holder.dart';
+import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
+import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
+import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
+import '../../features/audio_reader/domain/usecases/pause_reading.dart';
+import '../../features/audio_reader/domain/usecases/resume_reading.dart';
+import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
+import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
+import '../../features/audio_reader/domain/usecases/start_reading.dart';
+import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
+import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
+import '../../features/bootstrap/presentation/splash_timing.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
+import '../../features/capture/data/services/dart_document_edge_detector.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
+import '../../features/capture/data/services/doclens_perspective_corrector.dart';
+import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
 import '../../features/capture/data/services/platform_camera_service.dart';
@@ -51,13 +155,21 @@ import '../../features/capture/data/services/system_image_picker_service.dart';
 import '../../features/capture/domain/entities/captured_photo.dart';
 import '../../features/capture/domain/repositories/camera_permission_repository.dart';
 import '../../features/capture/domain/services/capture_file_cleanup.dart';
+import '../../features/capture/domain/services/document_edge_detector.dart';
+import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
+import '../../features/capture/domain/services/perspective_corrector.dart';
 import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
+import '../../features/capture/domain/usecases/correct_perspective.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
+import '../../features/capture/domain/usecases/crop_image.dart';
+import '../../features/capture/domain/usecases/crop_to_guide_box.dart';
+import '../../features/capture/domain/usecases/decide_analysis_route.dart';
+import '../../features/capture/domain/usecases/detect_document_edges.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
 import '../../features/capture/domain/usecases/initialize_camera.dart';
@@ -65,6 +177,8 @@ import '../../features/capture/domain/usecases/open_permission_settings.dart';
 import '../../features/capture/domain/usecases/pick_image_from_gallery.dart';
 import '../../features/capture/domain/usecases/request_camera_permission.dart';
 import '../../features/capture/domain/usecases/rotate_image.dart';
+import '../../features/capture/domain/usecases/start_frame_stream.dart';
+import '../../features/capture/domain/usecases/stop_frame_stream.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
@@ -73,6 +187,7 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
 import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
+import '../../features/ocr/domain/entities/extraction_result.dart';
 import '../../features/ocr/domain/repositories/ocr_repository.dart';
 import '../../features/ocr/domain/services/amount_extractor.dart';
 import '../../features/ocr/domain/services/date_extractor.dart';
@@ -91,6 +206,14 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
+import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
+import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
+import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
+import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
+import '../../features/settings/presentation/cubit/settings_cubit.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -104,13 +227,19 @@ Future<void> configureDependencies(
   _registerCore(env);
   _registerDatabase(database);
   _registerLocalization();
-  _registerIdentity();
-  _registerLaunch();
+  _registerAccessibility();
+  _registerIdentity(env);
+  _registerNetwork(env);
+  _registerLaunch(env);
   _registerOnboarding();
   _registerHome();
   _registerCapture();
   _registerOcr();
   _registerAnalysis(env);
+  _registerSavedPapers();
+  _registerReminders();
+  _registerAudioReader();
+  _registerSettings();
   _registerRouting();
 }
 
@@ -139,7 +268,27 @@ void _registerLocalization() {
     );
 }
 
-void _registerIdentity() {
+void _registerAccessibility() {
+  getIt
+    ..registerLazySingleton<TextSizeStore>(() => DriftTextSizeStore(getIt()))
+    ..registerFactory<GetTextSize>(() => GetTextSize(getIt()))
+    ..registerFactory<SetTextSize>(() => SetTextSize(getIt()))
+    ..registerFactory<TextSizeCubit>(
+      () => TextSizeCubit(getTextSize: getIt(), setTextSize: getIt()),
+    )
+    // F11-T06. Same `app_settings` table.
+    ..registerLazySingleton<HighContrastStore>(
+      () => DriftHighContrastStore(getIt()),
+    )
+    ..registerFactory<GetHighContrast>(() => GetHighContrast(getIt()))
+    ..registerFactory<SetHighContrast>(() => SetHighContrast(getIt()))
+    ..registerFactory<HighContrastCubit>(
+      () =>
+          HighContrastCubit(getHighContrast: getIt(), setHighContrast: getIt()),
+    );
+}
+
+void _registerIdentity(AppEnvironment env) {
   getIt
     ..registerLazySingleton<SecureStorageService>(
       FlutterSecureStorageService.new,
@@ -147,14 +296,43 @@ void _registerIdentity() {
     ..registerLazySingleton<InstallationIdProvider>(
       () => SecureInstallationIdProvider(getIt()),
     )
-    // Stub until real Supabase Anonymous Auth lands at M4.
+    // Real Supabase Anonymous Auth (F06-T14). An unconfigured build has no
+    // Supabase client to talk to, so it keeps the offline stub — that path is
+    // reached only by a prod build missing its dart-defines, and a launch that
+    // hangs on a session would be worse than one that runs without a backend.
     ..registerLazySingleton<AuthRepository>(
-      () => StubAuthRepository(getIt(), getIt()),
+      () => env.isConfigured
+          ? SupabaseAuthRepository(Supabase.instance.client.auth)
+          : StubAuthRepository(getIt(), getIt()),
     )
     ..registerFactory<EnsureActiveSession>(() => EnsureActiveSession(getIt()));
 }
 
-void _registerLaunch() {
+/// The single HTTP client for the Edge Functions (F06-T14).
+///
+/// Registered even when the build is unconfigured — it simply has nowhere to
+/// point, and the datasources above it are swapped out instead, so nothing
+/// downstream needs a null check.
+void _registerNetwork(AppEnvironment env) {
+  getIt.registerLazySingleton<Dio>(
+    () => createApiClient(
+      environment: env,
+      logger: getIt(),
+      // Read through the repository rather than captured once: the token
+      // rotates, and a closure over a stale one would 401 forever.
+      accessToken: () async {
+        final session = await getIt<AuthRepository>().restoreSession();
+        return session.valueOrNull?.accessToken;
+      },
+      refreshSession: () async {
+        final refreshed = await getIt<AuthRepository>().refreshSession();
+        return refreshed.valueOrNull?.accessToken;
+      },
+    ),
+  );
+}
+
+void _registerLaunch(AppEnvironment env) {
   getIt
     ..registerLazySingleton<RuntimeConfigRepository>(
       () => LocalRuntimeConfigRepository(getIt()),
@@ -162,20 +340,34 @@ void _registerLaunch() {
     ..registerLazySingleton<AnalysisSessionStorage>(
       FileAnalysisSessionStorage.new,
     )
-    // Replaced by the real scheduler when F09 lands.
-    ..registerLazySingleton<ReminderScheduler>(NoopReminderScheduler.new)
+    ..registerLazySingleton<UsageRemoteDataSource>(
+      () => EdgeFunctionUsageRemoteDataSource(getIt()),
+    )
+    // The backend owns the quota — it is the only party that can count across
+    // re-installs and devices. The stub survives only for an unconfigured
+    // build, where there is nothing to ask.
     ..registerLazySingleton<UsageRepository>(
-      () => StubUsageRepository(
-        getIt(),
-        // Read lazily so the config loaded during launch is respected.
-        dailyLimit: () =>
-            getIt<RuntimeConfigStore>().current.dailyAnalysisLimit,
-      ),
+      () => env.isConfigured
+          ? RemoteUsageRepository(getIt(), getIt())
+          : StubUsageRepository(
+              getIt(),
+              // Read lazily so the config loaded during launch is respected.
+              dailyLimit: () =>
+                  getIt<RuntimeConfigStore>().current.dailyAnalysisLimit,
+            ),
     )
     ..registerFactory<InitializeApp>(
       () => InitializeApp(_buildLaunchSteps(), logger: getIt()),
     )
-    ..registerFactory<BootstrapCubit>(() => BootstrapCubit(getIt()));
+    ..registerFactory<BootstrapCubit>(
+      // Hold the splash until its entrance animation reports itself finished,
+      // so the mark is never cut off mid-flight on a fast start. The duration
+      // here is only the escape hatch if that report never arrives.
+      () => BootstrapCubit(
+        getIt(),
+        splashEntranceTimeout: kLogoEntranceDuration * 2,
+      ),
+    );
 }
 
 /// The ordered launch sequence.
@@ -202,6 +394,9 @@ List<BootstrapStep> _buildLaunchSteps() {
       return result.map<void>((_) {});
     }, critical: false),
     BootstrapStep(BootstrapStage.reminders, () async {
+      // The plugin/timezone/channel setup (F09-T10) has to run before the
+      // first `reconcile` ever schedules anything.
+      await getIt<LocalNotificationsPort>().initialize();
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -230,12 +425,23 @@ void _registerOnboarding() {
 
 void _registerHome() {
   getIt
-    // Replaced by the Drift-backed implementation when F08 builds the
-    // `documents` table; Home does not change when that happens.
+    // The Drift-backed [DocumentsRepository] singleton registered in
+    // `_registerSavedPapers` also answers Home's narrower "recent N" reads
+    // (F08-T05) — one saved-documents source of truth, two ports onto it.
     ..registerLazySingleton<RecentDocumentsRepository>(
-      StubRecentDocumentsRepository.new,
+      getIt.call<DriftDocumentsRepository>,
     )
     ..registerFactory<WatchDailyUsage>(() => WatchDailyUsage(getIt()))
+    // Settings' «حدود الاستخدام» row (F11-T12) — a one-shot snapshot rather
+    // than `WatchDailyUsage`'s live stream, registered next to it.
+    ..registerFactory<GetDailyUsage>(() => GetDailyUsage(getIt()))
+    // Called by `AnalysisResultCubit` after a successful analysis so Home's
+    // live stream above reflects the freshly consumed slot (registered here,
+    // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
+    ..registerFactory<SyncDailyUsage>(() => SyncDailyUsage(getIt()))
+    // One-shot hint shown as a SnackBar when the user leaves the result
+    // screen — set by the router, consumed by `ScaffoldWithNavBar`.
+    ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
     // Likewise replaced when F09 builds the `reminders` table.
     ..registerLazySingleton<UpcomingReminderRepository>(
       StubUpcomingReminderRepository.new,
@@ -282,9 +488,19 @@ void _registerCapture() {
         preview: camera,
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
+        cropToGuideBox: getIt(),
         disposeCamera: DisposeCamera(camera),
+        cleanupFiles: getIt(),
+        // The live edge detector reads the same device's frames (F16).
+        startFrameStream: StartFrameStream(camera),
+        stopFrameStream: StopFrameStream(camera),
+        detectDocumentEdges: getIt(),
       );
     })
+    // Pure Dart, no plugin and no disk (F16 locked decisions #2/#3), so one
+    // instance is shared by every viewfinder.
+    ..registerLazySingleton<DocumentEdgeDetector>(DartDocumentEdgeDetector.new)
+    ..registerFactory<DetectDocumentEdges>(() => DetectDocumentEdges(getIt()))
     ..registerLazySingleton<ImagePickerService>(SystemImagePickerService.new)
     ..registerFactory<PickImageFromGallery>(() => PickImageFromGallery(getIt()))
     ..registerFactory<GalleryPickerCubit>(
@@ -292,6 +508,12 @@ void _registerCapture() {
     )
     ..registerLazySingleton<ImageRotator>(ImagePackageRotator.new)
     ..registerFactory<RotateImage>(() => RotateImage(getIt()))
+    // Shared by the guide-box crop (capture) and the manual drag-crop
+    // (preview screen) — both compute a UnitRect their own way and hand it
+    // to the same cropper (F15).
+    ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
+    ..registerFactory<CropImage>(() => CropImage(getIt()))
+    ..registerFactory<CropToGuideBox>(() => CropToGuideBox(getIt()))
     ..registerLazySingleton<ImageQualityService>(DartImageQualityService.new)
     ..registerFactory<AssessImageQuality>(() => AssessImageQuality(getIt()))
     ..registerFactory<CreateAnalysisSession>(
@@ -299,14 +521,29 @@ void _registerCapture() {
     )
     ..registerLazySingleton<CaptureFileCleanup>(IOCaptureFileCleanup.new)
     ..registerFactory<CleanupCaptureFiles>(() => CleanupCaptureFiles(getIt()))
+    ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
+    ..registerFactory<DecideAnalysisRoute>(
+      () => DecideAnalysisRoute(getIt(), getIt()),
+    )
+    // `doclens`'s pure file operations only — never its camera UI (F13
+    // locked decision #10).
+    ..registerLazySingleton<PerspectiveCorrector>(
+      DoclensPerspectiveCorrector.new,
+    )
+    ..registerFactory<CorrectPerspective>(() => CorrectPerspective(getIt()))
     // Parameterised by the acquired image's path — the cubit rotates,
     // assesses quality, and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
       (path, _) => ImagePreviewCubit(
         source: CapturedPhoto(path),
         rotate: getIt(),
+        cropImage: getIt(),
         assessQuality: getIt(),
+        decideRoute: getIt(),
+        correctPerspective: getIt(),
         createSession: getIt(),
+        onlineHandoff: getIt(),
+        ocrHandoff: getIt(),
         cleanupFiles: getIt(),
       ),
     );
@@ -347,17 +584,39 @@ void _registerOcr() {
     );
 }
 
+/// Forces the bundled fixtures even in a configured build.
+///
+/// Kept so UI work (F07) does not require Docker and a Groq key on the desk:
+/// `flutter run --flavor dev -t lib/main_dev.dart --dart-define=USE_MOCK_ANALYSIS=true`.
+/// It cannot affect a release build — the mock is only reachable in dev.
+const bool _useMockAnalysis = bool.fromEnvironment('USE_MOCK_ANALYSIS');
+
 void _registerAnalysis(AppEnvironment env) {
+  final useMock = env.isDev && _useMockAnalysis;
+
   getIt
-    // No real transport until F06 wires the Edge Function client. Dev gets the
-    // bundled fixtures so the result screen can be built and demoed; anything
-    // else refuses outright, because showing invented amounts and deadlines to
-    // a real user would be worse than showing nothing. The repository above is
-    // unchanged when the real client replaces both.
+    // F11-T02. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<AnalysisConsentStore>(
+      () => DriftAnalysisConsentStore(getIt()),
+    )
+    ..registerFactory<GetAnalysisConsent>(() => GetAnalysisConsent(getIt()))
+    ..registerFactory<SetAnalysisConsent>(() => SetAnalysisConsent(getIt()))
+    // F11-T03. Same `app_settings` table.
+    ..registerLazySingleton<ProcessingModeStore>(
+      () => DriftProcessingModeStore(getIt()),
+    )
+    ..registerFactory<GetProcessingMode>(() => GetProcessingMode(getIt()))
+    ..registerFactory<SetProcessingMode>(() => SetProcessingMode(getIt()))
+    // The real Edge Function client (F06-T14). An unconfigured build refuses
+    // outright rather than falling back to fixtures: showing invented amounts
+    // and deadlines to a real user would be worse than showing nothing, which
+    // is the one thing this app must never do (§7).
     ..registerLazySingleton<AnalysisRemoteDataSource>(
-      () => env.isDev
-          ? MockAnalysisRemoteDataSource()
-          : const DisabledAnalysisRemoteDataSource(),
+      () => switch ((useMock, env.isConfigured)) {
+        (true, _) => MockAnalysisRemoteDataSource(),
+        (false, true) => EdgeFunctionAnalysisRemoteDataSource(getIt()),
+        (false, false) => const DisabledAnalysisRemoteDataSource(),
+      },
     )
     ..registerLazySingleton<AnalysisRepository>(
       () => DefaultAnalysisRepository(
@@ -367,7 +626,358 @@ void _registerAnalysis(AppEnvironment env) {
         appVersion: env.appVersion,
       ),
     )
-    ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()));
+    ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
+    // Online-route counterpart (F13-T14), wired into the capture flow by
+    // F13-T15's `ImageAnalysisSource`.
+    ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
+    // OCR-only half of the online route's two-call split (F14) — stops
+    // before Groq so the user can review the text first.
+    ..registerFactory<OcrImage>(() => OcrImage(getIt()))
+    ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
+    // The online route's handoff (F13-T15) — the counterpart of
+    // `OcrSessionHolder`, registered with F04's OCR feature below.
+    ..registerLazySingleton<ImageAnalysisSessionHolder>(
+      ImageAnalysisSessionHolder.new,
+    )
+    ..registerFactoryParam<
+      AnalysisResultCubit,
+      AnalysisSession,
+      AnalysisSource
+    >(
+      (session, source) => AnalysisResultCubit(
+        session: session,
+        source: source,
+        getAnalysisConsent: getIt(),
+        analyzeDocument: getIt(),
+        analyzeImage: getIt(),
+        buildResult: getIt(),
+        syncDailyUsage: getIt(),
+        // On the online route the perspective-corrected file must survive
+        // until the repository has read its bytes — the preview cubit's
+        // close() skips it, so *this* callback takes ownership of deleting
+        // it after the analysis reads (or fails to read) the file.
+        onImageConsumed: source is ImageAnalysisSource
+            ? getIt<ImageAnalysisSessionHolder>().clear
+            : null,
+      ),
+    )
+    // The OCR review screen (F14) — reuses `ExtractCandidates`, already
+    // registered by `_registerOcr`, to re-extract candidates from the user's
+    // approved text before it reaches Groq.
+    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
+      (session, photo) => OcrReviewCubit(
+        session: session,
+        photo: photo,
+        ocrImage: getIt(),
+        extractCandidates: getIt(),
+        getAnalysisConsent: getIt(),
+        imageHolder: getIt<ImageAnalysisSessionHolder>(),
+      ),
+    )
+    // Offline variant: Tesseract already ran on `/ocr`, result handed off.
+    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, ExtractionResult>(
+      (session, _) =>
+          OcrReviewCubit.offline(session: session, extractCandidates: getIt()),
+      instanceName: 'offline',
+    );
+}
+
+void _registerSavedPapers() {
+  getIt
+    ..registerLazySingleton<DocumentsDao>(
+      () => getIt<AppDatabase>().documentsDao,
+    )
+    ..registerLazySingleton<DocumentEncryptionKeyStore>(
+      () => DocumentEncryptionKeyStore(getIt()),
+    )
+    ..registerLazySingleton<FileEncryptor>(() => AesGcmFileEncryptor(getIt()))
+    ..registerLazySingleton<DocumentImageStore>(
+      () => FileDocumentImageStore(getIt()),
+    )
+    // Registered under its concrete type so `_registerHome` can alias
+    // [RecentDocumentsRepository] to the same instance (F08-T05) — one
+    // Drift-backed object answers both ports.
+    ..registerLazySingleton<DriftDocumentsRepository>(
+      () => DriftDocumentsRepository(
+        getIt(),
+        getIt(),
+        reminderScheduler: getIt(),
+      ),
+    )
+    ..registerLazySingleton<DocumentsRepository>(
+      getIt.call<DriftDocumentsRepository>,
+    )
+    ..registerFactory<SaveDocument>(() => SaveDocument(getIt()))
+    ..registerFactory<SaveDocumentWithImage>(
+      () => SaveDocumentWithImage(getIt()),
+    )
+    ..registerFactory<SaveDocumentCubit>(
+      () => SaveDocumentCubit(getIt(), getIt()),
+    )
+    ..registerFactory<WatchDocuments>(() => WatchDocuments(getIt()))
+    ..registerFactory<DocumentsListCubit>(() => DocumentsListCubit(getIt()))
+    ..registerFactory<WatchDocument>(() => WatchDocument(getIt()))
+    ..registerFactory<SetDocumentNote>(() => SetDocumentNote(getIt()))
+    ..registerFactory<UpdateDocument>(() => UpdateDocument(getIt()))
+    ..registerFactory<DeleteDocument>(() => DeleteDocument(getIt()))
+    ..registerFactory<LoadDocumentImage>(() => LoadDocumentImage(getIt()))
+    // F11-T11.
+    ..registerFactory<DeleteAllDocuments>(() => DeleteAllDocuments(getIt()))
+    // Parameterised by the document id — one cubit instance per opened
+    // details screen, the same shape [ImagePreviewCubit]'s registration uses.
+    ..registerFactoryParam<DocumentDetailsCubit, String, void>(
+      (documentId, _) => DocumentDetailsCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        documentId: documentId,
+      ),
+    );
+}
+
+void _registerReminders() {
+  getIt
+    ..registerLazySingleton<RemindersDao>(
+      () => getIt<AppDatabase>().remindersDao,
+    )
+    ..registerLazySingleton<DriftRemindersRepository>(
+      () => DriftRemindersRepository(getIt()),
+    )
+    ..registerLazySingleton<RemindersRepository>(
+      getIt.call<DriftRemindersRepository>,
+    )
+    // F09-T10. `FlutterLocalNotificationsPort` is the only file allowed to
+    // import `flutter_local_notifications`/`timezone` — everything above it,
+    // including the scheduler, speaks `LocalNotificationsPort`.
+    ..registerLazySingleton<fln.FlutterLocalNotificationsPlugin>(
+      fln.FlutterLocalNotificationsPlugin.new,
+    )
+    ..registerLazySingleton<LocalNotificationsPort>(
+      // Arabic, unconditionally — see `FlutterLocalNotificationsPort`'s own
+      // doc comment for why this one string isn't locale-aware.
+      () => FlutterLocalNotificationsPort(getIt(), 'التذكيرات'),
+    )
+    // F09-T14. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<NotificationPrivacyStore>(
+      () => DriftNotificationPrivacyStore(getIt()),
+    )
+    ..registerFactory<GetHideSensitiveNotificationDetails>(
+      () => GetHideSensitiveNotificationDetails(getIt()),
+    )
+    ..registerFactory<SetHideSensitiveNotificationDetails>(
+      () => SetHideSensitiveNotificationDetails(getIt()),
+    )
+    ..registerLazySingleton<ReminderScheduler>(
+      () => LocalNotificationsReminderScheduler(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
+    )
+    ..registerFactory<CreateReminderFromDocumentDate>(
+      () => CreateReminderFromDocumentDate(getIt(), getIt()),
+    )
+    ..registerFactory<CreateManualReminder>(
+      () => CreateManualReminder(getIt(), getIt()),
+    )
+    ..registerFactory<CompleteReminder>(
+      () => CompleteReminder(getIt(), getIt()),
+    )
+    ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
+    ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
+    // F11-T11.
+    ..registerFactory<DeleteAllReminders>(
+      () => DeleteAllReminders(getIt(), getIt()),
+    )
+    // F09-T09. Reuses the `PermissionService` singleton `_registerCapture`
+    // already set up — one plugin boundary for every runtime permission.
+    ..registerLazySingleton<NotificationPermissionRepository>(
+      () => SystemNotificationPermissionRepository(getIt()),
+    )
+    ..registerFactory<GetNotificationPermission>(
+      () => GetNotificationPermission(getIt()),
+    )
+    ..registerFactory<RequestNotificationPermission>(
+      () => RequestNotificationPermission(getIt()),
+    )
+    // F11-T09. Settings re-opens the same notification permission the
+    // reminder-save flow gates itself on.
+    ..registerFactory<OpenNotificationPermissionSettings>(
+      () => OpenNotificationPermissionSettings(getIt()),
+    )
+    // From a document's date (F09-T03): one cubit per opened form, seeded
+    // with what the router already knows (the chosen date, and the document
+    // it came from, if any).
+    ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
+      (args, _) => ReminderFormCubit.fromDocument(
+        createFromDocumentDate: getIt(),
+        createManual: getIt(),
+        getNotificationPermission: getIt(),
+        requestNotificationPermission: getIt(),
+        args: args,
+      ),
+    )
+    // Manual (F09-T04): a distinct registration under the same type, since
+    // it starts from nothing rather than from router args — `instanceName`
+    // is how get_it tells the two apart.
+    ..registerFactory<ReminderFormCubit>(
+      () => ReminderFormCubit.manual(
+        createFromDocumentDate: getIt(),
+        createManual: getIt(),
+        getNotificationPermission: getIt(),
+        requestNotificationPermission: getIt(),
+      ),
+      instanceName: manualReminderFormInstanceName,
+    )
+    // The reminders tab (F09-T11): a fresh cubit per visit, like every other
+    // top-level list cubit here.
+    ..registerFactory<WatchReminders>(() => WatchReminders(getIt()))
+    ..registerFactory<WatchReminder>(() => WatchReminder(getIt()))
+    ..registerFactory<RemindersCubit>(
+      () => RemindersCubit(getIt(), getIt(), getIt()),
+    )
+    // One cubit per opened details screen, parameterised by the reminder's
+    // id — the same shape `DocumentDetailsCubit` uses.
+    ..registerFactory<ReminderDetailsCubit>(
+      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
+    );
+}
+
+void _registerAudioReader() {
+  // F10-T01. `FlutterTtsTextToSpeechService` is the only file allowed to
+  // import `flutter_tts` — everything above it speaks `TextToSpeechService`,
+  // the same boundary `TesseractOcrEngine` keeps for its own plugin. One
+  // instance app-wide: the OS TTS engine is itself a single shared resource.
+  getIt
+    ..registerLazySingleton<TextToSpeechService>(
+      FlutterTtsTextToSpeechService.new,
+    )
+    // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
+    ..registerFactory<BuildReadingText>(BuildReadingText.new)
+    // F10-T07. Stateless and total, the same shape as `BuildReadingText`.
+    ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
+    // F10-T04.
+    ..registerFactory<StartReading>(
+      () => StartReading(getIt(), getIt(), getIt()),
+    )
+    // Raw-text TTS for the OCR review screen (pre-analysis).
+    ..registerFactory<StartRawReading>(() => StartRawReading(getIt(), getIt()))
+    ..registerFactory<StopReading>(() => StopReading(getIt()))
+    // F10-T05.
+    ..registerFactory<PauseReading>(() => PauseReading(getIt()))
+    ..registerFactory<ResumeReading>(() => ResumeReading(getIt()))
+    // F10-T06.
+    ..registerFactory<SetReadingSpeed>(() => SetReadingSpeed(getIt()))
+    // F10-T08.
+    ..registerFactory<WatchReadingEvents>(() => WatchReadingEvents(getIt()))
+    // F11-T07. Same `app_settings` table `DriftLocaleStore` reads/writes.
+    ..registerLazySingleton<DefaultReadingSpeedStore>(
+      () => DriftDefaultReadingSpeedStore(getIt()),
+    )
+    ..registerFactory<GetDefaultReadingSpeed>(
+      () => GetDefaultReadingSpeed(getIt()),
+    )
+    ..registerFactory<SetDefaultReadingSpeed>(
+      () => SetDefaultReadingSpeed(getIt()),
+    )
+    ..registerLazySingleton<DefaultReadingVoiceStore>(
+      () => DriftDefaultReadingVoiceStore(getIt()),
+    )
+    ..registerFactory<GetDefaultReadingVoice>(
+      () => GetDefaultReadingVoice(getIt()),
+    )
+    ..registerFactory<SetDefaultReadingVoice>(
+      () => SetDefaultReadingVoice(getIt()),
+    )
+    ..registerLazySingleton<ResumeReadingEnabledStore>(
+      () => DriftResumeReadingEnabledStore(getIt()),
+    )
+    ..registerFactory<GetResumeReadingEnabled>(
+      () => GetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<SetResumeReadingEnabled>(
+      () => SetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<GetAvailableVoices>(() => GetAvailableVoices(getIt()))
+    ..registerFactory<PreviewDefaultVoice>(
+      () => PreviewDefaultVoice(getIt(), getIt()),
+    )
+    // One per result screen visit, like `AnalysisResultCubit` and
+    // `SaveDocumentCubit` beside it.
+    ..registerFactory<AudioReaderCubit>(
+      () => AudioReaderCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
+    );
+}
+
+void _registerSettings() {
+  // F11-T02/T03. Reuses the store/use cases `_registerAnalysis` already
+  // registered — Settings reads and writes the same consent and processing-
+  // mode flags the analysis flow gates itself on.
+  // F11-T07. Reuses the store/use cases `_registerAudioReader` already
+  // registered — Settings reads and writes the same audio defaults the
+  // mini-player applies to a fresh reading.
+  // F11-T08. Reuses `GetCameraPermission`/`OpenPermissionSettings`
+  // `_registerCapture` already registered — Settings reads and re-opens the
+  // same camera permission the capture flow gates itself on.
+  // F11-T09. Reuses `GetNotificationPermission`/`OpenNotificationPermissionSettings`
+  // `_registerReminders` already registered — same reasoning, for
+  // notifications.
+  // F11-T10. Reuses `GetHideSensitiveNotificationDetails`/
+  // `SetHideSensitiveNotificationDetails` `_registerReminders` already
+  // registered (F09-T14) — Settings is their first UI.
+  // F11-T11. `AppSettingsRepository`/`DeleteAllAppData` are new here;
+  // `DeleteAllDocuments`/`DeleteAllReminders` reuse what `_registerSavedPapers`
+  // and `_registerReminders` already registered.
+  // F11-T12. Reuses `GetDailyUsage` `_registerLaunch` already registered
+  // (next to `WatchDailyUsage`). `GetAppVersion` is new here, over the same
+  // `AppEnvironment` singleton `_registerCore` registered.
+  getIt
+    ..registerLazySingleton<AppSettingsRepository>(
+      () => DriftAppSettingsRepository(getIt()),
+    )
+    ..registerFactory<DeleteAllAppData>(
+      () => DeleteAllAppData(getIt(), getIt(), getIt()),
+    )
+    ..registerFactory<GetAppVersion>(() => GetAppVersion(getIt()))
+    ..registerFactory<SettingsCubit>(
+      () => SettingsCubit(
+        getAnalysisConsent: getIt(),
+        setAnalysisConsent: getIt(),
+        getProcessingMode: getIt(),
+        setProcessingMode: getIt(),
+        getDefaultReadingSpeed: getIt(),
+        setDefaultReadingSpeed: getIt(),
+        getDefaultReadingVoice: getIt(),
+        getResumeReadingEnabled: getIt(),
+        setResumeReadingEnabled: getIt(),
+        previewDefaultVoice: getIt(),
+        getCameraPermission: getIt(),
+        openPermissionSettings: getIt(),
+        getNotificationPermission: getIt(),
+        openNotificationSettings: getIt(),
+        getHideSensitiveNotificationDetails: getIt(),
+        setHideSensitiveNotificationDetails: getIt(),
+        deleteAllDocuments: getIt(),
+        deleteAllReminders: getIt(),
+        getDailyUsage: getIt(),
+        getAppVersion: getIt(),
+        deleteAllAppData: getIt(),
+      ),
+    );
 }
 
 void _registerRouting() {

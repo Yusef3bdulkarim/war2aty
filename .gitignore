@@ -67,3 +67,4 @@ supabase/.temp/
 
 # Local tooling
 .claude/
+.mcp.json

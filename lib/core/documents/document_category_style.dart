@@ -1,4 +1,4 @@
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
 
 import '../icons/stroke_icon.dart';
 import '../theme/app_colors.dart';
@@ -24,9 +24,12 @@ final class DocumentCategoryStyle {
   /// Icon-tile and chip background.
   final Color tint;
 
-  /// The look for [category] in the light palette.
-  static DocumentCategoryStyle of(DocumentCategory category) {
-    const colors = AppColors.light;
+  /// The look for [category] in the active palette (F11-T06).
+  static DocumentCategoryStyle of(
+    BuildContext context,
+    DocumentCategory category,
+  ) {
+    final colors = AppColors.of(context);
     return switch (category) {
       DocumentCategory.appointment => DocumentCategoryStyle(
         glyph: StrokeGlyph.appointment,

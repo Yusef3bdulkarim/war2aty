@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:war2aty/core/time/cairo_day.dart';
 
 void main() {
@@ -63,6 +64,63 @@ void main() {
       final now = DateTime.utc(2026, 7, 21, 21, 59);
 
       expect(nextCairoResetAfter(now).isAfter(now), isTrue);
+    });
+  });
+
+  group('cairoInstant', () {
+    // Outside Egypt's DST window (last Friday of April to last Thursday of
+    // September) — [cairoLocalOf]'s fixed +2h and the real IANA data agree
+    // here, so the round trip and the plain offset checks below hold. See
+    // the dedicated 'observes DST' group for the window where they diverge,
+    // which is the whole reason this function no longer uses the fixed
+    // offset.
+    test('reverses cairoLocalOf, outside DST', () {
+      final instant = DateTime.utc(2026, 1, 24, 8); // 10:00 Cairo.
+      final cairo = cairoLocalOf(instant);
+
+      expect(
+        cairoInstant(
+          cairo.year,
+          cairo.month,
+          cairo.day,
+          cairo.hour,
+          cairo.minute,
+        ),
+        instant,
+      );
+    });
+
+    test('10 AM Cairo in January is 08:00 UTC', () {
+      expect(cairoInstant(2026, 1, 24, 10), DateTime.utc(2026, 1, 24, 8));
+    });
+
+    test('defaults the time of day to midnight', () {
+      expect(cairoInstant(2026, 1, 24), DateTime.utc(2026, 1, 23, 22));
+    });
+
+    group('observes DST', () {
+      // Egypt reinstated DST in 2023: UTC+3 from the last Friday of April to
+      // the last Thursday of September. This is the exact bug this function
+      // fixes — the old fixed `kCairoUtcOffset` (+2h) was wrong for exactly
+      // this window, which is why reminders drifted by an hour in summer.
+      test('10 AM Cairo in August is 07:00 UTC, not 08:00', () {
+        expect(cairoInstant(2026, 8, 24, 10), DateTime.utc(2026, 8, 24, 7));
+      });
+
+      test(
+        'agrees with the real Africa/Cairo zone used to schedule alerts',
+        () {
+          final expected = tz.TZDateTime(
+            tz.getLocation('Africa/Cairo'),
+            2026,
+            8,
+            24,
+            10,
+          ).toUtc();
+
+          expect(cairoInstant(2026, 8, 24, 10), expected);
+        },
+      );
     });
   });
 }

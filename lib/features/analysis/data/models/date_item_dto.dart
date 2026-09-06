@@ -6,6 +6,7 @@ final class DateItemDto {
     required this.role,
     required this.isReminderWorthy,
     required this.confidence,
+    this.rawValue,
   });
 
   factory DateItemDto.fromJson(Map<String, dynamic> json) {
@@ -16,6 +17,7 @@ final class DateItemDto {
       role: json['role'] as String,
       isReminderWorthy: json['is_reminder_worthy'] as bool,
       confidence: json['confidence'] as String,
+      rawValue: json['rawValue'] as String?,
     );
   }
 
@@ -34,6 +36,11 @@ final class DateItemDto {
   /// Raw wire enum — `high` | `medium` | `low` (§30.5).
   final String confidence;
 
+  /// Literal text this date was matched from; `null` when inferred. `rawValue`
+  /// is camelCase on the wire — the one field on this object that isn't
+  /// snake_case (API_CONTRACT §30 v2, F13-T17).
+  final String? rawValue;
+
   Map<String, dynamic> toJson() => {
     'label': label,
     'date': date,
@@ -41,5 +48,6 @@ final class DateItemDto {
     'role': role,
     'is_reminder_worthy': isReminderWorthy,
     'confidence': confidence,
+    'rawValue': rawValue,
   };
 }

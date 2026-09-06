@@ -8,7 +8,7 @@ String _categoryOf(AppFailure failure) => switch (failure) {
   BusinessFailure() => 'business',
 };
 
-/// Leaf-level exhaustive switch over ALL 27 leaves with no `default`.
+/// Leaf-level exhaustive switch over ALL 30 leaves with no `default`.
 ///
 /// This is the exhaustiveness guard: adding a new [AppFailure] leaf without
 /// handling it here fails to compile, so the taxonomy can never silently grow.
@@ -22,16 +22,19 @@ String _describe(AppFailure failure) => switch (failure) {
   OcrFailure() => 'ocr',
   NoTextDetectedFailure() => 'no-text',
   LocalDatabaseFailure() => 'local-db',
+  LaunchFailure() => 'launch',
   FileEncryptionFailure() => 'file-encryption',
   FileStorageFailure() => 'file-storage',
   NotificationPermissionFailure() => 'notification-permission',
   NotificationSchedulingFailure() => 'notification-scheduling',
   TtsFailure() => 'tts',
+  AnalysisConsentDeclinedFailure() => 'consent-declined',
   // Network
   NoInternetFailure() => 'no-internet',
   RequestTimeoutFailure() => 'timeout',
   UnauthorizedFailure() => 'unauthorized',
   DailyLimitReachedFailure() => 'daily-limit',
+  GlobalCapacityReachedFailure() => 'global-capacity',
   AnalysisDisabledFailure() => 'analysis-disabled',
   UnsupportedAppVersionFailure() => 'unsupported-app-version',
   InvalidRequestFailure() => 'invalid-request',
@@ -55,17 +58,20 @@ void main() {
     const OcrFailure(),
     const NoTextDetectedFailure(),
     const LocalDatabaseFailure(),
+    const LaunchFailure(),
     const FileEncryptionFailure(),
     const FileStorageFailure(),
     const NotificationPermissionFailure(),
     const NotificationSchedulingFailure(),
     const TtsFailure(),
+    const AnalysisConsentDeclinedFailure(),
   ];
   final networkLeaves = <AppFailure>[
     const NoInternetFailure(),
     const RequestTimeoutFailure(),
     const UnauthorizedFailure(),
     DailyLimitReachedFailure(DateTime(2026, 7, 21)),
+    const GlobalCapacityReachedFailure(),
     const AnalysisDisabledFailure(),
     const UnsupportedAppVersionFailure(),
     const InvalidRequestFailure(),
@@ -81,9 +87,9 @@ void main() {
   ];
 
   group('taxonomy shape', () {
-    test('has 13 local + 10 network + 4 business leaves', () {
-      expect(localLeaves, hasLength(13));
-      expect(networkLeaves, hasLength(10));
+    test('has 15 local + 11 network + 4 business leaves', () {
+      expect(localLeaves, hasLength(15));
+      expect(networkLeaves, hasLength(11));
       expect(businessLeaves, hasLength(4));
     });
   });
@@ -109,10 +115,10 @@ void main() {
   });
 
   group('leaf-level exhaustiveness', () {
-    test('all 27 leaves describe to distinct labels', () {
+    test('all 30 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(27));
+      expect(labels, hasLength(30));
     });
   });
 

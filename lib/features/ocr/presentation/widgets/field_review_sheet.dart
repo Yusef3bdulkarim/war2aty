@@ -28,7 +28,7 @@ class FieldReviewSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.light.borderStrong,
+              color: AppColors.of(context).borderStrong,
               borderRadius: BorderRadius.circular(AppRadii.pill),
             ),
           ),
@@ -47,7 +47,7 @@ class FieldReviewSheet extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.light.ink,
+                    color: AppColors.of(context).ink,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -55,7 +55,7 @@ class FieldReviewSheet extends StatelessWidget {
                   strings.ocrReviewSubtitle,
                   style: TextStyle(
                     fontSize: 14,
-                    color: AppColors.light.textSecondary,
+                    color: AppColors.of(context).textSecondary,
                   ),
                 ),
               ],
@@ -93,8 +93,8 @@ class FieldReviewSheet extends StatelessWidget {
               child: FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.light.brandPrimary,
-                  foregroundColor: AppColors.light.onBrand,
+                  backgroundColor: AppColors.of(context).brandPrimary,
+                  foregroundColor: AppColors.of(context).onBrand,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadii.md),
@@ -175,15 +175,19 @@ class _ReviewTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.light.warningTint,
+        color: AppColors.of(context).warningTint,
         borderRadius: BorderRadius.circular(AppRadii.md),
         border: Border.all(
-          color: AppColors.light.warning.withValues(alpha: 0.3),
+          color: AppColors.of(context).warning.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.info_outline, size: 20, color: AppColors.light.warning),
+          Icon(
+            Icons.info_outline,
+            size: 20,
+            color: AppColors.of(context).warning,
+          ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
@@ -191,14 +195,18 @@ class _ReviewTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(icon, size: 14, color: AppColors.light.warningInk),
+                    Icon(
+                      icon,
+                      size: 14,
+                      color: AppColors.of(context).warningInk,
+                    ),
                     const SizedBox(width: AppSpacing.xs),
                     Text(
                       sectionLabel,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.light.warningInk,
+                        color: AppColors.of(context).warningInk,
                       ),
                     ),
                   ],
@@ -209,7 +217,7 @@ class _ReviewTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.light.ink,
+                    color: AppColors.of(context).ink,
                   ),
                 ),
               ],

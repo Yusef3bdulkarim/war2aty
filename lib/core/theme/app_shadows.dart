@@ -12,6 +12,14 @@ abstract final class AppShadows {
     BoxShadow(color: Color(0x0D142D31), blurRadius: 22, offset: Offset(0, 8)),
   ];
 
+  /// Just the contact layer of [card]: `0 1px 3px rgba(20,40,45,.06)`.
+  ///
+  /// The design uses it for surfaces that sit *on* the page rather than above
+  /// it — a collapsed panel, a row inside a sheet.
+  static const List<BoxShadow> low = [
+    BoxShadow(color: Color(0x0F142D31), blurRadius: 3, offset: Offset(0, 1)),
+  ];
+
   /// The softer, single shadow the empty-state illustration's page uses:
   /// `0 8px 22px rgba(20,40,45,.08)`.
   static const List<BoxShadow> paper = [

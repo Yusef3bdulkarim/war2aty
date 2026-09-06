@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>War2aty</string>
+	<string>ورقتي</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>war2aty</string>
+	<string>ورقتي</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,9 +27,18 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>محتاجين الكاميرا علشان تقدر تصوّر الورقة وتفهم محتواها. الصورة مش بتخرج من الموبايل.</string>
+	<string>محتاجين الكاميرا علشان تقدر تصوّر الورقة وتفهم محتواها. بنقرا النص بمعالجة آمنة، ومحدش بيشوف صورتها.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>محتاجين نوصل لصورك علشان تختار صورة الورقة اللي عايز تفهمها. الصورة مش بتخرج من الموبايل.</string>
+	<string>محتاجين نوصل لصورك علشان تختار صورة الورقة اللي عايز تفهمها. بنقرا النص بمعالجة آمنة، ومحدش بيشوف صورتها.</string>
+	<!-- F06-T14: the dev flavor talks to the local stack over http://127.0.0.1.
+	     App Transport Security blocks plain HTTP by default. NSAllowsLocalNetworking
+	     permits loopback and local-network hosts ONLY — arbitrary HTTP stays
+	     blocked, so a release build is still HTTPS-only. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -60,15 +69,10 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>

@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/network/api_error_mapper.dart';
 import 'package:war2aty/features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
-import 'package:war2aty/features/analysis/data/mappers/analysis_error_mapper.dart';
+import 'package:war2aty/features/analysis/data/models/analysis_image_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/analysis_request_dto.dart';
 import 'package:war2aty/features/analysis/data/models/candidates_dto.dart';
 
@@ -13,6 +14,15 @@ const _request = AnalysisRequestDto(
   ocrText: 'فاتورة كهرباء',
   detectedLanguages: ['ar'],
   candidates: CandidatesDto(),
+);
+
+const _imageRequest = AnalysisImageRequestDto(
+  schemaVersion: '2.0',
+  sessionId: 'session-1',
+  installationId: 'install-1',
+  appVersion: '1.0.0',
+  imageBase64: 'YWJj',
+  mimeType: 'image/jpeg',
 );
 
 void main() {
@@ -31,6 +41,19 @@ void main() {
 
       final response = await source.analyze(_request);
 
+      expect(
+        failureFromErrorBody(response.body),
+        isA<AnalysisDisabledFailure>(),
+      );
+    });
+
+    test('refuses the image route the same way (F13-T14)', () async {
+      const source = DisabledAnalysisRemoteDataSource();
+
+      final response = await source.analyzeImage(_imageRequest);
+
+      expect(response.isSuccess, isFalse);
+      expect(response.statusCode, 503);
       expect(
         failureFromErrorBody(response.body),
         isA<AnalysisDisabledFailure>(),

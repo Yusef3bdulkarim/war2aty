@@ -27,6 +27,9 @@ enum StrokeGlyph {
   /// A bare tick, for confirmed points in a list.
   check,
 
+  /// A tick escaping an open box — the mark on «المطلوب منك».
+  checkSquare,
+
   /// A shield outline on its own — the privacy reassurance line.
   shield,
 
@@ -44,6 +47,109 @@ enum StrokeGlyph {
   /// Mirror it for LTR; [StrokeIcon] does not do that for you, since not every
   /// glyph should flip with direction.
   chevronForward,
+
+  /// A full arrow pointing back along the line (right in RTL) — the "go back"
+  /// control on a full-screen page. Mirror it for LTR, like
+  /// [chevronForward].
+  arrowBack,
+
+  /// A four-pointed star with a small companion — the mark the design puts on
+  /// AI-written text at page scale (the analysis progress page).
+  sparkle,
+
+  /// The same four-pointed star on its own. The design drops the companion
+  /// wherever the mark sits inline beside a label, at 20px and below.
+  star,
+
+  /// An "i" in a circle — the caveat badge on a value the user should check.
+  info,
+
+  /// An exclamation in a triangle — a caution the user has to read before
+  /// acting, as opposed to [info]'s "check this value".
+  warningTriangle,
+
+  /// Three stacked lines — «أهم المعلومات» and the fields under it.
+  ///
+  /// The design draws a field-specific icon per row (a building for the
+  /// issuer, a calendar for a date, …). Nothing in the analysis says which
+  /// field a row holds, so the rows share this neutral mark rather than being
+  /// guessed at from their Arabic labels.
+  listLines,
+
+  /// Two overlapping sheets — copy this value.
+  copy,
+
+  /// A month grid — «التواريخ والمواعيد» and the dates under it.
+  calendar,
+
+  /// A struck-through pound sign — «المبالغ».
+  money,
+
+  /// A sheet with a tick beside it — «المستندات المطلوبة».
+  documentCheck,
+
+  /// A sheet with a written line — «الخطوات بالترتيب».
+  documentSteps,
+
+  /// A chevron pointing down — opens a collapsed panel. Rotate it 180° when
+  /// the panel is open, as the design does.
+  chevronDown,
+
+  /// Headphones — read this paper aloud.
+  headphones,
+
+  /// A sheet with a save slot — keep this paper in «مستنداتي».
+  save,
+
+  /// Signal arcs struck through — no internet.
+  ///
+  /// The design draws the stroke through it in the error red while the arcs
+  /// stay teal; a [StrokeIcon] paints one colour, so the whole glyph takes the
+  /// page's tint. The struck-through shape still reads as "no signal".
+  wifiOff,
+
+  /// A simple plus sign — the add action on the note card (F08-T09).
+  plus,
+
+  /// A magnifying glass — filters the «مستنداتي» list as the user types
+  /// (F08-T06).
+  search,
+
+  /// A paper airplane — «السماح بإرسال النص للتحليل» in Settings (F11-T02).
+  send,
+
+  /// A globe — the language switch in Settings (F11-T04).
+  globe,
+
+  /// A large "A" beside a smaller one — the text-size setting (F11-T05).
+  textSize,
+
+  /// A circle, half solid — «تباين عالي» in Settings (F11-T06).
+  contrast,
+
+  /// A speaker with sound waves — «صوت القراءة» in Settings (F11-T07).
+  speaker,
+
+  /// A play triangle — «تجربة الصوت» in Settings (F11-T07).
+  ///
+  /// A dedicated glyph rather than reusing [StrokeIcon] with Material's own
+  /// `Icons.play_arrow_rounded` (what `AudioOptionsSheet`/`AudioMiniPlayerBar`
+  /// use for the same shape): every row in a `SettingsSection` draws its
+  /// leading icon as a [StrokeGlyph], and this is the design's own play glyph
+  /// from the same «الصوت والقراءة» card.
+  play,
+
+  /// A circular arrow with its tail — «استكمال القراءة من آخر مكان» in
+  /// Settings (F11-T07).
+  resume,
+
+  /// A padlock — «إخفاء التفاصيل الحساسة من شاشة القفل» in Settings
+  /// (F11-T10).
+  lock,
+
+  /// A waste bin — the settings' delete-all rows (F11-T11), e.g. «حذف كل
+  /// المستندات».
+  trash,
 
   navHome,
   navDocuments,
@@ -100,6 +206,9 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z '
       'M9 12l2 2 4-4',
   StrokeGlyph.check: 'M20 6 9 17l-5-5',
+  StrokeGlyph.checkSquare:
+      'M9 11l3 3 8-8 '
+      'M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9',
   StrokeGlyph.shield: 'M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z',
   // The lens is `<circle cx=12 cy=12.5 r=3.5/>`.
   StrokeGlyph.camera:
@@ -112,6 +221,66 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   // `<circle cx=12 cy=12 r=9/>` plus the hands.
   StrokeGlyph.clock: '${_circle(12, 12, 9)} M12 7v5l3 2',
   StrokeGlyph.chevronForward: 'M15 18l-6-6 6-6',
+  StrokeGlyph.chevronDown: 'M6 9l6 6 6-6',
+  StrokeGlyph.headphones:
+      'M3 14v-4a9 9 0 0 1 18 0v4 '
+      'M21 15a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2z '
+      'M3 15a2 2 0 0 0 2 2h1v-5H5a2 2 0 0 0-2 2z',
+  StrokeGlyph.save:
+      'M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z '
+      'M17 21v-8H7v8 M7 3v5h8',
+  StrokeGlyph.wifiOff:
+      'M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 '
+      'M2 8.8a15 15 0 0 1 20 0 M2 2l20 20',
+  StrokeGlyph.arrowBack: 'M15 6l6 6-6 6 M3 12h18',
+  // `<circle cx=11 cy=11 r=7/>` plus the handle.
+  StrokeGlyph.plus: 'M12 5v14M5 12h14',
+  StrokeGlyph.search: '${_circle(11, 11, 7)} M21 21l-4-4',
+  StrokeGlyph.send: 'M22 2 11 13M22 2l-7 20-4-9-9-4z',
+  // Large A (left) + small A (right) — the universal text-size icon.
+  StrokeGlyph.textSize:
+      'M3 20L9 4L15 20 M6 14h6 M16 20L19.5 12L23 20 M17.5 17h4',
+  // The outline only — [_glyphFillPaths] paints the solid left half on top.
+  StrokeGlyph.contrast: _circle(12, 12, 9),
+  StrokeGlyph.speaker:
+      'M11 5 6 9H2v6h4l5 4z M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14',
+  StrokeGlyph.play: 'M8 5v14l11-7z',
+  StrokeGlyph.resume: 'M3 12a9 9 0 1 0 9-9 M3 3v5h5',
+  // `<rect x=3 y=11 width=18 height=10 rx=2/>` plus the shackle arc.
+  StrokeGlyph.lock:
+      '${_roundedRect(3, 11, 18, 10, 2)} M7 11V8a5 5 0 0 1 10 0v3',
+  // The lid, the handle, and the tapered bin body.
+  StrokeGlyph.trash:
+      'M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2'
+      'M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13',
+  // `<circle cx=12 cy=12 r=10/>`, the equator, and a meridian ellipse.
+  StrokeGlyph.globe:
+      '${_circle(12, 12, 10)} M2 12h20 M12 2a7 10 0 0 1 0 20a7 10 0 0 1 0-20',
+  // `<circle cx=12 cy=12 r=9/>`, the stem, and the dot — which the design
+  // draws as a hairline `h.01` with a round cap.
+  StrokeGlyph.info: '${_circle(12, 12, 9)} M12 8v4 M12 16h.01',
+  StrokeGlyph.warningTriangle:
+      'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 '
+      '0-3.4 0z M12 9v4 M12 17h.01',
+  StrokeGlyph.listLines: 'M4 6h16 M4 12h16 M4 18h10',
+  // `<rect x=3 y=5 width=18 height=16 rx=3/>`, the header rule, and the rings.
+  StrokeGlyph.calendar:
+      '${_roundedRect(3, 5, 18, 16, 3)} M3 9h18 M8 3v4 M16 3v4',
+  StrokeGlyph.money:
+      'M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  StrokeGlyph.documentCheck:
+      'M9 11l3 3 8-8 M14 3v4a1 1 0 0 0 1 1h4 '
+      'M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z',
+  StrokeGlyph.documentSteps:
+      'M14 3v4a1 1 0 0 0 1 1h4 '
+      'M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z M9 13h4',
+  // `<rect x=9 y=9 width=12 height=12 rx=2/>` plus the sheet behind it.
+  StrokeGlyph.copy: '${_roundedRect(9, 9, 12, 12, 2)} M5 15V5a2 2 0 0 1 2-2h10',
+  // The large star, plus the small one the design sets below and beside it.
+  StrokeGlyph.sparkle:
+      'M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z '
+      'M18 13l.8 2.5L21 16l-2.2.5L18 19l-.8-2.5L15 16l2.2-.5z',
+  StrokeGlyph.star: 'M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z',
   StrokeGlyph.navHome: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5',
   StrokeGlyph.navDocuments:
       'M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1'
@@ -132,9 +301,17 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       '1.6 0 0 0-1.5 1z M9 12a3 3 0 1 0 6 0a3 3 0 1 0-6 0',
 };
 
+/// Extra path data painted **filled**, on top of a glyph's own stroked
+/// outline — currently only [StrokeGlyph.contrast]'s solid left half, which
+/// an outline-only stroke (every other glyph) cannot express.
+final Map<StrokeGlyph, String> _glyphFillPaths = {
+  StrokeGlyph.contrast: 'M12 3a9 9 0 0 0 0 18z',
+};
+
 /// Parsed once per glyph — [Path] construction is not free, and these are
 /// rebuilt on every frame of a scrolling list otherwise.
 final Map<StrokeGlyph, Path> _pathCache = {};
+final Map<StrokeGlyph, Path> _fillPathCache = {};
 
 /// The parsed outline of [glyph], in the design's 24×24 coordinate space.
 ///
@@ -142,6 +319,13 @@ final Map<StrokeGlyph, Path> _pathCache = {};
 /// data is otherwise invisible until someone looks at the running app.
 Path strokeGlyphPath(StrokeGlyph glyph) =>
     _pathCache[glyph] ??= _fitToViewBox(parseSvgPath(_glyphPaths[glyph]!));
+
+/// The parsed fill region of [glyph], if it has one — see [_glyphFillPaths].
+Path? strokeGlyphFillPath(StrokeGlyph glyph) {
+  final data = _glyphFillPaths[glyph];
+  if (data == null) return null;
+  return _fillPathCache[glyph] ??= _fitToViewBox(parseSvgPath(data));
+}
 
 /// Shrinks a glyph that is drawn larger than the viewBox so it fits inside it.
 ///
@@ -245,6 +429,17 @@ class _StrokeIconPainter extends CustomPainter {
     canvas
       ..save()
       ..scale(size.shortestSide / _viewBox);
+
+    final fillPath = strokeGlyphFillPath(glyph);
+    if (fillPath != null) {
+      canvas.drawPath(
+        fillPath,
+        Paint()
+          ..style = PaintingStyle.fill
+          ..color = color
+          ..isAntiAlias = true,
+      );
+    }
 
     canvas.drawPath(
       strokeGlyphPath(glyph),
