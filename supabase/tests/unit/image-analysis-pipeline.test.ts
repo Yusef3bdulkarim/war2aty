@@ -158,3 +158,74 @@ Deno.test("an Azure failure propagates and Google is never called", async () => 
   );
   assertEquals(googleCalls, 0);
 });
+
+// ── F17 · Arabic-Indic digits ──────────────────────────────────────────────
+//
+// Every T05 extractor matches on `\d`, which is `[0-9]` in JavaScript and never
+// `٠-٩`. Egyptian bills, receipts and government forms write their dates,
+// amounts and phone numbers in Arabic-Indic numerals, so before the pipeline
+// folded them the entire candidate set came back empty on exactly the documents
+// the app exists to read. The offline path was protected by the client's
+// `TextNormalizer`; the image path had no equivalent and silently dropped them.
+
+Deno.test("Arabic-Indic dates reach the extractors", async () => {
+  const content = "فاتورة الكهرباء\nتاريخ الاستحقاق ٢٢/٤/٢٠٢٥";
+  const azureClient: AzureDocumentIntelligenceClient = () =>
+    Promise.resolve({
+      content,
+      modelId: "prebuilt-read",
+      words: wordsIn(content, [["٢٢/٤/٢٠٢٥", 0.94]]),
+    });
+
+  const pipeline = createImageAnalysisPipeline({ azureClient, googleClient: null });
+  const result = await pipeline({ data: IMAGE, mimeType: MIME_TYPE });
+
+  assertEquals(result.candidates.dates.length, 1);
+  assertEquals(result.candidates.dates[0].normalized_date, "2025-04-22");
+});
+
+Deno.test("Arabic-Indic amounts and phone numbers reach the extractors", async () => {
+  const content = "المبلغ المستحق ١٢٥٠ جنيه\nللاستفسار ٠١٠٦٣٧٠٠٣٧٤";
+  const azureClient: AzureDocumentIntelligenceClient = () =>
+    Promise.resolve({ content, modelId: "prebuilt-read", words: [] });
+
+  const pipeline = createImageAnalysisPipeline({ azureClient, googleClient: null });
+  const result = await pipeline({ data: IMAGE, mimeType: MIME_TYPE });
+
+  assertEquals(result.candidates.amounts.length, 1);
+  assertEquals(result.candidates.amounts[0].value, 1250);
+  assertEquals(result.candidates.phones.length, 1);
+  assertEquals(result.candidates.phones[0].normalized_number, "01063700374");
+});
+
+Deno.test("folding digits keeps word offsets valid, so confidence still resolves", async () => {
+  // The regression this guards: fold with anything that changes length —
+  // `normaliseForMatching`, say, which deletes separators — and every `words[]`
+  // offset shifts. `verifyCandidates` then locates nothing, confidence comes
+  // back null, and the field silently drops to `unverified` while looking for
+  // all the world like a low-confidence reading.
+  const content = "تاريخ الاستحقاق ٢٢/٤/٢٠٢٥ المبلغ ١٢٥٠";
+  const azureClient: AzureDocumentIntelligenceClient = () =>
+    Promise.resolve({
+      content,
+      modelId: "prebuilt-read",
+      words: wordsIn(content, [["٢٢/٤/٢٠٢٥", 0.97], ["١٢٥٠", 0.93]]),
+    });
+
+  const pipeline = createImageAnalysisPipeline({ azureClient, googleClient: null });
+  const result = await pipeline({ data: IMAGE, mimeType: MIME_TYPE });
+
+  assertEquals(result.verification.dates[0].needsUserReview, false);
+  assertEquals(result.candidates.dates.length, 1);
+});
+
+Deno.test("ocrText handed onward is the folded text, matching the offline path", async () => {
+  const content = "المبلغ ١٢٥٠ جنيه";
+  const azureClient: AzureDocumentIntelligenceClient = () =>
+    Promise.resolve({ content, modelId: "prebuilt-read", words: [] });
+
+  const pipeline = createImageAnalysisPipeline({ azureClient, googleClient: null });
+  const result = await pipeline({ data: IMAGE, mimeType: MIME_TYPE });
+
+  assertEquals(result.ocrText, "المبلغ 1250 جنيه");
+});

@@ -70,3 +70,10 @@ supabase/.temp/
 # Local tooling
 .claude/
 .mcp.json
+
+# F17 OCR benchmark material. Real documents and their transcriptions never
+# leave this machine — they carry names, amounts and account numbers, and the
+# benchmark reports aggregate metrics only.
+golden/
+golden-092mp/
+baseline*.json

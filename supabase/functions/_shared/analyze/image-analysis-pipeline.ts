@@ -37,6 +37,7 @@ import {
 } from "../verification/cross-provider-validator.ts";
 import type { CrossProviderVerification } from "../verification/cross-provider-validator.ts";
 import { verifyCandidates } from "../verification/field-verification.ts";
+import { normaliseDigits } from "../validators/text-matching.ts";
 
 export interface ImageAnalysisInput {
   readonly data: Uint8Array;
@@ -86,9 +87,25 @@ export function createImageAnalysisPipeline(
 
   return async (input: ImageAnalysisInput): Promise<ImageAnalysisResult> => {
     const azureResult = await azureClient(input.data, input.mimeType);
-    const candidates = runExtractors(azureResult.content);
+
+    // Arabic-Indic digits are folded to ASCII before anything reads the text.
+    // Every T05 extractor matches on `\d`, which in JavaScript is `[0-9]` and
+    // never `٠-٩` — so without this an Egyptian bill's dates, amounts, phone
+    // numbers and reference numbers produce no candidates at all, and the
+    // whole verification layer above them has nothing to weigh. The offline
+    // path never hit this because the client normalises before sending
+    // (`TextNormalizer`, lib/features/ocr); the image path reads Azure's text
+    // here, inside the function, and had no equivalent step.
+    //
+    // `normaliseDigits` maps one code point to one code point, so `words[]`
+    // offsets — UTF-16, per the client's `stringIndexType=utf16CodeUnit` —
+    // stay valid against the folded string. `normaliseForMatching` must NOT be
+    // used here: it deletes separators, which would shift every later offset.
+    const content = normaliseDigits(azureResult.content);
+
+    const candidates = runExtractors(content);
     const azureVerification = verifyCandidates({
-      content: azureResult.content,
+      content,
       words: azureResult.words,
       candidates,
     });
@@ -97,7 +114,7 @@ export function createImageAnalysisPipeline(
     if (googleClient !== null && needsGoogleSecondOpinion(azureVerification)) {
       try {
         const googleResult = await googleClient(input.data, input.mimeType);
-        googleCandidates = runExtractors(googleResult.content);
+        googleCandidates = runExtractors(normaliseDigits(googleResult.content));
       } catch {
         // Swallowed by design — see the header comment. Azure's own result
         // still stands; the fields it could not confirm simply stay flagged.
@@ -111,6 +128,6 @@ export function createImageAnalysisPipeline(
       googleCandidates,
     });
 
-    return { ocrText: azureResult.content, candidates, verification };
+    return { ocrText: content, candidates, verification };
   };
 }
