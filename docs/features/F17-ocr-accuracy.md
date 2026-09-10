@@ -481,9 +481,19 @@ digit fix cannot be shown moving `printed_clean`'s numbers until such a page
 
 ### Gate 0
 G1 baseline numbers recorded ✅ · G2 script reproducible across runs ✅ ·
-G3 script has its own tests — the benchmark itself: ❌ still outstanding; the
-digit fix it exists to validate: ✅ (4 tests, `image-analysis-pipeline.test.ts`)
-· G4 user reviews the baseline and the measured capture resolution ⏳.
+G3 the digit fix is tested ✅ (4 tests, `image-analysis-pipeline.test.ts`),
+full backend suite unaffected ✅ · G4 user reviews the baseline and the
+measured capture resolution ⏳.
+
+> **Descoped 2026-09-10 (user decision):** a unit-test suite for the benchmark
+> tool itself (`ocr-benchmark.ts`) was proposed and rejected — the user chose
+> to move directly to the next phase of work instead. The tool has now caught
+> two of its own bugs by inspection in one session (the whitespace match in
+> `criticalRecall`, and calling the extractors directly instead of
+> `createImageAnalysisPipeline`), so a regression here is a known, live risk,
+> accepted knowingly rather than mitigated. Any oddity in a future benchmark
+> run — a metric that doesn't move when the pipeline changed, or moves when it
+> didn't — is a reason to suspect the harness before the pipeline.
 
 Phase 1 additionally remains blocked: no master image in the set exceeds
 1.92 MP, so the resolution question cannot be measured yet. Phase 2's opening
