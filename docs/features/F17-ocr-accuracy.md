@@ -391,13 +391,106 @@ A measuring instrument gets its own errors before the thing it measures does.
 This is why G3 below requires the harness to carry tests: the bug was in
 `criticalRecall`, and a test over `"10, 99€"` would have caught it.
 
+### A pipeline bug, found by `--explain` — 2026-09-09
+
+Diagnosing why a 97%-confidence printed page scored `verified = 0%` required
+seeing *why* each field failed, not just that it did — `verifiedRate` alone
+conflates three unrelated causes: the T05 extractor flagging its own candidate
+`is_ambiguous`, a span that could not be matched to any Azure word at all
+(`confidence: null`), and confidence genuinely below
+`VERIFIED_CONFIDENCE_THRESHOLD`. Only the third is the thresholding question
+Phase 2 is about. The benchmark's `--explain` flag was added to report which of
+the three actually occurred, per field.
+
+Running it surfaced something upstream of all three: `extractDates`,
+`extractAmounts`, `extractPhones`, `extractTimes` and `extractReferences` every
+match on `\d`, which in JavaScript is `[0-9]` and never `٠-٩`. Confirmed
+directly:
+
+```
+/\d/.test("٨")   →  false
+/\d/.test("8")   →  true
+```
+
+Every owner-confirmed date and amount in the golden set is written in
+Arabic-Indic numerals, and every one of them produced **zero candidates** —
+not a low-confidence read, not `is_ambiguous`, nothing to verify at all. Three
+of the six documents returned no date/amount candidates whatsoever before this
+was found. The offline (Tesseract) path was never affected: the client already
+normalises digits before sending (`TextNormalizer`, `lib/features/ocr`). The
+online path reads Azure's text inside `image-analysis-pipeline.ts`, which had
+no equivalent step — a gap specific to F13-T11's image-intake pipeline, not a
+defect in the extractors themselves.
+
+Fixed in the pipeline itself — folding `azureResult.content` through
+`normaliseDigits` (already used by the T06 date validator) before it reaches
+the extractors, `verifyCandidates`, or `ocrText`. `normaliseDigits` maps one
+code point to one code point, so Azure's `words[].offset` — UTF-16, matching
+`stringIndexType=utf16CodeUnit` — stays valid; `normaliseForMatching` would
+have been wrong here, since it deletes separator characters and shifts every
+offset after them. Four tests added to
+`image-analysis-pipeline.test.ts`, confirmed to fail without the fix and pass
+with it; the full backend suite (535 passed / 15 pre-existing, unrelated
+failures — confirmed via `git stash` that the count is identical without this
+change) shows nothing else moved.
+
+**The benchmark itself needed a second fix to see the first one.** It had
+been calling `runExtractors`/`verifyCandidates` directly rather than
+`createImageAnalysisPipeline` — the header comment's warning against
+reimplementing "a Dart harness would... measure a copy" turned out to apply to
+this TypeScript tool as well, just via a different route. The first re-run
+after the digit fix reported no change at all, because the benchmark's copy of
+the pipeline had never carried the bug it was meant to catch. Rewired to drive
+`createImageAnalysisPipeline` with a stub Azure client, which is also why the
+extractor imports could be deleted from the tool entirely — confirmed as
+evidence the benchmark no longer reimplements anything upstream of it.
+`explain()` still re-derives T06's per-field confidence (T08 discards it before
+the pipeline returns `CrossProviderFieldVerdict`), but now over
+`analysis.ocrText` — the pipeline's own folded output — so it reflects what the
+pipeline actually saw rather than a second calculation.
+
+With the real pipeline wired in, the two previously-invisible dates appeared:
+
+```
+                                     confidence   verdict
+روشتة د. ياسر (٨/١٠/٢٠٢٥)              0.29      ambiguous (day/month both ≤12)
+استمارة الوصول (٨/٥/٢٠٠٦)              0.65      ambiguous (day/month both ≤12)
+تاج الشنطة ×2 (25AUG, 1200Z/25AUG)     0.99, 1.00 ambiguous (month name, no year)
+```
+
+Every field above is `is_ambiguous`, not confidence-gated — the extractor is
+correctly refusing to guess an unresolvable day/month order or a yearless
+date. **Zero fields in this set failed on `VERIFIED_CONFIDENCE_THRESHOLD`
+itself.** The confidence numbers are nonetheless exactly the split Phase 2
+predicts (handwritten 0.29/0.65 vs. printed 0.99/1.00), and remain the
+measured basis for it — but the mechanism Phase 2 was written to fix
+(a single global threshold) has not yet been shown to be where any field in
+this set actually fails. Phase 2's first task is now to determine that before
+touching the threshold value.
+
+`date+amount` recall for `form_handwritten` is still 0% after the digit fix —
+correctly: Azure's own reading of the handwritten dates is wrong
+(`٥/٨/٢٠٠٦` for `٨/٥/٢٠٠٦`; `٢/٢٥١ ٤/٢` for `٢٢/٤/٢٠٢٥`), so no fix to
+extraction or verification could recover them. That failure belongs to OCR
+fidelity on handwriting, not to this pipeline bug.
+
+**Coverage gap this leaves.** The set has no printed Arabic document using
+Arabic-Indic numerals — the tag/label pages are English/ASCII throughout. The
+digit fix cannot be shown moving `printed_clean`'s numbers until such a page
+(an Egyptian utility bill is the obvious candidate) is added.
+
 ### Gate 0
 G1 baseline numbers recorded ✅ · G2 script reproducible across runs ✅ ·
-G3 script has its own tests ❌ **outstanding** · G4 user reviews the baseline
-and the measured capture resolution ⏳.
+G3 script has its own tests — the benchmark itself: ❌ still outstanding; the
+digit fix it exists to validate: ✅ (4 tests, `image-analysis-pipeline.test.ts`)
+· G4 user reviews the baseline and the measured capture resolution ⏳.
 
 Phase 1 additionally remains blocked: no master image in the set exceeds
-1.92 MP, so the resolution question cannot be measured yet.
+1.92 MP, so the resolution question cannot be measured yet. Phase 2's opening
+question is now "which of the three unverified-causes actually accounts for
+handwritten fields in a larger sample" rather than "what should the
+handwritten threshold be" — the latter presumes an answer the data does not
+yet give.
 
 ---
 
