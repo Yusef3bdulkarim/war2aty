@@ -576,7 +576,40 @@ low-end Android, and presets a device refuses. They are handled defensively (a
 descending fallback ladder and a byte ceiling), and recorded here as **accepted
 assumptions, not verified results**.
 
+### Minimal fix applied — 2026-09-10 (user decision)
 
+The user chose to fix the contradiction directly rather than wait on Phase 0's
+remaining open item (a wider golden set) or Phase 2. Scope was deliberately kept
+smaller than the full T06–T12 table below:
+[`platform_camera_service.dart`](../../lib/features/capture/data/services/platform_camera_service.dart#L63)
+now requests `ResolutionPreset.veryHigh` (~1080p, ~2.07 MP) instead of `.high`
+(~720p, ~0.92 MP).
+
+`veryHigh`, not `ultraHigh`, on purpose:
+
+- It clears both `_resAcceptable` (1 MP) and `_resGood` (2 MP) — the
+  contradiction this was meant to fix — without the payload, OOM, and
+  per-device-support risk `ultraHigh`/`max` carry and that T06/T10/T11 below
+  still exist to handle.
+- The one resolution experiment run so far (Phase 0, 0.92 vs 1.92 MP) was a
+  null result, not a positive one — so this is not sold as an accuracy fix.
+  The code comment at the call site says so explicitly, to stop a future
+  reader citing this change as evidence resolution was fixed.
+- No fallback ladder was added. `veryHigh` (~1080p) is supported on
+  essentially every camera Flutter's `camera` plugin runs on, unlike
+  `ultraHigh`, where the plugin's own doc string ("platform implementations
+  may fall back... if a specific preset is not available") is the reason
+  T06 specifies a ladder at all.
+
+Verified: `dart format`, `flutter analyze` on the changed file (no issues), the
+file's own unit test (7/7 — it tests `buildFrame`, not the preset, so this
+change could not have been expected to move it), and the full capture feature
+suite (298/298). No thresholds changed; the fix is one line plus its
+justifying comment.
+
+**T06–T12 below remain open** — this does not attempt the `ultraHigh` step,
+the fallback ladder, the payload ceiling, or the device-measured threshold
+retuning. Those still wait on Phase 0's wider golden set and on-device testing.
 
 Raising the acceptance bar without raising the capture resolution would tell
 users their photo is inadequate while giving them no way to succeed. **These

@@ -58,9 +58,18 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
 
       final controller = CameraController(
         back,
-        // High enough for legible OCR without the memory cost of max — the
-        // paper only has to be readable, not print-quality.
-        ResolutionPreset.high,
+        // `high` (~720p, ~0.92 MP) was below this app's own quality gate —
+        // DartImageQualityService.assess flags anything under 1 MP as `poor`,
+        // so a `high` capture failed the app's own bar before the user ever
+        // saw the result (F17). `veryHigh` (~1080p, ~2.07 MP) clears both
+        // that floor and `_resGood`, without `ultraHigh`/`max`'s payload and
+        // per-device-support risk — see F17-ocr-accuracy.md Phase 1 for why
+        // this is a self-consistency fix, not a claimed OCR-accuracy gain;
+        // the one resolution comparison run so far (0.92 vs 1.92 MP) did not
+        // show a clear improvement, so this stays a modest, low-risk step
+        // rather than the ultraHigh jump that plan still gates on device
+        // testing.
+        ResolutionPreset.veryHigh,
         enableAudio: false,
         imageFormatGroup: _streamableFormat,
       );
