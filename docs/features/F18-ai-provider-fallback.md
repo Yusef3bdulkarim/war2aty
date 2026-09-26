@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ai-provider-fallback` (off `develop`) · **Milestone:** post-F17
 - **Depends on:** F06 (the `AiAnalysisProvider` seam, the generation schema, the prompt builder — extended, not replaced), F13 (the optional-provider config pattern, the dark-launch `optInFlag`) · **Feeds:** analysis availability and headroom
-- **Progress:** 9 / 10 DONE
+- **Progress:** 9 / 10 DONE · T10 tooling ready, live verification outstanding (the flag stays absent until it passes)
 
 Adds a second AI analysis provider behind the existing seam and chains the two:
 Gemini's free tier serves first, Groq's free tier catches transport failures.
@@ -133,7 +133,7 @@ is flipped; `assertModelAnalysis` is the runtime backstop if it ever regresses.
 | 7 | F18-T07 | Observability | `analyze.provider` logs `{request_id, provider, failed_over, primary_error_code}`. Provider names in **server logs** only; §51 content ban unaffected | **DONE** |
 | 8 | F18-T08 | Live integration test (risk gate) | `gemini-client.integration.test.ts`, skipped without `GEMINI_API_KEY`: model answers; **`json_schema` + `strict` honoured, not silently ignored**; `ANALYSIS_OUTPUT_SCHEMA` accepted (no 400); bad key → `ANALYSIS_FAILED` not `UNAUTHORIZED`; short timeout aborts. Few, small calls — the free RPD is the budget | **DONE** |
 | 9 | F18-T09 | Docs & secrets | `.env.example` gains the `GEMINI_*` block; `supabase/README.md` + project `CLAUDE.md` made provider-neutral; this doc + README row; capacity reality recorded so nobody re-derives the 14,400 figure | **DONE** |
-| 10 | F18-T10 | Quality comparison before the flip | Both providers over the golden-set folder, comparing `document_type`/`amounts`/`dates`/`status` per document. Gemini 3.1 Flash-Lite must match or beat `gpt-oss-120b` on Egyptian paperwork before the flag is set; otherwise `GEMINI_MODEL` moves to `gemini-3.5-flash-lite` and the comparison repeats — no code change. Paced against the free RPM | TODO |
+| 10 | F18-T10 | Quality comparison before the flip | Both providers over the golden-set folder, comparing `document_type`/`amounts`/`dates`/`status` per document. Gemini 3.1 Flash-Lite must match or beat `gpt-oss-120b` on Egyptian paperwork before the flag is set; otherwise `GEMINI_MODEL` moves to `gemini-3.5-flash-lite` and the comparison repeats — no code change. Paced against the free RPM | **TOOLING READY** — `compare-providers.ts` delivered; comparison is being done manually on live photos. Preliminary result says Gemini extracts FEWER amounts, so the flip is **not** cleared yet |
 
 ---
 
@@ -206,6 +206,68 @@ ever regresses.
    and CI has none, so the breakage was invisible. Fixed in T08 by passing
    `reasoningEffort: "low"` and a realistic budget, matching what
    `ai/analysis-provider.ts` sends in production and documents at length.
+
+## T10 · Quality comparison — tooling ready, verdict NOT yet earned
+
+### The plan's premise was wrong
+
+T10 was written as "run both providers over the existing golden-set folder used
+by `supabase/tools/ocr-benchmark.ts`". **That tool does not exist** — there is no
+`supabase/tools/` directory in this repo, and never was. The `golden/` folder and
+`baseline*.json` on the dev machine are real, but whatever produced them was
+never committed. T10 as specified could not have been executed.
+
+### What replaced it
+
+By explicit decision, the comparison is being done **manually, end to end, on
+live photographs of real Egyptian paperwork**, inspected by eye through the
+running app — not by a batch script over a fixed corpus. That is a better test
+of the thing that actually matters (does the user get a good answer?) and it
+keeps real documents out of an automated loop.
+
+To support it, T10 delivers `supabase/tools/compare-providers.ts`: it runs
+**both** legs over the same OCR text — same prompt builder, same generation
+schema — and prints `status`, `document_type`, `amounts`, `dates`,
+`key_information` count, warnings and latency side by side, then judges
+agreement on the decision fields. Feed it the text from the app's OCR review
+screen for any document you photograph.
+
+### Preliminary finding — Gemini is measurably LESS complete
+
+One synthetic Egyptian electricity bill (line items plus a total), run twice with
+**identical results both times**, so this is a stable behavioural difference and
+not model noise:
+
+| Field | Groq `gpt-oss-120b` | Gemini `3.1-flash-lite` |
+|---|---|---|
+| `status` | success | success |
+| `document_type` | invoice [high] | invoice [high] |
+| deadline date | 2026-10-28, reminder-worthy | **identical** |
+| **`amounts`** | **4** — 168.30 consumption, 8.50 service, 8.70 VAT, 185.50 total | **1** — 185.50 total only |
+| `key_information` | 7 | 4 |
+| warnings | none | `government` |
+| latency | ~3.1s | ~5.5s |
+
+The headline number and the deadline — the two things a user most needs — agree
+exactly. But Groq captures the **line-item breakdown** and Gemini does not: it
+reports only the total. For a user who wants to know *what they are being charged
+for*, that is a real loss of information, and it is the opposite of the T10
+acceptance criterion ("Gemini must match or beat `gpt-oss-120b` before the flag
+is set").
+
+**Therefore: `gemini_primary_enabled` is NOT yet cleared for flipping.** On this
+evidence the options are (a) accept thinner extraction in exchange for capacity,
+(b) try `GEMINI_MODEL=gemini-3.5-flash-lite` — a secrets change, no code change,
+exactly as decision 5 anticipated, or (c) keep Groq primary and let Gemini serve
+only as the overflow fallback, which needs no flag at all and is already the
+behaviour with a key present.
+
+Option (c) is worth weighing seriously: it captures most of the capacity benefit
+with none of the quality risk, because Gemini then answers only when Groq has
+already failed — at which point a thinner answer beats no answer.
+
+The live photo testing is what settles this. Until it does, the flag stays
+absent.
 
 ## Provider selection matrix
 
