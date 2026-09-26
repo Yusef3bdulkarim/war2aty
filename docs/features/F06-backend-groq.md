@@ -6,6 +6,16 @@
 
 Real Supabase Edge Functions run **locally via Docker** (`supabase start` / `functions serve`), real Groq provider. **Blocker checklist before start:** Docker + Supabase CLI + Deno installed; obtain a Groq API key (into Supabase secrets / `.env` only — never Flutter/git). Tests stay fixture-backed (deterministic).
 
+> **Superseded in part by [F18](F18-ai-provider-fallback.md).** Groq is no longer
+> the only analysis provider, and the files this feature created have moved:
+> `groq/groq-client.ts` → `ai/openai-compatible-client.ts`,
+> `groq/groq-provider.ts` → `ai/analysis-provider.ts`,
+> `schemas/groq-output.schema.ts` → `schemas/analysis-output.schema.ts`, with
+> Groq's own credentials now in `ai/groq-config.ts`. The `AiAnalysisProvider`
+> seam T11 introduced is unchanged and is what made the second provider a
+> configuration change rather than a rewrite. Everything below still describes
+> the Groq leg accurately; read it as one of two rather than the only one.
+
 ## Tasks
 
 | # | ID | Title | Acceptance criteria | Status |

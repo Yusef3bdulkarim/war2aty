@@ -12,7 +12,7 @@ When this file and the master plan disagree, the master plan wins.
 - **Market / Users:** مصر — المستخدم المصري العادي (مع مراعاة كبار السن وضعاف القراءة/البصر). اللهجة المصرية البسيطة.
 - **Platforms:** Android + iOS فقط. Portrait فقط. لا Tablet/Web في الـMVP.
 - **Language / Direction:** واجهة عربية بالكامل، **RTL** بالكامل. المستند نفسه قد يكون عربي/إنجليزي/مختلط.
-- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** OCR: Azure AI Document Intelligence (أساسي، أونلاين فقط) + Google Document AI (رأي ثانٍ شرطي) خلف الـEdge Function؛ Tesseract محلي كـfallback offline فقط (F13). التصنيف والشرح النهائي: Groq Structured Output خلف الـEdge Function — Groq لا يرى الصورة أبدًا.
+- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** OCR: Azure AI Document Intelligence (أساسي، أونلاين فقط) + Google Document AI (رأي ثانٍ شرطي) خلف الـEdge Function؛ Tesseract محلي كـfallback offline فقط (F13). التصنيف والشرح النهائي: **Structured Output خلف الـEdge Function عبر مزوّدين اتنين ورا نفس الـseam** (F18) — Gemini و Groq، الاختيار بينهم بـflag في `app_runtime_config` مش بكود؛ ولا واحد فيهم يرى الصورة أبدًا (نص الـOCR + candidates بس). الاتنين على free tier — راجع §7 لفرق التعامل مع البيانات بينهم.
 - **Auth:** Supabase **Anonymous Auth** — لا توجد شاشة تسجيل دخول ظاهرة. هوية تقنية فقط لحماية الخدمة + `installationId` في `flutter_secure_storage`.
 - **Privacy (non-negotiable):** **الصورة** متتحفظش خالص ومحدش بيشوفها — لا تُخزَّن على أي سيرفر، وتتمسح فورًا بعد قراءتها؛ ده وعد صحيح ومايتغيّرش. **النص** المستخرج بيتبعت مشفَّر لخدمة تحليل بره، وإحنا مانحفظوهوش ومانسجّلوهوش — بس **ممنوع ندّعي إن محدش بيقراه**، لأن التطبيق شغّال على free tier بيسمح للمزوّد بمراجعة المحتوى (F18-T02، §7). الحفظ الافتراضي على الجهاز = «النتيجة فقط». لا تذكير تلقائي بدون مراجعة المستخدم. لا تُسجَّل محتويات المستند في أي Log. النصوص اللي بتظهر للمستخدم متسميش أي مزوّد خدمة (Azure/Google/Gemini/Groq) — راجع `docs/features/F13-ocr-provider-migration.md` و `docs/features/F18-ai-provider-fallback.md`.
 - **Local data:** Drift + SQLite (مصدر الحقيقة المحلي)، صور اختيارية مشفّرة (AES-256-GCM) داخل Application Private Directory، Local Notifications، Local TTS.
@@ -97,8 +97,8 @@ features/{feature_name}/
 
 ## 9) OCR & Analysis boundaries
 - OCR sits behind an `OcrEngine` interface (Tesseract first, PaddleOCR as alternative) — the engine is never called directly from a Cubit/Widget.
-- Contract before Integration, Mock before the real service: the result screen is built against a Mock analyze-document before wiring up Groq.
-- Real analysis flows exclusively through the Supabase Edge Function — the app never knows or calls Groq directly.
+- Contract before Integration, Mock before the real service: the result screen is built against a Mock analyze-document before wiring up any real AI provider.
+- Real analysis flows exclusively through the Supabase Edge Function — the app never knows or calls an AI provider directly, and never learns which of the two served it (F18).
 
 ## 10) Testing & Quality Gate (before any task is "done")
 ```
