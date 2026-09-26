@@ -15,11 +15,11 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
+import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
 import {
-  createChatClient,
   DEFAULT_GROQ_MODEL,
   GROQ_BASE_URL,
-} from "../../functions/_shared/ai/openai-compatible-client.ts";
+} from "../../functions/_shared/ai/groq-config.ts";
 import {
   buildAnalysisMessages,
   type ExtractedCandidates,

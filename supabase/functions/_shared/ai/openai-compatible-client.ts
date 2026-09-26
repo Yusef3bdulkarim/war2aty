@@ -21,26 +21,6 @@
 
 import { ApiError } from "../errors/api-error.ts";
 
-/**
- * Groq's OpenAI-compatible root — the URL this transport used to hardcode.
- *
- * F18-T03 moves it, with {@link groqOptionsFromEnv}, to `ai/groq-config.ts`.
- */
-export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
-
-/**
- * The model this service is built around, and the one `.env.example` sets.
- *
- * It MUST support `response_format: json_schema`: F06-T11 sends one on every
- * call, and a model without it answers 400. This is the default for a
- * directly-constructed client and for tests — never a fallback on the
- * production path, which refuses to guess (see {@link groqOptionsFromEnv}).
- *
- * F18-T03 moves this and {@link groqOptionsFromEnv} to `ai/groq-config.ts`;
- * they are Groq facts, and this module is no longer a Groq module.
- */
-export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
-
 export type ChatRole = "system" | "user" | "assistant";
 
 export interface ChatMessage {
@@ -93,7 +73,13 @@ export interface ChatClientOptions {
    */
   readonly baseUrl: string;
   readonly apiKey: string;
-  readonly model?: string;
+  /**
+   * Required, and deliberately not defaulted here: a default in this module
+   * would have to name one provider's model, which is exactly the knowledge
+   * the seam exists to keep out. Each provider's config module supplies its
+   * own (`groq-config.ts`, and `gemini-config.ts` from F18-T04).
+   */
+  readonly model: string;
   readonly timeoutSeconds: number;
   /** Injected so tests never touch the network. */
   readonly fetchImpl?: typeof fetch;
@@ -102,47 +88,6 @@ export interface ChatClientOptions {
 export type ChatClient = (
   request: ChatCompletionRequest,
 ) => Promise<ChatCompletion>;
-
-/**
- * Reads credentials from the environment the Edge Runtime injects.
- *
- * @throws if `GROQ_API_KEY` or `GROQ_MODEL` is missing. Both are deploy faults,
- * and both are fatal at startup rather than per request — see below for why the
- * model is not defaulted.
- *
- * F18-T03 moves this to `ai/groq-config.ts`, where it will also supply the
- * `baseUrl` this client now requires.
- */
-export function groqOptionsFromEnv(
-  timeoutSeconds: number,
-): Omit<ChatClientOptions, "baseUrl"> {
-  const apiKey = Deno.env.get("GROQ_API_KEY");
-
-  if (!apiKey) {
-    // A deploy fault, not a user error. Surfaced loudly here rather than as a
-    // baffling 500 on every analysis.
-    throw new Error("GROQ_API_KEY is not set.");
-  }
-
-  // Deliberately NOT defaulted. A model that cannot serve `json_schema` fails
-  // EVERY analysis with a 400 the user only ever sees as ANALYSIS_FAILED — a
-  // total outage wearing the costume of a flaky provider. Falling back would
-  // hide exactly the mistake worth shouting about, so an unset model is a
-  // startup error like the key above.
-  //
-  // Read with `.trim()` rather than `??`: an env var set to "" is a string, so
-  // `??` would wave it through and send an empty model name to Groq.
-  const model = Deno.env.get("GROQ_MODEL")?.trim();
-
-  if (!model) {
-    throw new Error(
-      "GROQ_MODEL is not set. It must name a model that supports " +
-        "`response_format: json_schema` — see supabase/.env.example.",
-    );
-  }
-
-  return { apiKey, model, timeoutSeconds };
-}
 
 /**
  * Maps a provider HTTP status to an `ApiError`.
@@ -176,7 +121,7 @@ export function createChatClient(options: ChatClientOptions): ChatClient {
   const {
     baseUrl,
     apiKey,
-    model: defaultModel = DEFAULT_GROQ_MODEL,
+    model: defaultModel,
     timeoutSeconds,
     fetchImpl = fetch,
   } = options;

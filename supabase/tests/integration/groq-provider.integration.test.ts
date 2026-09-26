@@ -12,11 +12,11 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
+import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
 import {
-  createChatClient,
   DEFAULT_GROQ_MODEL,
   GROQ_BASE_URL,
-} from "../../functions/_shared/ai/openai-compatible-client.ts";
+} from "../../functions/_shared/ai/groq-config.ts";
 import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
 

@@ -4,7 +4,7 @@
  * Read here, not inline in the client (T07), so a deploy fault is a loud
  * startup error in one place — same contract as `azureOptionsFromEnv`
  * (`../azure/azure-config.ts`) and `groqOptionsFromEnv`
- * (`../ai/openai-compatible-client.ts`).
+ * (`../ai/groq-config.ts`).
  */
 
 export interface GoogleDocumentAiOptions {

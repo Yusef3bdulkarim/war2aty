@@ -4,16 +4,21 @@
  * `fetch` is injected, so these run offline and need no API key.
  */
 
-import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import {
   type ChatCompletionRequest,
   createChatClient,
-  DEFAULT_GROQ_MODEL,
-  GROQ_BASE_URL,
-  groqOptionsFromEnv,
 } from "../../functions/_shared/ai/openai-compatible-client.ts";
+
+/**
+ * Deliberately not a real provider's URL. This module is the provider-neutral
+ * half of the F18 seam; binding its tests to Groq's endpoint would re-couple
+ * exactly what T01 and T03 separated. Each provider's own base URL is tested
+ * in its config module's tests.
+ */
+const BASE_URL = "https://provider.example/v1";
 
 const REQUEST: ChatCompletionRequest = {
   messages: [
@@ -51,7 +56,7 @@ function recordingFetch(reply: Response | (() => Response | Promise<Response>)) 
 
 function client(fetchImpl: typeof fetch, timeoutSeconds = 25) {
   return createChatClient({
-    baseUrl: GROQ_BASE_URL,
+    baseUrl: BASE_URL,
     apiKey: "test-key",
     model: "llama-3.3-70b-versatile",
     timeoutSeconds,
@@ -273,72 +278,15 @@ Deno.test("a sub-second timeout is clamped to at least one second", async () => 
   assertEquals(completion.content, '{"result":"ok"}');
 });
 
-// ── reading the environment ───────────────────────────────────────────────
-// The model is the one setting that cannot be guessed: F06-T11 sends
-// `response_format: json_schema` on every call, and a model without support
-// answers 400 — which reaches the user as ANALYSIS_FAILED, indistinguishable
-// from a provider outage. These pin the "fail at startup, never fall back"
-// contract that keeps a config slip from becoming a silent total outage.
+// ── where the request goes ────────────────────────────────────────────────
 
-/** Runs `body` with the Groq env vars set to `values`, then restores them. */
-function withEnv(values: Record<string, string | null>, body: () => void) {
-  const previous = new Map<string, string | undefined>();
+Deno.test("the request goes to the configured base URL", async () => {
+  // The URL used to be a hardcoded constant (F06-T09). Since F18-T01 it is
+  // composed, and composing it is how one transport serves two providers — so
+  // the join is worth pinning: no doubled slash, no missing path.
+  const { impl, calls } = recordingFetch(jsonResponse(okPayload()));
 
-  for (const [key, value] of Object.entries(values)) {
-    previous.set(key, Deno.env.get(key));
-    if (value === null) Deno.env.delete(key);
-    else Deno.env.set(key, value);
-  }
+  await client(impl)(REQUEST);
 
-  try {
-    body();
-  } finally {
-    for (const [key, value] of previous) {
-      if (value === undefined) Deno.env.delete(key);
-      else Deno.env.set(key, value);
-    }
-  }
-}
-
-Deno.test("the default model supports json_schema", () => {
-  // Guards the constant itself: it is what a directly-constructed client and
-  // the live integration tests fall back to, so it must never drift to a model
-  // that cannot be schema-constrained.
-  assert(DEFAULT_GROQ_MODEL.startsWith("openai/gpt-oss-"));
-});
-
-Deno.test("options are read from the environment", () => {
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: "openai/gpt-oss-20b" }, () => {
-    const options = groqOptionsFromEnv(25);
-
-    assertEquals(options.apiKey, "test-key");
-    assertEquals(options.model, "openai/gpt-oss-20b");
-    assertEquals(options.timeoutSeconds, 25);
-  });
-});
-
-Deno.test("a missing api key is fatal", () => {
-  withEnv({ GROQ_API_KEY: null, GROQ_MODEL: "openai/gpt-oss-120b" }, () => {
-    assertThrows(() => groqOptionsFromEnv(25), Error, "GROQ_API_KEY");
-  });
-});
-
-Deno.test("a missing model is fatal rather than defaulted", () => {
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: null }, () => {
-    assertThrows(() => groqOptionsFromEnv(25), Error, "GROQ_MODEL");
-  });
-});
-
-Deno.test("a blank model is fatal too", () => {
-  // `??` would have accepted "" as a set value and sent an empty model name.
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: "   " }, () => {
-    assertThrows(() => groqOptionsFromEnv(25), Error, "GROQ_MODEL");
-  });
-});
-
-Deno.test("a model is trimmed before use", () => {
-  // A trailing newline is what a copy-pasted `.env` value actually looks like.
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: "openai/gpt-oss-120b\n" }, () => {
-    assertEquals(groqOptionsFromEnv(25).model, "openai/gpt-oss-120b");
-  });
+  assertEquals(calls[0].url, "https://provider.example/v1/chat/completions");
 });
