@@ -290,3 +290,74 @@ Deno.test("the request goes to the configured base URL", async () => {
 
   assertEquals(calls[0].url, "https://provider.example/v1/chat/completions");
 });
+
+// ── every transport failure is a provider fault (F18-T05) ─────────────────
+// The fallback chain fails over iff `providerFault` is set, so this is the link
+// the whole feature hangs from: drop `.asProviderFault()` from any path below
+// and failover silently stops working for it while every other test still
+// passes. Each case here pins one path.
+
+Deno.test("a rate limit is marked a provider fault", async () => {
+  const { impl } = recordingFetch(new Response("slow down", { status: 429 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a 5xx is marked a provider fault", async () => {
+  const { impl } = recordingFetch(new Response("boom", { status: 503 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("an auth failure is marked a provider fault", async () => {
+  // OUR key being wrong is still the provider declining to answer, and the
+  // other leg has a different key — so it is worth asking.
+  const { impl } = recordingFetch(new Response("bad key", { status: 401 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a dropped connection is marked a provider fault", async () => {
+  const impl = (() =>
+    Promise.reject(new TypeError("connection reset"))) as unknown as typeof fetch;
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a timeout is marked a provider fault", async () => {
+  const impl = (() =>
+    Promise.reject(
+      new DOMException("signal timed out", "TimeoutError"),
+    )) as unknown as typeof fetch;
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).code, "TIMEOUT");
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("an unparseable 200 is marked a provider fault", async () => {
+  const { impl } = recordingFetch(new Response("not json", { status: 200 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a 200 carrying no completion is marked a provider fault", async () => {
+  // No answer at all, as opposed to an answer of the wrong shape — which is the
+  // parser's business and deliberately NOT a provider fault.
+  for (const payload of [{}, { choices: [] }, { choices: [{ message: {} }] }]) {
+    const { impl } = recordingFetch(jsonResponse(payload));
+    const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+    assertEquals((thrown as ApiError).providerFault, true);
+  }
+});

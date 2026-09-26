@@ -96,11 +96,15 @@ export type ChatClient = (
  * validation errors, and the prompt holds the document.
  */
 function errorForStatus(status: number): ApiError {
-  // 429 is the one the client can act on — it is asked to try again later.
-  if (status === 429) return ApiError.aiRateLimited();
+  // Every status reaching here is the provider declining to answer, so all of
+  // them are provider faults and all are eligible for failover (F18-T05).
+  //
+  // 429 is the one the client can act on — it is asked to try again later. On a
+  // free tier it is also the COMMON case, and the whole reason the chain exists.
+  if (status === 429) return ApiError.aiRateLimited().asProviderFault();
   // 5xx and the rest are ours to own; the user only ever sees "analysis
   // failed", never that a third party was involved.
-  return ApiError.analysisFailed();
+  return ApiError.analysisFailed().asProviderFault();
 }
 
 interface ChatApiResponse {
@@ -155,9 +159,9 @@ export function createChatClient(options: ChatClientOptions): ChatClient {
       // A timeout aborts the fetch; so does a dropped connection. Both mean we
       // have no answer, and the caller must release the slot either way.
       if (thrown instanceof DOMException && thrown.name === "TimeoutError") {
-        throw ApiError.timeout();
+        throw ApiError.timeout().asProviderFault();
       }
-      throw ApiError.analysisFailed();
+      throw ApiError.analysisFailed().asProviderFault();
     }
 
     if (!response.ok) {
@@ -171,14 +175,19 @@ export function createChatClient(options: ChatClientOptions): ChatClient {
     try {
       payload = await response.json();
     } catch {
-      throw ApiError.analysisFailed();
+      // A 200 whose body is not JSON is a broken response, not an answer.
+      throw ApiError.analysisFailed().asProviderFault();
     }
 
     const content = payload.choices?.[0]?.message?.content;
     if (typeof content !== "string" || content.length === 0) {
       // A well-formed HTTP 200 carrying nothing usable is still a failed
       // analysis, and must not be counted against the user's quota.
-      throw ApiError.analysisFailed();
+      //
+      // A provider fault, unlike the PARSER's failures in
+      // `analysis-provider.ts`: no answer at all is worth asking a second
+      // provider about, whereas an answer of the wrong shape is not.
+      throw ApiError.analysisFailed().asProviderFault();
     }
 
     return {

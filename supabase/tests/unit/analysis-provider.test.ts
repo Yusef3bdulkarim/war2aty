@@ -307,3 +307,29 @@ Deno.test("an unsupported document is a normal answer, not an error", async () =
 
   assertEquals(result.status, "unsupported");
 });
+
+// ── the parser's failures are NOT provider faults (F18-T05) ───────────────
+// A well-formed 200 whose JSON is unusable is the model's considered answer
+// about a damaged document, not a provider failing to answer. Marking these
+// would make the chain call a second provider for a case the other model will
+// usually fail too, doubling the user's wait to learn the same thing.
+
+Deno.test("unparseable content is not a provider fault", async () => {
+  const { client } = fakeClient("not json at all");
+  const provider = createAnalysisProvider({ client });
+
+  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+
+  assertEquals((thrown as ApiError).code, "ANALYSIS_FAILED");
+  assertEquals((thrown as ApiError).providerFault, false);
+});
+
+Deno.test("a wrong-shaped answer is not a provider fault", async () => {
+  // Valid JSON, valid HTTP, wrong object — exactly what `assertModelAnalysis`
+  // exists to catch, and exactly what must not trigger a second call.
+  const { provider } = providerReturning({ status: "success" });
+
+  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, false);
+});
