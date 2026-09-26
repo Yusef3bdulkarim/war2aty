@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ai-provider-fallback` (off `develop`) · **Milestone:** post-F17
 - **Depends on:** F06 (the `AiAnalysisProvider` seam, the generation schema, the prompt builder — extended, not replaced), F13 (the optional-provider config pattern, the dark-launch `optInFlag`) · **Feeds:** analysis availability and headroom
-- **Progress:** 3 / 10 DONE
+- **Progress:** 4 / 10 DONE
 
 Adds a second AI analysis provider behind the existing seam and chains the two:
 Gemini's free tier serves first, Groq's free tier catches transport failures.
@@ -127,7 +127,7 @@ is flipped; `assertModelAnalysis` is the runtime backstop if it ever regresses.
 | 1 | F18-T01 | Provider-neutral seam | Pure rename, zero behaviour change: `groq-output.schema.ts` → `analysis-output.schema.ts`, `groq-client.ts` → `ai/openai-compatible-client.ts` (gains `baseUrl`), `groq-provider.ts` → `ai/analysis-provider.ts` (exports `AiAnalysisProvider`, `assertModelAnalysis`). `deno check` clean, full `deno test` green, diff shows no logic change | **DONE** |
 | 2 | F18-T02 | Make the privacy copy true | Every «محدش بيشوفها»-family claim about the **text** audited and listed before editing, then reworded to stop asserting nobody reads it — still accurate that it is not stored and not logged. **Image** promise untouched. No provider named. `CLAUDE.md` §7 updated. Widget tests updated; RTL + Large Text verified | **DONE** |
 | 3 | F18-T03 | Groq config module | `ai/groq-config.ts` — `groqOptionsFromEnv()` moved out of the client, now returning `baseUrl`; `isGroqConfigured()`. `GROQ_MODEL` stays deliberately non-defaulted | **DONE** |
-| 4 | F18-T04 | Gemini config module | `ai/gemini-config.ts` mirroring `google-config.ts`: `geminiOptionsFromEnv()`, `isGeminiConfigured()`, base URL defaulted but `GEMINI_BASE_URL`-overridable, `GEMINI_MODEL` non-defaulted and fatal-if-key-set-without-it. Unit tests | TODO |
+| 4 | F18-T04 | Gemini config module | `ai/gemini-config.ts` mirroring `google-config.ts`: `geminiOptionsFromEnv()`, `isGeminiConfigured()`, base URL defaulted but `GEMINI_BASE_URL`-overridable, `GEMINI_MODEL` non-defaulted and fatal-if-key-set-without-it. Unit tests | **DONE** |
 | 5 | F18-T05 | The fallback chain | `ai/fallback-provider.ts` + a `providerFault` flag on `ApiError` set only on client error paths. Fails over iff `providerFault` **and** a fallback is configured **and** `totalSeconds - elapsed >= MIN_FALLBACK_SECONDS`. Unit tests cover: 429/5xx/network/timeout-with-budget fail over; timeout-without-budget and malformed-200 do **not**; unconfigured fallback rethrows; fallback's own error surfaces; fallback gets the genuinely remaining seconds; a successful primary never constructs the fallback | TODO |
 | 6 | F18-T06 | Runtime flag + wiring | `geminiPrimaryEnabled` via `optInFlag` (no migration — absent ⇒ off); `createAnalyser` widened to take it; chain built in `analyze-document/index.ts` with both configs read eagerly so a missing key stays a loud deploy fault that burns no slot | TODO |
 | 7 | F18-T07 | Observability | `analyze.provider` logs `{request_id, provider, failed_over, primary_error_code}`. Provider names in **server logs** only; §51 content ban unaffected | TODO |

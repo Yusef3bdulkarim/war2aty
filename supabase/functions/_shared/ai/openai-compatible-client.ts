@@ -77,7 +77,7 @@ export interface ChatClientOptions {
    * Required, and deliberately not defaulted here: a default in this module
    * would have to name one provider's model, which is exactly the knowledge
    * the seam exists to keep out. Each provider's config module supplies its
-   * own (`groq-config.ts`, and `gemini-config.ts` from F18-T04).
+   * own (`groq-config.ts`, `gemini-config.ts`).
    */
   readonly model: string;
   readonly timeoutSeconds: number;

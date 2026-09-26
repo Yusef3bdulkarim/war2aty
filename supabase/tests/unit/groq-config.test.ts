@@ -114,16 +114,28 @@ Deno.test("a fully configured environment reports as configured", () => {
   assert(isGroqConfigured(env(CONFIGURED)));
 });
 
-Deno.test("a missing key or model reports as unconfigured", () => {
+Deno.test("a missing key reports as unconfigured", () => {
   assert(!isGroqConfigured(env({})));
-  assert(!isGroqConfigured(env({ GROQ_API_KEY: "test-key" })));
   assert(!isGroqConfigured(env({ GROQ_MODEL: "openai/gpt-oss-120b" })));
 });
 
-Deno.test("a blank value reports as unconfigured", () => {
+Deno.test("a blank key reports as unconfigured", () => {
   // Same trap `groqOptionsFromEnv` guards: a var set to "" is still a string.
-  assert(!isGroqConfigured(env({ ...CONFIGURED, GROQ_MODEL: "  " })));
   assert(!isGroqConfigured(env({ ...CONFIGURED, GROQ_API_KEY: "" })));
+  assert(!isGroqConfigured(env({ ...CONFIGURED, GROQ_API_KEY: "   " })));
+});
+
+Deno.test("a key without a model still reports as configured", () => {
+  // Deliberate: the key is the operator's statement of intent, so this is
+  // "Groq was meant to be used" — and `groqOptionsFromEnv` then throws on the
+  // missing model. Returning false here would skip the leg in silence and hide
+  // a config slip that deserves shouting about.
+  assert(isGroqConfigured(env({ GROQ_API_KEY: "test-key" })));
+  assertThrows(
+    () => groqOptionsFromEnv(25, env({ GROQ_API_KEY: "test-key" })),
+    Error,
+    "GROQ_MODEL",
+  );
 });
 
 Deno.test("reporting unconfigured does not soften the deploy fault", () => {
