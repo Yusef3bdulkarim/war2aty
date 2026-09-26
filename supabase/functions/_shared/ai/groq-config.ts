@@ -39,7 +39,11 @@ export function groqOptionsFromEnv(
   timeoutSeconds: number,
   environment: { get(key: string): string | undefined } = Deno.env,
 ): ChatClientOptions {
-  const apiKey = environment.get("GROQ_API_KEY");
+  // Trimmed for the same reason the model is: a var set to whitespace is a
+  // truthy string, and an untrimmed key reaches the wire as `Bearer    `,
+  // which 401s on every single analysis. A copy-pasted `.env` value carrying a
+  // trailing newline is the ordinary way that happens.
+  const apiKey = environment.get("GROQ_API_KEY")?.trim();
 
   if (!apiKey) {
     // A deploy fault, not a user error. Surfaced loudly here rather than as a

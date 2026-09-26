@@ -69,6 +69,25 @@ Deno.test("the options carry the base URL, so no caller has to know it", () => {
   assertEquals(groqOptionsFromEnv(25, env(CONFIGURED)).baseUrl, GROQ_BASE_URL);
 });
 
+Deno.test("a blank api key is fatal", () => {
+  // A key set to whitespace is a truthy string; untrimmed it would reach the
+  // wire as `Bearer    ` and 401 on every analysis instead of failing at boot.
+  assertThrows(
+    () => groqOptionsFromEnv(25, env({ ...CONFIGURED, GROQ_API_KEY: "   " })),
+    Error,
+    "GROQ_API_KEY",
+  );
+});
+
+Deno.test("an api key is trimmed before use", () => {
+  const options = groqOptionsFromEnv(
+    25,
+    env({ ...CONFIGURED, GROQ_API_KEY: "gsk_test\n" }),
+  );
+
+  assertEquals(options.apiKey, "gsk_test");
+});
+
 Deno.test("a missing api key is fatal", () => {
   assertThrows(
     () => groqOptionsFromEnv(25, env({ GROQ_MODEL: "openai/gpt-oss-120b" })),
