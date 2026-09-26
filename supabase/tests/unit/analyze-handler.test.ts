@@ -56,6 +56,7 @@ interface Harness {
   readonly prompts: AnalysisPromptInput[];
   readonly analyserTimeouts: number[];
   readonly analyserGeminiPrimary: boolean[];
+  readonly analyserRequestIds: string[];
   readonly imagePipelineCalls: { data: Uint8Array; mimeType: string }[];
   readonly imagePipelineTimeouts: number[];
 }
@@ -74,6 +75,7 @@ function harness(options: HarnessOptions = {}): Harness {
   const prompts: AnalysisPromptInput[] = [];
   const analyserTimeouts: number[] = [];
   const analyserGeminiPrimary: boolean[] = [];
+  const analyserRequestIds: string[] = [];
   const imagePipelineCalls: { data: Uint8Array; mimeType: string }[] = [];
   const imagePipelineTimeouts: number[] = [];
 
@@ -120,9 +122,10 @@ function harness(options: HarnessOptions = {}): Harness {
         ),
       loadConfig: options.loadConfig ?? (() => Promise.resolve(config)),
       slots,
-      createAnalyser: (timeoutSeconds, geminiPrimary) => {
+      createAnalyser: (timeoutSeconds, geminiPrimary, analyserRequestId) => {
         analyserTimeouts.push(timeoutSeconds);
         analyserGeminiPrimary.push(geminiPrimary);
+        analyserRequestIds.push(analyserRequestId);
         return analyse;
       },
       createImagePipeline: (timeoutSeconds) => {
@@ -156,6 +159,7 @@ function harness(options: HarnessOptions = {}): Harness {
     prompts,
     analyserTimeouts,
     analyserGeminiPrimary,
+    analyserRequestIds,
     imagePipelineCalls,
     imagePipelineTimeouts,
   };
@@ -639,4 +643,14 @@ Deno.test("a flag change takes effect on the next request", async () => {
   await test.call();
 
   assertEquals(test.analyserGeminiPrimary, [false, true]);
+});
+
+Deno.test("the request id reaches the analyser so its provider log correlates", async () => {
+  // Without it the `analyze.provider` line could not be tied to the
+  // `analyze.completed` line for the same request (F18-T07).
+  const test = harness();
+
+  await test.call();
+
+  assertEquals(test.analyserRequestIds, [REQUEST_ID]);
 });

@@ -48,6 +48,7 @@ function analysis(label: string): ModelAnalysis {
 }
 
 const TOTAL_SECONDS = 25;
+const REQUEST_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 
 /**
  * A recording provider factory.
@@ -106,8 +107,11 @@ Deno.test("a successful primary is returned as-is", async () => {
 
   const provider = createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: fallback.factory,
+    fallbackName: "groq",
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: fakeClock().now,
   });
 
@@ -125,8 +129,11 @@ Deno.test("a successful primary never constructs the fallback", async () => {
 
   await createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: fallback.factory,
+    fallbackName: "groq",
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: fakeClock().now,
   })(INPUT);
 
@@ -138,8 +145,11 @@ Deno.test("the primary gets its share of the budget", async () => {
 
   await createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: null,
+    fallbackName: null,
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: fakeClock().now,
   })(INPUT);
 
@@ -163,8 +173,11 @@ for (
 
     const result = await createFallbackAnalysisProvider({
       primary: primary.factory,
+      primaryName: "gemini",
       fallback: fallback.factory,
+      fallbackName: "groq",
       totalSeconds: TOTAL_SECONDS,
+      requestId: REQUEST_ID,
       now: clock.now,
     })(INPUT);
 
@@ -181,8 +194,11 @@ Deno.test("a timeout with budget left fails over", async () => {
 
   const result = await createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: fallback.factory,
+    fallbackName: "groq",
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: clock.now,
   })(INPUT);
 
@@ -199,8 +215,11 @@ Deno.test("the fallback receives the genuinely remaining seconds", async () => {
 
   await createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: fallback.factory,
+    fallbackName: "groq",
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: clock.now,
   })(INPUT);
 
@@ -214,8 +233,11 @@ Deno.test("a slow primary leaves the fallback correspondingly less", async () =>
 
   await createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: fallback.factory,
+    fallbackName: "groq",
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: clock.now,
   })(INPUT);
 
@@ -236,8 +258,11 @@ Deno.test("a timeout that consumed the budget does NOT fail over", async () => {
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: fallback.factory,
+        fallbackName: "groq",
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     ApiError,
@@ -257,8 +282,11 @@ Deno.test("the budget floor is exactly MIN_FALLBACK_SECONDS, not one less", asyn
 
   const result = await createFallbackAnalysisProvider({
     primary: primary.factory,
+    primaryName: "gemini",
     fallback: fallback.factory,
+    fallbackName: "groq",
     totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
     now: clock.now,
   })(INPUT);
 
@@ -276,8 +304,11 @@ Deno.test("one second below the floor does not fail over", async () => {
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: fallback.factory,
+        fallbackName: "groq",
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     ApiError,
@@ -298,8 +329,11 @@ Deno.test("malformed-but-200 JSON does NOT fail over", async () => {
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: fallback.factory,
+        fallbackName: "groq",
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     ApiError,
@@ -319,8 +353,11 @@ Deno.test("an unconfigured fallback rethrows the primary's error unchanged", asy
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: null,
+        fallbackName: null,
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     ApiError,
@@ -342,8 +379,11 @@ Deno.test("a non-ApiError surfaces as itself and is never retried", async () => 
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: fallback.factory,
+        fallbackName: "groq",
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     TypeError,
@@ -367,8 +407,11 @@ Deno.test("the fallback's own failure surfaces, not the primary's", async () => 
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: fallback.factory,
+        fallbackName: "groq",
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     ApiError,
@@ -388,8 +431,11 @@ Deno.test("there is no third attempt", async () => {
     () =>
       createFallbackAnalysisProvider({
         primary: primary.factory,
+        primaryName: "gemini",
         fallback: fallback.factory,
+        fallbackName: "groq",
         totalSeconds: TOTAL_SECONDS,
+        requestId: REQUEST_ID,
         now: clock.now,
       })(INPUT),
     ApiError,
@@ -531,4 +577,200 @@ Deno.test("a provider is never its own fallback", () => {
     assert(order.primary !== order.fallback);
     assert(order.primaryName !== order.fallbackName);
   }
+});
+
+// ── the analyze.provider line (F18-T07) ──────────────────────────────────
+// On free tiers this is the only instrument that says how often 429s are
+// pushing traffic to the fallback — the signal that the day's capacity is gone.
+// Exactly one line per analysis, on every path, success or failure.
+
+type LoggedEvent = { event: string; fields: Record<string, unknown> };
+
+/** Captures what the chain reports, so no test has to read stdout. */
+function capturingLog() {
+  const lines: LoggedEvent[] = [];
+  const log = (event: string, fields: Record<string, unknown> = {}) => {
+    lines.push({ event, fields });
+  };
+  return { log: log as never, lines };
+}
+
+/** The common single-provider-name shape, for the cases that do not need a clock. */
+function chain(
+  overrides: {
+    primary: ReturnType<typeof leg>;
+    fallback: ReturnType<typeof leg> | null;
+    log: never;
+  },
+) {
+  return createFallbackAnalysisProvider({
+    primary: overrides.primary.factory,
+    primaryName: "gemini",
+    fallback: overrides.fallback === null ? null : overrides.fallback.factory,
+    fallbackName: overrides.fallback === null ? null : "groq",
+    totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
+    log: overrides.log,
+  });
+}
+
+Deno.test("a served primary logs itself, with no failover", async () => {
+  const { log, lines } = capturingLog();
+  const primary = leg(analysis("primary"));
+
+  await chain({ primary, fallback: leg(analysis("fallback")), log })(INPUT);
+
+  assertEquals(lines.length, 1);
+  assertEquals(lines[0].event, "analyze.provider");
+  assertEquals(lines[0].fields.request_id, REQUEST_ID);
+  assertEquals(lines[0].fields.provider, "gemini");
+  assertEquals(lines[0].fields.failed_over, false);
+  assertEquals(lines[0].fields.primary_error_code, undefined);
+  assertEquals(lines[0].fields.error_code, undefined);
+});
+
+Deno.test("a failover names the provider that ANSWERED, and why it had to", async () => {
+  // The two fields together are the whole instrument: `provider` is who served,
+  // `primary_error_code` is what pushed the traffic there.
+  const clock = fakeClock();
+  const { log, lines } = capturingLog();
+  const primary = leg(RATE_LIMITED, 200).bindClock(clock);
+
+  const result = await createFallbackAnalysisProvider({
+    primary: primary.factory,
+    primaryName: "gemini",
+    fallback: leg(analysis("fallback")).factory,
+    fallbackName: "groq",
+    totalSeconds: TOTAL_SECONDS,
+    requestId: REQUEST_ID,
+    now: clock.now,
+    log,
+  })(INPUT);
+
+  assertEquals(result.document_type.title, "fallback");
+  assertEquals(lines.length, 1);
+  assertEquals(lines[0].fields.provider, "groq");
+  assertEquals(lines[0].fields.failed_over, true);
+  assertEquals(lines[0].fields.primary_error_code, "AI_RATE_LIMITED");
+  assertEquals(lines[0].fields.error_code, undefined, "the request succeeded");
+});
+
+Deno.test("a single-leg deployment records why it could not fail over", async () => {
+  // The default state. Without this field a 429 with no fallback looks identical
+  // to a 429 whose fallback was skipped for lack of budget.
+  const { log, lines } = capturingLog();
+  const primary = leg(RATE_LIMITED);
+
+  await assertRejects(() => chain({ primary, fallback: null, log })(INPUT));
+
+  assertEquals(lines.length, 1);
+  assertEquals(lines[0].fields.provider, "gemini");
+  assertEquals(lines[0].fields.failed_over, false);
+  assertEquals(lines[0].fields.failover_skipped, "no_fallback_configured");
+  assertEquals(lines[0].fields.error_code, "AI_RATE_LIMITED");
+});
+
+Deno.test("an unusable answer records that it was not a provider fault", async () => {
+  const { log, lines } = capturingLog();
+  const primary = leg(UNUSABLE_JSON);
+
+  await assertRejects(() =>
+    chain({ primary, fallback: leg(analysis("fallback")), log })(INPUT)
+  );
+
+  assertEquals(lines[0].fields.failover_skipped, "not_provider_fault");
+  assertEquals(lines[0].fields.failed_over, false);
+});
+
+Deno.test("a budget-exhausted timeout records that too", async () => {
+  // The field that answers "why did my fallback never fire?" — the single most
+  // useful signal for tuning MIN_FALLBACK_SECONDS.
+  const clock = fakeClock();
+  const { log, lines } = capturingLog();
+  const primary = leg(PROVIDER_TIMEOUT, 18_000).bindClock(clock);
+
+  await assertRejects(() =>
+    createFallbackAnalysisProvider({
+      primary: primary.factory,
+      primaryName: "gemini",
+      fallback: leg(analysis("fallback")).factory,
+      fallbackName: "groq",
+      totalSeconds: TOTAL_SECONDS,
+      requestId: REQUEST_ID,
+      now: clock.now,
+      log,
+    })(INPUT)
+  );
+
+  assertEquals(lines[0].fields.failover_skipped, "insufficient_budget");
+  assertEquals(lines[0].fields.primary_error_code, "TIMEOUT");
+});
+
+Deno.test("both legs failing reports both codes on one line", async () => {
+  // A total outage must be readable as one: which provider was tried second,
+  // what the first said, and what the second said.
+  const clock = fakeClock();
+  const { log, lines } = capturingLog();
+  const primary = leg(RATE_LIMITED, 100).bindClock(clock);
+  const fallback = leg(ApiError.analysisFailed().asProviderFault(), 100)
+    .bindClock(clock);
+
+  await assertRejects(() =>
+    createFallbackAnalysisProvider({
+      primary: primary.factory,
+      primaryName: "gemini",
+      fallback: fallback.factory,
+      fallbackName: "groq",
+      totalSeconds: TOTAL_SECONDS,
+      requestId: REQUEST_ID,
+      now: clock.now,
+      log,
+    })(INPUT)
+  );
+
+  assertEquals(lines.length, 1, "one line per analysis, even on a double failure");
+  assertEquals(lines[0].fields.provider, "groq");
+  assertEquals(lines[0].fields.failed_over, true);
+  assertEquals(lines[0].fields.primary_error_code, "AI_RATE_LIMITED");
+  assertEquals(lines[0].fields.error_code, "ANALYSIS_FAILED");
+});
+
+Deno.test("a bug in our own code is logged without a code it does not have", async () => {
+  const { log, lines } = capturingLog();
+  const primary = leg(new TypeError("cannot read properties of undefined"));
+
+  await assertRejects(
+    () => chain({ primary, fallback: leg(analysis("fallback")), log })(INPUT),
+    TypeError,
+  );
+
+  assertEquals(lines[0].fields.primary_error_code, undefined);
+  assertEquals(lines[0].fields.failover_skipped, "not_provider_fault");
+});
+
+Deno.test("the log never carries the document (§7, §51)", async () => {
+  // The chain handles the OCR text on every call and must never record a word of
+  // it. Provider names and §31 codes are labels, not content.
+  const { log, lines } = capturingLog();
+  const primary = leg(RATE_LIMITED);
+
+  await assertRejects(() => chain({ primary, fallback: null, log })(INPUT));
+
+  const serialised = JSON.stringify(lines);
+
+  assert(!serialised.includes("850"), "an amount reached the log");
+  assert(!serialised.includes("فاتورة"), "document text reached the log");
+  assert(!serialised.includes(INPUT.ocrText));
+  assertEquals(
+    Object.keys(lines[0].fields).sort(),
+    [
+      "error_code",
+      "failed_over",
+      "failover_skipped",
+      "primary_error_code",
+      "provider",
+      "request_id",
+    ],
+    "an unexpected field appeared — check it carries no content",
+  );
 });

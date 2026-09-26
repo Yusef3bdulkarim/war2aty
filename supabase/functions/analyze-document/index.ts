@@ -70,7 +70,11 @@ function legFor(options: ChatClientOptions) {
  * `geminiPrimary` chooses the ORDER only. With no `GEMINI_API_KEY` the chain is
  * Groq alone with no fallback, which is bit-for-bit the behaviour before F18.
  */
-function createAnalysisChain(timeoutSeconds: number, geminiPrimary: boolean) {
+function createAnalysisChain(
+  timeoutSeconds: number,
+  geminiPrimary: boolean,
+  requestId: string,
+) {
   const geminiConfigured = isGeminiConfigured();
 
   if (geminiPrimary && !geminiConfigured) {
@@ -79,6 +83,7 @@ function createAnalysisChain(timeoutSeconds: number, geminiPrimary: boolean) {
     // — it is what the flag being off would do — but it must not be silent, or
     // nobody ever learns why Gemini never took a request.
     logEvent("analyze.provider_misconfigured", {
+      request_id: requestId,
       flag: "gemini_primary_enabled",
       reason: "GEMINI_API_KEY is not set; serving via Groq alone",
     });
@@ -97,8 +102,11 @@ function createAnalysisChain(timeoutSeconds: number, geminiPrimary: boolean) {
 
   return createFallbackAnalysisProvider({
     primary: order.primary,
+    primaryName: order.primaryName,
     fallback: order.fallback,
+    fallbackName: order.fallbackName,
     totalSeconds: timeoutSeconds,
+    requestId,
   });
 }
 

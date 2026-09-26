@@ -74,6 +74,7 @@ export interface AnalyzeDependencies {
   readonly createAnalyser: (
     timeoutSeconds: number,
     geminiPrimary: boolean,
+    requestId: string,
   ) => AiAnalysisProvider;
   /**
    * Same reasoning as {@link createAnalyser}: Azure/Google credentials are a
@@ -178,6 +179,9 @@ export function createAnalyzeHandler(
     const analyse = createAnalyser(
       config.aiTimeoutSeconds,
       config.geminiPrimaryEnabled,
+      // Threaded in so the chain's own `analyze.provider` line correlates with
+      // every other log for this request (F18-T07).
+      requestId,
     );
     const imagePipeline = parsed.inputType === "image"
       ? createImagePipeline(config.aiTimeoutSeconds)
