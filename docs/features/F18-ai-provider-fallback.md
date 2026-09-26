@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ai-provider-fallback` (off `develop`) · **Milestone:** post-F17
 - **Depends on:** F06 (the `AiAnalysisProvider` seam, the generation schema, the prompt builder — extended, not replaced), F13 (the optional-provider config pattern, the dark-launch `optInFlag`) · **Feeds:** analysis availability and headroom
-- **Progress:** 1 / 10 DONE
+- **Progress:** 2 / 10 DONE
 
 Adds a second AI analysis provider behind the existing seam and chains the two:
 Gemini's free tier serves first, Groq's free tier catches transport failures.
@@ -37,7 +37,7 @@ limit. The 14,400 RPD figure that circulated earlier belongs to other Groq
 models, not this one.
 
 The TPM wall was already documented in the code before anyone named it. From
-[`groq-provider.ts`](../../supabase/functions/_shared/groq/groq-provider.ts):
+[`analysis-provider.ts`](../../supabase/functions/_shared/ai/analysis-provider.ts) (named `groq-provider.ts` when this was measured, renamed in T01):
 
 > *"`max_tokens` is RESERVED against the per-minute token quota, not merely
 > capped — measured on 2026-07-26, the tier allows 8000 tokens/minute … At 4000
@@ -113,7 +113,7 @@ the instrument that will say when the free ceiling starts to bite.
 **Known risk, gated by T08.** Google documents the OpenAI-compat layer as beta
 and says unsupported parameters are *silently ignored* rather than rejected. If
 `response_format` were ignored we would get free-form JSON that happens to
-parse — the exact failure `groq-provider.ts` records having already been
+parse — the exact failure `ai/analysis-provider.ts` records having already been
 observed once with `json_object` mode, where the model invented its own field
 names. A live integration test must prove the schema is honoured before the flag
 is flipped; `assertModelAnalysis` is the runtime backstop if it ever regresses.
@@ -125,7 +125,7 @@ is flipped; `assertModelAnalysis` is the runtime backstop if it ever regresses.
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F18-T01 | Provider-neutral seam | Pure rename, zero behaviour change: `groq-output.schema.ts` → `analysis-output.schema.ts`, `groq-client.ts` → `ai/openai-compatible-client.ts` (gains `baseUrl`), `groq-provider.ts` → `ai/analysis-provider.ts` (exports `AiAnalysisProvider`, `assertModelAnalysis`). `deno check` clean, full `deno test` green, diff shows no logic change | **DONE** |
-| 2 | F18-T02 | Make the privacy copy true | Every «محدش بيشوفها»-family claim about the **text** audited and listed before editing, then reworded to stop asserting nobody reads it — still accurate that it is not stored and not logged. **Image** promise untouched. No provider named. `CLAUDE.md` §7 updated. Widget tests updated; RTL + Large Text verified | TODO |
+| 2 | F18-T02 | Make the privacy copy true | Every «محدش بيشوفها»-family claim about the **text** audited and listed before editing, then reworded to stop asserting nobody reads it — still accurate that it is not stored and not logged. **Image** promise untouched. No provider named. `CLAUDE.md` §7 updated. Widget tests updated; RTL + Large Text verified | **DONE** |
 | 3 | F18-T03 | Groq config module | `ai/groq-config.ts` — `groqOptionsFromEnv()` moved out of the client, now returning `baseUrl`; `isGroqConfigured()`. `GROQ_MODEL` stays deliberately non-defaulted | TODO |
 | 4 | F18-T04 | Gemini config module | `ai/gemini-config.ts` mirroring `google-config.ts`: `geminiOptionsFromEnv()`, `isGeminiConfigured()`, base URL defaulted but `GEMINI_BASE_URL`-overridable, `GEMINI_MODEL` non-defaulted and fatal-if-key-set-without-it. Unit tests | TODO |
 | 5 | F18-T05 | The fallback chain | `ai/fallback-provider.ts` + a `providerFault` flag on `ApiError` set only on client error paths. Fails over iff `providerFault` **and** a fallback is configured **and** `totalSeconds - elapsed >= MIN_FALLBACK_SECONDS`. Unit tests cover: 429/5xx/network/timeout-with-budget fail over; timeout-without-budget and malformed-200 do **not**; unconfigured fallback rethrows; fallback's own error surfaces; fallback gets the genuinely remaining seconds; a successful primary never constructs the fallback | TODO |
@@ -136,6 +136,39 @@ is flipped; `assertModelAnalysis` is the runtime backstop if it ever regresses.
 | 10 | F18-T10 | Quality comparison before the flip | Both providers over the golden-set folder, comparing `document_type`/`amounts`/`dates`/`status` per document. Gemini 3.1 Flash-Lite must match or beat `gpt-oss-120b` on Egyptian paperwork before the flag is set; otherwise `GEMINI_MODEL` moves to `gemini-3.5-flash-lite` and the comparison repeats — no code change. Paced against the free RPM | TODO |
 
 ---
+
+## T02 · Privacy-copy audit (2026-09-26)
+
+Every «محدش بيشوفها»-family claim, found by grepping `lib/` and `test/` for the
+claim family and for every privacy-adjacent string, **before** any edit. Four
+occurrences are in scope; two adjacent findings are recorded but deliberately
+left alone.
+
+### In scope
+
+| # | Location | Current text | Why it must change |
+|---|---|---|---|
+| 1 | `lib/core/localization/ar_strings.dart:112` · `privacyPointTextOnly` | «بنقرا الكلام اللي في ورقتك بمعالجة آمنة، لكن مانحفظش صورتها أبدًا — ومحدش بيشوفها.» | The only literal «محدش بيشوفها». It opens on the **text**, switches to the **image**, then ends with an unattached "and nobody sees it" that a reader takes as covering both. False for the text on a free-tier leg. |
+| 2 | `lib/core/localization/en_strings.dart:112` · `privacyPointTextOnly` | "We read your paper using secure processing, but we never save the photo — no person ever sees it." | Same conflation, and *more* explicit than the Arabic: "no person ever sees it" is exactly what free-tier terms permit. |
+| 3 | `CLAUDE.md:17` · Project Context → Privacy (non-negotiable) | «بنقرا نص الورقة بمعالجة آمنة، لكن **صورتها نفسها متتحفظش خالص ومحدش بيشوفها**» | Here «محدش بيشوفها» *is* attached to الصورة and stays true, but the sentence leads with the text claim, so the text/image split has to be made explicit or the next reader re-conflates it. |
+| 4 | `CLAUDE.md:82` · §7 hard rules | الصياغة المعتمدة: «بنقرا النص بمعالجة آمنة، لكن مانحفظش الصورة، ومحدش بيشوفها» | **The load-bearing one.** This is the *mandated* wording for all user-facing copy. Leave it and every future screen re-introduces the false claim. |
+
+Rendering surfaces, for completeness: both occurrences of (1)/(2) reach users
+through a single widget, `core/widgets/privacy_policy_content.dart`, shared by
+the first-run `PrivacyScreen` and Settings → «سياسة الخصوصية». Both hosts wrap
+it in a `SingleChildScrollView`, so longer copy cannot overflow at Large Text.
+
+No test hardcodes the Arabic or English literal — every assertion goes through
+the getter (`ar.privacyPointTextOnly`), so the four widget tests follow the new
+wording automatically and needed no edit. Verified by grepping `test/` for the
+literals: zero hits.
+
+### Adjacent, out of scope — flagged, not fixed
+
+| # | Location | Text | Finding |
+|---|---|---|---|
+| 5 | `ar_strings.dart:499` / `en_strings.dart` · `settingsProcessingModeTextOnlyDescription` | «بس يطلع النص من الورقة من غير تحليل — كل حاجة تفضل على الموبايل» | "Everything stays on the phone" is false for two reasons, both predating F18: with `azureOcrEnabled` the **image** leaves for OCR, and — see (6) — the mode never reaches the pipeline at all. |
+| 6 | `lib/core/analysis/processing_mode.dart:13` | "OCR only — no text leaves the phone, no network call." | `GetProcessingMode` is injected into `SettingsCubit` **and nowhere else**: the analysis flow never reads it, so choosing «استخراج النص فقط» changes no behaviour. The setting is inert, which makes its description a promise nothing keeps. An F11-T03 gap, not an F18 one — it needs the mode wired into the flow, not a copy change, and it must not be papered over by rewording. |
 
 ## Provider selection matrix
 

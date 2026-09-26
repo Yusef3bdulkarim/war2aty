@@ -136,4 +136,81 @@ void main() {
       expect(ar.actionCancel, isNot(en.actionCancel));
     });
   });
+
+  // ── the privacy contract (F18-T02) ──────────────────────────────────────
+  //
+  // The app runs its analysis on a provider free tier whose terms let the
+  // provider read and human-review the API input, and the API input is the
+  // OCR TEXT — the account number, the amount, the name, the court date. So
+  // no user-facing string may claim that nobody sees the TEXT.
+  //
+  // The IMAGE promise is untouched and still true: it is never stored and
+  // nobody sees it. These tests exist to keep the two apart, because the old
+  // copy conflated them in one sentence and the reader took "nobody sees it"
+  // as covering both.
+  group('privacy copy tells the truth about the text', () {
+    test('Arabic does not claim the text is unseen', () {
+      // «محدش بيشوفه» is the masculine form — النص. Only the feminine
+      // «محدش بيشوفها» (الصورة) is a promise the app can keep.
+      expect(
+        ar.privacyPointTextOnly,
+        isNot(contains('محدش بيشوفه ')),
+        reason: 'free-tier terms permit the provider to read the text',
+      );
+      expect(
+        ar.privacyPointTextOnly,
+        isNot(contains('محدش بيقرا')),
+        reason: 'the app cannot promise the text goes unread',
+      );
+    });
+
+    test('English does not claim the text is unseen', () {
+      final lower = en.privacyPointTextOnly.toLowerCase();
+
+      expect(
+        lower,
+        isNot(contains('no person ever sees')),
+        reason: 'the retired claim — false for the text on a free tier',
+      );
+      expect(
+        lower,
+        isNot(contains('nobody sees the text')),
+        reason: 'the app cannot promise the text goes unseen',
+      );
+    });
+
+    test('the image promise survives in both languages', () {
+      // What T02 must NOT erase. The image never reaches the analysis
+      // provider, is not stored, and is deleted straight after reading.
+      expect(ar.privacyPointTextOnly, contains('محدش بيشوفها'));
+      expect(en.privacyPointTextOnly.toLowerCase(), contains('nobody sees it'));
+    });
+
+    test('what the app does promise about the text is still stated', () {
+      // Honest without being frightening: not kept, not logged, sent
+      // encrypted. Anything weaker and the copy says nothing at all.
+      expect(ar.privacyPointTextOnly, contains('مانحفظش النص'));
+      expect(en.privacyPointTextOnly, contains('do not keep the text'));
+    });
+
+    test('no user-facing privacy copy names a provider', () {
+      // §7, unchanged since F13-T18 and binding on every string here.
+      const providers = ['Azure', 'Google', 'Gemini', 'Groq', 'OpenAI'];
+
+      for (final get in _accessors) {
+        for (final name in providers) {
+          expect(
+            get(ar).toLowerCase(),
+            isNot(contains(name.toLowerCase())),
+            reason: '$name must never appear in Arabic user-facing copy',
+          );
+          expect(
+            get(en).toLowerCase(),
+            isNot(contains(name.toLowerCase())),
+            reason: '$name must never appear in English user-facing copy',
+          );
+        }
+      }
+    });
+  });
 }

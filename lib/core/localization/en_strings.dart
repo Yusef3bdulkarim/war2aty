@@ -110,8 +110,9 @@ final class EnStrings implements AppStrings {
 
   @override
   String get privacyPointTextOnly =>
-      'We read your paper using secure processing, but we never save the '
-      'photo — no person ever sees it.';
+      'We send your paper\'s text encrypted to an analysis service so we can '
+      'understand it, and we do not keep the text. The photo itself is never '
+      'saved, and nobody sees it.';
 
   @override
   String get privacyPointImageOptIn =>
