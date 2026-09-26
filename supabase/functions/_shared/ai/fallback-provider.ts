@@ -58,6 +58,61 @@ export const MIN_FALLBACK_SECONDS = 8;
 /** Builds a provider bound to a per-call second budget. */
 export type AnalysisProviderFactory = (seconds: number) => AiAnalysisProvider;
 
+/** For logs and diagnostics only — never for anything the user sees (§7). */
+export type ProviderName = "groq" | "gemini";
+
+export interface ProviderOrder<T> {
+  readonly primary: T;
+  readonly primaryName: ProviderName;
+  /** `null` when only one provider is configured. */
+  readonly fallback: T | null;
+  readonly fallbackName: ProviderName | null;
+}
+
+/**
+ * The F18 provider matrix, as a pure function (F18-T06).
+ *
+ * | `geminiPrimary` | Gemini configured | primary | fallback |
+ * |---|---|---|---|
+ * | false | no  | groq   | none — *identical to pre-F18 behaviour* |
+ * | false | yes | groq   | gemini — *Groq's quota goes first, Gemini takes the overflow* |
+ * | true  | yes | gemini | groq |
+ * | true  | no  | groq   | none — *a config error; the caller logs it* |
+ *
+ * Generic over the leg type so the matrix can be tested without building HTTP
+ * clients, and so the caller keeps its legs type-safe with no null assertions.
+ * The flag chooses the ORDER; whether a second leg exists at all is decided by
+ * whether Gemini is configured.
+ */
+export function resolveProviderOrder<T>(
+  options: {
+    readonly geminiPrimary: boolean;
+    readonly groq: T;
+    readonly gemini: T | null;
+  },
+): ProviderOrder<T> {
+  const { geminiPrimary, groq, gemini } = options;
+
+  if (geminiPrimary && gemini !== null) {
+    return {
+      primary: gemini,
+      primaryName: "gemini",
+      fallback: groq,
+      fallbackName: "groq",
+    };
+  }
+
+  // Groq leads in every remaining case, including the misconfigured one — a
+  // flag flipped without a key must degrade to today's behaviour, not to an
+  // outage. The caller is responsible for making that state loud.
+  return {
+    primary: groq,
+    primaryName: "groq",
+    fallback: gemini,
+    fallbackName: gemini === null ? null : "gemini",
+  };
+}
+
 export interface FallbackAnalysisProviderOptions {
   readonly primary: AnalysisProviderFactory;
   /**

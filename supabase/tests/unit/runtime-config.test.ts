@@ -351,3 +351,78 @@ Deno.test("a malformed client version is refused, not waved through", () => {
   assertEquals(isAppVersionSupported("", "1.0.0"), false);
   assertEquals(isAppVersionSupported("999", "1.0.0"), false);
 });
+
+// ── geminiPrimaryEnabled — dark-launched (F18-T06) ───────────────────────
+// Same opt-in semantics as `azureOcrEnabled`, and for the same reason: until an
+// operator has verified the new provider on live traffic, nothing has approved
+// it to serve first. Absence must read as today's behaviour.
+
+Deno.test("geminiPrimaryEnabled is off until an operator explicitly turns it on", () => {
+  assertEquals(parseRuntimeConfig(SEEDED, env()).geminiPrimaryEnabled, false);
+  assertEquals(parseRuntimeConfig([], env()).geminiPrimaryEnabled, false);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.geminiPrimaryEnabled, false);
+});
+
+Deno.test("no migration ships the key, so a fresh database reads as off", () => {
+  // The rollout depends on this: merging F18 with no row present must leave
+  // production byte-for-byte unchanged.
+  assertEquals(parseRuntimeConfig([], env()).geminiPrimaryEnabled, false);
+});
+
+Deno.test("an operator can flip geminiPrimaryEnabled without a redeploy", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "gemini_primary_enabled", value: true }], env())
+      .geminiPrimaryEnabled,
+    true,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "gemini_primary_enabled", value: "true" }], env())
+      .geminiPrimaryEnabled,
+    true,
+  );
+});
+
+Deno.test("geminiPrimaryEnabled tolerates hand-edited 'on' spellings", () => {
+  for (const value of ["true", "TRUE", " on ", "yes", "1", 1, true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "gemini_primary_enabled", value }], env())
+        .geminiPrimaryEnabled,
+      true,
+      `${JSON.stringify(value)} should enable`,
+    );
+  }
+});
+
+Deno.test("anything short of an explicit 'on' leaves geminiPrimaryEnabled off", () => {
+  // Rollback is setting this row to false, so every "off" spelling AND every
+  // unreadable value must land on off — a typo during a rollback must not leave
+  // Gemini serving.
+  for (
+    const value of ["false", "FALSE", "off", "no", "0", 0, false, { nonsense: true }, [], "maybe"]
+  ) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "gemini_primary_enabled", value }], env())
+        .geminiPrimaryEnabled,
+      false,
+      `${JSON.stringify(value)} should stay off`,
+    );
+  }
+});
+
+Deno.test("the flag is independent of azureOcrEnabled", () => {
+  // They gate different halves of the pipeline — OCR reading vs AI analysis —
+  // and one being on must never imply the other.
+  const onlyGemini = parseRuntimeConfig(
+    [{ key: "gemini_primary_enabled", value: true }],
+    env(),
+  );
+  assertEquals(onlyGemini.geminiPrimaryEnabled, true);
+  assertEquals(onlyGemini.azureOcrEnabled, false);
+
+  const onlyAzure = parseRuntimeConfig(
+    [{ key: "azure_ocr_enabled", value: true }],
+    env(),
+  );
+  assertEquals(onlyAzure.geminiPrimaryEnabled, false);
+  assertEquals(onlyAzure.azureOcrEnabled, true);
+});

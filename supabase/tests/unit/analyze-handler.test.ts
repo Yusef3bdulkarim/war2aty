@@ -55,6 +55,7 @@ interface Harness {
   readonly finalizes: { requestId: string; success: boolean; errorCode?: string }[];
   readonly prompts: AnalysisPromptInput[];
   readonly analyserTimeouts: number[];
+  readonly analyserGeminiPrimary: boolean[];
   readonly imagePipelineCalls: { data: Uint8Array; mimeType: string }[];
   readonly imagePipelineTimeouts: number[];
 }
@@ -72,6 +73,7 @@ function harness(options: HarnessOptions = {}): Harness {
   const finalizes: { requestId: string; success: boolean; errorCode?: string }[] = [];
   const prompts: AnalysisPromptInput[] = [];
   const analyserTimeouts: number[] = [];
+  const analyserGeminiPrimary: boolean[] = [];
   const imagePipelineCalls: { data: Uint8Array; mimeType: string }[] = [];
   const imagePipelineTimeouts: number[] = [];
 
@@ -118,8 +120,9 @@ function harness(options: HarnessOptions = {}): Harness {
         ),
       loadConfig: options.loadConfig ?? (() => Promise.resolve(config)),
       slots,
-      createAnalyser: (timeoutSeconds) => {
+      createAnalyser: (timeoutSeconds, geminiPrimary) => {
         analyserTimeouts.push(timeoutSeconds);
+        analyserGeminiPrimary.push(geminiPrimary);
         return analyse;
       },
       createImagePipeline: (timeoutSeconds) => {
@@ -152,6 +155,7 @@ function harness(options: HarnessOptions = {}): Harness {
     finalizes,
     prompts,
     analyserTimeouts,
+    analyserGeminiPrimary,
     imagePipelineCalls,
     imagePipelineTimeouts,
   };
@@ -598,4 +602,41 @@ Deno.test("the response carries phones/references once the pipeline supplies ver
   assertEquals(body.phones.length, 1);
   assertEquals(body.phones[0].needsUserReview, true);
   assertEquals(body.references.length, 1);
+});
+
+// ── the provider-order flag reaches the factory (F18-T06) ────────────────
+// The handler must not decide, cache or second-guess the order — it passes the
+// runtime flag straight through, so flipping the DB row takes effect on the very
+// next request with no redeploy and no worker restart.
+
+Deno.test("the runtime flag is handed to the analyser factory", async () => {
+  const test = harness({ config: { geminiPrimaryEnabled: true } });
+
+  await test.call();
+
+  assertEquals(test.analyserGeminiPrimary, [true]);
+});
+
+Deno.test("the flag defaults to off, which is today's behaviour", async () => {
+  const test = harness();
+
+  await test.call();
+
+  assertEquals(test.analyserGeminiPrimary, [false]);
+});
+
+Deno.test("a flag change takes effect on the next request", async () => {
+  // Built per request, not per worker: an operator flipping the row must not
+  // have to wait for a cold start.
+  let geminiPrimary = false;
+  const test = harness({
+    loadConfig: () =>
+      Promise.resolve(testConfig({ geminiPrimaryEnabled: geminiPrimary })),
+  });
+
+  await test.call();
+  geminiPrimary = true;
+  await test.call();
+
+  assertEquals(test.analyserGeminiPrimary, [false, true]);
 });

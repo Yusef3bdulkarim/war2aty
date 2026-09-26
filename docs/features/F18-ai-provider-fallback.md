@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ai-provider-fallback` (off `develop`) · **Milestone:** post-F17
 - **Depends on:** F06 (the `AiAnalysisProvider` seam, the generation schema, the prompt builder — extended, not replaced), F13 (the optional-provider config pattern, the dark-launch `optInFlag`) · **Feeds:** analysis availability and headroom
-- **Progress:** 5 / 10 DONE
+- **Progress:** 6 / 10 DONE
 
 Adds a second AI analysis provider behind the existing seam and chains the two:
 Gemini's free tier serves first, Groq's free tier catches transport failures.
@@ -129,7 +129,7 @@ is flipped; `assertModelAnalysis` is the runtime backstop if it ever regresses.
 | 3 | F18-T03 | Groq config module | `ai/groq-config.ts` — `groqOptionsFromEnv()` moved out of the client, now returning `baseUrl`; `isGroqConfigured()`. `GROQ_MODEL` stays deliberately non-defaulted | **DONE** |
 | 4 | F18-T04 | Gemini config module | `ai/gemini-config.ts` mirroring `google-config.ts`: `geminiOptionsFromEnv()`, `isGeminiConfigured()`, base URL defaulted but `GEMINI_BASE_URL`-overridable, `GEMINI_MODEL` non-defaulted and fatal-if-key-set-without-it. Unit tests | **DONE** |
 | 5 | F18-T05 | The fallback chain | `ai/fallback-provider.ts` + a `providerFault` flag on `ApiError` set only on client error paths. Fails over iff `providerFault` **and** a fallback is configured **and** `totalSeconds - elapsed >= MIN_FALLBACK_SECONDS`. Unit tests cover: 429/5xx/network/timeout-with-budget fail over; timeout-without-budget and malformed-200 do **not**; unconfigured fallback rethrows; fallback's own error surfaces; fallback gets the genuinely remaining seconds; a successful primary never constructs the fallback | **DONE** |
-| 6 | F18-T06 | Runtime flag + wiring | `geminiPrimaryEnabled` via `optInFlag` (no migration — absent ⇒ off); `createAnalyser` widened to take it; chain built in `analyze-document/index.ts` with both configs read eagerly so a missing key stays a loud deploy fault that burns no slot | TODO |
+| 6 | F18-T06 | Runtime flag + wiring | `geminiPrimaryEnabled` via `optInFlag` (no migration — absent ⇒ off); `createAnalyser` widened to take it; chain built in `analyze-document/index.ts` with both configs read eagerly so a missing key stays a loud deploy fault that burns no slot | **DONE** |
 | 7 | F18-T07 | Observability | `analyze.provider` logs `{request_id, provider, failed_over, primary_error_code}`. Provider names in **server logs** only; §51 content ban unaffected | TODO |
 | 8 | F18-T08 | Live integration test (risk gate) | `gemini-client.integration.test.ts`, skipped without `GEMINI_API_KEY`: model answers; **`json_schema` + `strict` honoured, not silently ignored**; `ANALYSIS_OUTPUT_SCHEMA` accepted (no 400); bad key → `ANALYSIS_FAILED` not `UNAUTHORIZED`; short timeout aborts. Few, small calls — the free RPD is the budget | TODO |
 | 9 | F18-T09 | Docs & secrets | `.env.example` gains the `GEMINI_*` block; `supabase/README.md` + project `CLAUDE.md` made provider-neutral; this doc + README row; capacity reality recorded so nobody re-derives the 14,400 figure | TODO |

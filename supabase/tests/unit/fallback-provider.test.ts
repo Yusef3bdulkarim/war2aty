@@ -13,6 +13,7 @@ import {
   createFallbackAnalysisProvider,
   MIN_FALLBACK_SECONDS,
   PRIMARY_SHARE,
+  resolveProviderOrder,
 } from "../../functions/_shared/ai/fallback-provider.ts";
 import type { AiAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { AnalysisPromptInput } from "../../functions/_shared/prompts/analysis-prompt.ts";
@@ -443,4 +444,91 @@ Deno.test("details survive being marked a provider fault", () => {
 
   assertEquals(marked.details, { reset_at: "2026-09-27T00:00:00+03:00" });
   assertEquals(marked.providerFault, true);
+});
+
+// ── the provider matrix (F18-T06) ─────────────────────────────────────────
+// The rollout's safety rests on these four rows, so they are pinned as pure
+// logic rather than left to the wiring file. Strings stand in for the legs: what
+// is under test is WHICH leg goes where, not how one is built.
+
+Deno.test("flag off with no Gemini key: Groq alone, exactly as before F18", () => {
+  const order = resolveProviderOrder({
+    geminiPrimary: false,
+    groq: "groq-leg",
+    gemini: null,
+  });
+
+  assertEquals(order.primary, "groq-leg");
+  assertEquals(order.primaryName, "groq");
+  assertEquals(order.fallback, null, "no second leg exists to fall back to");
+  assertEquals(order.fallbackName, null);
+});
+
+Deno.test("flag off with a Gemini key: Groq first, Gemini takes the overflow", () => {
+  // Useful on its own, before anyone flips the flag: Groq's ~66/day is spent
+  // first and Gemini absorbs the 429s rather than the user seeing them.
+  const order = resolveProviderOrder({
+    geminiPrimary: false,
+    groq: "groq-leg",
+    gemini: "gemini-leg",
+  });
+
+  assertEquals(order.primaryName, "groq");
+  assertEquals(order.fallbackName, "gemini");
+});
+
+Deno.test("flag on with a Gemini key: Gemini leads, Groq catches", () => {
+  const order = resolveProviderOrder({
+    geminiPrimary: true,
+    groq: "groq-leg",
+    gemini: "gemini-leg",
+  });
+
+  assertEquals(order.primary, "gemini-leg");
+  assertEquals(order.primaryName, "gemini");
+  assertEquals(order.fallback, "groq-leg");
+  assertEquals(order.fallbackName, "groq");
+});
+
+Deno.test("flag on with NO Gemini key degrades to Groq alone, not to an outage", () => {
+  // A config error, and the caller logs it — but the user still gets an answer.
+  // Failing the request here would turn a flipped flag into a total outage.
+  const order = resolveProviderOrder({
+    geminiPrimary: true,
+    groq: "groq-leg",
+    gemini: null,
+  });
+
+  assertEquals(order.primaryName, "groq");
+  assertEquals(order.fallbackName, null);
+});
+
+Deno.test("the flag never invents a second leg", () => {
+  // Across both flag positions, an absent Gemini means exactly one leg. This is
+  // what makes "merge with the flag absent" a no-op in production.
+  for (const geminiPrimary of [true, false]) {
+    const order = resolveProviderOrder({
+      geminiPrimary,
+      groq: "groq-leg",
+      gemini: null,
+    });
+
+    assertEquals(order.primary, "groq-leg");
+    assertEquals(order.fallback, null);
+  }
+});
+
+Deno.test("a provider is never its own fallback", () => {
+  // A chain that retried the same leg twice would burn double the quota to
+  // learn the same thing.
+  for (const geminiPrimary of [true, false]) {
+    const order = resolveProviderOrder({
+      geminiPrimary,
+      groq: "groq-leg",
+      gemini: "gemini-leg",
+    });
+
+    assert(order.primary !== order.fallback);
+    assert(order.primaryName !== order.fallbackName);
+  }
 });
