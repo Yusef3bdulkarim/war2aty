@@ -56,28 +56,14 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
       final back = _backCamera(cameras);
       if (back == null) return const Err(ImageProcessingFailure());
 
-      final controller = CameraController(
-        back,
-        // `high` (~720p, ~0.92 MP) was below this app's own quality gate —
-        // DartImageQualityService.assess flags anything under 1 MP as `poor`,
-        // so a `high` capture failed the app's own bar before the user ever
-        // saw the result (F17). `veryHigh` (~1080p, ~2.07 MP) clears both
-        // that floor and `_resGood`, without `ultraHigh`/`max`'s payload and
-        // per-device-support risk — see F17-ocr-accuracy.md Phase 1 for why
-        // this is a self-consistency fix, not a claimed OCR-accuracy gain;
-        // the one resolution comparison run so far (0.92 vs 1.92 MP) did not
-        // show a clear improvement, so this stays a modest, low-risk step
-        // rather than the ultraHigh jump that plan still gates on device
-        // testing.
-        ResolutionPreset.veryHigh,
-        enableAudio: false,
-        imageFormatGroup: _streamableFormat,
+      final controller = await openAtBestPreset(
+        ladder: presetLadder,
+        open: (preset) => _openController(back, preset),
+        isSuperseded: () => _epoch != epoch,
       );
-      await controller.initialize();
-      _description = back;
-      // The whole app is portrait; lock capture so a photo taken with the
-      // phone slightly rotated is still saved upright.
-      await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      // Every rung refused, or a dispose landed between rungs: either way
+      // there is no session to adopt.
+      if (controller == null) return const Err(ImageProcessingFailure());
 
       // Cancelled while we were opening — release this controller rather than
       // adopt it, so a suspend/close mid-open cannot leave the camera held.
@@ -85,7 +71,14 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
         await controller.dispose();
         return const Err(ImageProcessingFailure());
       }
+      // Adopted before the orientation lock, not after, so that a lock which
+      // throws is released by the `on Object` below instead of leaking the
+      // handle it just opened.
       _controller = controller;
+      _description = back;
+      // The whole app is portrait; lock capture so a photo taken with the
+      // phone slightly rotated is still saved upright.
+      await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
       return const Ok(null);
     } on Object {
       await _releaseController();
@@ -157,6 +150,85 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
       // Nothing to recover: the stream is either already stopped or the
       // controller is gone, and either way no more frames will arrive.
     }
+  }
+
+  /// Capture resolutions to try, best first.
+  ///
+  /// A portrait A4 page filling the frame is ~185-260 DPI at `ultraHigh`
+  /// (3840x2160, 8.29 MP) against ~60-110 DPI at `high` (1280x720, 0.92 MP),
+  /// and 0.92 MP is below this app's own quality gate —
+  /// `DartImageQualityService` scores anything under 1 MP as `poor`, so a
+  /// `high` capture fails the bar the app judges it against (F17 Phase 1).
+  /// `max` is deliberately absent: it is unbounded, and on a large sensor it
+  /// produces a file over the backend's `max_image_bytes`, which is rejected
+  /// only *after* the user has waited through capture.
+  ///
+  /// It is a ladder rather than a single preset because the `camera` plugin
+  /// guarantees nothing here — its own doc notes platform implementations
+  /// "may fall back to a lower resolution if a specific preset is not
+  /// available", and devices that do not fall back throw instead. The bottom
+  /// rung stays below the quality gate on purpose: a 720p camera still lets
+  /// the user get a reading (and be told it is poor), which beats a device
+  /// with no camera at all (F17-T06).
+  @visibleForTesting
+  static const presetLadder = <ResolutionPreset>[
+    ResolutionPreset.ultraHigh,
+    ResolutionPreset.veryHigh,
+    ResolutionPreset.high,
+  ];
+
+  /// Walks [ladder] top-down and returns the first session [open] accepts, or
+  /// `null` if every rung is refused — or if [isSuperseded] reports a dispose
+  /// landed before a rung could be tried, since stepping down would then open
+  /// a camera nobody is going to adopt.
+  ///
+  /// Generic and controller-free on purpose: the part that actually goes wrong
+  /// — the order rungs are tried in, and stopping once the attempt has been
+  /// superseded — is then unit-testable without a camera, the same split
+  /// [buildFrame] uses. [open] owns its own cleanup: a rung it refuses must
+  /// leave nothing behind, because this walker never sees that session.
+  @visibleForTesting
+  static Future<T?> openAtBestPreset<T>({
+    required List<ResolutionPreset> ladder,
+    required Future<T> Function(ResolutionPreset preset) open,
+    required bool Function() isSuperseded,
+  }) async {
+    for (final preset in ladder) {
+      if (isSuperseded()) return null;
+      try {
+        return await open(preset);
+      } on Object {
+        // This device refuses this preset — step down to the next rung.
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /// Opens [description] at [preset], disposing the controller before
+  /// rethrowing if the device refuses the preset, so a refused rung never
+  /// leaves a native camera handle held for the next rung to contend with.
+  Future<CameraController> _openController(
+    CameraDescription description,
+    ResolutionPreset preset,
+  ) async {
+    final controller = CameraController(
+      description,
+      preset,
+      enableAudio: false,
+      imageFormatGroup: _streamableFormat,
+    );
+    try {
+      await controller.initialize();
+    } on Object {
+      try {
+        await controller.dispose();
+      } on Object {
+        // The session never came up; there is nothing left to release.
+      }
+      rethrow;
+    }
+    return controller;
   }
 
   /// The stream format each platform can actually deliver. The capture path's

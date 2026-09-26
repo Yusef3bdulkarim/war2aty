@@ -40,6 +40,13 @@ final class DoclensPerspectiveCorrector implements PerspectiveCorrector {
       final warpedPath = await _platform.warpImage(
         rawImagePath: photo.path,
         quad: quad.scaleToSize(detection.imageSize),
+        // The one re-encode the OCR path cannot avoid — the warp has to write
+        // new pixels — so it is pinned at the maximum rather than left to
+        // `doclens`'s default, which a version bump could quietly lower
+        // (F17-T07). It is also the lever F17-T10 turns if the payload has to
+        // be brought under `max_image_bytes`: trading quality is cheaper than
+        // throwing away the resolution F17-T06 just added.
+        jpegQuality: 100,
       );
       return Ok(CapturedPhoto(warpedPath));
     } on Object {

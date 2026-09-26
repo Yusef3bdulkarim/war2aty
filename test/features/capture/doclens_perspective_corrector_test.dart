@@ -40,6 +40,36 @@ void main() {
       expect(platform.capturedQuad, quad.scaleToSize(imageSize));
     });
 
+    test('the warp is pinned at the maximum JPEG quality (F17-T07)', () async {
+      final platform = _FakeDoclensPlatform(
+        detectResult: const ImageDetection(quad: quad, imageSize: imageSize),
+        warpedPath: '/tmp/warped.jpg',
+      );
+      final corrector = DoclensPerspectiveCorrector(platform: platform);
+
+      await corrector.correct(source);
+
+      // The warp is the only re-encode on the OCR path, so it must not be the
+      // place capture resolution is quietly traded away. Pinned rather than
+      // defaulted: a `doclens` version bump could change the default.
+      expect(platform.capturedJpegQuality, 100);
+    });
+
+    test('the warp asks for no image enhancement', () async {
+      final platform = _FakeDoclensPlatform(
+        detectResult: const ImageDetection(quad: quad, imageSize: imageSize),
+        warpedPath: '/tmp/warped.jpg',
+      );
+      final corrector = DoclensPerspectiveCorrector(platform: platform);
+
+      await corrector.correct(source);
+
+      // F17 locked decision #1: the bytes the OCR path produces are geometry
+      // corrected only. Binarisation and "magic colour" destroy the stroke
+      // gradient Azure's handwriting model reads.
+      expect(platform.capturedEnhancement, ImageEnhancement.none);
+    });
+
     test('no detected quad returns the original photo untouched', () async {
       final platform = _FakeDoclensPlatform(
         detectResult: const ImageDetection(quad: null, imageSize: imageSize),
@@ -113,6 +143,8 @@ final class _FakeDoclensPlatform extends DoclensPlatform {
 
   String? capturedRawPath;
   Quad? capturedQuad;
+  int? capturedJpegQuality;
+  ImageEnhancement? capturedEnhancement;
 
   @override
   Future<ImageDetection?> detectInImage({required String imagePath}) async {
@@ -131,6 +163,8 @@ final class _FakeDoclensPlatform extends DoclensPlatform {
     if (warpError != null) throw warpError!;
     capturedRawPath = rawImagePath;
     capturedQuad = quad;
+    capturedJpegQuality = jpegQuality;
+    capturedEnhancement = enhancement;
     return warpedPath!;
   }
 
