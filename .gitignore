@@ -68,3 +68,11 @@ supabase/.temp/
 # Local tooling
 .claude/
 .mcp.json
+
+# OCR benchmark corpus and its results (supabase/tools/ocr-benchmark.ts).
+# NEVER commit these: the golden set is real Egyptian paperwork — bills and
+# letters carrying names, amounts and account numbers — held locally only.
+# The benchmark reads whatever folder it is pointed at, so nothing here needs
+# to be in the repo for F18-T10 to run.
+golden*/
+baseline*.json
