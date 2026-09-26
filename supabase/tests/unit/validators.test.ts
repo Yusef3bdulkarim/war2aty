@@ -8,7 +8,7 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
-import type { ModelAnalysis } from "../../functions/_shared/schemas/groq-output.schema.ts";
+import type { ModelAnalysis } from "../../functions/_shared/schemas/analysis-output.schema.ts";
 import { validateAnalysis } from "../../functions/_shared/validators/validation-pipeline.ts";
 import {
   containsDigitSequence,

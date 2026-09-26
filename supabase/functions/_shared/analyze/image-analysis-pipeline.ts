@@ -76,7 +76,7 @@ function runExtractors(text: string): ExtractedCandidates {
 
 /**
  * Builds the pipeline. Bound to one Azure/Google client pair per request —
- * same lifecycle as `createGroqAnalysisProvider`, since both carry a timeout
+ * same lifecycle as `createAnalysisProvider`, since both carry a timeout
  * that comes from runtime config.
  */
 export function createImageAnalysisPipeline(

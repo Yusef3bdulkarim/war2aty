@@ -19,7 +19,11 @@
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
-import { createGroqClient, DEFAULT_GROQ_MODEL } from "../../functions/_shared/groq/groq-client.ts";
+import {
+  createChatClient,
+  DEFAULT_GROQ_MODEL,
+  GROQ_BASE_URL,
+} from "../../functions/_shared/ai/openai-compatible-client.ts";
 
 const apiKey = Deno.env.get("GROQ_API_KEY");
 const model = Deno.env.get("GROQ_MODEL") ?? DEFAULT_GROQ_MODEL;
@@ -29,7 +33,8 @@ Deno.test({
   name: "[integration] the configured model answers a real completion",
   ignore: skip,
   fn: async () => {
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
       timeoutSeconds: 25,
@@ -59,7 +64,8 @@ Deno.test({
   fn: async () => {
     // F06-T11 depends on constrained output; confirm the account and model
     // support it before building on that assumption.
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
       timeoutSeconds: 25,
@@ -88,7 +94,8 @@ Deno.test({
   fn: async () => {
     // Our credential problem must never be reported to the user as though
     // THEY were not signed in.
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: "gsk_definitely_not_a_valid_key",
       model,
       timeoutSeconds: 25,
@@ -107,7 +114,8 @@ Deno.test({
   name: "[integration] an impossibly short timeout aborts rather than hanging",
   ignore: skip,
   fn: async () => {
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
       timeoutSeconds: 1,

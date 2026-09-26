@@ -4,7 +4,8 @@
  * The only place that speaks HTTP to Azure. Submits an image to the Read
  * model, polls the async operation to completion, and returns the extracted
  * text. Field extraction (T05) and validation (T06) are layered on top of
- * this, same split as `groq-client.ts` vs `groq-provider.ts`.
+ * this, same split as `ai/openai-compatible-client.ts` vs
+ * `ai/analysis-provider.ts`.
  *
  * Azure's analyze API is asynchronous: submit returns 202 with an
  * `Operation-Location` URL, which is polled until `status` leaves

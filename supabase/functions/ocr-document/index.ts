@@ -6,7 +6,7 @@
  * exists so the client can get the raw OCR text and candidates back for
  * on-device review BEFORE the (unmodified) `analyze-document` Groq call.
  *
- * No `GroqClient`, no usage-slot store — this endpoint never touches the
+ * No `ChatClient`, no usage-slot store — this endpoint never touches the
  * daily quota (see `ocr-handler.ts`'s header comment) and never calls Groq.
  */
 

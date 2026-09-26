@@ -14,7 +14,7 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { createAnalyzeHandler } from "../../functions/_shared/analyze/analyze-handler.ts";
 import type { ImageAnalysisPipeline } from "../../functions/_shared/analyze/image-analysis-pipeline.ts";
-import type { AiAnalysisProvider } from "../../functions/_shared/groq/groq-provider.ts";
+import type { AiAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type {
   AnalysisPromptInput,
   ExtractedCandidates,
@@ -31,7 +31,7 @@ import type {
   ReserveOutcome,
   SlotStore,
 } from "../../functions/_shared/usage/slot-reservation.ts";
-import type { ModelAnalysis } from "../../functions/_shared/schemas/groq-output.schema.ts";
+import type { ModelAnalysis } from "../../functions/_shared/schemas/analysis-output.schema.ts";
 import {
   modelAnalysis,
   NOW,

@@ -43,7 +43,7 @@ import { requireUser, type TokenVerifier } from "../auth/require-user.ts";
 import type { RuntimeConfig } from "../config/runtime-config.ts";
 import type { EndpointHandler } from "../http/endpoint.ts";
 import { jsonResponse } from "../http/response.ts";
-import type { AiAnalysisProvider } from "../groq/groq-provider.ts";
+import type { AiAnalysisProvider } from "../ai/analysis-provider.ts";
 import type { ImageAnalysisPipeline } from "./image-analysis-pipeline.ts";
 import { logEvent } from "../observability/log.ts";
 import { cairoDayOf, nextCairoResetAfter, toCairoIsoString } from "../time/cairo-day.ts";

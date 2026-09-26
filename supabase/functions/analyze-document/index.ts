@@ -21,8 +21,12 @@ import {
   isGoogleDocumentAiConfigured,
 } from "../_shared/google/google-config.ts";
 import { createGoogleDocumentAiClient } from "../_shared/google/google-client.ts";
-import { createGroqClient, groqOptionsFromEnv } from "../_shared/groq/groq-client.ts";
-import { createGroqAnalysisProvider } from "../_shared/groq/groq-provider.ts";
+import {
+  createChatClient,
+  GROQ_BASE_URL,
+  groqOptionsFromEnv,
+} from "../_shared/ai/openai-compatible-client.ts";
+import { createAnalysisProvider } from "../_shared/ai/analysis-provider.ts";
 import { createEndpoint } from "../_shared/http/endpoint.ts";
 import { installationHasherFromEnv } from "../_shared/usage/installation-hash.ts";
 import {
@@ -41,8 +45,11 @@ Deno.serve(
       loadConfig: () => loadRuntimeConfig(serviceClient),
       slots: createSupabaseSlotStore(serviceClient),
       createAnalyser: (timeoutSeconds) =>
-        createGroqAnalysisProvider({
-          client: createGroqClient(groqOptionsFromEnv(timeoutSeconds)),
+        createAnalysisProvider({
+          client: createChatClient({
+            baseUrl: GROQ_BASE_URL,
+            ...groqOptionsFromEnv(timeoutSeconds),
+          }),
         }),
       // Azure/Google env vars are read here, not at module load, so a
       // deployment that never sees an image request (azureOcrEnabled dark)

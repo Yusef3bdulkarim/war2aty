@@ -1,14 +1,18 @@
 /**
- * F06-T09 · Groq transport.
+ * F06-T09 · OpenAI-compatible chat transport.
  *
- * The only place that speaks HTTP to Groq. Prompt construction is T10 and the
- * schema-constrained call is T11; this layer just gets a request there and a
- * response back, turning provider failures into `ApiError` values the endpoint
- * already knows how to serialise.
+ * The only place that speaks HTTP to an analysis provider. Prompt construction
+ * is T10 and the schema-constrained call is T11; this layer just gets a request
+ * there and a response back, turning provider failures into `ApiError` values
+ * the endpoint already knows how to serialise.
  *
- * The app never learns Groq exists (§9): it talks to the Edge Function, which
- * holds the key. Nothing about the provider reaches the client — not its name,
- * its model, nor its error text.
+ * The provider is named by `baseUrl` alone — every provider reached from here
+ * takes the same request shape (Bearer auth, `messages[]`, `response_format`,
+ * `temperature`, `max_tokens`), which is what makes one transport enough.
+ *
+ * The app never learns which provider exists (§9): it talks to the Edge
+ * Function, which holds the key. Nothing about the provider reaches the client —
+ * not its name, its model, nor its error text.
  *
  * PRIVACY (§7, §51): no prompt, no completion and no key is ever logged. Error
  * paths deliberately discard the provider's response body, which echoes the
@@ -17,7 +21,12 @@
 
 import { ApiError } from "../errors/api-error.ts";
 
-const GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions";
+/**
+ * Groq's OpenAI-compatible root — the URL this transport used to hardcode.
+ *
+ * F18-T03 moves it, with {@link groqOptionsFromEnv}, to `ai/groq-config.ts`.
+ */
+export const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 
 /**
  * The model this service is built around, and the one `.env.example` sets.
@@ -26,13 +35,16 @@ const GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completio
  * call, and a model without it answers 400. This is the default for a
  * directly-constructed client and for tests — never a fallback on the
  * production path, which refuses to guess (see {@link groqOptionsFromEnv}).
+ *
+ * F18-T03 moves this and {@link groqOptionsFromEnv} to `ai/groq-config.ts`;
+ * they are Groq facts, and this module is no longer a Groq module.
  */
 export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 
-export type GroqRole = "system" | "user" | "assistant";
+export type ChatRole = "system" | "user" | "assistant";
 
-export interface GroqMessage {
-  readonly role: GroqRole;
+export interface ChatMessage {
+  readonly role: ChatRole;
   readonly content: string;
 }
 
@@ -40,14 +52,14 @@ export interface GroqMessage {
  * `response_format` as the OpenAI-compatible API expects it. Left open so
  * F06-T11 can pass a `json_schema` without changing this layer.
  */
-export type GroqResponseFormat =
+export type ChatResponseFormat =
   | { readonly type: "text" }
   | { readonly type: "json_object" }
   | { readonly type: "json_schema"; readonly json_schema: unknown };
 
-export interface GroqCompletionRequest {
-  readonly messages: readonly GroqMessage[];
-  /** Defaults to `GROQ_MODEL` from the environment. */
+export interface ChatCompletionRequest {
+  readonly messages: readonly ChatMessage[];
+  /** Defaults to the model the client was built with. */
   readonly model?: string;
   /**
    * Defaults to 0. Document analysis is extraction, not creativity — the same
@@ -55,17 +67,18 @@ export interface GroqCompletionRequest {
    */
   readonly temperature?: number;
   readonly maxTokens?: number;
-  readonly responseFormat?: GroqResponseFormat;
+  readonly responseFormat?: ChatResponseFormat;
   /**
    * `openai/gpt-oss-*` models spend part of `maxTokens` on an internal
-   * reasoning trace before writing the answer — see {@link GroqProviderOptions}
-   * for why the analysis provider always sets this to `"low"`. Left optional
-   * here because it is meaningless for non-reasoning models.
+   * reasoning trace before writing the answer — see
+   * {@link AnalysisProviderOptions} for why the analysis provider always sets
+   * this to `"low"`. Left optional here because it is meaningless for
+   * non-reasoning models.
    */
   readonly reasoningEffort?: "low" | "medium" | "high";
 }
 
-export interface GroqCompletion {
+export interface ChatCompletion {
   /** The assistant message text. Parsing it is the caller's job. */
   readonly content: string;
   readonly model: string;
@@ -73,7 +86,12 @@ export interface GroqCompletion {
   readonly completionTokens?: number;
 }
 
-export interface GroqClientOptions {
+export interface ChatClientOptions {
+  /**
+   * The provider's OpenAI-compatible root, with no trailing slash — e.g.
+   * `https://api.groq.com/openai/v1`. `/chat/completions` is appended.
+   */
+  readonly baseUrl: string;
   readonly apiKey: string;
   readonly model?: string;
   readonly timeoutSeconds: number;
@@ -81,9 +99,9 @@ export interface GroqClientOptions {
   readonly fetchImpl?: typeof fetch;
 }
 
-export type GroqClient = (
-  request: GroqCompletionRequest,
-) => Promise<GroqCompletion>;
+export type ChatClient = (
+  request: ChatCompletionRequest,
+) => Promise<ChatCompletion>;
 
 /**
  * Reads credentials from the environment the Edge Runtime injects.
@@ -91,8 +109,13 @@ export type GroqClient = (
  * @throws if `GROQ_API_KEY` or `GROQ_MODEL` is missing. Both are deploy faults,
  * and both are fatal at startup rather than per request — see below for why the
  * model is not defaulted.
+ *
+ * F18-T03 moves this to `ai/groq-config.ts`, where it will also supply the
+ * `baseUrl` this client now requires.
  */
-export function groqOptionsFromEnv(timeoutSeconds: number): GroqClientOptions {
+export function groqOptionsFromEnv(
+  timeoutSeconds: number,
+): Omit<ChatClientOptions, "baseUrl"> {
   const apiKey = Deno.env.get("GROQ_API_KEY");
 
   if (!apiKey) {
@@ -135,29 +158,32 @@ function errorForStatus(status: number): ApiError {
   return ApiError.analysisFailed();
 }
 
-interface GroqApiResponse {
+interface ChatApiResponse {
   model?: string;
   choices?: Array<{ message?: { content?: string } }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
 /**
- * Builds a client bound to a key, model and timeout.
+ * Builds a client bound to a base URL, key, model and timeout.
  *
  * The timeout is the point of this task. Without one, a hung provider
  * connection holds the reserved slot until it expires and leaves the user
  * staring at a spinner; with it, the server gives up first, releases the slot
  * and answers 408 (§31 TIMEOUT).
  */
-export function createGroqClient(options: GroqClientOptions): GroqClient {
+export function createChatClient(options: ChatClientOptions): ChatClient {
   const {
+    baseUrl,
     apiKey,
     model: defaultModel = DEFAULT_GROQ_MODEL,
     timeoutSeconds,
     fetchImpl = fetch,
   } = options;
 
-  return async (request: GroqCompletionRequest): Promise<GroqCompletion> => {
+  const chatCompletionsUrl = `${baseUrl}/chat/completions`;
+
+  return async (request: ChatCompletionRequest): Promise<ChatCompletion> => {
     const body = {
       model: request.model ?? defaultModel,
       messages: request.messages,
@@ -169,7 +195,7 @@ export function createGroqClient(options: GroqClientOptions): GroqClient {
 
     let response: Response;
     try {
-      response = await fetchImpl(GROQ_CHAT_COMPLETIONS_URL, {
+      response = await fetchImpl(chatCompletionsUrl, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${apiKey}`,
@@ -196,7 +222,7 @@ export function createGroqClient(options: GroqClientOptions): GroqClient {
       throw errorForStatus(response.status);
     }
 
-    let payload: GroqApiResponse;
+    let payload: ChatApiResponse;
     try {
       payload = await response.json();
     } catch {

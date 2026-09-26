@@ -17,8 +17,8 @@
  *
  * Auth is a hand-signed RS256 JWT exchanged via the standard OAuth2
  * service-account flow (no Google client library — same "no SDK" precedent as
- * `groq-client.ts`/`azure-client.ts`; `crypto.subtle` already does everything
- * needed). The JWT itself never touches the network as anything but the
+ * `openai-compatible-client.ts`/`azure-client.ts`; `crypto.subtle` already
+ * does everything needed). The JWT itself never touches the network as anything but the
  * `assertion` parameter of the token exchange, and is never logged.
  *
  * PRIVACY (§7, §51): no OCR text, prompt, or key is ever logged. Error paths

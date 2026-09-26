@@ -44,7 +44,7 @@
  * PRIVACY: the report counts and names fields. It never carries a value.
  */
 
-import type { AnalysisStatus, Confidence, ModelAnalysis } from "../schemas/groq-output.schema.ts";
+import type { AnalysisStatus, Confidence, ModelAnalysis } from "../schemas/analysis-output.schema.ts";
 import { ApiError } from "../errors/api-error.ts";
 import { isWellFormedDate, isWellFormedTime } from "../validators/date-validator.ts";
 import type {

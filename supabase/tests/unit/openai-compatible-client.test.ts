@@ -1,5 +1,5 @@
 /**
- * F06-T09 · Tests for the Groq transport.
+ * F06-T09 · Tests for the OpenAI-compatible chat transport.
  *
  * `fetch` is injected, so these run offline and need no API key.
  */
@@ -8,13 +8,14 @@ import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/asse
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import {
-  createGroqClient,
+  type ChatCompletionRequest,
+  createChatClient,
   DEFAULT_GROQ_MODEL,
-  type GroqCompletionRequest,
+  GROQ_BASE_URL,
   groqOptionsFromEnv,
-} from "../../functions/_shared/groq/groq-client.ts";
+} from "../../functions/_shared/ai/openai-compatible-client.ts";
 
-const REQUEST: GroqCompletionRequest = {
+const REQUEST: ChatCompletionRequest = {
   messages: [
     { role: "system", content: "You analyse documents." },
     { role: "user", content: "فاتورة كهرباء بمبلغ 850 جنيه" },
@@ -49,7 +50,8 @@ function recordingFetch(reply: Response | (() => Response | Promise<Response>)) 
 }
 
 function client(fetchImpl: typeof fetch, timeoutSeconds = 25) {
-  return createGroqClient({
+  return createChatClient({
+    baseUrl: GROQ_BASE_URL,
     apiKey: "test-key",
     model: "llama-3.3-70b-versatile",
     timeoutSeconds,

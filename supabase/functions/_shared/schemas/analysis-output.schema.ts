@@ -32,7 +32,7 @@ const CONFIDENCE = {
 } as const;
 
 /** The JSON Schema sent as `response_format.json_schema.schema`. */
-export const GROQ_OUTPUT_SCHEMA = {
+export const ANALYSIS_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   required: [
@@ -231,12 +231,12 @@ export const GROQ_OUTPUT_SCHEMA = {
 } as const;
 
 /** The `response_format` value for a schema-constrained analysis call. */
-export const GROQ_ANALYSIS_RESPONSE_FORMAT = {
+export const ANALYSIS_RESPONSE_FORMAT = {
   type: "json_schema" as const,
   json_schema: {
     name: "document_analysis",
     strict: true,
-    schema: GROQ_OUTPUT_SCHEMA,
+    schema: ANALYSIS_OUTPUT_SCHEMA,
   },
 };
 
