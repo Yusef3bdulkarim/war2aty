@@ -43,14 +43,20 @@ class PaperPlaneLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size * 1.15,
-      height: size * 1.15,
-      child: CustomPaint(
-        painter: _PaperPlanePainter(
-          progress: progress,
-          ambient: ambient,
-          logoSize: size,
+    // The painter repaints every frame for the whole entrance and then forever
+    // on the ambient loop. Without a boundary that repaint dirties the enclosing
+    // layer, so the app name, tagline and dots are re-rastered 60 times a second
+    // to draw a mark that does not overlap them.
+    return RepaintBoundary(
+      child: SizedBox(
+        width: size * 1.15,
+        height: size * 1.15,
+        child: CustomPaint(
+          painter: _PaperPlanePainter(
+            progress: progress,
+            ambient: ambient,
+            logoSize: size,
+          ),
         ),
       ),
     );
@@ -390,7 +396,13 @@ class _PaperPlanePainter extends CustomPainter {
     const double span = 0.22;
     final from = math.max(0.0, flightT - span);
     final unit = logoSize / 150;
-    final paint = Paint()..strokeCap = StrokeCap.round;
+    // The blur depends only on `unit`, which is fixed for the whole trail, so it
+    // is built once here rather than inside the loop — that was allocating 24
+    // identical MaskFilters on every frame of the flight, which is the busiest
+    // stretch of the entrance.
+    final paint = Paint()
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, 2 * unit);
 
     var prev = center + _flightAt(from, logoSize);
     for (var i = 1; i <= segments; i++) {
@@ -399,8 +411,7 @@ class _PaperPlanePainter extends CustomPainter {
       final taper = f * f;
       paint
         ..color = _kMint.withValues(alpha: _alpha(0.45 * taper * (1 - flightT)))
-        ..strokeWidth = (0.6 + 3.4 * taper) * unit
-        ..maskFilter = ui.MaskFilter.blur(ui.BlurStyle.normal, 2 * unit);
+        ..strokeWidth = (0.6 + 3.4 * taper) * unit;
       canvas.drawLine(prev, next, paint);
       prev = next;
     }
