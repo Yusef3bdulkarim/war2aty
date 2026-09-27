@@ -43,7 +43,7 @@ import { requireUser, type TokenVerifier } from "../auth/require-user.ts";
 import type { RuntimeConfig } from "../config/runtime-config.ts";
 import type { EndpointHandler } from "../http/endpoint.ts";
 import { jsonResponse } from "../http/response.ts";
-import type { AiAnalysisProvider } from "../groq/groq-provider.ts";
+import type { AiAnalysisProvider } from "../ai/analysis-provider.ts";
 import type { ImageAnalysisPipeline } from "./image-analysis-pipeline.ts";
 import { logEvent } from "../observability/log.ts";
 import { cairoDayOf, nextCairoResetAfter, toCairoIsoString } from "../time/cairo-day.ts";
@@ -64,8 +64,18 @@ export interface AnalyzeDependencies {
   /**
    * Built per request because the timeout comes from runtime config, which an
    * operator can change without a redeploy.
+   *
+   * `geminiPrimary` is `config.geminiPrimaryEnabled` (F18-T06) and chooses the
+   * provider ORDER, not whether a second provider exists. The handler stays
+   * ignorant of which providers there are: it passes the flag through and
+   * receives one `AiAnalysisProvider`, exactly as it did when there was only
+   * ever one.
    */
-  readonly createAnalyser: (timeoutSeconds: number) => AiAnalysisProvider;
+  readonly createAnalyser: (
+    timeoutSeconds: number,
+    geminiPrimary: boolean,
+    requestId: string,
+  ) => AiAnalysisProvider;
   /**
    * Same reasoning as {@link createAnalyser}: Azure/Google credentials are a
    * deploy fact and a missing one must fail loudly. Only ever invoked for an
@@ -163,10 +173,16 @@ export function createAnalyzeHandler(
       : parseAnalyzeRequest(rawBody, config);
 
     const instant = now();
-    // Built before the reservation: a missing GROQ_API_KEY (or, for an image
-    // request, Azure/Google credential) is a deploy fault, and it must not
-    // burn a slot to discover it.
-    const analyse = createAnalyser(config.aiTimeoutSeconds);
+    // Built before the reservation: a missing AI credential (or, for an image
+    // request, an Azure/Google one) is a deploy fault, and it must not burn a
+    // slot to discover it.
+    const analyse = createAnalyser(
+      config.aiTimeoutSeconds,
+      config.geminiPrimaryEnabled,
+      // Threaded in so the chain's own `analyze.provider` line correlates with
+      // every other log for this request (F18-T07).
+      requestId,
+    );
     const imagePipeline = parsed.inputType === "image"
       ? createImagePipeline(config.aiTimeoutSeconds)
       : null;

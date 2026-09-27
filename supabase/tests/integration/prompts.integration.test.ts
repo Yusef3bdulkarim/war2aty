@@ -15,7 +15,11 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { createGroqClient, DEFAULT_GROQ_MODEL } from "../../functions/_shared/groq/groq-client.ts";
+import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
+import {
+  DEFAULT_GROQ_MODEL,
+  GROQ_BASE_URL,
+} from "../../functions/_shared/ai/groq-config.ts";
 import {
   buildAnalysisMessages,
   type ExtractedCandidates,
@@ -34,7 +38,12 @@ const NO_CANDIDATES: ExtractedCandidates = {
 };
 
 function client() {
-  return createGroqClient({ apiKey: apiKey!, model, timeoutSeconds: 25 });
+  return createChatClient({
+    baseUrl: GROQ_BASE_URL,
+    apiKey: apiKey!,
+    model,
+    timeoutSeconds: 25,
+  });
 }
 
 /** Arabic letters anywhere in the string. */

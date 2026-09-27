@@ -1,20 +1,26 @@
 /**
- * F06-T09 · Tests for the Groq transport.
+ * F06-T09 · Tests for the OpenAI-compatible chat transport.
  *
  * `fetch` is injected, so these run offline and need no API key.
  */
 
-import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import {
-  createGroqClient,
-  DEFAULT_GROQ_MODEL,
-  type GroqCompletionRequest,
-  groqOptionsFromEnv,
-} from "../../functions/_shared/groq/groq-client.ts";
+  type ChatCompletionRequest,
+  createChatClient,
+} from "../../functions/_shared/ai/openai-compatible-client.ts";
 
-const REQUEST: GroqCompletionRequest = {
+/**
+ * Deliberately not a real provider's URL. This module is the provider-neutral
+ * half of the F18 seam; binding its tests to Groq's endpoint would re-couple
+ * exactly what T01 and T03 separated. Each provider's own base URL is tested
+ * in its config module's tests.
+ */
+const BASE_URL = "https://provider.example/v1";
+
+const REQUEST: ChatCompletionRequest = {
   messages: [
     { role: "system", content: "You analyse documents." },
     { role: "user", content: "فاتورة كهرباء بمبلغ 850 جنيه" },
@@ -49,7 +55,8 @@ function recordingFetch(reply: Response | (() => Response | Promise<Response>)) 
 }
 
 function client(fetchImpl: typeof fetch, timeoutSeconds = 25) {
-  return createGroqClient({
+  return createChatClient({
+    baseUrl: BASE_URL,
     apiKey: "test-key",
     model: "llama-3.3-70b-versatile",
     timeoutSeconds,
@@ -271,72 +278,86 @@ Deno.test("a sub-second timeout is clamped to at least one second", async () => 
   assertEquals(completion.content, '{"result":"ok"}');
 });
 
-// ── reading the environment ───────────────────────────────────────────────
-// The model is the one setting that cannot be guessed: F06-T11 sends
-// `response_format: json_schema` on every call, and a model without support
-// answers 400 — which reaches the user as ANALYSIS_FAILED, indistinguishable
-// from a provider outage. These pin the "fail at startup, never fall back"
-// contract that keeps a config slip from becoming a silent total outage.
+// ── where the request goes ────────────────────────────────────────────────
 
-/** Runs `body` with the Groq env vars set to `values`, then restores them. */
-function withEnv(values: Record<string, string | null>, body: () => void) {
-  const previous = new Map<string, string | undefined>();
+Deno.test("the request goes to the configured base URL", async () => {
+  // The URL used to be a hardcoded constant (F06-T09). Since F18-T01 it is
+  // composed, and composing it is how one transport serves two providers — so
+  // the join is worth pinning: no doubled slash, no missing path.
+  const { impl, calls } = recordingFetch(jsonResponse(okPayload()));
 
-  for (const [key, value] of Object.entries(values)) {
-    previous.set(key, Deno.env.get(key));
-    if (value === null) Deno.env.delete(key);
-    else Deno.env.set(key, value);
+  await client(impl)(REQUEST);
+
+  assertEquals(calls[0].url, "https://provider.example/v1/chat/completions");
+});
+
+// ── every transport failure is a provider fault (F18-T05) ─────────────────
+// The fallback chain fails over iff `providerFault` is set, so this is the link
+// the whole feature hangs from: drop `.asProviderFault()` from any path below
+// and failover silently stops working for it while every other test still
+// passes. Each case here pins one path.
+
+Deno.test("a rate limit is marked a provider fault", async () => {
+  const { impl } = recordingFetch(new Response("slow down", { status: 429 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a 5xx is marked a provider fault", async () => {
+  const { impl } = recordingFetch(new Response("boom", { status: 503 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("an auth failure is marked a provider fault", async () => {
+  // OUR key being wrong is still the provider declining to answer, and the
+  // other leg has a different key — so it is worth asking.
+  const { impl } = recordingFetch(new Response("bad key", { status: 401 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a dropped connection is marked a provider fault", async () => {
+  const impl = (() =>
+    Promise.reject(new TypeError("connection reset"))) as unknown as typeof fetch;
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a timeout is marked a provider fault", async () => {
+  const impl = (() =>
+    Promise.reject(
+      new DOMException("signal timed out", "TimeoutError"),
+    )) as unknown as typeof fetch;
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).code, "TIMEOUT");
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("an unparseable 200 is marked a provider fault", async () => {
+  const { impl } = recordingFetch(new Response("not json", { status: 200 }));
+
+  const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, true);
+});
+
+Deno.test("a 200 carrying no completion is marked a provider fault", async () => {
+  // No answer at all, as opposed to an answer of the wrong shape — which is the
+  // parser's business and deliberately NOT a provider fault.
+  for (const payload of [{}, { choices: [] }, { choices: [{ message: {} }] }]) {
+    const { impl } = recordingFetch(jsonResponse(payload));
+    const thrown = await assertRejects(() => client(impl)(REQUEST), ApiError);
+    assertEquals((thrown as ApiError).providerFault, true);
   }
-
-  try {
-    body();
-  } finally {
-    for (const [key, value] of previous) {
-      if (value === undefined) Deno.env.delete(key);
-      else Deno.env.set(key, value);
-    }
-  }
-}
-
-Deno.test("the default model supports json_schema", () => {
-  // Guards the constant itself: it is what a directly-constructed client and
-  // the live integration tests fall back to, so it must never drift to a model
-  // that cannot be schema-constrained.
-  assert(DEFAULT_GROQ_MODEL.startsWith("openai/gpt-oss-"));
-});
-
-Deno.test("options are read from the environment", () => {
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: "openai/gpt-oss-20b" }, () => {
-    const options = groqOptionsFromEnv(25);
-
-    assertEquals(options.apiKey, "test-key");
-    assertEquals(options.model, "openai/gpt-oss-20b");
-    assertEquals(options.timeoutSeconds, 25);
-  });
-});
-
-Deno.test("a missing api key is fatal", () => {
-  withEnv({ GROQ_API_KEY: null, GROQ_MODEL: "openai/gpt-oss-120b" }, () => {
-    assertThrows(() => groqOptionsFromEnv(25), Error, "GROQ_API_KEY");
-  });
-});
-
-Deno.test("a missing model is fatal rather than defaulted", () => {
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: null }, () => {
-    assertThrows(() => groqOptionsFromEnv(25), Error, "GROQ_MODEL");
-  });
-});
-
-Deno.test("a blank model is fatal too", () => {
-  // `??` would have accepted "" as a set value and sent an empty model name.
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: "   " }, () => {
-    assertThrows(() => groqOptionsFromEnv(25), Error, "GROQ_MODEL");
-  });
-});
-
-Deno.test("a model is trimmed before use", () => {
-  // A trailing newline is what a copy-pasted `.env` value actually looks like.
-  withEnv({ GROQ_API_KEY: "test-key", GROQ_MODEL: "openai/gpt-oss-120b\n" }, () => {
-    assertEquals(groqOptionsFromEnv(25).model, "openai/gpt-oss-120b");
-  });
 });

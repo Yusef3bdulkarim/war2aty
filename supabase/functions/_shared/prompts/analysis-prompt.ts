@@ -28,7 +28,7 @@
  * messages, in whole or in part (§51).
  */
 
-import type { GroqMessage } from "../groq/groq-client.ts";
+import type { ChatMessage } from "../ai/openai-compatible-client.ts";
 import type {
   CrossProviderFieldVerdict,
   CrossProviderVerification,
@@ -198,7 +198,7 @@ This is a note about how CLEAR the reading is, not about whether the value is ri
  */
 export function buildAnalysisMessages(
   input: AnalysisPromptInput,
-): GroqMessage[] {
+): ChatMessage[] {
   const languages = input.detectedLanguages.length > 0
     ? input.detectedLanguages.join(", ")
     : "unknown";

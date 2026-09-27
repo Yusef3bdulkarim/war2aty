@@ -10,7 +10,7 @@ import type {
   ModelAnalysis,
   ModelDate,
   ModelWarning,
-} from "../schemas/groq-output.schema.ts";
+} from "../schemas/analysis-output.schema.ts";
 
 /**
  * An amount must be a real, non-negative number.

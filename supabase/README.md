@@ -150,9 +150,9 @@ without it. All three values come from `supabase status`; none is committed.
 The endpoint tests need `functions serve` running as well — see the gotcha
 above, or `analyze-document` answers 500 for everything.
 
-**No test calls Groq by default.** One integration test performs a real
-analysis and is gated behind an explicit opt-in, because a live call is billed,
-non-deterministic and reserved against the 8000-token minute:
+**No test calls an AI provider by default.** One integration test performs a
+real analysis and is gated behind an explicit opt-in, because a live call spends
+quota, is non-deterministic, and is reserved against the 8000-token minute:
 
 ```bash
 RUN_LIVE_ANALYSIS=1 SUPABASE_URL=... SUPABASE_ANON_KEY=... \
@@ -308,11 +308,56 @@ through the signup path, so setting it to `false` makes anonymous sign-in fail
 with `signup_disabled`. Email/SMS signup is closed separately under
 `[auth.email]` / `[auth.sms]`, which is what actually keeps registration shut.
 
-## Groq model — must support `json_schema`
+## AI analysis — two providers, one seam
 
-`GROQ_MODEL` is **not** free choice. Structured output (F06-T11) requires
-`response_format: json_schema`, and most models answer HTTP 400 for it.
-Verified against this account on 2026-07-26:
+Analysis runs behind `AiAnalysisProvider` (`functions/_shared/ai/`), and the app
+has never known which provider answered it. Since F18 there are two legs:
+
+| | Endpoint | Role |
+|---|---|---|
+| **Groq** `openai/gpt-oss-120b` | `api.groq.com/openai/v1` | Leads by default |
+| **Gemini** `gemini-3.1-flash-lite` | `generativelanguage.googleapis.com/v1beta/openai` | Optional; leads only when `gemini_primary_enabled` is set |
+
+Both speak the **same OpenAI-compatible chat shape**, which is why one transport
+(`ai/openai-compatible-client.ts`) serves both and only the config module differs
+(`ai/groq-config.ts`, `ai/gemini-config.ts`). Verified live on 2026-09-26
+(F18-T08): Gemini's compat layer accepts the generation schema and honours
+`response_format: json_schema` with `strict: true`.
+
+`ai/fallback-provider.ts` chains them. It fails over **only** on transport
+failures — 429, 5xx, network, or a timeout with budget left — never on a
+well-formed 200 whose JSON is unusable, because that is the model's considered
+answer about a damaged document and a second call would double the user's wait
+to hear the same thing. The whole chain fits inside `AI_TIMEOUT_SECONDS`, so no
+user waits longer than before. Watch `analyze.provider` in the logs to see which
+leg served and how often failover fired.
+
+### Capacity: the free tiers serve the low hundreds per day
+
+Do not re-derive the 14,400 figure — it belongs to other Groq models. For
+`openai/gpt-oss-120b` the free tier is 30 RPM / 1,000 RPD / 8K TPM / **200K
+TPD**, and TPD is the binding limit: at roughly 3,000 tokens per analysis that
+is about **66 analyses/day**, some 22 users at the 3/day product limit. Adding
+Gemini's free tier roughly triples it. Reaching 5,000 users needs a **billed**
+project, not more free providers.
+
+### Data handling differs between the legs
+
+Neither provider ever receives the **image** — only OCR text and candidates.
+Groq commits to no training on inputs or outputs on either tier. Gemini's
+**free** tier does not: Google's terms permit using submitted content to improve
+its products and state that human reviewers may read API input and output, and
+the API input here is the document's text. That is why no user-facing string
+claims nobody reads the text (F18-T02, `CLAUDE.md` §7). Paid Tier 1 removes it
+and needs only a linked billing account with no minimum spend.
+
+### Either model must support `json_schema`
+
+`GROQ_MODEL` and `GEMINI_MODEL` are **not** free choice, and neither is
+defaulted in code — an unset one is a startup error rather than a guess, because
+a model that cannot serve `json_schema` fails *every* analysis with a 400 the
+user only ever sees as ANALYSIS_FAILED. Verified against this account on
+2026-07-26:
 
 | Model | `json_schema` |
 |---|---|
@@ -333,6 +378,18 @@ The tier allows **8000 tokens/minute** (`x-ratelimit-limit-tokens`), and
 back-to-back calls were rate-limited. It is now 2000 — about 4x the 468 tokens
 a real electricity bill produced. Raising it directly reduces how many users
 can be served per minute.
+
+This ceiling is easy to hit in testing, not just in production: running the live
+Groq analysis tests back-to-back rate-limits after about four calls in a minute.
+That is the environment, not a defect — pace them.
+
+One trap worth knowing, since it cost a debugging session (F18-T08):
+`openai/gpt-oss-*` charges its internal reasoning trace against `max_tokens`
+*before* writing any answer. A call with `max_tokens: 10` returns an EMPTY
+completion (`finish_reason: "length"`), and under `json_object` mode an empty
+generation comes back as an outright HTTP 400 `json_validate_failed`. Always
+pair a small budget with `reasoning_effort: "low"`, as the analysis provider
+does.
 
 ## Error contract — §31 wins over §48
 
@@ -373,7 +430,7 @@ supabase/
 ├── .env.example         # secret template — copy to .env
 ├── functions/
 │   ├── deno.json        # Deno fmt/lint/tasks for the functions workspace
-│   ├── _shared/         # auth, http, errors, groq, prompts, usage, validators
+│   ├── _shared/         # ai, auth, http, errors, prompts, usage, validators
 │   ├── analyze-document/
 │   ├── get-usage/
 │   └── health/

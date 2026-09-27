@@ -12,8 +12,12 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
-import { createGroqClient, DEFAULT_GROQ_MODEL } from "../../functions/_shared/groq/groq-client.ts";
-import { createGroqAnalysisProvider } from "../../functions/_shared/groq/groq-provider.ts";
+import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
+import {
+  DEFAULT_GROQ_MODEL,
+  GROQ_BASE_URL,
+} from "../../functions/_shared/ai/groq-config.ts";
+import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
 
 const apiKey = Deno.env.get("GROQ_API_KEY");
@@ -64,8 +68,13 @@ const NO_CANDIDATES: ExtractedCandidates = {
 };
 
 function provider() {
-  return createGroqAnalysisProvider({
-    client: createGroqClient({ apiKey: apiKey!, model, timeoutSeconds: 25 }),
+  return createAnalysisProvider({
+    client: createChatClient({
+      baseUrl: GROQ_BASE_URL,
+      apiKey: apiKey!,
+      model,
+      timeoutSeconds: 25,
+    }),
   });
 }
 

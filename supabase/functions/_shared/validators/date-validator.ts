@@ -10,7 +10,7 @@
  * the schema perfectly. The format check therefore has to live here.
  */
 
-import type { ModelDate } from "../schemas/groq-output.schema.ts";
+import type { ModelDate } from "../schemas/analysis-output.schema.ts";
 import { digitsOf, normaliseDigits } from "./text-matching.ts";
 import type { VerificationSources } from "./number-validator.ts";
 

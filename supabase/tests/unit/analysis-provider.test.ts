@@ -6,15 +6,15 @@ import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import type {
-  GroqClient,
-  GroqCompletionRequest,
-} from "../../functions/_shared/groq/groq-client.ts";
-import { createGroqAnalysisProvider } from "../../functions/_shared/groq/groq-provider.ts";
+  ChatClient,
+  ChatCompletionRequest,
+} from "../../functions/_shared/ai/openai-compatible-client.ts";
+import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import {
-  GROQ_ANALYSIS_RESPONSE_FORMAT,
-  GROQ_OUTPUT_SCHEMA,
+  ANALYSIS_OUTPUT_SCHEMA,
+  ANALYSIS_RESPONSE_FORMAT,
   type ModelAnalysis,
-} from "../../functions/_shared/schemas/groq-output.schema.ts";
+} from "../../functions/_shared/schemas/analysis-output.schema.ts";
 import type { AnalysisPromptInput } from "../../functions/_shared/prompts/analysis-prompt.ts";
 
 const INPUT: AnalysisPromptInput = {
@@ -39,8 +39,8 @@ const VALID: ModelAnalysis = {
 
 /** A client that returns whatever content is supplied, recording the request. */
 function fakeClient(content: string) {
-  const requests: GroqCompletionRequest[] = [];
-  const client: GroqClient = (request) => {
+  const requests: ChatCompletionRequest[] = [];
+  const client: ChatClient = (request) => {
     requests.push(request);
     return Promise.resolve({ content, model: "openai/gpt-oss-120b" });
   };
@@ -49,7 +49,7 @@ function fakeClient(content: string) {
 
 function providerReturning(value: unknown) {
   const { client, requests } = fakeClient(JSON.stringify(value));
-  return { provider: createGroqAnalysisProvider({ client }), requests };
+  return { provider: createAnalysisProvider({ client }), requests };
 }
 
 // ── the request ───────────────────────────────────────────────────────────
@@ -57,9 +57,9 @@ function providerReturning(value: unknown) {
 Deno.test("the call is constrained by the json schema", () => {
   // The whole point of the task: without this the model invents its own
   // structure, which was observed in practice with json_object mode.
-  assertEquals(GROQ_ANALYSIS_RESPONSE_FORMAT.type, "json_schema");
-  assertEquals(GROQ_ANALYSIS_RESPONSE_FORMAT.json_schema.strict, true);
-  assertEquals(GROQ_ANALYSIS_RESPONSE_FORMAT.json_schema.name, "document_analysis");
+  assertEquals(ANALYSIS_RESPONSE_FORMAT.type, "json_schema");
+  assertEquals(ANALYSIS_RESPONSE_FORMAT.json_schema.strict, true);
+  assertEquals(ANALYSIS_RESPONSE_FORMAT.json_schema.name, "document_analysis");
 });
 
 Deno.test("the provider sends the schema and a zero temperature", async () => {
@@ -67,7 +67,7 @@ Deno.test("the provider sends the schema and a zero temperature", async () => {
 
   await provider(INPUT);
 
-  assertEquals(requests[0].responseFormat, GROQ_ANALYSIS_RESPONSE_FORMAT);
+  assertEquals(requests[0].responseFormat, ANALYSIS_RESPONSE_FORMAT);
   assertEquals(requests[0].temperature, 0);
 });
 
@@ -119,7 +119,7 @@ Deno.test("the schema uses only keywords strict mode accepts", () => {
     "$ref",
     "definitions",
   ];
-  const serialised = JSON.stringify(GROQ_OUTPUT_SCHEMA);
+  const serialised = JSON.stringify(ANALYSIS_OUTPUT_SCHEMA);
 
   for (const keyword of forbidden) {
     assert(
@@ -156,30 +156,30 @@ Deno.test("every object in the schema forbids extra properties", () => {
     Object.values(record).forEach(walk);
   }
 
-  walk(GROQ_OUTPUT_SCHEMA);
+  walk(ANALYSIS_OUTPUT_SCHEMA);
 });
 
 Deno.test("an optional field is nullable rather than absent", () => {
-  const time = GROQ_OUTPUT_SCHEMA.properties.dates.items.properties.time;
+  const time = ANALYSIS_OUTPUT_SCHEMA.properties.dates.items.properties.time;
 
   assertEquals(time.type, ["string", "null"]);
 });
 
 Deno.test("the schema does not ask the model for server-owned fields", () => {
   // A hallucinated session_id would attach an analysis to the wrong document.
-  const serialised = JSON.stringify(GROQ_OUTPUT_SCHEMA);
+  const serialised = JSON.stringify(ANALYSIS_OUTPUT_SCHEMA);
 
   assert(!serialised.includes("session_id"));
   assert(!serialised.includes("schema_version"));
 });
 
 Deno.test("the enums match API_CONTRACT §30", () => {
-  assertEquals(GROQ_OUTPUT_SCHEMA.properties.status.enum, [
+  assertEquals(ANALYSIS_OUTPUT_SCHEMA.properties.status.enum, [
     "success",
     "partial",
     "unsupported",
   ]);
-  assertEquals(GROQ_OUTPUT_SCHEMA.properties.document_type.properties.type.enum, [
+  assertEquals(ANALYSIS_OUTPUT_SCHEMA.properties.document_type.properties.type.enum, [
     "invoice",
     "receipt",
     "appointment",
@@ -191,7 +191,7 @@ Deno.test("the enums match API_CONTRACT §30", () => {
     "educational",
     "other",
   ]);
-  assertEquals(GROQ_OUTPUT_SCHEMA.properties.dates.items.properties.role.enum, [
+  assertEquals(ANALYSIS_OUTPUT_SCHEMA.properties.dates.items.properties.role.enum, [
     "deadline",
     "appointment",
     "issued",
@@ -215,7 +215,7 @@ Deno.test("a valid answer is returned as-is", async () => {
 
 Deno.test("unparseable content becomes ANALYSIS_FAILED", async () => {
   const { client } = fakeClient("not json at all");
-  const provider = createGroqAnalysisProvider({ client });
+  const provider = createAnalysisProvider({ client });
 
   const thrown = await assertRejects(() => provider(INPUT), ApiError);
 
@@ -225,7 +225,7 @@ Deno.test("unparseable content becomes ANALYSIS_FAILED", async () => {
 Deno.test("the failure never quotes the model output", async () => {
   // The content is a reading of the user's document.
   const { client } = fakeClient("broken: مبلغ 850 جنيه حساب 12345678");
-  const provider = createGroqAnalysisProvider({ client });
+  const provider = createAnalysisProvider({ client });
 
   const thrown = await assertRejects(() => provider(INPUT), ApiError);
   const message = (thrown as ApiError).message;
@@ -306,4 +306,30 @@ Deno.test("an unsupported document is a normal answer, not an error", async () =
   const result = await provider(INPUT);
 
   assertEquals(result.status, "unsupported");
+});
+
+// ── the parser's failures are NOT provider faults (F18-T05) ───────────────
+// A well-formed 200 whose JSON is unusable is the model's considered answer
+// about a damaged document, not a provider failing to answer. Marking these
+// would make the chain call a second provider for a case the other model will
+// usually fail too, doubling the user's wait to learn the same thing.
+
+Deno.test("unparseable content is not a provider fault", async () => {
+  const { client } = fakeClient("not json at all");
+  const provider = createAnalysisProvider({ client });
+
+  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+
+  assertEquals((thrown as ApiError).code, "ANALYSIS_FAILED");
+  assertEquals((thrown as ApiError).providerFault, false);
+});
+
+Deno.test("a wrong-shaped answer is not a provider fault", async () => {
+  // Valid JSON, valid HTTP, wrong object — exactly what `assertModelAnalysis`
+  // exists to catch, and exactly what must not trigger a second call.
+  const { provider } = providerReturning({ status: "success" });
+
+  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+
+  assertEquals((thrown as ApiError).providerFault, false);
 });

@@ -27,7 +27,7 @@
  * log (§51).
  */
 
-import type { ModelAnalysis, ModelWarning } from "../schemas/groq-output.schema.ts";
+import type { ModelAnalysis, ModelWarning } from "../schemas/analysis-output.schema.ts";
 import type {
   AmountCandidate,
   DateCandidate,

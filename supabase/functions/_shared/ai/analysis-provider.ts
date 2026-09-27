@@ -1,8 +1,8 @@
 /**
  * F06-T11 · `AiAnalysisProvider` — the analysis seam.
  *
- * The endpoint depends on this interface, never on Groq. Swapping providers,
- * or standing in a fake for tests, changes nothing above this line.
+ * The endpoint depends on this interface, never on a provider. Swapping
+ * providers, or standing in a fake for tests, changes nothing above this line.
  *
  * Schema-constrained generation guarantees the SHAPE of the answer. It says
  * nothing about whether the answer is TRUE: the model can still return a
@@ -12,12 +12,12 @@
  */
 
 import { ApiError } from "../errors/api-error.ts";
-import type { GroqClient } from "./groq-client.ts";
+import type { ChatClient } from "./openai-compatible-client.ts";
 import { type AnalysisPromptInput, buildAnalysisMessages } from "../prompts/analysis-prompt.ts";
 import {
-  GROQ_ANALYSIS_RESPONSE_FORMAT,
+  ANALYSIS_RESPONSE_FORMAT,
   type ModelAnalysis,
-} from "../schemas/groq-output.schema.ts";
+} from "../schemas/analysis-output.schema.ts";
 
 /** What the endpoint calls. Implementations must never throw a raw provider error. */
 export type AiAnalysisProvider = (
@@ -74,7 +74,7 @@ const CONFIDENCES = new Set(["high", "medium", "low"]);
  * object flow all the way to the device and crash the result screen. Failing
  * here instead costs the user nothing, because the slot is released.
  */
-function assertModelAnalysis(value: unknown): ModelAnalysis {
+export function assertModelAnalysis(value: unknown): ModelAnalysis {
   if (!isRecord(value)) throw ApiError.analysisFailed();
 
   if (typeof value.status !== "string" || !STATUSES.has(value.status)) {
@@ -122,14 +122,14 @@ function assertModelAnalysis(value: unknown): ModelAnalysis {
   return value as unknown as ModelAnalysis;
 }
 
-export interface GroqProviderOptions {
-  readonly client: GroqClient;
-  /** Overrides GROQ_MODEL for this provider. */
+export interface AnalysisProviderOptions {
+  readonly client: ChatClient;
+  /** Overrides the client's own model for this provider. */
   readonly model?: string;
 }
 
 /**
- * Builds the Groq-backed provider.
+ * Builds the schema-constrained analysis provider over a chat client.
  *
  * The model MUST support `response_format: json_schema`. On this account only
  * the `openai/gpt-oss-*` family does; `llama-3.3-70b-versatile` and the rest
@@ -137,8 +137,8 @@ export interface GroqProviderOptions {
  * parse — verified in practice, and it invented its own field names — so the
  * constraint is not optional decoration.
  */
-export function createGroqAnalysisProvider(
-  options: GroqProviderOptions,
+export function createAnalysisProvider(
+  options: AnalysisProviderOptions,
 ): AiAnalysisProvider {
   const { client, model } = options;
 
@@ -148,7 +148,7 @@ export function createGroqAnalysisProvider(
       model,
       temperature: 0,
       maxTokens: MAX_OUTPUT_TOKENS,
-      responseFormat: GROQ_ANALYSIS_RESPONSE_FORMAT,
+      responseFormat: ANALYSIS_RESPONSE_FORMAT,
       reasoningEffort: REASONING_EFFORT,
     });
 

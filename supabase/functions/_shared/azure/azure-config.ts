@@ -4,8 +4,8 @@
  * Read here, not inline in the client (T04), so a deploy fault is a loud
  * startup error in one place rather than a mysterious failure wherever the
  * first call happens to be made — same contract as `groqOptionsFromEnv`
- * (`../groq/groq-client.ts`): both required values are deploy facts, and
- * both are fatal immediately rather than degrading per request.
+ * (`../ai/groq-config.ts`): both required values are deploy facts, and both
+ * are fatal immediately rather than degrading per request.
  */
 
 export interface AzureDocumentIntelligenceOptions {

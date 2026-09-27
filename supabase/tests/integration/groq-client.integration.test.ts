@@ -13,13 +13,25 @@
  *   supabase functions serve --env-file supabase/.env      # or export it
  *   GROQ_API_KEY=<key> deno test --allow-net --allow-env supabase/tests
  *
- * These calls cost real tokens, so they are few and small.
+ * These calls cost real tokens, so they are few and small — but NOT smaller
+ * than the configured model can answer in. `openai/gpt-oss-*` charges its
+ * internal reasoning trace against `max_tokens` BEFORE writing a word of the
+ * answer, so a budget of 10 or 50 returns an empty completion (`finish_reason:
+ * "length"`) or, under `json_object`, an outright HTTP 400
+ * `json_validate_failed` on the empty generation. Both of these tests did
+ * exactly that, undetected, because they self-skip without a key and CI has
+ * none. They now pass `reasoningEffort: "low"` and a realistic budget, matching
+ * what `ai/analysis-provider.ts` sends in production and documents at length.
  */
 
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
-import { createGroqClient, DEFAULT_GROQ_MODEL } from "../../functions/_shared/groq/groq-client.ts";
+import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
+import {
+  DEFAULT_GROQ_MODEL,
+  GROQ_BASE_URL,
+} from "../../functions/_shared/ai/groq-config.ts";
 
 const apiKey = Deno.env.get("GROQ_API_KEY");
 const model = Deno.env.get("GROQ_MODEL") ?? DEFAULT_GROQ_MODEL;
@@ -29,7 +41,8 @@ Deno.test({
   name: "[integration] the configured model answers a real completion",
   ignore: skip,
   fn: async () => {
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
       timeoutSeconds: 25,
@@ -40,7 +53,8 @@ Deno.test({
         { role: "system", content: "Reply with exactly one word." },
         { role: "user", content: "Say OK" },
       ],
-      maxTokens: 10,
+      maxTokens: 300,
+      reasoningEffort: "low",
     });
 
     assert(completion.content.length > 0, "the model must answer");
@@ -59,7 +73,8 @@ Deno.test({
   fn: async () => {
     // F06-T11 depends on constrained output; confirm the account and model
     // support it before building on that assumption.
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
       timeoutSeconds: 25,
@@ -74,7 +89,8 @@ Deno.test({
         { role: "user", content: "Respond." },
       ],
       responseFormat: { type: "json_object" },
-      maxTokens: 50,
+      maxTokens: 300,
+      reasoningEffort: "low",
     });
 
     const parsed = JSON.parse(completion.content);
@@ -88,7 +104,8 @@ Deno.test({
   fn: async () => {
     // Our credential problem must never be reported to the user as though
     // THEY were not signed in.
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: "gsk_definitely_not_a_valid_key",
       model,
       timeoutSeconds: 25,
@@ -107,7 +124,8 @@ Deno.test({
   name: "[integration] an impossibly short timeout aborts rather than hanging",
   ignore: skip,
   fn: async () => {
-    const client = createGroqClient({
+    const client = createChatClient({
+      baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
       timeoutSeconds: 1,
