@@ -32,6 +32,7 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F15 | Document crop | [F15-document-crop.md](F15-document-crop.md) | `feature/document-crop` | post-M9 | 12 |
 | F16 | Live edge detection *(superseded by F24)* | [F16-live-edge-detection.md](F16-live-edge-detection.md) | `feature/live-edge-detection` | post-M9 | 10 |
 | F18 | AI provider fallback | [F18-ai-provider-fallback.md](F18-ai-provider-fallback.md) | `feature/ai-provider-fallback` | post-F17 | 10 |
+| F19 | Offline first launch | [F19-offline-first-launch.md](F19-offline-first-launch.md) | `feature/offline-first-launch` | post-M9 | 3 |
 | F21 | Result screen refinement | [F21-result-screen-refinement.md](F21-result-screen-refinement.md) | `feature/result-screen-refinement` | post-F20 | 16 |
 | F22 | Analysis wait screen | [F22-analysis-wait-screen.md](F22-analysis-wait-screen.md) | `feature/analysis-wait-screen` | post-F21 | 15 |
 | F23 | Failure screens redesign | [F23-failure-screens-redesign.md](F23-failure-screens-redesign.md) | `feature/failure-screens-redesign` | post-F22 | 14 |
@@ -39,7 +40,7 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F25 | Reminder notifications | [F25-reminder-notifications.md](F25-reminder-notifications.md) | `feature/reminder-notifications` | post-F24 | 9 |
 | F26 | Top bars, floating SnackBar, quota hint | [F26-bars-and-snackbar.md](F26-bars-and-snackbar.md) | `feature/ui-polish-bars-snackbar` | post-F25 | 5 |
 
-**Total: 284 tasks across 23 features.**
+**Total: 287 tasks across 24 features.**
 
 ## Critical path
-`F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place. F16 branches off F15 and is purely additive — it changes what the camera guide *shows*, never what the capture keeps, so it can be dropped without affecting the pipeline — and F24 Phase 1 did drop it (2026-10-03): F16 is superseded and the camera is a plain camera again. (`doclens` perspective correction was removed on 2026-09-30 — see F15 locked decision #4; the user's own crop on the preview screen is the only crop.) F18 depends on F06 only (the `AiAnalysisProvider` seam) and is orthogonal to the OCR line of work — it changes which AI provider classifies the text, never how the text is read.
+`F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place. F16 branches off F15 and is purely additive — it changes what the camera guide *shows*, never what the capture keeps, so it can be dropped without affecting the pipeline — and F24 Phase 1 did drop it (2026-10-03): F16 is superseded and the camera is a plain camera again. (`doclens` perspective correction was removed on 2026-09-30 — see F15 locked decision #4; the user's own crop on the preview screen is the only crop.) F18 depends on F06 only (the `AiAnalysisProvider` seam) and is orthogonal to the OCR line of work — it changes which AI provider classifies the text, never how the text is read. F19 is a bug fix on F01's launch sequence — it depends on nothing in flight and touches no screen, so it can land at any time.
