@@ -10,10 +10,14 @@ final class _ScriptedAuth implements AuthRepository {
   _ScriptedAuth({
     this.restored = const Ok<AppSession?, AppFailure>(null),
     AppSession? minted,
+    this.refreshed,
   }) : _minted = minted;
 
   final Result<AppSession?, AppFailure> restored;
   final AppSession? _minted;
+
+  /// What [refreshSession] answers. `null` falls back to [_minted].
+  final Result<AppSession, AppFailure>? refreshed;
 
   final List<String> calls = [];
 
@@ -32,7 +36,7 @@ final class _ScriptedAuth implements AuthRepository {
   @override
   Future<Result<AppSession, AppFailure>> refreshSession() async {
     calls.add('refresh');
-    return Ok(_minted!);
+    return refreshed ?? Ok(_minted!);
   }
 }
 
@@ -74,6 +78,45 @@ void main() {
 
     expect(result, Ok<AppSession, AppFailure>(fresh));
     expect(auth.calls, ['restore', 'refresh']);
+  });
+
+  test(
+    'keeps an expired session when the refresh cannot reach the network',
+    () async {
+      // F19. The install was online an hour ago and has a perfectly good stored
+      // session; it is only the access token that went stale. Failing here used to
+      // abort launch and put the user on the error screen, locking them out of
+      // saved papers, reminders and the audio reader — none of which need a token.
+      final expired = sessionExpiringAt(
+        now.subtract(const Duration(minutes: 1)),
+      );
+      final auth = _ScriptedAuth(
+        restored: Ok<AppSession?, AppFailure>(expired),
+        refreshed: const Err<AppSession, AppFailure>(NoInternetFailure()),
+      );
+
+      final result = await EnsureActiveSession(auth, clock: () => now)();
+
+      expect(result, Ok<AppSession, AppFailure>(expired));
+      expect(auth.calls, [
+        'restore',
+        'refresh',
+      ], reason: 'the refresh must still be attempted first');
+    },
+  );
+
+  test('propagates a refresh the server actively refused', () async {
+    // Only connectivity is tolerated. A refused refresh is a real problem, and
+    // launching past it would hide a broken backend behind a half-working app.
+    final expired = sessionExpiringAt(now.subtract(const Duration(minutes: 1)));
+    final auth = _ScriptedAuth(
+      restored: Ok<AppSession?, AppFailure>(expired),
+      refreshed: const Err<AppSession, AppFailure>(UnauthorizedFailure()),
+    );
+
+    final result = await EnsureActiveSession(auth, clock: () => now)();
+
+    expect(result, const Err<AppSession, AppFailure>(UnauthorizedFailure()));
   });
 
   test('propagates a restore failure without signing in', () async {
