@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show SynchronousFuture;
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/app_strings.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -658,6 +661,35 @@ void main() {
           );
         }
       }
+    });
+  });
+
+  group('AppStringsDelegate', () {
+    const delegate = AppStringsDelegate();
+
+    test('loads synchronously, so the first frame paints the app', () {
+      // `Localizations` renders an empty Container — the bare window background,
+      // no app UI — until every delegate's future completes. A plain `async`
+      // body always returns a real Future, which costs a guaranteed blank frame
+      // at launch. This is the regression guard: the type is the contract.
+      for (final locale in AppLocalizations.supportedLocales) {
+        expect(
+          delegate.load(locale),
+          isA<SynchronousFuture<AppStrings>>(),
+          reason: 'load() must not become an async function',
+        );
+      }
+    });
+
+    test('resolves the right implementation per locale', () async {
+      expect(await delegate.load(AppLocalizations.arabic), isA<ArStrings>());
+      expect(await delegate.load(AppLocalizations.english), isA<EnStrings>());
+    });
+
+    test('supports exactly the declared locales', () {
+      expect(delegate.isSupported(AppLocalizations.arabic), isTrue);
+      expect(delegate.isSupported(AppLocalizations.english), isTrue);
+      expect(delegate.isSupported(const Locale('fr')), isFalse);
     });
   });
 }

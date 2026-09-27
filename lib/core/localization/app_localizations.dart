@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show SynchronousFuture;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -43,9 +44,19 @@ class AppStringsDelegate extends LocalizationsDelegate<AppStrings> {
     (l) => l.languageCode == locale.languageCode,
   );
 
+  /// Resolves **synchronously**, and must keep doing so.
+  ///
+  /// [Localizations] renders an empty `Container` — the bare window background,
+  /// no app UI at all — until every delegate's future has completed. A
+  /// [SynchronousFuture] completes within the same frame, so the first frame
+  /// paints the app; a plain `async` body (which always returns a real `Future`,
+  /// however trivial its work) costs a guaranteed blank frame at launch instead.
+  /// That is why Flutter's own `GlobalMaterialLocalizations.delegate` returns one
+  /// too, and why this must not be turned back into an `async` function.
   @override
-  Future<AppStrings> load(Locale locale) async =>
-      locale.languageCode == 'ar' ? const ArStrings() : const EnStrings();
+  Future<AppStrings> load(Locale locale) => SynchronousFuture<AppStrings>(
+    locale.languageCode == 'ar' ? const ArStrings() : const EnStrings(),
+  );
 
   @override
   bool shouldReload(AppStringsDelegate old) => false;

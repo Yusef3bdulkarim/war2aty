@@ -8,6 +8,12 @@ import 'package:war2aty/core/theme/app_theme.dart';
 /// for widget tests so screens see the same environment as the real app.
 /// Set [settle] to false for screens with a continuously repeating animation —
 /// `pumpAndSettle` never returns while one is running.
+/// With [settle] false, [framesAfterMount] says how many frames to run after
+/// mounting: the default of 1 lets a repeating animation get going, while 0
+/// stops at the mount frame itself. Pass 0 to assert a loading placeholder —
+/// the localization delegates resolve synchronously, so a screen is fully built
+/// on the mount frame, and one more frame is enough for a fake repository's
+/// microtask-fast answer to have already replaced the placeholder.
 /// Pass [textScaler] to check a screen under Large Text (a project
 /// requirement for every new screen).
 /// Pass [navigatorObservers] for a screen that reacts to `RouteAware`
@@ -18,6 +24,7 @@ Future<void> pumpApp(
   Widget child, {
   Locale locale = AppLocalizations.arabic,
   bool settle = true,
+  int framesAfterMount = 1,
   TextScaler? textScaler,
   List<NavigatorObserver> navigatorObservers = const [],
 }) async {
@@ -41,6 +48,8 @@ Future<void> pumpApp(
   if (settle) {
     await tester.pumpAndSettle();
   } else {
-    await tester.pump();
+    for (var i = 0; i < framesAfterMount; i++) {
+      await tester.pump();
+    }
   }
 }

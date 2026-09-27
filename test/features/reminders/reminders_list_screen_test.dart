@@ -44,7 +44,12 @@ void main() {
 
   group('RemindersListScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {
-      await pumpApp(tester, screenUnderTest(), settle: false);
+      await pumpApp(
+        tester,
+        screenUnderTest(),
+        settle: false,
+        framesAfterMount: 0,
+      );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });

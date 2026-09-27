@@ -157,7 +157,12 @@ void main() {
     testWidgets('nothing is claimed empty while the streams are loading', (
       tester,
     ) async {
-      await pumpApp(tester, homeUnderTest(), settle: false);
+      await pumpApp(
+        tester,
+        homeUnderTest(),
+        settle: false,
+        framesAfterMount: 0,
+      );
 
       // First frame: the answers have not arrived yet.
       expect(find.text(ar.homeEmptyTitle), findsNothing);
@@ -168,7 +173,12 @@ void main() {
     testWidgets('the placeholders give way, leaving no ticker behind', (
       tester,
     ) async {
-      await pumpApp(tester, homeUnderTest(), settle: false);
+      await pumpApp(
+        tester,
+        homeUnderTest(),
+        settle: false,
+        framesAfterMount: 0,
+      );
 
       expect(find.byType(SkeletonBox), findsWidgets);
       expect(tester.hasRunningAnimations, isTrue);
