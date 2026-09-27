@@ -31,7 +31,12 @@ void main() {
 
   group('DocumentsListScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {
-      await pumpApp(tester, screenUnderTest(), settle: false);
+      await pumpApp(
+        tester,
+        screenUnderTest(),
+        settle: false,
+        framesAfterMount: 0,
+      );
 
       // The heading text lives in the nav shell tab, not this screen.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
