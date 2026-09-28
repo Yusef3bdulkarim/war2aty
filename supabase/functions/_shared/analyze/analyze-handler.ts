@@ -62,18 +62,16 @@ export interface AnalyzeDependencies {
   readonly loadConfig: () => Promise<RuntimeConfig>;
   readonly slots: SlotStore;
   /**
-   * Built per request because the timeout comes from runtime config, which an
-   * operator can change without a redeploy.
+   * Built per request because the time budget comes from runtime config, which
+   * an operator can change without a redeploy.
    *
-   * `geminiPrimary` is `config.geminiPrimaryEnabled` (F18-T06) and chooses the
-   * provider ORDER, not whether a second provider exists. The handler stays
-   * ignorant of which providers there are: it passes the flag through and
-   * receives one `AiAnalysisProvider`, exactly as it did when there was only
-   * ever one.
+   * The handler stays ignorant of which providers exist and in what order: it
+   * receives one `AiAnalysisProvider`, which throws only §31 `ApiError`s
+   * (F20-T04), exactly as it did when there was only ever one provider.
+   * `requestId` correlates the chain's own `analyze.provider` log line.
    */
   readonly createAnalyser: (
     timeoutSeconds: number,
-    geminiPrimary: boolean,
     requestId: string,
   ) => AiAnalysisProvider;
   /**
@@ -178,7 +176,6 @@ export function createAnalyzeHandler(
     // slot to discover it.
     const analyse = createAnalyser(
       config.aiTimeoutSeconds,
-      config.geminiPrimaryEnabled,
       // Threaded in so the chain's own `analyze.provider` line correlates with
       // every other log for this request (F18-T07).
       requestId,

@@ -38,10 +38,7 @@
 
 import { createChatClient } from "../functions/_shared/ai/openai-compatible-client.ts";
 import { groqOptionsFromEnv, isGroqConfigured } from "../functions/_shared/ai/groq-config.ts";
-import {
-  geminiOptionsFromEnv,
-  isGeminiConfigured,
-} from "../functions/_shared/ai/gemini-config.ts";
+import { geminiOptionsFromEnv, isGeminiConfigured } from "../functions/_shared/ai/gemini-config.ts";
 import { createAnalysisProvider } from "../functions/_shared/ai/analysis-provider.ts";
 import type { AnalysisPromptInput } from "../functions/_shared/prompts/analysis-prompt.ts";
 import type { ModelAnalysis } from "../functions/_shared/schemas/analysis-output.schema.ts";
@@ -95,7 +92,7 @@ async function run(
 ): Promise<Outcome> {
   const startedAt = Date.now();
   try {
-    const analysis = await provider()(input);
+    const analysis = await provider()(input, AbortSignal.timeout(TIMEOUT_SECONDS * 1000));
     return { ok: true, analysis, ms: Date.now() - startedAt };
   } catch (thrown) {
     const code = thrown instanceof Error ? thrown.message : String(thrown);
@@ -107,9 +104,7 @@ async function run(
 // ── rendering ─────────────────────────────────────────────────────────────
 
 function amountLines(analysis: ModelAnalysis): string[] {
-  return analysis.amounts.map((a) =>
-    `${a.value} ${a.currency} — ${a.label} [${a.confidence}]`
-  );
+  return analysis.amounts.map((a) => `${a.value} ${a.currency} — ${a.label} [${a.confidence}]`);
 }
 
 function dateLines(analysis: ModelAnalysis): string[] {
@@ -177,13 +172,13 @@ function verdict(groq: Outcome, gemini: Outcome): void {
     [
       "same amount values",
       JSON.stringify(g.amounts.map((a) => a.value).sort()) ===
-      JSON.stringify(m.amounts.map((a) => a.value).sort()),
+        JSON.stringify(m.amounts.map((a) => a.value).sort()),
     ],
     ["same date count", g.dates.length === m.dates.length],
     [
       "same date values",
       JSON.stringify(g.dates.map((d) => d.date).sort()) ===
-      JSON.stringify(m.dates.map((d) => d.date).sort()),
+        JSON.stringify(m.dates.map((d) => d.date).sort()),
     ],
     ["both answered in Arabic", hasArabic(g.summary.detailed) && hasArabic(m.summary.detailed)],
   ];
@@ -239,7 +234,7 @@ const groq = await run(
   "groq",
   () =>
     createAnalysisProvider({
-      client: createChatClient(groqOptionsFromEnv(TIMEOUT_SECONDS)),
+      client: createChatClient(groqOptionsFromEnv()),
     }),
   input,
 );
@@ -248,7 +243,7 @@ const gemini = await run(
   "gemini",
   () =>
     createAnalysisProvider({
-      client: createChatClient(geminiOptionsFromEnv(TIMEOUT_SECONDS)),
+      client: createChatClient(geminiOptionsFromEnv()),
     }),
   input,
 );

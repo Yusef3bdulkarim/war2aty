@@ -9,19 +9,37 @@
  * perfectly-typed amount that is not on the page. That is what the validation
  * pipeline (F06-T12) is for, and why this module deliberately stops at
  * structure.
+ *
+ * ── Two types, two audiences (F20-T04) ────────────────────────────────────
+ * - An {@link AnalysisLeg} is ONE provider, called once, within a signal it is
+ *   given. It throws only `ProviderFailure`, which reports what went wrong
+ *   and says nothing about the wire.
+ * - An {@link AiAnalysisProvider} is what the endpoint calls. It owns the time
+ *   budget and any fallback between legs, and throws only `ApiError`, which is
+ *   already mapped to §31.
+ *
+ * `fallback-provider.ts` turns legs into a provider.
  */
 
-import { ApiError } from "../errors/api-error.ts";
+import { ProviderFailure } from "./provider-failure.ts";
 import type { ChatClient } from "./openai-compatible-client.ts";
 import { type AnalysisPromptInput, buildAnalysisMessages } from "../prompts/analysis-prompt.ts";
-import {
-  ANALYSIS_RESPONSE_FORMAT,
-  type ModelAnalysis,
-} from "../schemas/analysis-output.schema.ts";
+import { ANALYSIS_RESPONSE_FORMAT, type ModelAnalysis } from "../schemas/analysis-output.schema.ts";
 
-/** What the endpoint calls. Implementations must never throw a raw provider error. */
+/** What the endpoint calls. Throws only `ApiError`, never a raw provider error. */
 export type AiAnalysisProvider = (
   input: AnalysisPromptInput,
+) => Promise<ModelAnalysis>;
+
+/**
+ * One provider, one attempt. Throws only `ProviderFailure`.
+ *
+ * `signal` bounds the attempt. It usually comes from the request's `Deadline`,
+ * so the leg never decides its own timeout.
+ */
+export type AnalysisLeg = (
+  input: AnalysisPromptInput,
+  signal: AbortSignal,
 ) => Promise<ModelAnalysis>;
 
 /**
@@ -62,6 +80,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Fresh per throw, so no two failures ever share a stack. */
+function invalidOutput(): ProviderFailure {
+  return new ProviderFailure("invalid_output");
+}
+
 const STATUSES = new Set(["success", "partial", "unsupported"]);
 const CONFIDENCES = new Set(["high", "medium", "low"]);
 
@@ -73,12 +96,16 @@ const CONFIDENCES = new Set(["high", "medium", "low"]);
  * plan change, an API regression), an unchecked cast would let a malformed
  * object flow all the way to the device and crash the result screen. Failing
  * here instead costs the user nothing, because the slot is released.
+ *
+ * A failure is `invalid_output` (matrix row A5): the provider answered, but
+ * not with something usable. That makes it fallback-eligible, since a second
+ * model may well produce a valid answer where this one did not.
  */
 export function assertModelAnalysis(value: unknown): ModelAnalysis {
-  if (!isRecord(value)) throw ApiError.analysisFailed();
+  if (!isRecord(value)) throw invalidOutput();
 
   if (typeof value.status !== "string" || !STATUSES.has(value.status)) {
-    throw ApiError.analysisFailed();
+    throw invalidOutput();
   }
 
   const documentType = value.document_type;
@@ -89,7 +116,7 @@ export function assertModelAnalysis(value: unknown): ModelAnalysis {
     typeof documentType.confidence !== "string" ||
     !CONFIDENCES.has(documentType.confidence)
   ) {
-    throw ApiError.analysisFailed();
+    throw invalidOutput();
   }
 
   const summary = value.summary;
@@ -98,7 +125,7 @@ export function assertModelAnalysis(value: unknown): ModelAnalysis {
     typeof summary.short !== "string" ||
     typeof summary.detailed !== "string"
   ) {
-    throw ApiError.analysisFailed();
+    throw invalidOutput();
   }
 
   // Every collection must be present, even when empty: the client iterates
@@ -116,7 +143,7 @@ export function assertModelAnalysis(value: unknown): ModelAnalysis {
       "missing_fields",
     ]
   ) {
-    if (!Array.isArray(value[key])) throw ApiError.analysisFailed();
+    if (!Array.isArray(value[key])) throw invalidOutput();
   }
 
   return value as unknown as ModelAnalysis;
@@ -139,12 +166,13 @@ export interface AnalysisProviderOptions {
  */
 export function createAnalysisProvider(
   options: AnalysisProviderOptions,
-): AiAnalysisProvider {
+): AnalysisLeg {
   const { client, model } = options;
 
-  return async (input: AnalysisPromptInput): Promise<ModelAnalysis> => {
+  return async (input: AnalysisPromptInput, signal: AbortSignal): Promise<ModelAnalysis> => {
     const completion = await client({
       messages: buildAnalysisMessages(input),
+      signal,
       model,
       temperature: 0,
       maxTokens: MAX_OUTPUT_TOKENS,
@@ -157,7 +185,7 @@ export function createAnalysisProvider(
       parsed = JSON.parse(completion.content);
     } catch {
       // Never attach the raw content: it is a reading of the user's document.
-      throw ApiError.analysisFailed();
+      throw invalidOutput();
     }
 
     return assertModelAnalysis(parsed);

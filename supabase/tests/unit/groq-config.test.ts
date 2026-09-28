@@ -53,27 +53,25 @@ Deno.test("the base URL is Groq's OpenAI-compatible root, with no trailing slash
 
 Deno.test("options are read from the environment", () => {
   const options = groqOptionsFromEnv(
-    25,
     env({ GROQ_API_KEY: "test-key", GROQ_MODEL: "openai/gpt-oss-20b" }),
   );
 
   assertEquals(options.apiKey, "test-key");
   assertEquals(options.model, "openai/gpt-oss-20b");
-  assertEquals(options.timeoutSeconds, 25);
 });
 
 Deno.test("the options carry the base URL, so no caller has to know it", () => {
   // Before F18-T03 the transport hardcoded the URL and this function did not
   // return one. Now it does, which is what lets `analyze-document/index.ts`
   // hand the whole object straight to `createChatClient`.
-  assertEquals(groqOptionsFromEnv(25, env(CONFIGURED)).baseUrl, GROQ_BASE_URL);
+  assertEquals(groqOptionsFromEnv(env(CONFIGURED)).baseUrl, GROQ_BASE_URL);
 });
 
 Deno.test("a blank api key is fatal", () => {
   // A key set to whitespace is a truthy string; untrimmed it would reach the
   // wire as `Bearer    ` and 401 on every analysis instead of failing at boot.
   assertThrows(
-    () => groqOptionsFromEnv(25, env({ ...CONFIGURED, GROQ_API_KEY: "   " })),
+    () => groqOptionsFromEnv(env({ ...CONFIGURED, GROQ_API_KEY: "   " })),
     Error,
     "GROQ_API_KEY",
   );
@@ -81,7 +79,6 @@ Deno.test("a blank api key is fatal", () => {
 
 Deno.test("an api key is trimmed before use", () => {
   const options = groqOptionsFromEnv(
-    25,
     env({ ...CONFIGURED, GROQ_API_KEY: "gsk_test\n" }),
   );
 
@@ -90,7 +87,7 @@ Deno.test("an api key is trimmed before use", () => {
 
 Deno.test("a missing api key is fatal", () => {
   assertThrows(
-    () => groqOptionsFromEnv(25, env({ GROQ_MODEL: "openai/gpt-oss-120b" })),
+    () => groqOptionsFromEnv(env({ GROQ_MODEL: "openai/gpt-oss-120b" })),
     Error,
     "GROQ_API_KEY",
   );
@@ -98,7 +95,7 @@ Deno.test("a missing api key is fatal", () => {
 
 Deno.test("a missing model is fatal rather than defaulted", () => {
   assertThrows(
-    () => groqOptionsFromEnv(25, env({ GROQ_API_KEY: "test-key" })),
+    () => groqOptionsFromEnv(env({ GROQ_API_KEY: "test-key" })),
     Error,
     "GROQ_MODEL",
   );
@@ -109,7 +106,6 @@ Deno.test("a blank model is fatal too", () => {
   assertThrows(
     () =>
       groqOptionsFromEnv(
-        25,
         env({ GROQ_API_KEY: "test-key", GROQ_MODEL: "   " }),
       ),
     Error,
@@ -120,7 +116,6 @@ Deno.test("a blank model is fatal too", () => {
 Deno.test("a model is trimmed before use", () => {
   // A trailing newline is what a copy-pasted `.env` value actually looks like.
   const options = groqOptionsFromEnv(
-    25,
     env({ GROQ_API_KEY: "test-key", GROQ_MODEL: "openai/gpt-oss-120b\n" }),
   );
 
@@ -151,7 +146,7 @@ Deno.test("a key without a model still reports as configured", () => {
   // a config slip that deserves shouting about.
   assert(isGroqConfigured(env({ GROQ_API_KEY: "test-key" })));
   assertThrows(
-    () => groqOptionsFromEnv(25, env({ GROQ_API_KEY: "test-key" })),
+    () => groqOptionsFromEnv(env({ GROQ_API_KEY: "test-key" })),
     Error,
     "GROQ_MODEL",
   );
@@ -164,5 +159,5 @@ Deno.test("reporting unconfigured does not soften the deploy fault", () => {
   const blank = env({});
 
   assert(!isGroqConfigured(blank));
-  assertThrows(() => groqOptionsFromEnv(25, blank), Error, "GROQ_API_KEY");
+  assertThrows(() => groqOptionsFromEnv(blank), Error, "GROQ_API_KEY");
 });

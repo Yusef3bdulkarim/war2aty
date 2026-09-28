@@ -26,12 +26,9 @@
 
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
-import { ApiError } from "../../functions/_shared/errors/api-error.ts";
+import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
 import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
-import {
-  DEFAULT_GROQ_MODEL,
-  GROQ_BASE_URL,
-} from "../../functions/_shared/ai/groq-config.ts";
+import { DEFAULT_GROQ_MODEL, GROQ_BASE_URL } from "../../functions/_shared/ai/groq-config.ts";
 
 const apiKey = Deno.env.get("GROQ_API_KEY");
 const model = Deno.env.get("GROQ_MODEL") ?? DEFAULT_GROQ_MODEL;
@@ -45,10 +42,10 @@ Deno.test({
       baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
-      timeoutSeconds: 25,
     });
 
     const completion = await client({
+      signal: AbortSignal.timeout(25_000),
       messages: [
         { role: "system", content: "Reply with exactly one word." },
         { role: "user", content: "Say OK" },
@@ -77,10 +74,10 @@ Deno.test({
       baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
-      timeoutSeconds: 25,
     });
 
     const completion = await client({
+      signal: AbortSignal.timeout(25_000),
       messages: [
         {
           role: "system",
@@ -99,24 +96,27 @@ Deno.test({
 });
 
 Deno.test({
-  name: "[integration] a bad key fails as ANALYSIS_FAILED, not UNAUTHORIZED",
+  name: "[integration] a bad key fails as auth, never as the user's fault",
   ignore: skip,
   fn: async () => {
     // Our credential problem must never be reported to the user as though
-    // THEY were not signed in.
+    // THEY were not signed in, and must never fall back (matrix row A6).
     const client = createChatClient({
       baseUrl: GROQ_BASE_URL,
       apiKey: "gsk_definitely_not_a_valid_key",
       model,
-      timeoutSeconds: 25,
     });
 
     const thrown = await assertRejects(
-      () => client({ messages: [{ role: "user", content: "hi" }] }),
-      ApiError,
+      () =>
+        client({
+          signal: AbortSignal.timeout(25_000),
+          messages: [{ role: "user", content: "hi" }],
+        }),
+      ProviderFailure,
     );
 
-    assertEquals((thrown as ApiError).code, "ANALYSIS_FAILED");
+    assertEquals((thrown as ProviderFailure).kind, "auth");
   },
 });
 
@@ -128,19 +128,19 @@ Deno.test({
       baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
-      timeoutSeconds: 1,
     });
 
     // A 1s budget against a real network call: either it genuinely completes
     // or it times out — both are correct, but it must never hang.
     try {
       await client({
+        signal: AbortSignal.timeout(1_000),
         messages: [{ role: "user", content: "Write a long essay about rivers." }],
         maxTokens: 2000,
       });
     } catch (thrown) {
-      assert(thrown instanceof ApiError);
-      assertEquals((thrown as ApiError).code, "TIMEOUT");
+      assert(thrown instanceof ProviderFailure);
+      assertEquals(thrown.kind, "timeout");
     }
   },
 });

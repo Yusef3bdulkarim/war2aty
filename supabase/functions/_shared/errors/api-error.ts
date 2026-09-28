@@ -36,46 +36,12 @@ export class ApiError extends Error {
   readonly status: number;
   readonly details?: ErrorDetails;
 
-  /**
-   * Whether the PROVIDER failed to answer, as opposed to answering badly
-   * (F18-T05).
-   *
-   * The distinction is what the fallback chain switches on, and the two are
-   * otherwise indistinguishable: `ANALYSIS_FAILED` is thrown both by the HTTP
-   * transport (5xx, an undecodable body, a 200 carrying nothing) and by the
-   * parser (valid JSON of the wrong shape). Only the first kind is worth asking
-   * a second provider about — the second is a considered answer about a damaged
-   * document, and the other model will usually fail it too.
-   *
-   * Set only on the transport's error paths, via {@link asProviderFault}.
-   * Deliberately absent from {@link toBody}: it is a server-side routing hint,
-   * and the §31 wire contract does not move.
-   */
-  readonly providerFault: boolean;
-
-  constructor(
-    code: ErrorCode,
-    message: string,
-    details?: ErrorDetails,
-    providerFault = false,
-  ) {
+  constructor(code: ErrorCode, message: string, details?: ErrorDetails) {
     super(message);
     this.name = "ApiError";
     this.code = code;
     this.status = httpStatusForErrorCode(code);
     this.details = details;
-    this.providerFault = providerFault;
-  }
-
-  /**
-   * A copy of this error marked as the provider's failure to answer.
-   *
-   * Used by `openai-compatible-client.ts` at each of its throw sites. Returning
-   * a copy rather than mutating keeps the field `readonly` and keeps every
-   * factory below free of a flag that only one caller sets.
-   */
-  asProviderFault(): ApiError {
-    return new ApiError(this.code, this.message, this.details, true);
   }
 
   /** Serialises to the §31 body. `details` is omitted when absent. */

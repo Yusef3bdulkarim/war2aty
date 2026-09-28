@@ -39,20 +39,6 @@ export interface RuntimeConfig {
    * unconditionally, same as today.
    */
   readonly azureOcrEnabled: boolean;
-  /**
-   * Whether Gemini serves analysis FIRST, with Groq as the fallback (F18-T06).
-   *
-   * Dark-launched: `false` until an operator explicitly flips it, so merging
-   * F18 leaves production byte-for-byte unchanged. `false` does not mean
-   * "Gemini is unused" — when a `GEMINI_API_KEY` is configured it still takes
-   * the overflow as the fallback leg; this flag only chooses the ORDER.
-   *
-   * Server-side only, and deliberately absent from the Flutter
-   * `RuntimeConfig`, like {@link globalDailyCallCap}: which provider serves a
-   * request is an operational choice, not a product rule the app should show
-   * or predict. The app has never known which provider answered it.
-   */
-  readonly geminiPrimaryEnabled: boolean;
   readonly maxOcrCharacters: number;
   /**
    * Upper bound on a decoded `image.data` payload, in bytes (F13-T09).
@@ -86,10 +72,6 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   globalDailyCallCap: null,
   // Dark by default (F13-T03): off until an operator explicitly enables it.
   azureOcrEnabled: false,
-  // Dark by default (F18-T06): Groq stays primary until an operator flips the
-  // row. No migration ships with this — an absent key reads as off, which is
-  // exactly today's behaviour.
-  geminiPrimaryEnabled: false,
   maxOcrCharacters: 12000,
   // ~8MB decoded — comfortably above a compressed capture-quality-gated photo,
   // small enough that an oversized body is still cheap to reject on parse.
@@ -220,10 +202,6 @@ export function parseRuntimeConfig(
     azureOcrEnabled: optInFlag(
       read("azure_ocr_enabled"),
       has("azure_ocr_enabled"),
-    ),
-    geminiPrimaryEnabled: optInFlag(
-      read("gemini_primary_enabled"),
-      has("gemini_primary_enabled"),
     ),
     maxOcrCharacters: positiveInteger(
       read("max_ocr_characters"),

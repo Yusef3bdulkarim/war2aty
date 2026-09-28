@@ -55,7 +55,6 @@ interface Harness {
   readonly finalizes: { requestId: string; success: boolean; errorCode?: string }[];
   readonly prompts: AnalysisPromptInput[];
   readonly analyserTimeouts: number[];
-  readonly analyserGeminiPrimary: boolean[];
   readonly analyserRequestIds: string[];
   readonly imagePipelineCalls: { data: Uint8Array; mimeType: string }[];
   readonly imagePipelineTimeouts: number[];
@@ -74,7 +73,6 @@ function harness(options: HarnessOptions = {}): Harness {
   const finalizes: { requestId: string; success: boolean; errorCode?: string }[] = [];
   const prompts: AnalysisPromptInput[] = [];
   const analyserTimeouts: number[] = [];
-  const analyserGeminiPrimary: boolean[] = [];
   const analyserRequestIds: string[] = [];
   const imagePipelineCalls: { data: Uint8Array; mimeType: string }[] = [];
   const imagePipelineTimeouts: number[] = [];
@@ -122,9 +120,8 @@ function harness(options: HarnessOptions = {}): Harness {
         ),
       loadConfig: options.loadConfig ?? (() => Promise.resolve(config)),
       slots,
-      createAnalyser: (timeoutSeconds, geminiPrimary, analyserRequestId) => {
+      createAnalyser: (timeoutSeconds, analyserRequestId) => {
         analyserTimeouts.push(timeoutSeconds);
-        analyserGeminiPrimary.push(geminiPrimary);
         analyserRequestIds.push(analyserRequestId);
         return analyse;
       },
@@ -158,7 +155,6 @@ function harness(options: HarnessOptions = {}): Harness {
     finalizes,
     prompts,
     analyserTimeouts,
-    analyserGeminiPrimary,
     analyserRequestIds,
     imagePipelineCalls,
     imagePipelineTimeouts,
@@ -608,41 +604,23 @@ Deno.test("the response carries phones/references once the pipeline supplies ver
   assertEquals(body.references.length, 1);
 });
 
-// ── the provider-order flag reaches the factory (F18-T06) ────────────────
-// The handler must not decide, cache or second-guess the order — it passes the
-// runtime flag straight through, so flipping the DB row takes effect on the very
-// next request with no redeploy and no worker restart.
+// ── the analyser is built per request ─────────────────────────────────────
+// The handler must not cache the chain: its time budget comes from runtime
+// config, and an operator change must take effect on the very next request with
+// no redeploy and no worker restart. (F18's provider-order flag, which this
+// section used to test, was removed in F20-T04.)
 
-Deno.test("the runtime flag is handed to the analyser factory", async () => {
-  const test = harness({ config: { geminiPrimaryEnabled: true } });
-
-  await test.call();
-
-  assertEquals(test.analyserGeminiPrimary, [true]);
-});
-
-Deno.test("the flag defaults to off, which is today's behaviour", async () => {
-  const test = harness();
-
-  await test.call();
-
-  assertEquals(test.analyserGeminiPrimary, [false]);
-});
-
-Deno.test("a flag change takes effect on the next request", async () => {
-  // Built per request, not per worker: an operator flipping the row must not
-  // have to wait for a cold start.
-  let geminiPrimary = false;
+Deno.test("a budget change takes effect on the next request", async () => {
+  let aiTimeoutSeconds = 25;
   const test = harness({
-    loadConfig: () =>
-      Promise.resolve(testConfig({ geminiPrimaryEnabled: geminiPrimary })),
+    loadConfig: () => Promise.resolve(testConfig({ aiTimeoutSeconds })),
   });
 
   await test.call();
-  geminiPrimary = true;
+  aiTimeoutSeconds = 20;
   await test.call();
 
-  assertEquals(test.analyserGeminiPrimary, [false, true]);
+  assertEquals(test.analyserTimeouts, [25, 20]);
 });
 
 Deno.test("the request id reaches the analyser so its provider log correlates", async () => {

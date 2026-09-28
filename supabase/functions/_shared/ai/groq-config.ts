@@ -36,7 +36,6 @@ export const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
  * model is not defaulted.
  */
 export function groqOptionsFromEnv(
-  timeoutSeconds: number,
   environment: { get(key: string): string | undefined } = Deno.env,
 ): ChatClientOptions {
   // Trimmed for the same reason the model is: a var set to whitespace is a
@@ -68,7 +67,7 @@ export function groqOptionsFromEnv(
     );
   }
 
-  return { baseUrl: GROQ_BASE_URL, apiKey, model, timeoutSeconds };
+  return { baseUrl: GROQ_BASE_URL, apiKey, model };
 }
 
 /**

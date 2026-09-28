@@ -1,6 +1,12 @@
 /**
  * F18-T04 · Gemini credentials and endpoint.
  *
+ * STATUS (F20-T04): no longer wired into analysis. F18's Gemini analysis leg
+ * was removed with F18 itself. Only the comparison tool and the live
+ * integration test still read this module. F20-T07 reshapes it into the config
+ * for the Gemini OCR client, and the classifier-specific notes below go with
+ * that change.
+ *
  * Read here, not inline in the transport, so a deploy fault is a loud startup
  * error in one place — same contract as `groqOptionsFromEnv`
  * (`./groq-config.ts`) and `googleDocumentAiOptionsFromEnv`
@@ -31,8 +37,7 @@ import type { ChatClientOptions } from "./openai-compatible-client.ts";
  * rather than a per-deployment choice, and getting it wrong fails loudly and
  * immediately (404) rather than quietly producing bad analyses.
  */
-export const GEMINI_DEFAULT_BASE_URL =
-  "https://generativelanguage.googleapis.com/v1beta/openai";
+export const GEMINI_DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai";
 
 /**
  * The model this leg is built around, and the one `.env.example` will set.
@@ -58,7 +63,6 @@ export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
  * therefore a loud startup error, not a silently-skipped provider.
  */
 export function geminiOptionsFromEnv(
-  timeoutSeconds: number,
   environment: { get(key: string): string | undefined } = Deno.env,
 ): ChatClientOptions {
   const apiKey = environment.get("GEMINI_API_KEY")?.trim();
@@ -90,7 +94,6 @@ export function geminiOptionsFromEnv(
     baseUrl: baseUrlFromEnv(environment),
     apiKey,
     model,
-    timeoutSeconds,
   };
 }
 
@@ -104,9 +107,7 @@ function baseUrlFromEnv(
   environment: { get(key: string): string | undefined },
 ): string {
   const override = environment.get("GEMINI_BASE_URL")?.trim();
-  const baseUrl = override && override.length > 0
-    ? override
-    : GEMINI_DEFAULT_BASE_URL;
+  const baseUrl = override && override.length > 0 ? override : GEMINI_DEFAULT_BASE_URL;
 
   return baseUrl.replace(/\/+$/, "");
 }

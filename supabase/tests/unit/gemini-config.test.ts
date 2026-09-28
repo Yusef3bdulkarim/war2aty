@@ -49,7 +49,7 @@ Deno.test("the default model is not silently used as the production default", ()
   // The whole point of the non-default: a key with no model must fail, not
   // quietly fall back to this constant.
   assertThrows(
-    () => geminiOptionsFromEnv(25, env({ GEMINI_API_KEY: "test-key" })),
+    () => geminiOptionsFromEnv(env({ GEMINI_API_KEY: "test-key" })),
     Error,
     "GEMINI_MODEL",
   );
@@ -57,24 +57,22 @@ Deno.test("the default model is not silently used as the production default", ()
 
 // ── reading the environment ───────────────────────────────────────────────
 
-Deno.test("reads the key, model and timeout from the environment", () => {
-  const options = geminiOptionsFromEnv(25, env(CONFIGURED));
+Deno.test("reads the key and model from the environment", () => {
+  const options = geminiOptionsFromEnv(env(CONFIGURED));
 
   assertEquals(options.apiKey, "test-key");
   assertEquals(options.model, "gemini-3.1-flash-lite");
-  assertEquals(options.timeoutSeconds, 25);
 });
 
 Deno.test("the base URL defaults without an override", () => {
   assertEquals(
-    geminiOptionsFromEnv(25, env(CONFIGURED)).baseUrl,
+    geminiOptionsFromEnv(env(CONFIGURED)).baseUrl,
     GEMINI_DEFAULT_BASE_URL,
   );
 });
 
 Deno.test("GEMINI_BASE_URL overrides the default", () => {
   const options = geminiOptionsFromEnv(
-    25,
     env({ ...CONFIGURED, GEMINI_BASE_URL: "https://proxy.example/v1beta/openai" }),
   );
 
@@ -84,7 +82,6 @@ Deno.test("GEMINI_BASE_URL overrides the default", () => {
 Deno.test("a blank override falls back to the default rather than empty", () => {
   // `??` would have accepted "" and produced `/chat/completions` as the URL.
   const options = geminiOptionsFromEnv(
-    25,
     env({ ...CONFIGURED, GEMINI_BASE_URL: "   " }),
   );
 
@@ -95,7 +92,6 @@ Deno.test("trailing slashes are stripped from the base URL", () => {
   // The client appends `/chat/completions`; a trailing slash would double it,
   // and the resulting 404 looks exactly like a retired model.
   const options = geminiOptionsFromEnv(
-    25,
     env({ ...CONFIGURED, GEMINI_BASE_URL: "https://proxy.example/v1beta/openai///" }),
   );
 
@@ -104,7 +100,7 @@ Deno.test("trailing slashes are stripped from the base URL", () => {
 
 Deno.test("a missing api key is fatal", () => {
   assertThrows(
-    () => geminiOptionsFromEnv(25, env({ GEMINI_MODEL: "gemini-3.1-flash-lite" })),
+    () => geminiOptionsFromEnv(env({ GEMINI_MODEL: "gemini-3.1-flash-lite" })),
     Error,
     "GEMINI_API_KEY",
   );
@@ -114,7 +110,7 @@ Deno.test("a blank api key is fatal", () => {
   // A key set to whitespace would otherwise reach the wire as `Bearer    `
   // and 401 on every single analysis.
   assertThrows(
-    () => geminiOptionsFromEnv(25, env({ ...CONFIGURED, GEMINI_API_KEY: "   " })),
+    () => geminiOptionsFromEnv(env({ ...CONFIGURED, GEMINI_API_KEY: "   " })),
     Error,
     "GEMINI_API_KEY",
   );
@@ -122,7 +118,7 @@ Deno.test("a blank api key is fatal", () => {
 
 Deno.test("a missing model is fatal rather than defaulted", () => {
   assertThrows(
-    () => geminiOptionsFromEnv(25, env({ GEMINI_API_KEY: "test-key" })),
+    () => geminiOptionsFromEnv(env({ GEMINI_API_KEY: "test-key" })),
     Error,
     "GEMINI_MODEL",
   );
@@ -130,7 +126,7 @@ Deno.test("a missing model is fatal rather than defaulted", () => {
 
 Deno.test("a blank model is fatal too", () => {
   assertThrows(
-    () => geminiOptionsFromEnv(25, env({ ...CONFIGURED, GEMINI_MODEL: "  " })),
+    () => geminiOptionsFromEnv(env({ ...CONFIGURED, GEMINI_MODEL: "  " })),
     Error,
     "GEMINI_MODEL",
   );
@@ -139,7 +135,6 @@ Deno.test("a blank model is fatal too", () => {
 Deno.test("the key and model are trimmed before use", () => {
   // A trailing newline is what a copy-pasted `.env` value actually looks like.
   const options = geminiOptionsFromEnv(
-    25,
     env({
       GEMINI_API_KEY: "test-key\n",
       GEMINI_MODEL: " gemini-3.1-flash-lite\n",
@@ -151,7 +146,7 @@ Deno.test("the key and model are trimmed before use", () => {
 });
 
 Deno.test("nothing set hard-fails on the key first", () => {
-  assertThrows(() => geminiOptionsFromEnv(25, env()), Error, "GEMINI_API_KEY");
+  assertThrows(() => geminiOptionsFromEnv(env()), Error, "GEMINI_API_KEY");
 });
 
 // ── availability, without throwing ────────────────────────────────────────
@@ -185,10 +180,10 @@ Deno.test("a key without a model still reports as configured", () => {
 Deno.test("Gemini's options are shaped exactly like Groq's", () => {
   // Both feed the same `createChatClient`, so the same four fields must come
   // out. If this ever diverges, the transport stops being provider-neutral.
-  const options = geminiOptionsFromEnv(25, env(CONFIGURED));
+  const options = geminiOptionsFromEnv(env(CONFIGURED));
 
   assertEquals(
     Object.keys(options).sort(),
-    ["apiKey", "baseUrl", "model", "timeoutSeconds"],
+    ["apiKey", "baseUrl", "model"],
   );
 });
