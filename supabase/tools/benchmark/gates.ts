@@ -161,7 +161,9 @@ export function analysisGates(input: {
     {
       id: "G5",
       description: "zero semantic false rejects",
-      passed: rejected.length === 0
+      passed: n === 0
+        ? null
+        : rejected.length === 0
         ? true
         : ratedRejects.length < rejected.length
         ? null

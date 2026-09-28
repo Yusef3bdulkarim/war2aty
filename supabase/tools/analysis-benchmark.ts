@@ -59,6 +59,7 @@ import {
   loadTruth,
   numberFlag,
   sleep,
+  stopIfKeyRefused,
   transcriptionPath,
   withBackoff,
 } from "./benchmark/corpus.ts";
@@ -210,15 +211,15 @@ function report(rows: readonly DocumentRow[]): void {
 
   console.log("");
   console.log(
-    "category      n   err schema  sem   type  date-P date-R  amt-P  amt-R  arabic len " +
+    "category            n   err schema  sem   type  date-P date-R  amt-P  amt-R  arabic len " +
       " in-tok out-tok   p50    p95  rating",
   );
-  console.log("─".repeat(124));
+  console.log("─".repeat(130));
 
   const line = (label: string, group: readonly DocumentRow[]) => {
     const s = summary(group);
     console.log(
-      label.padEnd(12) +
+      label.padEnd(18) +
         String(s.documents).padStart(3) +
         " " + percent(s.errorRate) +
         " " + percent(s.schemaValid) +
@@ -245,7 +246,7 @@ function report(rows: readonly DocumentRow[]): void {
       rows.filter((r) => r.category === category),
     );
   }
-  console.log("─".repeat(124));
+  console.log("─".repeat(130));
   line("ALL", rows);
 
   const tally = (values: string[]) => {
@@ -352,6 +353,7 @@ async function main(args: readonly string[]): Promise<void> {
         (s, attempt) => console.log(`    … rate limited, waiting ${s}s (attempt ${attempt})`),
       );
     } catch (thrown) {
+      stopIfKeyRefused(thrown, `${analyser.toUpperCase()}_API_KEY`);
       failure = failureLabel(thrown);
     }
     const latencyMs = performance.now() - startedAt;

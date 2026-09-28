@@ -18,6 +18,7 @@ import {
   flag,
   numberFlag,
   readDimensions,
+  stopIfKeyRefused,
   transcriptionPath,
   withBackoff,
 } from "../../tools/benchmark/corpus.ts";
@@ -233,6 +234,13 @@ Deno.test("G5 counts a rejected answer the owner rated acceptable as a false rej
   assertEquals(g5([answer({ semanticValid: false, rating: 3 })]), false);
 });
 
+Deno.test("every analysis gate is unmeasured when no answer arrived", () => {
+  // A run where every call failed has proven nothing, G5 included.
+  const results = analysisGates({ scores: [], rates: {}, groqRates: null });
+
+  assertEquals(results.map((g) => g.passed), [null, null, null, null]);
+});
+
 // ── corpus helpers ────────────────────────────────────────────────────────
 
 Deno.test("flag reads a value, or the fallback", () => {
@@ -368,6 +376,19 @@ Deno.test("withBackoff gives up after six rate limits", async () => {
     ProviderFailure,
   );
   assertEquals(calls, 6);
+});
+
+Deno.test("stopIfKeyRefused stops the run on auth only, naming the variable", () => {
+  let message = "";
+  try {
+    stopIfKeyRefused(new ProviderFailure("auth"), "GROQ_API_KEY");
+  } catch (thrown) {
+    message = (thrown as Error).message;
+  }
+
+  assert(message.startsWith("GROQ_API_KEY was refused"));
+  stopIfKeyRefused(new ProviderFailure("upstream_unavailable"), "GROQ_API_KEY");
+  stopIfKeyRefused(new TypeError("x"), "GROQ_API_KEY");
 });
 
 Deno.test("failureLabel names the kind or the class, never the message", () => {

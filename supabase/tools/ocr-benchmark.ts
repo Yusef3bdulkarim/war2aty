@@ -60,6 +60,7 @@ import {
   numberFlag,
   readDimensions,
   sleep,
+  stopIfKeyRefused,
   transcriptionPath,
   truthPath,
   withBackoff,
@@ -123,23 +124,20 @@ function tesseractReader(
   tessdata: string,
   timeoutSeconds: number,
 ): Reader {
-  return async (image) => {
-    let output: Deno.CommandOutput;
+  return async (_image, bytes) => {
+    let child: Deno.ChildProcess;
     try {
-      output = await new Deno.Command(bin, {
-        args: [
-          image.path,
-          "stdout",
-          "-l",
-          "ara+eng",
-          "--tessdata-dir",
-          tessdata,
-        ],
+      child = new Deno.Command(bin, {
+        // The image goes in on stdin, not as a path: on Windows, Tesseract
+        // cannot open a path with non-ASCII characters, such as an Arabic
+        // file name.
+        args: ["stdin", "stdout", "-l", "ara+eng", "--tessdata-dir", tessdata],
+        stdin: "piped",
         stdout: "piped",
         // Tesseract's stderr is progress chatter; it is dropped, not printed.
         stderr: "null",
         signal: AbortSignal.timeout(timeoutSeconds * 1000),
-      }).output();
+      }).spawn();
     } catch (thrown) {
       if (thrown instanceof Deno.errors.NotFound) {
         throw new SetupError(
@@ -149,6 +147,11 @@ function tesseractReader(
       }
       throw thrown;
     }
+    const pending = child.output();
+    const writer = child.stdin.getWriter();
+    await writer.write(bytes);
+    await writer.close();
+    const output = await pending;
     if (!output.success) {
       throw new Error(`tesseract exited with code ${output.code}`);
     }
@@ -258,15 +261,15 @@ function report(rows: readonly DocumentRow[]): void {
 
   console.log("");
   console.log(
-    "category      n  err    CER    WER  CER-ar CER-lat digits  recall  prec  " +
+    "category            n  err    CER    WER  CER-ar CER-lat digits  recall  prec  " +
       "ocr-loss ext-loss   p50    p95",
   );
-  console.log("─".repeat(112));
+  console.log("─".repeat(118));
 
   const line = (label: string, group: readonly DocumentRow[]) => {
     const s = summary(group);
     console.log(
-      label.padEnd(12) +
+      label.padEnd(18) +
         String(s.documents).padStart(3) +
         " " + percent(s.errorRate) +
         " " + percent(s.cer) +
@@ -289,7 +292,7 @@ function report(rows: readonly DocumentRow[]): void {
       rows.filter((r) => r.category === category),
     );
   }
-  console.log("─".repeat(112));
+  console.log("─".repeat(118));
   line("ALL", rows);
 
   const failures = new Map<string, number>();
@@ -380,7 +383,15 @@ async function main(args: readonly string[]): Promise<void> {
         );
         continue;
       }
-      const text = await read(image, bytes);
+      let text: string;
+      try {
+        text = await read(image, bytes);
+      } catch (thrown) {
+        // One unreadable image must not end the run for the rest.
+        if (thrown instanceof SetupError) throw thrown;
+        skipped.push({ file: image.name, reason: `draft failed (${failureLabel(thrown)})` });
+        continue;
+      }
       await Deno.writeTextFile(
         truthPath(image),
         `${JSON.stringify(draftTruth(text), null, 2)}\n`,
@@ -407,6 +418,7 @@ async function main(args: readonly string[]): Promise<void> {
       row = score(image.name, megapixels, status.truth, { text, latencyMs });
     } catch (thrown) {
       if (thrown instanceof SetupError) throw thrown;
+      stopIfKeyRefused(thrown, "GEMINI_API_KEY");
       row = score(image.name, megapixels, status.truth, {
         failure: failureLabel(thrown),
       });

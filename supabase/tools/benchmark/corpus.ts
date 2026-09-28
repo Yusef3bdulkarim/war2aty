@@ -211,6 +211,17 @@ export async function withBackoff<T>(
 }
 
 /**
+ * Stops the run when the provider refused the key. That is a setup problem,
+ * never a per-document result, so every later document would only fail the
+ * same way. The message names the variable, never its value.
+ */
+export function stopIfKeyRefused(thrown: unknown, keyVariable: string): void {
+  if (thrown instanceof ProviderFailure && thrown.kind === "auth") {
+    throw new Error(`${keyVariable} was refused by the provider (auth). Check the key.`);
+  }
+}
+
+/**
  * A failure's name for the report: the `ProviderFailure` kind, or the error's
  * class. Never its message, which for a tool error could quote a path or a
  * value.
