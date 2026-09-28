@@ -37,7 +37,11 @@
  */
 
 import { createChatClient } from "../functions/_shared/ai/openai-compatible-client.ts";
-import { groqOptionsFromEnv, isGroqConfigured } from "../functions/_shared/ai/groq-config.ts";
+import {
+  GROQ_REASONING_EFFORT,
+  groqOptionsFromEnv,
+  isGroqConfigured,
+} from "../functions/_shared/ai/groq-config.ts";
 import { geminiOptionsFromEnv, isGeminiConfigured } from "../functions/_shared/ai/gemini-config.ts";
 import { createAnalysisProvider } from "../functions/_shared/ai/analysis-provider.ts";
 import type { AnalysisPromptInput } from "../functions/_shared/prompts/analysis-prompt.ts";
@@ -235,6 +239,7 @@ const groq = await run(
   () =>
     createAnalysisProvider({
       client: createChatClient(groqOptionsFromEnv()),
+      reasoningEffort: GROQ_REASONING_EFFORT,
     }),
   input,
 );
@@ -244,6 +249,9 @@ const gemini = await run(
   () =>
     createAnalysisProvider({
       client: createChatClient(geminiOptionsFromEnv()),
+      // Kept as it was before F20-T06 made the effort per-leg. This leg
+      // goes when T08 rebuilds the tool as mistral|groq.
+      reasoningEffort: "low",
     }),
   input,
 );

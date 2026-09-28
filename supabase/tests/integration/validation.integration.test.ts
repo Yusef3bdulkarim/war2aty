@@ -14,7 +14,11 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
 import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
-import { DEFAULT_GROQ_MODEL, GROQ_BASE_URL } from "../../functions/_shared/ai/groq-config.ts";
+import {
+  DEFAULT_GROQ_MODEL,
+  GROQ_BASE_URL,
+  GROQ_REASONING_EFFORT,
+} from "../../functions/_shared/ai/groq-config.ts";
 import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
 import { validateAnalysis } from "../../functions/_shared/validators/validation-pipeline.ts";
@@ -51,6 +55,7 @@ Deno.test({
         apiKey: apiKey!,
         model,
       }),
+      reasoningEffort: GROQ_REASONING_EFFORT,
     });
 
     let raw;

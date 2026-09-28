@@ -19,6 +19,7 @@ import { assert, assertEquals, assertThrows } from "jsr:@std/assert@1";
 import {
   DEFAULT_GROQ_MODEL,
   GROQ_BASE_URL,
+  GROQ_REASONING_EFFORT,
   groqOptionsFromEnv,
   isGroqConfigured,
 } from "../../functions/_shared/ai/groq-config.ts";
@@ -47,6 +48,14 @@ Deno.test("the base URL is Groq's OpenAI-compatible root, with no trailing slash
   // it and every analysis would 404.
   assertEquals(GROQ_BASE_URL, "https://api.groq.com/openai/v1");
   assert(!GROQ_BASE_URL.endsWith("/"));
+});
+
+Deno.test("Groq's reasoning effort is low", () => {
+  // openai/gpt-oss-120b spends part of maxTokens on an internal reasoning
+  // trace before writing the answer; left at the default effort this was
+  // measured consuming 1,100-1,300 tokens on an ordinary document, regularly
+  // crowding out the JSON answer itself. "low" is required, not incidental.
+  assertEquals(GROQ_REASONING_EFFORT, "low");
 });
 
 // ── reading the environment ───────────────────────────────────────────────

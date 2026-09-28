@@ -20,8 +20,8 @@
  * - **S3** · every string and array stays within its length bound.
  * - **S4** · `summary.detailed` is not a verbatim echo of the OCR input.
  *
- * It runs inside each attempt, after `assertModelAnalysis` (wired per leg from
- * T06 on).
+ * It runs inside each attempt, right after `assertModelAnalysis`, in
+ * `createAnalysisProvider` (wired in F20-T06).
  *
  * ── Thresholds ────────────────────────────────────────────────────────────
  * {@link SEMANTIC_LIMITS} are PROVISIONAL. They are set loose on purpose, to

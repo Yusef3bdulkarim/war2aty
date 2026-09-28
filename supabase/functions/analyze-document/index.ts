@@ -25,8 +25,11 @@ import {
   type ChatClientOptions,
   createChatClient,
 } from "../_shared/ai/openai-compatible-client.ts";
-import { groqOptionsFromEnv } from "../_shared/ai/groq-config.ts";
-import { createAnalysisProvider } from "../_shared/ai/analysis-provider.ts";
+import { GROQ_REASONING_EFFORT, groqOptionsFromEnv } from "../_shared/ai/groq-config.ts";
+import {
+  type AnalysisProviderOptions,
+  createAnalysisProvider,
+} from "../_shared/ai/analysis-provider.ts";
 import {
   type BudgetedLeg,
   createFallbackAnalysisProvider,
@@ -48,8 +51,11 @@ const serviceClient = createServiceRoleClient();
  * become the per-call signal the transport requires (F20-T04). F20-T10 replaces
  * the seconds with the request's single `Deadline`.
  */
-function legFor(options: ChatClientOptions): BudgetedLeg {
-  const leg = createAnalysisProvider({ client: createChatClient(options) });
+function legFor(
+  options: ChatClientOptions,
+  reasoningEffort?: AnalysisProviderOptions["reasoningEffort"],
+): BudgetedLeg {
+  const leg = createAnalysisProvider({ client: createChatClient(options), reasoningEffort });
   return (seconds: number) => (input) =>
     leg(input, AbortSignal.timeout(Math.max(1, Math.floor(seconds)) * 1000));
 }
@@ -67,7 +73,7 @@ function legFor(options: ChatClientOptions): BudgetedLeg {
  */
 function createAnalysisChain(timeoutSeconds: number, requestId: string) {
   return createFallbackAnalysisProvider({
-    primary: legFor(groqOptionsFromEnv()),
+    primary: legFor(groqOptionsFromEnv(), GROQ_REASONING_EFFORT),
     primaryName: "groq",
     fallback: null,
     fallbackName: null,

@@ -86,16 +86,25 @@ Deno.test("the provider bounds the output length", async () => {
   assert((requests[0].maxTokens ?? 0) > 0);
 });
 
-Deno.test("the provider caps reasoning effort", async () => {
-  // openai/gpt-oss-120b spends part of maxTokens on an internal reasoning
-  // trace before writing the answer; left at the default effort this was
-  // measured consuming 1,100-1,300 tokens on an ordinary document, regularly
-  // crowding out the JSON answer itself. "low" is required, not incidental.
-  const { provider, requests } = providerReturning(VALID);
+Deno.test("the provider sends the reasoning effort it is built with", async () => {
+  // Groq's gpt-oss models need "low" (GROQ_REASONING_EFFORT); the leg must pass
+  // on whatever it was given, unchanged.
+  const { client, requests } = fakeClient(JSON.stringify(VALID));
+  const provider = createAnalysisProvider({ client, reasoningEffort: "low" });
 
   await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(requests[0].reasoningEffort, "low");
+});
+
+Deno.test("no reasoning effort is sent unless one is given", async () => {
+  // F20-T06: Mistral takes no such parameter. A default here would reach
+  // every provider unasked, and a rejected field is a 4xx that never falls back.
+  const { provider, requests } = providerReturning(VALID);
+
+  await provider(INPUT, OPEN_SIGNAL);
+
+  assertEquals(requests[0].reasoningEffort, undefined);
 });
 
 Deno.test("the provider sends the built prompt messages", async () => {
@@ -337,6 +346,56 @@ Deno.test("a wrong-shaped answer may fall back", async () => {
   const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
 
   assert(isFallbackEligible((thrown as ProviderFailure).kind));
+});
+
+// ── semantic validation runs inside the attempt (F20-T06, §3) ─────────────
+
+Deno.test("a well-shaped answer in English is invalid_output and may fall back", async () => {
+  // Passes `assertModelAnalysis`; fails S2. Another model may answer in Arabic.
+  const { provider } = providerReturning({
+    ...VALID,
+    document_type: { type: "invoice", title: "Electricity bill", confidence: "high" },
+    summary: {
+      short: "An electricity bill of 850.50 EGP.",
+      detailed: "This is an electricity bill; the amount due is 850.50 EGP.",
+    },
+  });
+
+  const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
+
+  assertEquals((thrown as ProviderFailure).kind, "invalid_output");
+  assert(isFallbackEligible((thrown as ProviderFailure).kind));
+});
+
+Deno.test("the semantic check is run against this request's own OCR text", async () => {
+  // S4 needs the input the leg was given: a summary that echoes it is rejected.
+  const page = "يرجى الحضور إلى مكتب السجل المدني بالعباسية يوم الأحد الموافق 2026/10/04 " +
+    "ومعكم أصل شهادة الميلاد وصورة البطاقة الشخصية";
+  const { provider } = providerReturning({
+    ...VALID,
+    summary: { short: "ورقة من السجل المدني.", detailed: page },
+  });
+
+  const thrown = await assertRejects(
+    () => provider({ ...INPUT, ocrText: page }, OPEN_SIGNAL),
+    ProviderFailure,
+  );
+
+  assertEquals((thrown as ProviderFailure).kind, "invalid_output");
+});
+
+Deno.test("the same answer passes when it does not echo the input", async () => {
+  // The control for the test above: only the OCR text differs.
+  const page = "يرجى الحضور إلى مكتب السجل المدني بالعباسية يوم الأحد الموافق 2026/10/04 " +
+    "ومعكم أصل شهادة الميلاد وصورة البطاقة الشخصية";
+  const { provider } = providerReturning({
+    ...VALID,
+    summary: { short: "ورقة من السجل المدني.", detailed: page },
+  });
+
+  const result = await provider(INPUT, OPEN_SIGNAL);
+
+  assertEquals(result.summary.detailed, page);
 });
 
 // ── the signal ────────────────────────────────────────────────────────────
