@@ -12,7 +12,8 @@
  *
  * F20-T07: the legs are Mistral (the analysis primary) and Groq (its
  * fallback). Gemini became the OCR provider and is no longer an analysis leg.
- * T08 builds the corpus benchmark on this tool.
+ * For the whole corpus rather than one document, use `analysis-benchmark.ts`
+ * (T08), which builds the same legs (`benchmark/legs.ts`).
  *
  * ── Usage ─────────────────────────────────────────────────────────────────
  *   GROQ_API_KEY=… GROQ_MODEL=… MISTRAL_API_KEY=… MISTRAL_MODEL=… \
@@ -40,33 +41,13 @@
  * a Mistral win when it is only a rate limit.
  */
 
-import {
-  type ChatClientOptions,
-  createChatClient,
-} from "../functions/_shared/ai/openai-compatible-client.ts";
-import { GROQ_REASONING_EFFORT, groqOptionsFromEnv } from "../functions/_shared/ai/groq-config.ts";
-import { mistralOptionsFromEnv } from "../functions/_shared/ai/mistral-config.ts";
-import { createAnalysisProvider } from "../functions/_shared/ai/analysis-provider.ts";
+import type { AnalysisLeg } from "../functions/_shared/ai/analysis-provider.ts";
 import type { AnalysisPromptInput } from "../functions/_shared/prompts/analysis-prompt.ts";
 import type { ModelAnalysis } from "../functions/_shared/schemas/analysis-output.schema.ts";
-import { extractAmounts } from "../functions/_shared/extractors/amount-extractor.ts";
-import { extractDates } from "../functions/_shared/extractors/date-extractor.ts";
-import { extractPhones } from "../functions/_shared/extractors/phone-extractor.ts";
-import { extractReferences } from "../functions/_shared/extractors/reference-extractor.ts";
-import { extractTimes } from "../functions/_shared/extractors/time-extractor.ts";
+import { candidatesFor } from "./benchmark/corpus.ts";
+import { analysisLeg } from "./benchmark/legs.ts";
 
 const TIMEOUT_SECONDS = 40;
-
-/** Mirrors `image-analysis-pipeline.ts`, so the prompt matches production. */
-function candidatesFor(text: string) {
-  return {
-    dates: extractDates(text),
-    times: extractTimes(text),
-    amounts: extractAmounts(text),
-    phones: extractPhones(text),
-    references: extractReferences(text),
-  };
-}
 
 function hasArabic(text: string): boolean {
   return /[؀-ۿ]/.test(text);
@@ -94,12 +75,15 @@ type Outcome =
 
 async function run(
   label: string,
-  provider: () => ReturnType<typeof createAnalysisProvider>,
+  leg: AnalysisLeg,
   input: AnalysisPromptInput,
 ): Promise<Outcome> {
   const startedAt = Date.now();
   try {
-    const analysis = await provider()(input, AbortSignal.timeout(TIMEOUT_SECONDS * 1000));
+    const analysis = await leg(
+      input,
+      AbortSignal.timeout(TIMEOUT_SECONDS * 1000),
+    );
     return { ok: true, analysis, ms: Date.now() - startedAt };
   } catch (thrown) {
     const code = thrown instanceof Error ? thrown.message : String(thrown);
@@ -164,8 +148,12 @@ function verdict(mistral: Outcome, groq: Outcome): void {
   console.log(`\n${"─".repeat(72)}`);
 
   if (!mistral.ok || !groq.ok) {
-    console.log("INCOMPLETE — one leg failed, so no quality comparison is possible.");
-    console.log("If it was Groq with AI_RATE_LIMITED, wait a minute and re-run.");
+    console.log(
+      "INCOMPLETE — one leg failed, so no quality comparison is possible.",
+    );
+    console.log(
+      "If it was Groq with AI_RATE_LIMITED, wait a minute and re-run.",
+    );
     return;
   }
 
@@ -187,7 +175,10 @@ function verdict(mistral: Outcome, groq: Outcome): void {
       JSON.stringify(g.dates.map((d) => d.date).sort()) ===
         JSON.stringify(m.dates.map((d) => d.date).sort()),
     ],
-    ["both answered in Arabic", hasArabic(g.summary.detailed) && hasArabic(m.summary.detailed)],
+    [
+      "both answered in Arabic",
+      hasArabic(g.summary.detailed) && hasArabic(m.summary.detailed),
+    ],
   ];
 
   for (const [name, passed] of checks) {
@@ -208,11 +199,11 @@ function verdict(mistral: Outcome, groq: Outcome): void {
 
 // Read once, up front: a missing variable fails before any text is sent. The
 // messages name the variable only, never a value.
-let mistralOptions: ChatClientOptions;
-let groqOptions: ChatClientOptions;
+let mistralLeg: AnalysisLeg;
+let groqLeg: AnalysisLeg;
 try {
-  mistralOptions = mistralOptionsFromEnv();
-  groqOptions = groqOptionsFromEnv();
+  mistralLeg = analysisLeg("mistral");
+  groqLeg = analysisLeg("groq");
 } catch (thrown) {
   console.error(
     `${thrown instanceof Error ? thrown.message : thrown} Both providers must be ` +
@@ -235,7 +226,9 @@ const input: AnalysisPromptInput = {
 };
 
 console.log(`${"─".repeat(72)}`);
-console.log(`Document: ${ocrText.length} chars, ${ocrText.split("\n").length} lines`);
+console.log(
+  `Document: ${ocrText.length} chars, ${ocrText.split("\n").length} lines`,
+);
 console.log(
   `Candidates found on the page: ${input.candidates.amounts.length} amounts, ` +
     `${input.candidates.dates.length} dates, ${input.candidates.references.length} references`,
@@ -244,21 +237,8 @@ console.log(`${"─".repeat(72)}`);
 
 // Sequential, not Promise.all: two concurrent calls make the slower one look
 // slower than it is, and Groq's per-minute token budget is shared.
-const mistral = await run(
-  "mistral",
-  () => createAnalysisProvider({ client: createChatClient(mistralOptions) }),
-  input,
-);
-
-const groq = await run(
-  "groq",
-  () =>
-    createAnalysisProvider({
-      client: createChatClient(groqOptions),
-      reasoningEffort: GROQ_REASONING_EFFORT,
-    }),
-  input,
-);
+const mistral = await run("mistral", mistralLeg, input);
+const groq = await run("groq", groqLeg, input);
 
 render(mistral, groq);
 verdict(mistral, groq);
