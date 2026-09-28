@@ -5,7 +5,7 @@
   - F13: the online route, the `ocr-document` endpoint split in F14, and the `optInFlag` dark-launch pattern.
   - F18: the `_shared/ai/*` seam, the OpenAI-compatible client, the fallback chain and the `analyze.provider` observability line. F20 **modifies** these; it does not rebuild them.
 - **Supersedes:** F18. It is cancelled, and its Gemini-as-classifier wiring is removed. Parts of F13 are superseded too: Azure and Google Document AI are removed, and locked decision #2 is reversed.
-- **Progress:** 1 / 27 DONE
+- **Progress:** 2 / 27 DONE (T01, T03). T02 is waiting on the corpus; T03 onward runs first with the owner's approval (2026-09-28)
 - **Plan of record:** approved 2026-09-28 (rev 3). The gate protocol is at the bottom.
 
 Azure AI Document Intelligence is a paid service, and War2aty never moves to a
@@ -118,7 +118,7 @@ the wire for the app.
 | # | `kind` | Source | Groq fallback? | Wire answer when final |
 |---|---|---|---|---|
 | A1 | `rate_limited` | HTTP 429 | **Yes** | 429 `AI_RATE_LIMITED` |
-| A2 | `upstream_unavailable` | HTTP 5xx / 529 | **Yes** | 500 `ANALYSIS_FAILED` |
+| A2 | `upstream_unavailable` | HTTP 5xx / 529, or 408 (the provider's own timeout) | **Yes** | 500 `ANALYSIS_FAILED` |
 | A3 | `timeout` | Attempt aborted by its budget (§2) | **Yes**, if `remaining ≥ MIN_FALLBACK_MS` | 408 `TIMEOUT` |
 | A4 | `network` | Non-timeout fetch failure | **Yes** | 500 `ANALYSIS_FAILED` |
 | A5 | `invalid_output` | Empty content, `finish_reason:"length"`, non-JSON, `assertModelAnalysis` failure, or **semantic validation** failure (§3) | **Yes** | 500 `ANALYSIS_FAILED` |
@@ -194,8 +194,8 @@ judged acceptable.
 |---|---|---|---|---|
 | 1 | F20-T01 | Branch & bookkeeping | Branch `feature/ocr-analysis-providers` off `develop`; this task file; memory updated (F18 cancelled, Saba retired, F13 decision #2 reversed); corpus already git-ignored on `develop` (`486382e`) — verified | **DONE** |
 | 2 | F20-T02 | Corpus assembly | `golden/` has ≥ 3 documents in each of C1 printed Arabic, C2 mixed Ar/En, C3 invoices/receipts, C4 utility bills, C5 official/government, C6 date-heavy, C7 dense/small text, C8 poor quality, C9 perspective/skew/folds. C10 handwritten is regression-only. Target ≥ 36 documents, covering both digit systems. Truth schema v2 adds `languages[]`, `expected_document_type`, and key `dates` / `amounts` / `actions`. Drafts are bootstrapped from **Tesseract** (not Gemini, to avoid bias) and every file is owner-corrected | TODO |
-| 3 | F20-T03 | Failure taxonomy & deadline | `_shared/providers/provider-failure.ts`: `ProviderFailure{kind}`, `isFallbackEligible`, and the §1 wire mapping, replacing `ApiError.providerFault`. `_shared/time/deadline.ts`. Tests for every kind and every deadline edge | TODO |
-| 4 | F20-T04 | Remove the F18 classifier wiring | `resolveProviderOrder`, the `gemini_primary_enabled` / `geminiPrimaryEnabled` flag and the Gemini analysis leg are deleted. `openai-compatible-client.ts` takes a per-call signal and throws `ProviderFailure` per §1. Groq behaviour on the wire is unchanged; existing tests stay green | TODO |
+| 3 | F20-T03 | Failure taxonomy & deadline | `_shared/ai/provider-failure.ts` (kept next to the existing F18 transport, not a new `providers/` folder): `ProviderFailure{kind}`, `PROVIDER_FAILURE_KINDS`, `isFallbackEligible`, `providerFailureForStatus`, `analysisApiErrorFor`. `_shared/time/deadline.ts`. Only adds modules, so no behaviour changes. `ApiError.providerFault` is removed in T04 (transport) and T10 (chain). 52 tests; full suite 673/673 | **DONE** |
+| 4 | F20-T04 | Remove the F18 classifier wiring | `resolveProviderOrder`, the `gemini_primary_enabled` / `geminiPrimaryEnabled` flag and the Gemini analysis leg are deleted. `openai-compatible-client.ts` takes a per-call signal and throws `ProviderFailure` per §1. `ApiError.providerFault` / `asProviderFault` are removed. The F18 chain's `isProviderFault` switches to `ProviderFailure` + `isFallbackEligible` until T10 rewrites it. Groq behaviour on the wire is unchanged; existing tests stay green | TODO |
 | 5 | F20-T05 | Semantic validation | `_shared/analysis/semantic-validation.ts` covers S1–S4, with a pass and a fail test for each rule | TODO |
 | 6 | F20-T06 | Mistral leg | `ai/mistral-config.ts`: `MISTRAL_API_KEY` and `MISTRAL_MODEL` required, trimmed, not defaulted; base URL `https://api.mistral.ai/v1`. Reuses the OpenAI-compatible client; sends no `reasoning_effort`; strict `json_schema`, `temperature 0`, `max_tokens 2000`. The provider runs `assertModelAnalysis` and then semantic validation. Tests | TODO |
 | 7 | F20-T07 | Gemini OCR client | `ai/gemini-ocr-client.ts` over `gemini-config.ts`: native `generateContent`, `x-goog-api-key`, image sent as `inline_data`, a fixed verbatim-transcription prompt, `temperature 0`, bounded `maxOutputTokens`. Classified per O3–O6. Tests for every branch | TODO |
