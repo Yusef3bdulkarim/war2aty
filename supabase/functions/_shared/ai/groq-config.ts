@@ -95,7 +95,7 @@ export function groqOptionsFromEnv(
 /**
  * Returns `true` when `GROQ_API_KEY` is present and non-blank.
  *
- * Checks the KEY ONLY, matching `isGeminiConfigured`. The key is how an
+ * Checks the KEY ONLY. The key is how an
  * operator expresses the intent "use this provider"; the model is a
  * completeness requirement enforced loudly by {@link groqOptionsFromEnv} once
  * that intent is on record. Were this to require the model too, a deployment
