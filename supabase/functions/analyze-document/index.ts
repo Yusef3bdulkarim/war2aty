@@ -30,10 +30,7 @@ import {
   type AnalysisProviderOptions,
   createAnalysisProvider,
 } from "../_shared/ai/analysis-provider.ts";
-import {
-  type BudgetedLeg,
-  createFallbackAnalysisProvider,
-} from "../_shared/ai/fallback-provider.ts";
+import { createFallbackAnalysisProvider } from "../_shared/ai/fallback-provider.ts";
 import { createEndpoint } from "../_shared/http/endpoint.ts";
 import { installationHasherFromEnv } from "../_shared/usage/installation-hash.ts";
 import {
@@ -44,20 +41,15 @@ import {
 const serviceClient = createServiceRoleClient();
 
 /**
- * One leg of the analysis chain, bound to credentials but not yet to a budget.
- *
- * The credentials are read once, eagerly, by the caller. The seconds arrive
- * later, because a fallback's budget is whatever the primary left behind; they
- * become the per-call signal the transport requires (F20-T04). F20-T10 replaces
- * the seconds with the request's single `Deadline`.
+ * One leg of the analysis chain, bound to credentials. The credentials are
+ * read once, eagerly, by the caller. Its time budget arrives per call, as the
+ * signal the chain cuts from the request's deadline (F20-T10).
  */
 function legFor(
   options: ChatClientOptions,
   reasoningEffort?: AnalysisProviderOptions["reasoningEffort"],
-): BudgetedLeg {
-  const leg = createAnalysisProvider({ client: createChatClient(options), reasoningEffort });
-  return (seconds: number) => (input) =>
-    leg(input, AbortSignal.timeout(Math.max(1, Math.floor(seconds)) * 1000));
+) {
+  return createAnalysisProvider({ client: createChatClient(options), reasoningEffort });
 }
 
 /**
