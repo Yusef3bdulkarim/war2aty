@@ -54,8 +54,8 @@ function parseExplicit(match: RegExpMatchArray): AmountCandidate | null {
 
 // ── Keyword-adjacent: Arabic money keyword near a number ──────────────────
 
-/** Exported for T06 field verification — used to group amounts under a shared label. */
-export const AMOUNT_KEYWORDS = [
+/** Words that label an amount on the page. */
+const AMOUNT_KEYWORDS = [
   "إجمالي",
   "اجمالي",
   "المطلوب",

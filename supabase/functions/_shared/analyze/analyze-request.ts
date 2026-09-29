@@ -6,23 +6,23 @@
  * and the validation pipeline assume — so none of them has to re-check.
  *
  * ── Two request shapes, one envelope (§29 v2) ────────────────────────────
- * A discriminated `input_type` now picks the shape: `"text"` is today's
- * Tesseract → on-device extractors → OCR text + candidate hints, parsed here
- * by `parseAnalyzeRequest`. `"image"` is the online Azure/Google pipeline
- * (locked decision #1), parsed by `parseAnalyzeImageRequest` below. Each shape
- * has its OWN closed allow-list — not one shared list with everything
- * optional — so a text body can never smuggle image bytes and an image body
- * can never smuggle `ocr_text`/`candidates`.
+ * A discriminated `input_type` picks the shape: `"text"` is the OCR text and
+ * candidate hints `analyze-document` analyses, parsed by `parseAnalyzeRequest`.
+ * `"image"` is a photo to read, parsed by `parseAnalyzeImageRequest` below.
+ * Each shape has its OWN closed allow-list — not one shared list with
+ * everything optional — so a text body can never smuggle image bytes and an
+ * image body can never smuggle `ocr_text`/`candidates`.
  *
- * `parseAnalyzeImageRequest` is called from `analyze-handler.ts` (F13-T11),
- * gated behind `RuntimeConfig.onlineOcrEnabled`.
+ * Since F20-T15 each endpoint takes one shape: `analyze-document` the text
+ * shape only, `ocr-document` the image shape only. The image parser keeps its
+ * F13 name; it is `ocr-document`'s body now.
  *
  * ── Why unknown properties are rejected ──────────────────────────────────
  * Each shape's schema sets `additionalProperties: false`. For the TEXT shape
  * this is still a privacy tripwire, just a narrower one than it used to be:
  * §7's privacy model changed the day the image path was designed — a
- * photograph now legitimately reaches this Edge Function, but only over the
- * image shape, gated behind `onlineOcrEnabled`. A text-shaped request must
+ * photograph now legitimately reaches the server, but only over the image
+ * shape, sent to `ocr-document` behind `onlineOcrEnabled`. A text-shaped request must
  * still never carry an `image` key, exactly as strictly as before.
  *
  * ── Why malformed candidates are dropped, not rejected ───────────────────
@@ -64,7 +64,7 @@ export interface AnalyzeRequest {
   readonly droppedCandidates: number;
 }
 
-/** The decoded image-intake shape (§29 v2), routed by `analyze-handler.ts` (F13-T11). */
+/** The decoded image-intake shape (§29 v2): `ocr-document`'s request body. */
 export interface AnalyzeImageRequest {
   readonly inputType: "image";
   readonly sessionId: string;

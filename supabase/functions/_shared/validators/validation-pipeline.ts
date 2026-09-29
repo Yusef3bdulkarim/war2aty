@@ -28,19 +28,11 @@
  */
 
 import type { ModelAnalysis, ModelWarning } from "../schemas/analysis-output.schema.ts";
-import type {
-  AmountCandidate,
-  DateCandidate,
-  ExtractedCandidates,
-} from "../prompts/analysis-prompt.ts";
+import type { ExtractedCandidates } from "../prompts/analysis-prompt.ts";
 import { verifyDate } from "./date-validator.ts";
 import type { VerificationSources } from "./number-validator.ts";
 import { isNumberVerified } from "./number-validator.ts";
 import { isSourceClaimSupported } from "./source-validator.ts";
-import type {
-  CrossProviderFieldVerdict,
-  CrossProviderVerification,
-} from "../verification/cross-provider-validator.ts";
 import {
   hasWarningOfType,
   isContradictoryUnsupported,
@@ -69,16 +61,6 @@ export interface ValidationInput {
   readonly candidates: ExtractedCandidates;
   /** Injected so "is this in the past" is testable. */
   readonly now: Date;
-  /**
-   * T08's cross-provider verdicts, index-aligned with `candidates` — a peer
-   * input alongside it, not a replacement. Absent (undefined/null) on the
-   * offline pipeline and anywhere Azure was not involved, in which case this
-   * stage behaves exactly as it did before T08 existed. When present, it can
-   * only add downgrades on top of the checks below, never remove one: a
-   * field Azure/Google could not agree on stays flagged even if the model's
-   * value happens to also appear verbatim in the OCR text.
-   */
-  readonly crossProviderVerification?: CrossProviderVerification | null;
 }
 
 /** Lowering only: verification can never raise the model's own confidence. */
@@ -89,14 +71,8 @@ function downgrade<T extends { confidence: "high" | "medium" | "low" }>(
 }
 
 export function validateAnalysis(input: ValidationInput): ValidationResult {
-  const { analysis, ocrText, candidates, now, crossProviderVerification } = input;
+  const { analysis, ocrText, candidates, now } = input;
   const sources: VerificationSources = { ocrText, candidates };
-
-  const flaggedAmounts = flaggedAmountValues(
-    candidates.amounts,
-    crossProviderVerification?.amounts,
-  );
-  const flaggedDates = flaggedDateValues(candidates.dates, crossProviderVerification?.dates);
 
   const downgraded: string[] = [];
   const addedWarnings: ModelWarning["type"][] = [];
@@ -107,7 +83,7 @@ export function validateAnalysis(input: ValidationInput): ValidationResult {
   const droppedAmounts = analysis.amounts.length - plausibleAmounts.length;
 
   const amounts = plausibleAmounts.map((amount) => {
-    if (isNumberVerified(amount.value, sources) && !isFlaggedAmount(amount.value, flaggedAmounts)) {
+    if (isNumberVerified(amount.value, sources)) {
       return amount;
     }
     downgraded.push("amounts");
@@ -129,8 +105,7 @@ export function validateAnalysis(input: ValidationInput): ValidationResult {
     let result = date;
 
     if (
-      !verdict.wellFormed || !verdict.traceable || !verdict.timeSupported ||
-      flaggedDates.includes(date.date)
+      !verdict.wellFormed || !verdict.traceable || !verdict.timeSupported
     ) {
       downgraded.push("dates");
       result = downgrade(result);
@@ -191,51 +166,4 @@ export function validateAnalysis(input: ValidationInput): ValidationResult {
       statusChanged: status !== analysis.status,
     },
   };
-}
-
-// ── T08 peer input: values a cross-provider verdict flagged for review ────
-
-/**
- * Numeric values of every amount candidate T08 flagged `needsUserReview`.
- * Index-aligned with `candidates.amounts`, same contract T06/T08 rely on.
- */
-function flaggedAmountValues(
-  candidates: readonly AmountCandidate[],
-  verdicts: readonly CrossProviderFieldVerdict[] | null | undefined,
-): number[] {
-  if (!verdicts) return [];
-
-  const flagged: number[] = [];
-  for (let i = 0; i < candidates.length; i++) {
-    const value = candidates[i].value;
-    if (verdicts[i]?.needsUserReview && value !== null && value !== undefined) {
-      flagged.push(value);
-    }
-  }
-  return flagged;
-}
-
-/** ISO dates of every date candidate T08 flagged `needsUserReview`. */
-function flaggedDateValues(
-  candidates: readonly DateCandidate[],
-  verdicts: readonly CrossProviderFieldVerdict[] | null | undefined,
-): string[] {
-  if (!verdicts) return [];
-
-  const flagged: string[] = [];
-  for (let i = 0; i < candidates.length; i++) {
-    const value = candidates[i].normalized_date;
-    if (verdicts[i]?.needsUserReview && value !== null && value !== undefined) {
-      flagged.push(value);
-    }
-  }
-  return flagged;
-}
-
-/**
- * Same epsilon-tolerant numeric comparison as `isNumberVerified` — a model
- * value of 850.5 must still match a flagged candidate of 850.50.
- */
-function isFlaggedAmount(value: number, flagged: readonly number[]): boolean {
-  return flagged.some((f) => Math.abs(f - value) < 1e-9);
 }

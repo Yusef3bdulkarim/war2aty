@@ -13,14 +13,10 @@ import { buildAnalysisResponse } from "../../functions/_shared/analyze/analyze-r
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import { modelAnalysis, SESSION_ID } from "../fixtures/analyze-fixtures.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
-import type { CrossProviderVerification } from "../../functions/_shared/verification/cross-provider-validator.ts";
 
 function build(
   overrides: Parameters<typeof modelAnalysis>[0] = {},
-  extra: {
-    candidates?: ExtractedCandidates;
-    verification?: CrossProviderVerification | null;
-  } = {},
+  extra: { candidates?: ExtractedCandidates } = {},
 ) {
   return buildAnalysisResponse({
     analysis: modelAnalysis(overrides),
@@ -343,59 +339,12 @@ const CANDIDATES_WITH_PHONE_AND_REFERENCE: ExtractedCandidates = {
   ],
 };
 
-Deno.test("phones and references stay empty without verification, even with candidates", () => {
-  // No cross-provider verification ran (today's only caller, and the
-  // offline path even once F13-T11 lands) — a raw regex hit must never
-  // surface as if something had confirmed it.
+Deno.test("phones and references stay empty, even with candidates (F20-T15)", () => {
+  // F13 filled them only once the Azure/Google cross-check had looked at a
+  // candidate. That check is gone, and a raw regex hit must never surface as
+  // if something had confirmed it.
   const { body } = build({}, { candidates: CANDIDATES_WITH_PHONE_AND_REFERENCE });
 
   assertEquals(body.phones, []);
   assertEquals(body.references, []);
-});
-
-Deno.test("phones and references populate once verification is provided", () => {
-  const verification: CrossProviderVerification = {
-    dates: [],
-    times: [],
-    amounts: [],
-    phones: [{ status: "verified", needsUserReview: false }],
-    references: [{ status: "unverified", needsUserReview: true }],
-    needsUserReview: true,
-  };
-
-  const { body } = build(
-    {},
-    { candidates: CANDIDATES_WITH_PHONE_AND_REFERENCE, verification },
-  );
-
-  assertEquals(body.phones, [
-    { rawValue: "0100-123-4567", value: "01001234567", needsUserReview: false },
-  ]);
-  assertEquals(body.references, [
-    { rawValue: "رقم الفاتورة 12345678", value: "12345678", needsUserReview: true },
-  ]);
-});
-
-Deno.test("verificationStatus never appears on a phone or reference item", () => {
-  // Locked decision #6: verificationStatus stays backend-only even though
-  // needsUserReview is fair to put on the wire.
-  const verification: CrossProviderVerification = {
-    dates: [],
-    times: [],
-    amounts: [],
-    phones: [{ status: "verified", needsUserReview: false }],
-    references: [{ status: "conflicting", needsUserReview: true }],
-    needsUserReview: true,
-  };
-
-  const { body } = build(
-    {},
-    { candidates: CANDIDATES_WITH_PHONE_AND_REFERENCE, verification },
-  );
-
-  assertEquals(Object.keys(body.phones[0]).sort(), ["needsUserReview", "rawValue", "value"]);
-  assertEquals(
-    Object.keys(body.references[0]).sort(),
-    ["needsUserReview", "rawValue", "value"],
-  );
 });

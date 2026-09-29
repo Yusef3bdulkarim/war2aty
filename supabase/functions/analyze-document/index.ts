@@ -11,16 +11,8 @@
  */
 
 import { createAnalyzeHandler } from "../_shared/analyze/analyze-handler.ts";
-import { createImageAnalysisPipeline } from "../_shared/analyze/image-analysis-pipeline.ts";
 import { createSupabaseTokenVerifier } from "../_shared/auth/supabase-token-verifier.ts";
-import { azureOptionsFromEnv } from "../_shared/azure/azure-config.ts";
-import { createAzureDocumentIntelligenceClient } from "../_shared/azure/azure-client.ts";
 import { loadRuntimeConfig } from "../_shared/config/supabase-runtime-config.ts";
-import {
-  googleDocumentAiOptionsFromEnv,
-  isGoogleDocumentAiConfigured,
-} from "../_shared/google/google-config.ts";
-import { createGoogleDocumentAiClient } from "../_shared/google/google-client.ts";
 import {
   type ChatClientOptions,
   createChatClient,
@@ -87,27 +79,6 @@ Deno.serve(
       loadConfig: () => loadRuntimeConfig(serviceClient),
       slots: createSupabaseSlotStore(serviceClient),
       createAnalyser: createAnalysisChain,
-      // Azure/Google env vars are read here, not at module load, so a
-      // deployment that never sees an image request (onlineOcrEnabled dark)
-      // never has to have them configured — same contract as
-      // `azureOptionsFromEnv`/`googleDocumentAiOptionsFromEnv` document.
-      //
-      // Google is optional: an org policy may block service-account key
-      // creation, and the pipeline works fine with Azure alone — unchecked
-      // fields simply stay flagged for user review.
-      createImagePipeline: (timeoutSeconds) =>
-        createImageAnalysisPipeline({
-          azureClient: createAzureDocumentIntelligenceClient({
-            ...azureOptionsFromEnv(),
-            timeoutSeconds,
-          }),
-          googleClient: isGoogleDocumentAiConfigured()
-            ? createGoogleDocumentAiClient({
-              ...googleDocumentAiOptionsFromEnv(),
-              timeoutSeconds,
-            })
-            : null,
-        }),
       hashInstallation: installationHasherFromEnv(),
       now: () => new Date(),
     }),

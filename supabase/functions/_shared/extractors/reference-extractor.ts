@@ -11,8 +11,8 @@
 
 import type { ReferenceCandidate } from "../prompts/analysis-prompt.ts";
 
-/** Exported for T06 field verification — used to group references under a shared label. */
-export const REFERENCE_KEYWORDS = [
+/** Words that label a reference number on the page. */
+const REFERENCE_KEYWORDS = [
   "رقم الحساب",
   "رقم حساب",
   "رقم الفاتورة",
