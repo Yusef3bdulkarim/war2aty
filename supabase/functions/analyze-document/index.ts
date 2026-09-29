@@ -26,6 +26,8 @@ import {
   createChatClient,
 } from "../_shared/ai/openai-compatible-client.ts";
 import { GROQ_REASONING_EFFORT, groqOptionsFromEnv } from "../_shared/ai/groq-config.ts";
+import { mistralOptionsFromEnv } from "../_shared/ai/mistral-config.ts";
+import { chainTimingFromEnv } from "../_shared/ai/chain-timing.ts";
 import {
   type AnalysisProviderOptions,
   createAnalysisProvider,
@@ -59,17 +61,19 @@ function legFor(
  * reserving a slot, so a missing or blank key is a loud deploy fault that costs
  * the user nothing (matrix row A8).
  *
- * Groq alone for now: F18's Gemini leg and its `gemini_primary_enabled` order
- * flag were removed in F20-T04, and the Mistral primary arrives in F20-T11. The
- * chain still maps every failure onto the §31 wire codes.
+ * Mistral first, Groq on a fallback-eligible failure (F20-T11). Both are
+ * required: a deployment missing either fails every analysis here, loudly,
+ * rather than quietly running on one provider. Groq alone keeps its
+ * `reasoning_effort`; Mistral is not a reasoning model and gets none.
  */
 function createAnalysisChain(timeoutSeconds: number, requestId: string) {
   return createFallbackAnalysisProvider({
-    primary: legFor(groqOptionsFromEnv(), GROQ_REASONING_EFFORT),
-    primaryName: "groq",
-    fallback: null,
-    fallbackName: null,
+    primary: legFor(mistralOptionsFromEnv()),
+    primaryName: "mistral",
+    fallback: legFor(groqOptionsFromEnv(), GROQ_REASONING_EFFORT),
+    fallbackName: "groq",
     totalSeconds: timeoutSeconds,
+    ...chainTimingFromEnv(),
     requestId,
   });
 }

@@ -14,7 +14,12 @@ import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { createAnalyzeHandler } from "../../functions/_shared/analyze/analyze-handler.ts";
 import type { ImageAnalysisPipeline } from "../../functions/_shared/analyze/image-analysis-pipeline.ts";
-import type { AiAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
+import type {
+  AiAnalysisProvider,
+  AnalysisLeg,
+} from "../../functions/_shared/ai/analysis-provider.ts";
+import { createFallbackAnalysisProvider } from "../../functions/_shared/ai/fallback-provider.ts";
+import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
 import type {
   AnalysisPromptInput,
   ExtractedCandidates,
@@ -66,6 +71,8 @@ interface HarnessOptions {
   readonly analyse?: (input: AnalysisPromptInput) => Promise<ModelAnalysis>;
   readonly loadConfig?: () => Promise<RuntimeConfig>;
   readonly imagePipeline?: ImageAnalysisPipeline;
+  /** Replaces the whole analyser factory, e.g. with the real fallback chain. */
+  readonly createAnalyser?: (timeoutSeconds: number, requestId: string) => AiAnalysisProvider;
 }
 
 function harness(options: HarnessOptions = {}): Harness {
@@ -123,7 +130,7 @@ function harness(options: HarnessOptions = {}): Harness {
       createAnalyser: (timeoutSeconds, analyserRequestId) => {
         analyserTimeouts.push(timeoutSeconds);
         analyserRequestIds.push(analyserRequestId);
-        return analyse;
+        return options.createAnalyser?.(timeoutSeconds, analyserRequestId) ?? analyse;
       },
       createImagePipeline: (timeoutSeconds) => {
         imagePipelineTimeouts.push(timeoutSeconds);
@@ -631,4 +638,114 @@ Deno.test("the request id reaches the analyser so its provider log correlates", 
   await test.call();
 
   assertEquals(test.analyserRequestIds, [REQUEST_ID]);
+});
+
+// ── the Mistral → Groq chain behind the handler (F20-T11) ─────────────────
+// The chain's own rules are pinned in fallback-provider.test.ts. These prove
+// what it means for the user's quota: one slot per analysis however many
+// providers were asked, and nothing charged when every one of them failed.
+
+/** A leg that answers, or throws, and counts its calls. */
+function fakeLeg(outcome: ModelAnalysis | Error) {
+  let calls = 0;
+  const fn: AnalysisLeg = () => {
+    calls += 1;
+    return outcome instanceof Error ? Promise.reject(outcome) : Promise.resolve(outcome);
+  };
+  return {
+    fn,
+    get calls() {
+      return calls;
+    },
+  };
+}
+
+/** The production chain shape, Mistral then Groq, over the given legs. */
+function chainOver(mistral: AnalysisLeg, groq: AnalysisLeg) {
+  return (timeoutSeconds: number, requestId: string): AiAnalysisProvider =>
+    createFallbackAnalysisProvider({
+      primary: mistral,
+      primaryName: "mistral",
+      fallback: groq,
+      fallbackName: "groq",
+      totalSeconds: timeoutSeconds,
+      requestId,
+      timeoutSignal: () => new AbortController().signal,
+      log: () => {},
+    });
+}
+
+Deno.test("an analysis Mistral serves takes one slot and never asks Groq", async () => {
+  const mistral = fakeLeg(modelAnalysis());
+  const groq = fakeLeg(modelAnalysis());
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 200);
+  assertEquals(test.reserves.length, 1);
+  assertEquals(test.finalizes, [{ requestId: REQUEST_ID, success: true, errorCode: undefined }]);
+  assertEquals(groq.calls, 0);
+});
+
+Deno.test("an analysis Groq serves after Mistral fails still takes exactly one slot", async () => {
+  // The fallback is a second provider call, not a second analysis: the user
+  // asked once and is charged once.
+  const mistral = fakeLeg(new ProviderFailure("rate_limited"));
+  const groq = fakeLeg(modelAnalysis());
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 200);
+  assertEquals(mistral.calls, 1);
+  assertEquals(groq.calls, 1);
+  assertEquals(test.reserves.length, 1);
+  assertEquals(test.finalizes.length, 1);
+  assertEquals(test.finalizes[0].success, true);
+});
+
+Deno.test("when both providers fail the slot is released and the last failure answers", async () => {
+  const mistral = fakeLeg(new ProviderFailure("rate_limited"));
+  const groq = fakeLeg(new ProviderFailure("upstream_unavailable"));
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "ANALYSIS_FAILED");
+  assertEquals(test.reserves.length, 1);
+  assertEquals(test.finalizes.length, 1);
+  assertEquals(test.finalizes[0].success, false);
+  assertEquals(test.finalizes[0].errorCode, "ANALYSIS_FAILED");
+});
+
+Deno.test("a bad Mistral key releases the slot without ever asking Groq", async () => {
+  const mistral = fakeLeg(new ProviderFailure("auth"));
+  const groq = fakeLeg(modelAnalysis());
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "INTERNAL_ERROR");
+  assertEquals(groq.calls, 0);
+  assertEquals(test.finalizes[0].success, false);
+});
+
+Deno.test("a missing provider credential fails before any slot is reserved (A8)", async () => {
+  // What `analyze-document` does when MISTRAL_* or GROQ_* is unset: building
+  // the chain throws, and the user's quota is never touched.
+  const test = harness({
+    createAnalyser: () => {
+      throw new Error("MISTRAL_API_KEY is not set.");
+    },
+  });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "INTERNAL_ERROR");
+  assertEquals(test.reserves.length, 0);
+  assertEquals(test.finalizes.length, 0);
 });
