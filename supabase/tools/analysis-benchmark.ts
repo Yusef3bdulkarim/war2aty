@@ -96,7 +96,12 @@ const ARABIC_SUMMARY_SHARE = 0.5;
 interface DocumentRow extends AnalysisDocumentScore {
   readonly file: string;
   readonly category: string;
-  /** A completion arrived (HTTP 200). Only these count towards G4. */
+  /**
+   * The model produced an answer: an HTTP 200, or Groq's HTTP 400
+   * `json_validate_failed`, which is the model's answer failing Groq's own
+   * schema check. Only these count towards G4; a rate limit or an outage
+   * says nothing about the answers.
+   */
   readonly answered: boolean;
   readonly failure: string | null;
   readonly semanticRules: string[];
@@ -359,7 +364,9 @@ async function main(args: readonly string[]): Promise<void> {
     const latencyMs = performance.now() - startedAt;
 
     const recorded = recorder.last();
-    const answered = recorded?.status === 200;
+    // A non-200 is `invalid_output` only when it is `json_validate_failed`
+    // (openai-compatible-client.ts); the recorder never reads error bodies.
+    const answered = recorded?.status === 200 || failure === "invalid_output";
     const parsed = parseAnswer(recorded?.content ?? null);
     const semanticRules = parsed === null ? [] : semanticViolations(parsed, text);
     const key = `${image.name}.${source}.${analyser}`;
