@@ -1,5 +1,5 @@
 /**
- * F13-T05 · Amount candidate extraction (Azure text path).
+ * F13-T05 · Amount candidate extraction (server side, over the online reading).
  *
  * TypeScript port of `lib/features/ocr/domain/services/amount_extractor.dart`,
  * field-for-field.

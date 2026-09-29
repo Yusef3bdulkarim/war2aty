@@ -48,7 +48,7 @@ export interface RuntimeConfig {
    * Only enforced on the image-intake request shape — the text shape has no
    * image field to bound. Sized around a compressed phone-camera photo after
    * the existing capture-quality gate (F04), with headroom; a base64 body
-   * this large is still cheap to reject before it is ever handed to Azure.
+   * this large is still cheap to reject before it is ever handed to the reader.
    */
   readonly maxImageBytes: number;
   /** Clients below this are refused with 400 UNSUPPORTED_APP_VERSION. */

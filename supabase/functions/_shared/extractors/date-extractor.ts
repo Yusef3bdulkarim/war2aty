@@ -1,8 +1,8 @@
 /**
- * F13-T05 · Date candidate extraction (Azure text path).
+ * F13-T05 · Date candidate extraction (server side, over the online reading).
  *
  * TypeScript port of `lib/features/ocr/domain/services/date_extractor.dart`,
- * field-for-field. Runs server-side over Azure's `content` string instead of
+ * field-for-field. Runs server-side over the online reading (Gemini's text) instead of
  * on-device, so an online analysis gets the same candidate hints an offline
  * one gets from the Dart extractor — the model-facing shape (§ prompts) does
  * not need to know which pipeline produced them.

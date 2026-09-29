@@ -67,7 +67,7 @@ enable_signup = false
 enable_confirmations = false
 
 [edge_runtime]
-# Disabled: `supabase start` does not pass `.env` secrets (Azure/Groq/Salt) to
+# Disabled: `supabase start` does not pass `.env` secrets (AI keys, salt) to
 # the Edge Runtime container. Edge Functions are served separately with
 # `supabase functions serve --env-file supabase/.env` so they see the keys.
 enabled = false

@@ -1,5 +1,5 @@
 /**
- * F13-T05 · Reference/account/invoice number extraction (Azure text path).
+ * F13-T05 · Reference/account/invoice number extraction (server side, over the online reading).
  *
  * TypeScript port of
  * `lib/features/ocr/domain/services/reference_extractor.dart`, field-for-field.

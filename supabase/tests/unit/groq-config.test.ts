@@ -21,7 +21,6 @@ import {
   GROQ_BASE_URL,
   GROQ_REASONING_EFFORT,
   groqOptionsFromEnv,
-  isGroqConfigured,
 } from "../../functions/_shared/ai/groq-config.ts";
 
 /** A stand-in for `Deno.env` holding exactly the values given. */
@@ -129,44 +128,4 @@ Deno.test("a model is trimmed before use", () => {
   );
 
   assertEquals(options.model, "openai/gpt-oss-120b");
-});
-
-// ── availability, without throwing ────────────────────────────────────────
-
-Deno.test("a fully configured environment reports as configured", () => {
-  assert(isGroqConfigured(env(CONFIGURED)));
-});
-
-Deno.test("a missing key reports as unconfigured", () => {
-  assert(!isGroqConfigured(env({})));
-  assert(!isGroqConfigured(env({ GROQ_MODEL: "openai/gpt-oss-120b" })));
-});
-
-Deno.test("a blank key reports as unconfigured", () => {
-  // Same trap `groqOptionsFromEnv` guards: a var set to "" is still a string.
-  assert(!isGroqConfigured(env({ ...CONFIGURED, GROQ_API_KEY: "" })));
-  assert(!isGroqConfigured(env({ ...CONFIGURED, GROQ_API_KEY: "   " })));
-});
-
-Deno.test("a key without a model still reports as configured", () => {
-  // Deliberate: the key is the operator's statement of intent, so this is
-  // "Groq was meant to be used" — and `groqOptionsFromEnv` then throws on the
-  // missing model. Returning false here would skip the leg in silence and hide
-  // a config slip that deserves shouting about.
-  assert(isGroqConfigured(env({ GROQ_API_KEY: "test-key" })));
-  assertThrows(
-    () => groqOptionsFromEnv(env({ GROQ_API_KEY: "test-key" })),
-    Error,
-    "GROQ_MODEL",
-  );
-});
-
-Deno.test("reporting unconfigured does not soften the deploy fault", () => {
-  // The two answer different questions: `isGroqConfigured` asks whether a leg
-  // is available (F18-T05), `groqOptionsFromEnv` insists on being usable. An
-  // unconfigured deployment must still throw rather than degrade quietly.
-  const blank = env({});
-
-  assert(!isGroqConfigured(blank));
-  assertThrows(() => groqOptionsFromEnv(blank), Error, "GROQ_API_KEY");
 });

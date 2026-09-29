@@ -1,10 +1,9 @@
 /**
  * F18-T03 · Groq credentials and endpoint.
  *
- * Read here, not inline in the transport, so a deploy fault is a loud startup
- * error in one place — same contract as `azureOptionsFromEnv`
- * (`../azure/azure-config.ts`) and `googleDocumentAiOptionsFromEnv`
- * (`../google/google-config.ts`).
+ * Read here, not inline in the transport, so a deploy fault is a loud error in
+ * one place — same contract as `mistralOptionsFromEnv` and
+ * `geminiOptionsFromEnv`.
  *
  * This module holds everything that is true of GROQ specifically. Its
  * counterpart `openai-compatible-client.ts` holds what is true of every
@@ -90,28 +89,4 @@ export function groqOptionsFromEnv(
   }
 
   return { baseUrl: GROQ_BASE_URL, apiKey, model };
-}
-
-/**
- * Returns `true` when `GROQ_API_KEY` is present and non-blank.
- *
- * Checks the KEY ONLY. The key is how an
- * operator expresses the intent "use this provider"; the model is a
- * completeness requirement enforced loudly by {@link groqOptionsFromEnv} once
- * that intent is on record. Were this to require the model too, a deployment
- * that set the key and forgot the model would report as unconfigured and be
- * skipped in silence — which is the very failure the non-default of
- * `GROQ_MODEL` above exists to prevent.
- *
- * It does NOT soften the deploy-fault contract above: calling
- * {@link groqOptionsFromEnv} on an unconfigured deployment still throws, and
- * still should. This exists so the F18-T05 chain can ask whether a Groq leg is
- * meant to be available before it tries to build one — the same question
- * `isGoogleDocumentAiConfigured` answers for the optional OCR second opinion.
- */
-export function isGroqConfigured(
-  environment: { get(key: string): string | undefined } = Deno.env,
-): boolean {
-  const apiKey = environment.get("GROQ_API_KEY")?.trim();
-  return apiKey !== undefined && apiKey.length > 0;
 }

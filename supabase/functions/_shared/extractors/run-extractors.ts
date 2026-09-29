@@ -2,9 +2,10 @@
  * Every T05 extractor over one OCR reading, in `ExtractedCandidates`' own field
  * order.
  *
- * Shared by the online OCR pipeline (F20-T13) and, until F20-T15 deletes it,
- * the Azure image-analysis pipeline. The extractors match `\d`, which never
- * matches `٠-٩`: callers fold digits first (`normaliseDigits`).
+ * Used by the online OCR pipeline (F20-T13; it was shared with the Azure
+ * image-analysis pipeline until F20-T15 deleted that). The extractors match
+ * `\d`, which never matches `٠-٩`: callers fold digits first
+ * (`normaliseDigits`).
  */
 
 import { extractAmounts } from "./amount-extractor.ts";
