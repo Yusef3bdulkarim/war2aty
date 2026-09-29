@@ -129,6 +129,15 @@ export class ApiError extends Error {
   static analysisDisabled(): ApiError {
     return new ApiError("ANALYSIS_DISABLED", "Analysis is temporarily disabled.");
   }
+
+  /**
+   * The online reader gave no usable reading, for a reason worth reading the
+   * page on the device instead (F20 matrix O5, O10). Names no provider: the
+   * message is machine-only, but it still never says who failed.
+   */
+  static ocrUnavailable(): ApiError {
+    return new ApiError("OCR_UNAVAILABLE", "Online reading is temporarily unavailable.");
+  }
 }
 
 /**

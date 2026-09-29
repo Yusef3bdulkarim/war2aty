@@ -38,6 +38,7 @@ export const ERROR_CODES = [
   "INTERNAL_ERROR",
   "ANALYSIS_DISABLED",
   "GLOBAL_CAPACITY_REACHED",
+  "OCR_UNAVAILABLE",
 ] as const;
 
 export type ErrorCode = typeof ERROR_CODES[number];
@@ -66,6 +67,12 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   // `reset_at`, unlike DAILY_LIMIT_REACHED: capacity also returns whenever an
   // operator raises the cap, so promising a specific instant would be a guess.
   GLOBAL_CAPACITY_REACHED: 429,
+  // 502, a bad gateway: `ocr-document` is up, but the online reader behind it
+  // gave no usable reading (F20 matrix O5, O10). Kept apart from
+  // ANALYSIS_FAILED and INTERNAL_ERROR on purpose: this is the one 5xx the
+  // app answers by reading the page on the device instead, with a visible
+  // warning. A deploy fault stays INTERNAL_ERROR and never falls back (O6).
+  OCR_UNAVAILABLE: 502,
 };
 
 export function httpStatusForErrorCode(code: ErrorCode): number {

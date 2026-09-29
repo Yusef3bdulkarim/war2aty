@@ -779,6 +779,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
 | 429 | `GLOBAL_CAPACITY_REACHED` | `GlobalCapacityReachedFailure` | — | Service-wide daily call cap (`globalDailyCallCap`) exhausted across **all** users — not this caller's own quota (F13-T02) |
 | 500 | `ANALYSIS_FAILED` | `AnalysisServiceFailure` | — | AI returned unusable output or internal error |
 | 500 | `INTERNAL_ERROR` | `AnalysisServiceFailure` | — | Unexpected server error |
+| 502 | `OCR_UNAVAILABLE` | `OnlineOcrUnavailableFailure` (F20-T18) | — | `ocr-document` only (F20-T12). The online reader gave no usable reading: an upstream outage, a network failure, an unusable or blocked answer, or online reading switched off after the app chose the online route (F20 matrix O5, O10). A deploy fault (bad key or model) is `INTERNAL_ERROR` instead |
 | 503 | `ANALYSIS_DISABLED` | `AnalysisDisabledFailure` | — | `analysisEnabled == false` (maintenance) |
 
 ### Error JSON Schema (draft-07)
@@ -788,7 +789,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://war2aty.app/schemas/analyze-error-v1.json",
   "title": "AnalyzeDocumentError",
-  "description": "Error response from the analyze-document Edge Function.",
+  "description": "Error response from the analyze-document and ocr-document Edge Functions.",
   "type": "object",
   "required": ["error"],
   "additionalProperties": false,
@@ -811,7 +812,8 @@ client maps to `AppFailure` subtypes and Arabic copy.
             "GLOBAL_CAPACITY_REACHED",
             "ANALYSIS_FAILED",
             "INTERNAL_ERROR",
-            "ANALYSIS_DISABLED"
+            "ANALYSIS_DISABLED",
+            "OCR_UNAVAILABLE"
           ]
         },
         "message": {
@@ -850,6 +852,11 @@ client maps to `AppFailure` subtypes and Arabic copy.
 6. **`status: "unsupported"`** in a 200 response — this is NOT an error. Map to
    `UnsupportedDocumentFailure` in the domain layer; the result screen shows the
    OCR-only fallback (F07-T12/T13). This analysis is **not counted** against the daily limit.
+7. **`OCR_UNAVAILABLE`** (from `ocr-document`) — the online reading failed for a reason the
+   device can work around. The app reads the page on the device instead and shows a warning
+   that the result may be less accurate (F20-T22/T23). It is one of the four failures that
+   fall back this way, with `AI_RATE_LIMITED`, `TIMEOUT` and a network failure; any other
+   code does not. An app released before F20-T18 treats it as an unknown code (rule 3).
 
 ---
 
