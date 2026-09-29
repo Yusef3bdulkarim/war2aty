@@ -651,7 +651,8 @@ void _registerAnalysis(AppEnvironment env) {
     )
     // The OCR review screen (F14) — reuses `ExtractCandidates`, already
     // registered by `_registerOcr`, to re-extract candidates from the user's
-    // approved text before it reaches Groq.
+    // approved text before it reaches Groq, and `ExtractDocumentText` for the
+    // explicit on-device fallback (F20-T22).
     ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
       (session, photo) => OcrReviewCubit(
         session: session,
@@ -660,6 +661,7 @@ void _registerAnalysis(AppEnvironment env) {
         extractCandidates: getIt(),
         getAnalysisConsent: getIt(),
         imageHolder: getIt<ImageAnalysisSessionHolder>(),
+        extractDocumentText: getIt(),
       ),
     )
     // Offline variant: Tesseract already ran on `/ocr`, result handed off.

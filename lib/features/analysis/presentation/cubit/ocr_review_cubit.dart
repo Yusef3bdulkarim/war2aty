@@ -2,13 +2,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/storage/analysis_session.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../ocr/domain/entities/extraction_result.dart';
 import '../../../ocr/domain/entities/ocr_result.dart';
 import '../../../ocr/domain/usecases/extract_candidates.dart';
+import '../../../ocr/domain/usecases/extract_document_text.dart';
 import '../../domain/entities/analysis_image_request.dart';
 import '../../domain/usecases/ocr_image.dart';
+import '../../domain/usecases/should_fall_back_to_on_device_ocr.dart';
 import '../image_analysis_session_holder.dart';
 import 'ocr_review_state.dart';
 
@@ -29,6 +32,9 @@ import 'ocr_review_state.dart';
 ///   run here too since this is now the first thing that sends data off the
 ///   phone on the online route.
 /// - [OcrImage] — runs the online reading + extractors, stops short of analysis.
+/// - [ExtractDocumentText] — reads the photo on the device when the online
+///   reading fails with a failure [shouldFallBackToOnDeviceOcr] allows
+///   (F20-T22). Never on any other failure: that one is shown as it is.
 /// - [ExtractCandidates] — reruns normalization + all five extractors on the
 ///   user's *approved* text, so Groq never receives a candidate that does not
 ///   match what the user actually reviewed (locked correction #1).
@@ -41,12 +47,14 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     required ExtractCandidates extractCandidates,
     required GetAnalysisConsent getAnalysisConsent,
     required ImageAnalysisSessionHolder imageHolder,
+    required ExtractDocumentText extractDocumentText,
   }) : _session = session,
        _photo = photo,
        _ocrImage = ocrImage,
        _extractCandidates = extractCandidates,
        _getAnalysisConsent = getAnalysisConsent,
        _imageHolder = imageHolder,
+       _extractDocumentText = extractDocumentText,
        super(const OcrReviewLoading());
 
   /// Offline path: Tesseract OCR already finished on [OcrProcessingScreen].
@@ -59,6 +67,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
        _extractCandidates = extractCandidates,
        _getAnalysisConsent = null,
        _imageHolder = null,
+       _extractDocumentText = null,
        super(const OcrReviewLoading());
 
   final AnalysisSession _session;
@@ -67,6 +76,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   final ExtractCandidates _extractCandidates;
   final GetAnalysisConsent? _getAnalysisConsent;
   final ImageAnalysisSessionHolder? _imageHolder;
+  final ExtractDocumentText? _extractDocumentText;
 
   /// The current request's token (F20 §4). Each [runOcr] takes a new one and
   /// [cancelPending] moves it on, so an answer to any earlier request is
@@ -114,10 +124,55 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     final result = await ocrImage(
       AnalysisImageRequest(sessionId: _session.id, photo: photo),
     );
-    // A stale answer is discarded whatever it says — success or failure.
+    // A stale answer is discarded whatever it says — success or failure —
+    // so a stale failure never starts the on-device reading either (O16).
     if (_isStale(generation)) return;
 
-    emit(result.when(ok: _readyOrPoorQuality, err: OcrReviewFailed.new));
+    switch (result) {
+      case Ok(:final value):
+        emit(_readyOrPoorQuality(value, OcrReadMode.online));
+      case Err(:final failure) when shouldFallBackToOnDeviceOcr(failure):
+        await _readOnDevice(photo, failure, generation);
+      case Err(:final failure):
+        emit(OcrReviewFailed(failure));
+    }
+  }
+
+  /// The explicit fallback (F20 §1, O3–O5, O7, O10): reads [photo] on the
+  /// device, then extracts candidates from that text as the offline route
+  /// does.
+  ///
+  /// When the device cannot read the page either (O14), the user sees the
+  /// [onlineFailure] that started this — the reason the online reading
+  /// failed is the one they can act on, not the fallback's. Too little text
+  /// (O15) is the same poor-quality outcome an online empty reading gets.
+  Future<void> _readOnDevice(
+    CapturedPhoto photo,
+    AppFailure onlineFailure,
+    int generation,
+  ) async {
+    final extractText = _extractDocumentText;
+    if (extractText == null) {
+      // Only the offline constructor leaves this null, and it never runs
+      // [runOcr]. Guard rather than crash (CLAUDE.md §A3).
+      emit(OcrReviewFailed(onlineFailure));
+      return;
+    }
+
+    final read = await extractText(photo.path);
+    // Left behind while the device was reading: discard it (O16).
+    if (_isStale(generation)) return;
+
+    emit(switch (read) {
+      Ok(:final value) => _readyOrPoorQuality(
+        _extractCandidates(value),
+        OcrReadMode.onlineFallback,
+      ),
+      Err(failure: NoTextDetectedFailure()) => OcrReviewPoorQuality(
+        imagePath: photo.path,
+      ),
+      Err() => OcrReviewFailed(onlineFailure),
+    });
   }
 
   /// Leaves any request in flight behind: its answer is discarded when it
@@ -143,12 +198,15 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
         serverCandidates: result,
         detectedLanguages: result.detectedLanguages,
         imagePath: _session.imagePath,
-        isOffline: true,
+        readMode: OcrReadMode.offline,
       ),
     );
   }
 
-  OcrReviewState _readyOrPoorQuality(ExtractionResult extraction) {
+  OcrReviewState _readyOrPoorQuality(
+    ExtractionResult extraction,
+    OcrReadMode readMode,
+  ) {
     final text = extraction.text.cleanedText;
     if (text.trim().isEmpty) {
       return OcrReviewPoorQuality(imagePath: _photo?.path);
@@ -159,6 +217,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
       serverCandidates: extraction,
       detectedLanguages: extraction.detectedLanguages,
       imagePath: _photo?.path,
+      readMode: readMode,
     );
   }
 
@@ -174,7 +233,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
         serverCandidates: current.serverCandidates,
         detectedLanguages: current.detectedLanguages,
         imagePath: current.imagePath,
-        isOffline: current.isOffline,
+        readMode: current.readMode,
       ),
     );
   }

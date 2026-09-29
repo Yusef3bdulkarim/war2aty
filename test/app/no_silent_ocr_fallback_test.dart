@@ -65,14 +65,16 @@ import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cu
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
+import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
+import 'package:war2aty/features/ocr/domain/repositories/ocr_repository.dart';
 import 'package:war2aty/features/ocr/domain/services/amount_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/date_extractor.dart';
-import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/ocr/domain/services/phone_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/reference_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/text_normalizer.dart';
 import 'package:war2aty/features/ocr/domain/services/time_extractor.dart';
 import 'package:war2aty/features/ocr/domain/usecases/extract_candidates.dart';
+import 'package:war2aty/features/ocr/domain/usecases/extract_document_text.dart';
 import 'package:war2aty/features/ocr/presentation/cubit/ocr_processing_cubit.dart';
 import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -110,11 +112,26 @@ final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
   }
 }
 
+/// The on-device reader, poisoned: running it at all flips [ran]. Since
+/// F20-T22 the online route may reach it — but only for an allowlisted
+/// failure, and this suite's failure is not one (F20 §1, O6).
+final class _PoisonedDeviceOcr implements OcrRepository {
+  _PoisonedDeviceOcr(this.ran);
+
+  final void Function() ran;
+
+  @override
+  Future<Result<OcrResult, AppFailure>> recognizeText(String imagePath) async {
+    ran();
+    return const Err(OcrFailure());
+  }
+}
+
 void main() {
   setUp(getIt.reset);
   tearDown(getIt.reset);
 
-  late bool ocrEngineConstructed;
+  late bool onDeviceOcrRan;
   late bool ocrProcessingCubitConstructed;
 
   /// Boots the real app — real DI wiring, real router — up to the point where
@@ -122,14 +139,14 @@ void main() {
   /// [FakeConnectivityService] default) so [ImagePreviewCubit.proceed] takes
   /// the online branch.
   ///
-  /// `OcrEngine` and `OcrProcessingCubit` are registered as poisoned: either
-  /// one being resolved — which is the only way Tesseract can ever run —
-  /// flips a flag this test asserts against, instead of letting a silent
-  /// fallback pass unnoticed.
+  /// The on-device reader and `OcrProcessingCubit` are registered as
+  /// poisoned: running the one or resolving the other — the only ways
+  /// Tesseract can ever run — flips a flag this test asserts against,
+  /// instead of letting a silent fallback pass unnoticed.
   Future<_AlwaysFailingAnalysisRepository> pumpToOnlinePreview(
     WidgetTester tester,
   ) async {
-    ocrEngineConstructed = false;
+    onDeviceOcrRan = false;
     ocrProcessingCubitConstructed = false;
 
     final onboarding = FakeOnboardingRepository(seen: true);
@@ -220,6 +237,9 @@ void main() {
           // registration below: this suite is not exercising consent.
           getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
           imageHolder: getIt(),
+          extractDocumentText: ExtractDocumentText(
+            _PoisonedDeviceOcr(() => onDeviceOcrRan = true),
+          ),
         ),
       )
       ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
@@ -293,16 +313,8 @@ void main() {
           referenceExtractor: const ReferenceExtractor(),
         ),
       )
-      // Poisoned (F13-T16): the online route must never reach either of
-      // these, whether on the first attempt or on any retry.
-      ..registerLazySingleton<OcrEngine>(() {
-        ocrEngineConstructed = true;
-        throw StateError(
-          'OcrEngine/Tesseract must never be constructed once the online '
-          'route is chosen — a failure must retry the online request, not '
-          'fall back to on-device OCR.',
-        );
-      })
+      // Poisoned (F13-T16): the online route must never reach the /ocr
+      // screen, whether on the first attempt or on any retry.
       ..registerFactoryParam<OcrProcessingCubit, AnalysisSession, void>((_, _) {
         ocrProcessingCubitConstructed = true;
         throw StateError(
@@ -322,8 +334,8 @@ void main() {
   }
 
   testWidgets(
-    'a failed online OCR review never constructs Tesseract, even when the '
-    'user retakes',
+    'an online failure outside the allowlist never runs Tesseract, even '
+    'when the user retakes',
     (tester) async {
       final repository = await pumpToOnlinePreview(tester);
 
@@ -353,9 +365,11 @@ void main() {
       expect(repository.ocrImageCalls, 1);
       expect(repository.analyzeCalls, 0);
       expect(
-        ocrEngineConstructed,
+        onDeviceOcrRan,
         isFalse,
-        reason: 'Tesseract must never be constructed on a failed online run',
+        reason:
+            'Tesseract must never run for an online failure outside the '
+            'F20 §1 allowlist',
       );
       expect(ocrProcessingCubitConstructed, isFalse);
       expect(tester.takeException(), isNull);

@@ -7,6 +7,19 @@ sealed class OcrReviewState {
   const OcrReviewState();
 }
 
+/// Where the text under review was read (F20-T22).
+enum OcrReadMode {
+  /// Read online, as the online route intends.
+  online,
+
+  /// Read on the device by the offline route — no online reading was tried.
+  offline,
+
+  /// The online reading failed with an allowlisted failure (F20 §1), so the
+  /// page was read on the device instead. Likely less accurate than [online].
+  onlineFallback,
+}
+
 /// The online reading is running on the server.
 final class OcrReviewLoading extends OcrReviewState {
   const OcrReviewLoading();
@@ -21,7 +34,7 @@ final class OcrReviewReady extends OcrReviewState {
     required this.serverCandidates,
     required this.detectedLanguages,
     required this.imagePath,
-    this.isOffline = false,
+    this.readMode = OcrReadMode.online,
   });
 
   /// The text the online reading returned, untouched. Kept so [isEdited] can tell whether
@@ -32,8 +45,8 @@ final class OcrReviewReady extends OcrReviewState {
   /// via `OcrReviewCubit.updateOcrText`. This is what Groq ultimately sees.
   final String reviewedOcrText;
 
-  /// Candidates extracted server-side (online reading + extractors). Shown as review
-  /// hints only — when the user taps analyze, fresh candidates are
+  /// Candidates extracted alongside the reading — server-side for an online
+  /// reading, on the device otherwise. Shown as review hints only — when the user taps analyze, fresh candidates are
   /// re-extracted from [reviewedOcrText] client-side (`buildReviewedResult`),
   /// so Groq never receives a candidate that does not match the approved
   /// text.
@@ -48,10 +61,10 @@ final class OcrReviewReady extends OcrReviewState {
   /// lifecycle) — `null` only if it was already cleaned up.
   final String? imagePath;
 
-  /// `true` when this review came from the offline (Tesseract) OCR path —
-  /// the screen shows an amber quality-warning banner and uses "متابعة"
-  /// instead of "تحليل الورقة".
-  final bool isOffline;
+  /// Where [originalOcrText] was read. The offline route's review shows an
+  /// amber quality-warning banner and uses "متابعة" instead of
+  /// "تحليل الورقة".
+  final OcrReadMode readMode;
 
   /// Whether the user has changed the text since OCR completed.
   bool get isEdited => originalOcrText != reviewedOcrText;
@@ -65,7 +78,7 @@ final class OcrReviewReady extends OcrReviewState {
           other.serverCandidates == serverCandidates &&
           _listEquals(other.detectedLanguages, detectedLanguages) &&
           other.imagePath == imagePath &&
-          other.isOffline == isOffline;
+          other.readMode == readMode;
 
   @override
   int get hashCode => Object.hash(
@@ -74,7 +87,7 @@ final class OcrReviewReady extends OcrReviewState {
     serverCandidates,
     Object.hashAll(detectedLanguages),
     imagePath,
-    isOffline,
+    readMode,
   );
 }
 

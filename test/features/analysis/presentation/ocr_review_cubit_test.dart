@@ -19,6 +19,8 @@ import 'package:war2aty/features/ocr/domain/entities/amount_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/date_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
+import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
+import 'package:war2aty/features/ocr/domain/repositories/ocr_repository.dart';
 import 'package:war2aty/features/ocr/domain/services/amount_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/date_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/phone_extractor.dart';
@@ -26,6 +28,7 @@ import 'package:war2aty/features/ocr/domain/services/reference_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/text_normalizer.dart';
 import 'package:war2aty/features/ocr/domain/services/time_extractor.dart';
 import 'package:war2aty/features/ocr/domain/usecases/extract_candidates.dart';
+import 'package:war2aty/features/ocr/domain/usecases/extract_document_text.dart';
 
 const _session = AnalysisSession(id: 'session-1', imagePath: '/tmp/paper.jpg');
 const _photo = CapturedPhoto('/tmp/corrected.jpg');
@@ -47,6 +50,26 @@ const _staleExtraction = ExtractionResult(
     cleanedText: 'نص قديم من طلب سابق',
   ),
 );
+
+/// What the on-device reader finds on the page in the fallback tests.
+const _deviceText = 'فاتورة كهرباء المبلغ 850 جنيه';
+
+/// The on-device reader (Tesseract, behind [OcrRepository]). Records every
+/// path it was asked to read; with [gate] set, the read waits for it.
+final class _FakeDeviceOcr implements OcrRepository {
+  Result<OcrResult, AppFailure> answer = const Ok(
+    OcrResult(originalText: _deviceText),
+  );
+  Completer<void>? gate;
+  final List<String> readPaths = [];
+
+  @override
+  Future<Result<OcrResult, AppFailure>> recognizeText(String imagePath) async {
+    readPaths.add(imagePath);
+    await gate?.future;
+    return answer;
+  }
+}
 
 /// One trip round the event loop, so every pending microtask has run.
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
@@ -87,9 +110,11 @@ void main() {
   late AnalysisConsentStore consentStore;
   late ImageAnalysisSessionHolder imageHolder;
   late ExtractCandidates extractCandidates;
+  late _FakeDeviceOcr deviceOcr;
 
   setUp(() {
     repository = _FakeAnalysisRepository();
+    deviceOcr = _FakeDeviceOcr();
     consentStore = _FakeConsentStore();
     imageHolder = ImageAnalysisSessionHolder()..set(_session, _photo);
     extractCandidates = ExtractCandidates(
@@ -109,6 +134,7 @@ void main() {
     extractCandidates: extractCandidates,
     getAnalysisConsent: GetAnalysisConsent(consentStore),
     imageHolder: imageHolder,
+    extractDocumentText: ExtractDocumentText(deviceOcr),
   );
 
   group('OcrReviewCubit', () {
@@ -138,6 +164,8 @@ void main() {
         expect(ready.serverCandidates, _serverExtraction);
         expect(ready.detectedLanguages, ['ar']);
         expect(ready.imagePath, _photo.path);
+        expect(ready.readMode, OcrReadMode.online);
+        expect(deviceOcr.readPaths, isEmpty);
         expect(repository.ocrRequests.single.sessionId, 'session-1');
         expect(repository.ocrRequests.single.photo, _photo);
         await cubit.close();
@@ -286,6 +314,192 @@ void main() {
       await cubit.runOcr();
 
       expect(cubit.state, isA<OcrReviewLoading>());
+    });
+  });
+
+  group('on-device fallback (F20 §1, layer 1)', () {
+    // O3, O4, O5/O10, O7: the online reading failed for a reason the device
+    // can work around.
+    final fallsBack = <String, AppFailure>{
+      'O3 rate limited': const AiProviderRateLimitFailure(),
+      'O4/O7 timeout': const RequestTimeoutFailure(),
+      'O5/O10 online reading unavailable': const OnlineOcrUnavailableFailure(),
+      'O7 offline': const NoInternetFailure(),
+    };
+
+    for (final MapEntry(key: row, value: failure) in fallsBack.entries) {
+      test('$row: reads the photo on the device instead', () async {
+        repository.ocrAnswer = Err(failure);
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(deviceOcr.readPaths, [_photo.path]);
+        final ready = cubit.state as OcrReviewReady;
+        // Normalised exactly as the offline route normalises device text.
+        final expected = extractCandidates(
+          const OcrResult(originalText: _deviceText),
+        ).text.cleanedText;
+        expect(ready.readMode, OcrReadMode.onlineFallback);
+        expect(ready.originalOcrText, expected);
+        expect(ready.reviewedOcrText, expected);
+        expect(ready.imagePath, _photo.path);
+        // Candidates come from the device text, as on the offline route.
+        expect(ready.serverCandidates.amounts.single.value, 850);
+        await cubit.close();
+      });
+    }
+
+    // O6/O11 deploy fault, O9 session, O12 refusals, O13 broken contract:
+    // shown as they are, and the device never reads anything.
+    final noFallback = <String, AppFailure>{
+      'O6/O11 service fault': const AnalysisServiceFailure(),
+      'O9 unauthorized': const UnauthorizedFailure(),
+      'O12 analysis disabled': const AnalysisDisabledFailure(),
+      'O12 app too old': const UnsupportedAppVersionFailure(),
+      'O12 invalid request': const InvalidRequestFailure(),
+      'O13 broken response': const InvalidAnalysisResponseFailure(),
+      'unreadable photo': const ImageProcessingFailure(),
+    };
+
+    for (final MapEntry(key: row, value: failure) in noFallback.entries) {
+      test('$row: fails without reading on the device', () async {
+        repository.ocrAnswer = Err(failure);
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(cubit.state, OcrReviewFailed(failure));
+        expect(deviceOcr.readPaths, isEmpty);
+        await cubit.close();
+      });
+    }
+
+    test(
+      'O2: an empty online reading is poor quality, not a fallback',
+      () async {
+        repository.ocrAnswer = const Ok(
+          ExtractionResult(
+            text: NormalizedOcrText(originalText: '', cleanedText: ''),
+          ),
+        );
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(
+          cubit.state,
+          const OcrReviewPoorQuality(imagePath: '/tmp/corrected.jpg'),
+        );
+        expect(deviceOcr.readPaths, isEmpty);
+        await cubit.close();
+      },
+    );
+
+    test('O8: a declined consent never reads on the device', () async {
+      consentStore = _FakeConsentStore(false);
+      final cubit = buildCubit();
+
+      await cubit.runOcr();
+
+      expect(
+        cubit.state,
+        const OcrReviewFailed(AnalysisConsentDeclinedFailure()),
+      );
+      expect(repository.ocrRequests, isEmpty);
+      expect(deviceOcr.readPaths, isEmpty);
+      await cubit.close();
+    });
+
+    test(
+      'O14: when the device fails too, the online failure is shown',
+      () async {
+        repository.ocrAnswer = const Err(OnlineOcrUnavailableFailure());
+        deviceOcr.answer = const Err(OcrFailure());
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(deviceOcr.readPaths, [_photo.path]);
+        expect(
+          cubit.state,
+          const OcrReviewFailed(OnlineOcrUnavailableFailure()),
+        );
+        await cubit.close();
+      },
+    );
+
+    test('O15: too little text on the device is poor quality', () async {
+      repository.ocrAnswer = const Err(RequestTimeoutFailure());
+      deviceOcr.answer = const Ok(OcrResult(originalText: '  ؟  '));
+      final cubit = buildCubit();
+
+      await cubit.runOcr();
+
+      expect(
+        cubit.state,
+        const OcrReviewPoorQuality(imagePath: '/tmp/corrected.jpg'),
+      );
+      await cubit.close();
+    });
+
+    test('O16: a stale failure never starts the device reading', () async {
+      repository
+        ..hold = true
+        ..ocrAnswer = null;
+      final cubit = buildCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+      cubit.cleanupImage();
+      repository.pending.single.complete(const Err(NoInternetFailure()));
+      await run;
+
+      expect(deviceOcr.readPaths, isEmpty);
+      expect(cubit.state, isA<OcrReviewLoading>());
+      await cubit.close();
+    });
+
+    test('O16: a device reading left behind is discarded', () async {
+      repository.ocrAnswer = const Err(AiProviderRateLimitFailure());
+      deviceOcr.gate = Completer<void>();
+      final cubit = buildCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+      expect(deviceOcr.readPaths, [_photo.path]);
+
+      cubit.cleanupImage();
+      deviceOcr.gate!.complete();
+      await run;
+
+      expect(cubit.state, isA<OcrReviewLoading>());
+      await cubit.close();
+    });
+
+    test('the offline route reports its own read mode', () async {
+      final cubit = OcrReviewCubit.offline(
+        session: _session,
+        extractCandidates: extractCandidates,
+      )..loadOffline(_serverExtraction);
+
+      expect((cubit.state as OcrReviewReady).readMode, OcrReadMode.offline);
+      expect(deviceOcr.readPaths, isEmpty);
+      await cubit.close();
+    });
+
+    test('the fallback review keeps its read mode through edits', () async {
+      repository.ocrAnswer = const Err(NoInternetFailure());
+      final cubit = buildCubit();
+      await cubit.runOcr();
+
+      cubit.updateOcrText('نص معدّل');
+
+      expect(
+        (cubit.state as OcrReviewReady).readMode,
+        OcrReadMode.onlineFallback,
+      );
+      await cubit.close();
     });
   });
 

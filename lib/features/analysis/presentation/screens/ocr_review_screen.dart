@@ -21,9 +21,11 @@ import '../cubit/ocr_review_state.dart';
 /// Groq analysis. Shows the OCR text editable, candidate hints, an optional
 /// image preview, and a listen button + mini-player for pre-analysis TTS.
 ///
-/// When [OcrReviewReady.isOffline] is `true`, an amber banner warns that OCR
-/// accuracy may be lower, and the bottom button reads "متابعة" instead of
-/// "تحليل الورقة".
+/// When [OcrReviewReady.readMode] is [OcrReadMode.offline], an amber banner
+/// warns that OCR accuracy may be lower, and the bottom button reads
+/// "متابعة" instead of "تحليل الورقة". An [OcrReadMode.onlineFallback]
+/// review keeps the online title and button: the user chose the online
+/// route, and the offline banner's "no internet" reason is not theirs.
 class OcrReviewScreen extends StatelessWidget {
   const OcrReviewScreen({
     required this.onAnalyze,
@@ -260,6 +262,7 @@ class _ReadyBodyState extends State<_ReadyBody> {
     final strings = context.strings;
     final colors = AppColors.of(context);
     final state = widget.state;
+    final isOfflineRoute = state.readMode == OcrReadMode.offline;
 
     return BlocListener<AudioReaderCubit, AudioReaderState>(
       listenWhen: (previous, current) => current is AudioReaderFailed,
@@ -286,7 +289,7 @@ class _ReadyBodyState extends State<_ReadyBody> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        state.isOffline
+                        isOfflineRoute
                             ? strings.ocrExtractedTextTitle
                             : strings.ocrOnlineReviewTitle,
                         style: TextStyle(
@@ -295,7 +298,7 @@ class _ReadyBodyState extends State<_ReadyBody> {
                           color: colors.ink,
                         ),
                       ),
-                      if (!state.isOffline) ...[
+                      if (!isOfflineRoute) ...[
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           strings.ocrOnlineReviewSubtitle,
@@ -322,7 +325,7 @@ class _ReadyBodyState extends State<_ReadyBody> {
             ),
           ),
           // Offline quality warning banner.
-          if (state.isOffline)
+          if (isOfflineRoute)
             _OfflineWarning(text: strings.ocrOfflineQualityWarning),
           Expanded(
             child: SingleChildScrollView(
@@ -391,7 +394,7 @@ class _ReadyBodyState extends State<_ReadyBody> {
                   ),
                 ),
                 child: Text(
-                  state.isOffline
+                  isOfflineRoute
                       ? strings.ocrContinue
                       : strings.ocrOnlineAnalyze,
                 ),
