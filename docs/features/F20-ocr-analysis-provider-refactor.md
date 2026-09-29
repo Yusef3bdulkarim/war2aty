@@ -5,7 +5,7 @@
   - F13: the online route, the `ocr-document` endpoint split in F14, and the `optInFlag` dark-launch pattern.
   - F18: the `_shared/ai/*` seam, the OpenAI-compatible client, the fallback chain and the `analyze.provider` observability line. F20 **modifies** these; it does not rebuild them.
 - **Supersedes:** F18. It is cancelled, and its Gemini-as-classifier wiring is removed. Parts of F13 are superseded too: Azure and Google Document AI are removed, and locked decision #2 is reversed.
-- **Progress:** 16 / 27 DONE (T01, T03–T17). T02 waived by the owner (2026-09-29): drafts accepted uncorrected. T09 signed off on partial evidence (see its row)
+- **Progress:** 26 / 27 DONE (T01, T03–T27) — complete; the production flip awaits the owner. T02 waived by the owner (2026-09-29): drafts accepted uncorrected. T09 signed off on partial evidence (see its row)
 - **Plan of record:** approved 2026-09-28 (rev 3). The gate protocol is at the bottom.
 
 Azure AI Document Intelligence is a paid service, and War2aty never moves to a
@@ -218,7 +218,7 @@ judged acceptable.
 | 24 | F20-T24 | Privacy copy (image) | Built on F18-T02's wording. ar: «لما تكون متصل بالإنترنت، بنبعت صورة الورقة لخدمة خارجية تقرا النص منها. إحنا مابنحفظش الصورة، لكن الخدمة دي ممكن تحتفظ بيها فترة، وممكن يراجعها موظفين عندها لتحسين خدمتها. من غير إنترنت، الصورة بتتقري على موبايلك بس.» Privacy policy screen and `CLAUDE.md` §7 / §9 updated. No provider named | **Copy:** privacy point 1 (`privacyPointExtractText`, which described getting the text out of the photo) is now this row's image copy, Arabic verified character-for-character; English written to match ("When you're online, we send the photo of your paper to an outside service that reads the text from it. We don't keep the photo, but that service may keep it for a while, and its staff may review it to improve their service. Without internet, the photo is read only on your phone."). Point 2 (`privacyPointTextOnly`) keeps only the F18-T02 text sentence; its retired image sentence («أما صورة الورقة، مانحفظهاش ومحدش بيشوفها» / "nobody sees it") is gone. The page stays at four points, so the onboarding and settings privacy screens need no layout change (both scroll; both pass their 2x Large Text tests). **Beyond the row (approved by the owner 2026-09-29, with the English copy and the CLAUDE.md Backend fix):** `privacyPointImageOptIn` and `homeImagePrivacyNote` said the photo is "not saved unless you agree" unscoped, which the new point 1 makes false; both now say "on your phone" («… مش هتتحفظ على موبايلك إلا بعد موافقتك» / "… saved on your phone only if you agree"). **CLAUDE.md:** project-context Privacy line, §7 (online pipeline now describes the explicit allowlisted fallback; the image is no longer "unseen"; approved image and text wording; Gemini terms cited for the image, Mistral/Groq for the text) and §9 (online OCR via `ocr-document`, the fallback decided only by `shouldFallBackToOnDeviceOcr`, analysis text-only Mistral → Groq). The project-context Backend line was stale since T16 (Azure/Google OCR, Gemini/Groq analysis) and is corrected too; T26 does not list CLAUDE.md. **app_strings_test (folded in at the owner's request):** `_accessors` is now a name-keyed map generated from the interface, covering all 385 members (374 getters + 11 methods with sample arguments; it had drifted to 104), and a new guard parses `app_strings.dart` so a member missing from the map fails the test (mutation-checked). The no-provider-name and non-empty checks therefore cover every string. The privacy group flips: "the image promise survives" is replaced by "no copy claims the image goes unseen" (every string, both languages), "the image copy says what really happens" and "what the app does promise about the image". **scan_actions_test:** its 2x Large Text test mounted `ScanActions` bare in a fixed 844 px viewport with no slack (the old 47-char note fit; any longer copy overflowed vertically); it now mounts it in a `SingleChildScrollView` exactly as `HomeScreen` does, still catching sideways overflow. Flutter gate: format clean, analyze 0 errors / 0 warnings from T24 (19 infos), 1987/1987 tests | **DONE** |
 | 25 | F20-T25 | Explicit-fallback app test | `explicit_ocr_fallback_test.dart` replaces `no_silent_ocr_fallback_test.dart`. Allowlisted failure → Tesseract runs exactly once and the banner shows. A non-allowlisted failure never constructs `OcrEngine`. Consent declined → no network call and no Tesseract | `git mv` to `test/app/explicit_ocr_fallback_test.dart` (nothing referenced the old name). Real DI and router, online route forced; the harness takes the online failure and the consent value. **Allowlisted:** one test per failure (rate limit O3, timeout O4, `OCR_UNAVAILABLE` O5/O10, offline O7) — stays on `/ocr-review`, the fallback banner shows (not the offline one, not the error page, online «تحليل الورقة» button), `ocrImage` called once, Tesseract runs **exactly once**, no analysis, `OcrProcessingCubit` never constructed. **Non-allowlisted** (O6/O11, `AnalysisServiceFailure`): the error page, then Retake to capture, Tesseract never runs. **Consent declined** (O8, with an allowlisted failure queued): the consent page, `ocrImage` never called, Tesseract never runs. **Deviation:** "never constructs `OcrEngine`" became "never RUNS": since T22 `OcrReviewCubit` takes `ExtractDocumentText` on every online review, so the reader is always constructed; the counting `_CountingDeviceOcr` asserts runs, which is what the allowlist governs. Also made the suite's `ExtractCandidates` registration `const` (two pre-existing infos gone). Flutter gate: format clean, analyze 0 errors / 0 warnings from T25 (17 infos), 1992/1992 tests | **DONE** |
 | 26 | F20-T26 | Docs | `README.md`, `API_CONTRACT.md`, `TEST-BUILD-ROLLOUT.md`, `supabase/README.md`; "superseded by F20" notes added to the F13 and F18 docs; memory updated | **README.md:** feature and stack tables (Gemini online reading; Tesseract offline and as the explicit fallback; analysis Mistral → Groq, text only); the Privacy section no longer claims images are "never stored on any server" or that no AI model sees the image — it states what the free-tier reader may do, matching T24. **API_CONTRACT.md:** the v2 intro no longer says the image is read by Azure/Google; the F20 update names the Mistral → Groq chain and the explicit client fallback (§31 rule 7); `phones` / `references` documented as always empty since T15 (their comment and both schema descriptions promised the deleted verification layer). **supabase/README.md:** the F18 "two providers, one seam" section rewritten as *Providers (F20)* — which function sees what, the `ocr-document` failure mapping, the kind-based Mistral → Groq chain and its timing knobs, free-tier-only capacity with measured limits (the old "needs a billed project" advice removed, per the no-paid-tiers rule), and data handling for photo vs text; first-run and mock-mode lines name the new keys. **TEST-BUILD-ROLLOUT.md:** the dated log is left as history; its fresh-project instruction now says `online_ocr_enabled`, and a new *F20 — shipping the provider refactor to production* section gives the order: secrets → migration → functions → app → flag on only after T27 and owner confirmation. **F13 / F18:** "Superseded by F20" notes listing what changed (F18's note verified: `gemini_primary_enabled` was never set and is gone from the code). CLAUDE.md was already done in T24. Docs only; no Dart changed (Flutter gate unchanged at 1992/1992) | **DONE** |
-| 27 | F20-T27 | E2E verification | **Automated:** suites cover every row O1–O16 and A1–A10. **Live** (local stack + physical device): happy path; bad Gemini key → error with no Tesseract (O6); airplane mode after routing → Tesseract with banner (O7); flag off mid-flow → Tesseract with banner (O10); bad Mistral key → error with no Groq (A6); bad `MISTRAL_MODEL` → no Groq (A7); stale Retake; offline route unchanged. Transient provider rows are covered by fakes only, and this is stated in the report. Both quality gates green. Production flip only after owner confirmation | TODO |
+| 27 | F20-T27 | E2E verification | **Automated:** suites cover every row O1–O16 and A1–A10. **Live** (local stack + physical device): happy path; bad Gemini key → error with no Tesseract (O6); airplane mode after routing → Tesseract with banner (O7); flag off mid-flow → Tesseract with banner (O10); bad Mistral key → error with no Groq (A6); bad `MISTRAL_MODEL` → no Groq (A7); stale Retake; offline route unchanged. Transient provider rows are covered by fakes only, and this is stated in the report. Both quality gates green. Production flip only after owner confirmation | Automated half at `ac4cb27` (every O/A row mapped to tests; the one gap, the image-shape app-version gate, got a test). Live half L1–L8 **all passed** on 2026-09-30 on a physical phone against the local stack with real keys — evidence and method deviations (fault-injection proxy instead of airplane mode for O7/O10/O16) in *T27 · Verification record*. Both gates green. Production flip NOT done — awaits the owner | **DONE** |
 
 ---
 
@@ -260,28 +260,45 @@ is `app/explicit_ocr_fallback_test.dart`, "mapper" is
 - **Server:** `deno test` 734/734 (42 live tests ignored without keys); `deno lint` clean; `deno check` clean on all four functions. `deno fmt --check` flags 4 files — `_shared/ai/analysis-provider.ts`, `_shared/ai/openai-compatible-client.ts` and their two tests — the same 4 recorded as unformatted before F20 began. They are CRLF, and formatting them belongs to the owner's deferred line-ending cleanup commit, not to T27.
 - **Flutter:** `dart format` clean, `flutter analyze` 0 errors / 0 warnings from F20 (17 infos; 3 warnings come from the owner's uncommitted `service_state_view.dart`), `flutter test` 1992/1992. No Dart file changed after T25.
 
-### Live half — pending the owner
+### Live half — passed 2026-09-30
 
-Needs Docker running, `supabase start`, migration
-`20260929120000_online_ocr_flag.sql` applied locally, `online_ocr_enabled = true`
-on the **local** stack only, real `GEMINI_*` / `MISTRAL_*` / `GROQ_*` keys in
-`supabase/.env` (re-check the model lines first — editor saves have reverted
-them twice), and a physical phone on the same LAN.
+Local stack (migration `20260929120000` applied locally; `online_ocr_enabled`
+and `daily_limit` raised on the **local** database only, then reset to `false`
+/ `3`), `supabase functions serve` with the owner's real keys
+(`gemini-3.5-flash-lite`, `ministral-14b-latest`, `openai/gpt-oss-120b`), the
+dev app on a physical RMX2001 (Android 11) over `adb reverse`. Each check is
+backed by a phone screenshot and the functions' structured log.
 
-| # | Check | Expected | Status |
+| # | Check | Evidence | Result |
 |---|---|---|---|
-| L1 | Happy path | Gemini reading → review → Mistral analysis → result | pending |
-| L2 | Bad `GEMINI_API_KEY` | error page, Tesseract never runs (O6) | pending |
-| L3 | Airplane mode after routing online | Tesseract reads, fallback banner (O7) | pending |
-| L4 | `online_ocr_enabled` off mid-flow | Tesseract reads, fallback banner (O10) | pending |
-| L5 | Bad `MISTRAL_API_KEY` | `INTERNAL_ERROR`, Groq never called (A6) | pending |
-| L6 | Bad `MISTRAL_MODEL` | error, Groq never called (A7) | pending |
-| L7 | Retake while the reading is in flight | the late answer never shows (O16) | pending |
-| L8 | Offline route | unchanged: `/ocr` → review with the offline banner | pending |
+| L1 | Happy path | `ocr-document` 200 (4.7 s, `ocr.completed`) → review with no banner → `analyze.provider` `mistral`, `failed_over: false` → result (receipt), `used_today 1` | **pass** |
+| L2 | Bad `GEMINI_API_KEY` | `ocr.failed` `failure: bad_request` → 500 `INTERNAL_ERROR`; error page «حصل مشكلة», Retake → capture; no analysis request | **pass** (O6) |
+| L3 | Connection lost after routing online | Route check `get-usage` 200, then the tunnel dropped; the reading never reached the server; online review title, fallback banner with the warning triangle, «تحليل الورقة» | **pass** (O7) |
+| L4 | `online_ocr_enabled` switched off mid-flow | Route check read the flag on; flag switched off before the app got the answer; `ocr-document` 502 `OCR_UNAVAILABLE` (76 ms); same fallback screen as L3 | **pass** (O10) |
+| L5 | Bad `MISTRAL_API_KEY` | `analyze.provider` `mistral`, `primary_failure: auth`, `failed_over: false`, `failover_skipped: not_fallback_eligible` → 500 `INTERNAL_ERROR`; analysis error page; slot released (`reserved_count 0`) | **pass** (A6) |
+| L6 | Bad `MISTRAL_MODEL` | `primary_failure: bad_request`, `failed_over: false`, `not_fallback_eligible` → 500 `INTERNAL_ERROR`; slot released | **pass** (A7) |
+| L7 | Leaving while the reading is in flight | Reading's 200 held 15 s and released after the user pressed Back; the phone stayed on Home, and logcat showed no Flutter error (no emit-after-close) | **pass** (O16) |
+| L8 | Offline route | Airplane mode on: no request reached the server; «الكلام اللي لقيناه», the short offline banner with the crossed-out Wi-Fi icon, «متابعة» | **pass** |
 
-Transient provider rows (O3, O4, O5, A1–A5, A10) are covered by fakes only;
-they cannot be forced live on demand. The production flip stays off until the
-owner confirms.
+**Method notes (deviations from the row):**
+- *Airplane mode* could not stand in for O7: the phone reaches the stack over
+  USB, and — more importantly — the app routes with a **fresh** `get-usage`,
+  so any failure there fails closed to the offline route. A first L3 attempt
+  (tunnel removed before the tap) proved exactly that: offline route, offline
+  banner, no request at the server. L3, L4 and L7 therefore used a small
+  forwarding proxy between `adb reverse` and the stack (scratch tooling, not
+  committed; it bound 54322, which the local Postgres also uses — pick a free
+  port if it is ever rebuilt). Armed per check, it (L3) removed the tunnel
+  right after the route check, (L4) switched the flag off before releasing the
+  route check's answer, or (L7) held the reading's answer for 15 s.
+- *"Stale Retake"* was run as Back during loading: the loading screen offers no
+  Retake button, and both paths close the review cubit the same way.
+- The on-device reading of the L4 page was poor (a few garbled lines) — what
+  the fallback banner warns about, not a defect.
+
+Transient provider rows (O3, O4, O5, A1–A5, A10) remain covered by fakes
+only; they cannot be forced live on demand. **The production flip stays off
+until the owner confirms** — see `docs/TEST-BUILD-ROLLOUT.md` → *F20*.
 
 ## Gate protocol
 
