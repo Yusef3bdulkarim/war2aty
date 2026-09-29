@@ -41,6 +41,7 @@ AppFailure failureFromErrorBody(
       _resetAt(dto, now ?? DateTime.now()),
     ),
     'AI_RATE_LIMITED' => const AiProviderRateLimitFailure(),
+    'OCR_UNAVAILABLE' => const OnlineOcrUnavailableFailure(),
     'GLOBAL_CAPACITY_REACHED' => const GlobalCapacityReachedFailure(),
     'ANALYSIS_DISABLED' => const AnalysisDisabledFailure(),
     'ANALYSIS_FAILED' || 'INTERNAL_ERROR' => const AnalysisServiceFailure(),
