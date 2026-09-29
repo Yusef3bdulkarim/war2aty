@@ -7,8 +7,9 @@ Defines the JSON contract between the Flutter app and the Supabase Edge Function
 only and the image never left the device. From v2, a request's `input_type`
 picks one of two shapes: `"text"` (unchanged — OCR text + on-device
 candidates, image never leaves the device) or `"image"` (new — the photo
-itself is sent, gated behind the `azureOcrEnabled` operator flag, so it can be
-read by Azure/Google Document AI). Every request, either shape, still declares
+itself is sent, gated behind an operator flag, so it can be read online —
+historical: F13 read it with Azure/Google Document AI; F20 replaced both with
+Gemini, see below). Every request, either shape, still declares
 `schema_version: "2.0"`; a v1 body (no `input_type`) is rejected with
 `UNSUPPORTED_SCHEMA`. See `docs/features/F13-ocr-provider-migration.md`
 locked decisions #1 and #7.
@@ -17,7 +18,11 @@ locked decisions #1 and #7.
 accepts the text shape only; an image-shaped body is `400 INVALID_REQUEST`.
 The image shape (§29b) is the request body of `ocr-document`, which reads the
 photo with Gemini and returns the text and candidates for review, behind the
-`online_ocr_enabled` operator flag (F20-T14; was `azure_ocr_enabled`). See
+`online_ocr_enabled` operator flag (F20-T14; was `azure_ocr_enabled`). The text
+is analysed by Mistral, falling back to Groq inside the same request (one
+quota slot either way). When `ocr-document` fails with one of the four
+failures in §31 client rule 7, the app reads the page on the device instead
+and shows a warning; any other failure is shown as it is. See
 `docs/features/F20-ocr-analysis-provider-refactor.md`.
 
 ---
@@ -436,9 +441,9 @@ The request body of `POST /functions/v1/ocr-document`, behind `RuntimeConfig.onl
   ],
 
   // ── phones & references (v2, F13-T09) ──────────────────────────────
-  // Populated only once cross-provider verification (F13-T08) ran over this
-  // analysis — the online path, once F13-T11 wires it. Empty on the
-  // offline/Tesseract path and on every caller before then; never a raw,
+  // Always empty since F20-T15: they were filled only by the cross-provider
+  // verification layer (F13-T08), which F20 deleted with the image-analysis
+  // path. Kept on the v2 wire so clients need no change; never a raw,
   // unconfirmed regex hit.
   "phones": [
     {
@@ -628,13 +633,13 @@ regardless of confidence.
       "type": "array",
       "items": { "$ref": "#/definitions/phone_item" },
       "default": [],
-      "description": "v2 (F13-T09). Empty unless cross-provider verification (F13-T08) ran over this analysis."
+      "description": "v2 (F13-T09). Always empty since F20-T15 deleted the cross-provider verification (F13-T08) that filled it."
     },
     "references": {
       "type": "array",
       "items": { "$ref": "#/definitions/reference_item" },
       "default": [],
-      "description": "v2 (F13-T09). Empty unless cross-provider verification (F13-T08) ran over this analysis."
+      "description": "v2 (F13-T09). Always empty since F20-T15 deleted the cross-provider verification (F13-T08) that filled it."
     }
   },
   "definitions": {

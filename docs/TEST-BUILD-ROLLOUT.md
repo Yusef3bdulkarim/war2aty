@@ -107,7 +107,9 @@ or a true prod project is wanted later), the steps are: create it, `supabase
 link --project-ref <ref>`, `supabase db push`, `supabase functions deploy
 analyze-document ocr-document get-usage health --project-ref <ref>`, fill
 `supabase/.env` from `.env.example` and `supabase secrets set --env-file
-supabase/.env --project-ref <ref>`, then set `azure_ocr_enabled` deliberately.
+supabase/.env --project-ref <ref>`, then set `online_ocr_enabled` deliberately
+(F20 renamed the flag; `azure_ocr_enabled` no longer exists — see the F20
+section at the end).
 
 ---
 
@@ -178,3 +180,37 @@ default:
   and a full redeploy.
 - **There is no separate staging environment any more.** Anything tried against
   this project is tried against production.
+
+---
+
+## F20 — shipping the provider refactor to production
+
+F20 (`docs/features/F20-ocr-analysis-provider-refactor.md`) replaces the
+providers above: the online reading is Gemini (`ocr-document`), analysis is
+Mistral then Groq (`analyze-document`, text only), and Azure / Google Document
+AI are gone. The notes above that mention `azure_ocr_enabled` or Azure spend
+are history. Because there is no staging project, the order matters:
+
+1. **Secrets first.** Set `GEMINI_API_KEY`, `GEMINI_MODEL`
+   (`gemini-3.5-flash-lite`), `MISTRAL_API_KEY`, `MISTRAL_MODEL`
+   (`ministral-14b-latest`), `GROQ_API_KEY`, `GROQ_MODEL`, and optionally
+   `AI_ATTEMPT_TIMEOUT_SECONDS` / `MIN_FALLBACK_MS`. Every provider key and model
+   is required: deploying `analyze-document` without the `MISTRAL_*` pair makes
+   every analysis answer `INTERNAL_ERROR`. The `AZURE_*` and
+   `GOOGLE_DOCUMENT_AI_*` secrets are already unset; revoke those keys at the
+   providers too. In the Mistral console, opt out of training (decision D2).
+2. **Migration.** `20260929120000_online_ocr_flag.sql` seeds
+   `online_ocr_enabled = false` and deletes `azure_ocr_enabled`. Apply it before
+   the functions, so they never read a missing flag as a decision.
+3. **Functions.** Deploy `ocr-document`, `analyze-document` and `get-usage`.
+   An app built before F20 reads the now-missing `azure_ocr_enabled` as false
+   and stays on the on-device route, which is the safe direction.
+4. **App.** Ship the F20 build. It reads `online_ocr_enabled`, falls back to
+   on-device reading for exactly four online failures with a warning, and
+   carries the T24 privacy copy.
+5. **Only then, and only with the owner's confirmation after F20-T27**, set
+   `online_ocr_enabled = true`. Until then every user takes the on-device route,
+   with Tesseract reading and Mistral/Groq analysing.
+
+All providers stay on their free tiers (owner's decision); capacity is what
+those tiers allow — see `supabase/README.md` → *Providers (F20)*.

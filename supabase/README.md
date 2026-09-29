@@ -23,7 +23,7 @@ container. `supabase start` fails immediately if the daemon is down.
 ## First run
 
 ```bash
-cp supabase/.env.example supabase/.env   # then fill in GROQ_API_KEY + salt
+cp supabase/.env.example supabase/.env   # then fill in GEMINI_*, MISTRAL_*, GROQ_* + salt
 supabase start
 supabase functions serve --env-file supabase/.env   # required — see below
 ```
@@ -32,7 +32,7 @@ supabase functions serve --env-file supabase/.env   # required — see below
 
 `supabase start` injects only the platform variables into `edge_runtime`
 (`SUPABASE_URL`, the two keys, `SUPABASE_DB_URL`). It does **not** read
-`supabase/.env`, so `GROQ_API_KEY` and `INSTALLATION_HASH_SALT` are absent and
+`supabase/.env`, so the provider keys and `INSTALLATION_HASH_SALT` are absent and
 `analyze-document` fails at startup with a bare `500` and no body:
 
 ```
@@ -98,7 +98,7 @@ well-known local anon key itself. Two overrides exist:
 # A physical device on the same LAN as the dev machine:
 --dart-define=SUPABASE_URL=http://192.168.1.5:54321
 
-# UI work with no Docker and no Groq key — serves the bundled fixtures:
+# UI work with no Docker and no provider keys — serves the bundled fixtures:
 --dart-define=USE_MOCK_ANALYSIS=true
 ```
 
@@ -179,7 +179,8 @@ fakes, offline.
 
 ### Why the response is rebuilt, not forwarded
 
-`analyze-response.ts` is not defensive decoration. Groq's schema subset cannot
+`analyze-response.ts` is not defensive decoration. The strict `json_schema`
+subset the analysis providers accept (Mistral's and Groq's alike) cannot
 express `format: date`, `minLength` or the `HH:mm` pattern, and the Flutter
 mapper **throws** on a date it cannot parse or a role it does not know — for the
 *whole* body. So one date the model wrote as "next Tuesday" would destroy an
@@ -308,56 +309,78 @@ through the signup path, so setting it to `false` makes anonymous sign-in fail
 with `signup_disabled`. Email/SMS signup is closed separately under
 `[auth.email]` / `[auth.sms]`, which is what actually keeps registration shut.
 
-## AI analysis — two providers, one seam
+## Providers (F20) — online reading, then analysis
 
-Analysis runs behind `AiAnalysisProvider` (`functions/_shared/ai/`), and the app
-has never known which provider answered it. Since F18 there are two legs:
+Two Edge Functions, two jobs, and the app never learns which provider served
+either one. Full design: `docs/features/F20-ocr-analysis-provider-refactor.md`.
 
-| | Endpoint | Role |
-|---|---|---|
-| **Groq** `openai/gpt-oss-120b` | `api.groq.com/openai/v1` | Leads by default |
-| **Gemini** `gemini-3.1-flash-lite` | `generativelanguage.googleapis.com/v1beta/openai` | Optional; leads only when `gemini_primary_enabled` is set |
+| Function | Provider | Receives | Config |
+|---|---|---|---|
+| `ocr-document` | **Gemini** `gemini-3.5-flash-lite`, native `generateContent` | the **photo** | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| `analyze-document` | **Mistral** `ministral-14b-latest`, then **Groq** `openai/gpt-oss-120b` as fallback | OCR **text** + candidates only | `MISTRAL_*`, `GROQ_*` |
 
-Both speak the **same OpenAI-compatible chat shape**, which is why one transport
-(`ai/openai-compatible-client.ts`) serves both and only the config module differs
-(`ai/groq-config.ts`, `ai/gemini-config.ts`). Verified live on 2026-09-26
-(F18-T08): Gemini's compat layer accepts the generation schema and honours
-`response_format: json_schema` with `strict: true`.
+All keys and models are required, trimmed and never defaulted in code: a
+missing one is a `500 INTERNAL_ERROR` before any quota slot is reserved.
+Azure and Google Document AI were removed in F20-T16.
 
-`ai/fallback-provider.ts` chains them. It fails over **only** on transport
-failures — 429, 5xx, network, or a timeout with budget left — never on a
-well-formed 200 whose JSON is unusable, because that is the model's considered
-answer about a damaged document and a second call would double the user's wait
-to hear the same thing. The whole chain fits inside `AI_TIMEOUT_SECONDS`, so no
-user waits longer than before. Watch `analyze.provider` in the logs to see which
-leg served and how often failover fired.
+### Online reading (`ocr-document`)
 
-### Capacity: the free tiers serve the low hundreds per day
+One Gemini attempt with the whole `AI_TIMEOUT_SECONDS`, then the on-server
+digit fold and extractors (`_shared/analyze/image-ocr-pipeline.ts`). It never
+consumes a quota slot. Failures map to the §31 envelope by kind:
+rate limit → `429 AI_RATE_LIMITED`, timeout → `408 TIMEOUT`, outage / network /
+unusable or blocked answer / `online_ocr_enabled` off → `502 OCR_UNAVAILABLE`,
+bad key or model → `500 INTERNAL_ERROR`. The app reads the page on the device
+for exactly the first three plus its own "no internet", and shows a warning;
+a `500` is a deploy fault and is shown as an error (F20 §1).
 
-Do not re-derive the 14,400 figure — it belongs to other Groq models. For
+### Analysis chain (`analyze-document`)
+
+`ai/fallback-provider.ts` runs Mistral, then Groq, under **one** deadline
+(`AI_TIMEOUT_SECONDS`) with a per-attempt cap (`AI_ATTEMPT_TIMEOUT_SECONDS`,
+default 18 s) and a floor for starting the fallback (`MIN_FALLBACK_MS`, default
+5000). Both legs share one OpenAI-compatible transport
+(`ai/openai-compatible-client.ts`); Mistral sends no `reasoning_effort`, Groq
+sends `low`. The chain decides from the failure's `kind` alone:
+
+- **Falls back to Groq:** `rate_limited`, `upstream_unavailable`, `timeout`
+  (if enough time remains), `network`, and `invalid_output` — which since F20
+  includes a well-formed answer that fails semantic validation (§3 of the F20
+  doc).
+- **Does not:** `auth`, `bad_request` (config faults a second provider would not
+  fix) and anything that is not a `ProviderFailure`.
+
+An analysis takes exactly one quota slot however many providers it tries, and
+the slot is released when both fail. Watch `analyze.provider` in the logs to see
+which leg served and why the fallback fired.
+
+### Capacity: free tiers only
+
+Every provider runs on its free tier, by the owner's decision — capacity is
+whatever those tiers allow. Measured facts: Mistral's free plan serves only the
+Ministral family (`mistral-small-*`, `mistral-medium-*`, `magistral-*` answer
+0 requests/min); `ministral-14b-latest` allows 30 RPM. For Groq's
 `openai/gpt-oss-120b` the free tier is 30 RPM / 1,000 RPD / 8K TPM / **200K
-TPD**, and TPD is the binding limit: at roughly 3,000 tokens per analysis that
-is about **66 analyses/day**, some 22 users at the 3/day product limit. Adding
-Gemini's free tier roughly triples it. Reaching 5,000 users needs a **billed**
-project, not more free providers.
+TPD** (do not re-derive the 14,400 figure — it belongs to other Groq models);
+at roughly 3,000 tokens per analysis that is about 66 analyses/day on the
+fallback leg alone.
 
-### Data handling differs between the legs
+### Data handling
 
-Neither provider ever receives the **image** — only OCR text and candidates.
-Groq commits to no training on inputs or outputs on either tier. Gemini's
-**free** tier does not: Google's terms permit using submitted content to improve
-its products and state that human reviewers may read API input and output, and
-the API input here is the document's text. That is why no user-facing string
-claims nobody reads the text (F18-T02, `CLAUDE.md` §7). Paid Tier 1 removes it
-and needs only a linked billing account with no minimum spend.
+- **The photo** goes to Gemini's free tier, whose terms let Google keep API
+  input and have human reviewers read it. The app's privacy page says so
+  (F20-T24): it never claims nobody sees the image.
+- **The text** goes to Mistral (training on it unless the console opt-out is
+  set — decision D2) and, on fallback, to Groq. No user-facing string claims
+  nobody reads the text (F18-T02).
+- Our own functions never store or log the photo or the text (`CLAUDE.md` §7).
 
-### Either model must support `json_schema`
+### Every analysis model must support `json_schema`
 
-`GROQ_MODEL` and `GEMINI_MODEL` are **not** free choice, and neither is
-defaulted in code — an unset one is a startup error rather than a guess, because
-a model that cannot serve `json_schema` fails *every* analysis with a 400 the
-user only ever sees as ANALYSIS_FAILED. Verified against this account on
-2026-07-26:
+`MISTRAL_MODEL` and `GROQ_MODEL` are **not** free choice — a model that cannot
+serve `json_schema` fails *every* analysis with a 400 the user only ever sees
+as ANALYSIS_FAILED. `ministral-14b-latest` was proven under strict mode in
+F20-T09. For Groq, verified against this account on 2026-07-26:
 
 | Model | `json_schema` |
 |---|---|
