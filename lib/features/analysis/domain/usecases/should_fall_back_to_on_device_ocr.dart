@@ -39,9 +39,9 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   DailyLimitReachedFailure() || GlobalCapacityReachedFailure() => false,
 
   // Local failures. The only one an online reading can produce is
-  // [ImageProcessingFailure] — the photo could not be read off disk — and the
-  // on-device reader would fail on the same file. The rest belong to other
-  // stages and are listed only to keep the switch exhaustive.
+  // [ImageProcessingFailure] — the photo could not be read off disk — and
+  // the on-device reader would fail on the same file. The rest belong to
+  // other stages and are listed only to keep the switch exhaustive.
   CameraPermissionFailure() ||
   GalleryAccessFailure() ||
   ImageQualityFailure() ||

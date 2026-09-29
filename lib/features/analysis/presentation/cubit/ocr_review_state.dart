@@ -46,10 +46,10 @@ final class OcrReviewReady extends OcrReviewState {
   final String reviewedOcrText;
 
   /// Candidates extracted alongside the reading — server-side for an online
-  /// reading, on the device otherwise. Shown as review hints only — when the user taps analyze, fresh candidates are
-  /// re-extracted from [reviewedOcrText] client-side (`buildReviewedResult`),
-  /// so Groq never receives a candidate that does not match the approved
-  /// text.
+  /// reading, on the device otherwise. Shown as review hints only — when the
+  /// user taps analyze, fresh candidates are re-extracted from
+  /// [reviewedOcrText] client-side (`buildReviewedResult`), so Groq never
+  /// receives a candidate that does not match the approved text.
   final ExtractionResult serverCandidates;
 
   /// Languages the reading reported, carried through to the analysis request once
