@@ -24,8 +24,10 @@ import '../cubit/ocr_review_state.dart';
 /// When [OcrReviewReady.readMode] is [OcrReadMode.offline], an amber banner
 /// warns that OCR accuracy may be lower, and the bottom button reads
 /// "متابعة" instead of "تحليل الورقة". An [OcrReadMode.onlineFallback]
-/// review keeps the online title and button: the user chose the online
-/// route, and the offline banner's "no internet" reason is not theirs.
+/// review keeps the online title and button — the user chose the online
+/// route — and gets its own amber banner (F20-T23): the page was read on the
+/// phone because the online reading was unavailable, which is not the same
+/// as the offline route's "no internet".
 class OcrReviewScreen extends StatelessWidget {
   const OcrReviewScreen({
     required this.onAnalyze,
@@ -324,9 +326,19 @@ class _ReadyBodyState extends State<_ReadyBody> {
               ],
             ),
           ),
-          // Offline quality warning banner.
-          if (isOfflineRoute)
-            _OfflineWarning(text: strings.ocrOfflineQualityWarning),
+          // Quality warning banners: the offline route, and the online
+          // route's on-device fallback. Never both, never on a normal online
+          // reading.
+          switch (state.readMode) {
+            OcrReadMode.offline => _OfflineWarning(
+              text: strings.ocrOfflineQualityWarning,
+            ),
+            OcrReadMode.onlineFallback => _OfflineWarning(
+              text: strings.ocrOnlineFallbackWarning,
+              icon: Icons.warning_amber_rounded,
+            ),
+            OcrReadMode.online => const SizedBox.shrink(),
+          },
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
@@ -557,12 +569,18 @@ class _ImageToggle extends StatelessWidget {
   }
 }
 
-/// Amber warning banner for the offline path — OCR quality may be lower
-/// without internet access. Same amber styling as [_AmbiguityNotice].
+/// Amber warning banner for a page read on the phone — the offline route, or
+/// the online route's on-device fallback (F20-T23) — whose OCR quality may be
+/// lower. Same amber styling as [_AmbiguityNotice].
 class _OfflineWarning extends StatelessWidget {
-  const _OfflineWarning({required this.text});
+  const _OfflineWarning({required this.text, this.icon = Icons.wifi_off});
 
   final String text;
+
+  /// Paired with [text] so the warning never relies on colour alone. The
+  /// default suits the offline route; the online fallback's cause is not the
+  /// connection, so it passes a general warning icon instead.
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -583,7 +601,7 @@ class _OfflineWarning extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.wifi_off, size: 16, color: colors.warningInk),
+            Icon(icon, size: 16, color: colors.warningInk),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(

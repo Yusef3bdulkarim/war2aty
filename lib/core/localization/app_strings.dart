@@ -537,6 +537,12 @@ abstract interface class AppStrings {
   /// (Tesseract) — accuracy may be lower than the online reading.
   String get ocrOfflineQualityWarning;
 
+  /// Amber warning banner shown on the review screen when the online reading
+  /// failed and the page was read on the phone instead (F20-T23). Never names
+  /// the online reader, and never blames the connection — the cause may be a
+  /// busy or unavailable service, not the user's internet.
+  String get ocrOnlineFallbackWarning;
+
   /// "الاستماع للنص" button on the review screen — reads the extracted text
   /// aloud before analysis.
   String get ocrListenToText;

@@ -728,6 +728,10 @@ final class ArStrings implements AppStrings {
   String get ocrOfflineQualityWarning =>
       'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
   @override
+  String get ocrOnlineFallbackWarning =>
+      'القراءة الأونلاين مش متاحة دلوقتي، فقرينا الورقة على موبايلك. '
+      'النتيجة ممكن تكون أقل دقة — راجع النص كويس قبل ما تكمل.';
+  @override
   String get ocrListenToText => 'الاستماع للنص';
 
   // Analysis — while it runs

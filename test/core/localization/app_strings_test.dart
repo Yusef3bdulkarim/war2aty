@@ -112,6 +112,8 @@ final List<String Function(AppStrings)> _accessors = [
   (s) => s.settingsTextSizeVeryLargeDescription,
   (s) => s.settingsAccessibilitySection,
   (s) => s.settingsHighContrastLabel,
+  (s) => s.ocrOfflineQualityWarning,
+  (s) => s.ocrOnlineFallbackWarning,
 ];
 
 void main() {
