@@ -222,6 +222,67 @@ judged acceptable.
 
 ---
 
+## T27 · Verification record
+
+### Automated half — every matrix row has a test (2026-09-29)
+
+Server paths are under `supabase/tests/unit/`, app paths under `test/`.
+"Cubit" is `features/analysis/presentation/ocr_review_cubit_test.dart`, "app"
+is `app/explicit_ocr_fallback_test.dart`, "mapper" is
+`core/network/api_error_mapper_test.dart`.
+
+| Row | Server | App |
+|---|---|---|
+| O1 | `gemini-ocr-client` "O1: …" ×4; `ocr-handler` "a valid image request returns the OCR text and candidates" | cubit "runOcr emits Ready on success" (asserts `readMode.online`, no device read) |
+| O2 | `gemini-ocr-client` "O2: …" ×3; `image-ocr-pipeline` (O2); `ocr-handler` (O2) | cubit "O2: an empty online reading is poor quality, not a fallback" |
+| O3 | `gemini-ocr-client` "O3: HTTP 429 is rate_limited"; `ocr-handler` reader-failure table; `provider-failure` OCR wire mapping | mapper `AI_RATE_LIMITED`; cubit "O3 rate limited"; app "rate limited (O3)" |
+| O4 | `gemini-ocr-client` "O4: …" ×2; `ocr-handler` table; "the single Gemini attempt gets the whole configured deadline" | mapper `TIMEOUT`; cubit "O4/O7 timeout"; app "timed out (O4)" |
+| O5 | `gemini-ocr-client` "O5: …" (5xx, network, non-JSON, blockReason, finishReason); `ocr-handler` table | mapper `OCR_UNAVAILABLE` group; cubit "O5/O10"; app "online reading unavailable (O5/O10)" |
+| O6 | `gemini-ocr-client` "O6: …"; `ocr-handler` table + "a missing GEMINI_* credential is INTERNAL_ERROR (O6)" | mapper "a deploy fault from ocr-document stays a service failure"; cubit "O6/O11 service fault"; app "an online failure outside the allowlist never runs Tesseract" |
+| O7 | — (client-side) | `core/network/network_failure_mapper_test` "failing to connect … reads as no internet" / "a slow server reads as a timeout"; cubit "O7 offline"; app "offline (O7)" |
+| O8 | — (request never sent) | cubit "O8: a declined consent never reads on the device" + "runOcr emits Failed without calling the service when consent is declined"; app "a declined consent sends nothing and never runs Tesseract (O8)" |
+| O9 | `ocr-handler` "an unauthenticated caller never reaches the pipeline" / "an invalid token is 401" | mapper `UNAUTHORIZED` + "a gateway 401 is still UnauthorizedFailure"; cubit "O9 unauthorized" |
+| O10 | `ocr-handler` "online reading switched off answers OCR_UNAVAILABLE (O10)" | cubit "O5/O10"; app "(O5/O10)" |
+| O11 | — (gateway) | mapper "a gateway 502 without our envelope is not"; cubit "O6/O11 service fault" |
+| O12 | `ocr-handler` kill switch 503, malformed JSON, text-shaped body; `analyze-request` image-shape gates, incl. **"an app below the minimum version is refused on the image shape too (O12)" — added in T27, the only row that had no test** | mapper; cubit "O12 analysis disabled / app too old / invalid request" |
+| O13 | — (our own contract) | `features/analysis/data/repositories/default_analysis_repository_test` "fails on a body it cannot read" / "fails on an unsupported schema version"; cubit "O13 broken response" |
+| O14 | — | cubit "O14: when the device fails too, the online failure is shown" |
+| O15 | — | cubit "O15: too little text on the device is poor quality" |
+| O16 | — | cubit "stale requests (F20 §4)" ×5 + "O16: a stale failure never starts the device reading" + "O16: a device reading left behind is discarded" |
+| A1–A5 | `fallback-provider` "a 429 / 5xx / timeout with budget left / network error / unusable answer fails over (A1–A5)"; `openai-compatible-client` classification (A1, A2, A3, A4, A5); `provider-failure` eligibility + wire mapping; `analysis-provider` "the parser's failures are fallback-eligible (A5)" | — (nothing changes on the wire) |
+| A3 floor | `fallback-provider` "a timeout that left too little time answers TIMEOUT (A3)" | — |
+| A6, A7 | `fallback-provider` "a bad key / a bad request or model name does NOT fail over"; `openai-compatible-client` (A6, A7) | — |
+| A8 | `analyze-handler` "a missing provider credential fails before any slot is reserved (A8)"; `chain-timing` | — |
+| A9 | `fallback-provider` "a bug in our own code is never retried and surfaces as INTERNAL_ERROR (A9)" | — |
+| A10 | `fallback-provider` "when both legs fail (A10)" group; `analyze-handler` both-failed handler test (one reserve, slot released) | — |
+
+**Gates at `51e4ad5` + the O12 test:**
+- **Server:** `deno test` 734/734 (42 live tests ignored without keys); `deno lint` clean; `deno check` clean on all four functions. `deno fmt --check` flags 4 files — `_shared/ai/analysis-provider.ts`, `_shared/ai/openai-compatible-client.ts` and their two tests — the same 4 recorded as unformatted before F20 began. They are CRLF, and formatting them belongs to the owner's deferred line-ending cleanup commit, not to T27.
+- **Flutter:** `dart format` clean, `flutter analyze` 0 errors / 0 warnings from F20 (17 infos; 3 warnings come from the owner's uncommitted `service_state_view.dart`), `flutter test` 1992/1992. No Dart file changed after T25.
+
+### Live half — pending the owner
+
+Needs Docker running, `supabase start`, migration
+`20260929120000_online_ocr_flag.sql` applied locally, `online_ocr_enabled = true`
+on the **local** stack only, real `GEMINI_*` / `MISTRAL_*` / `GROQ_*` keys in
+`supabase/.env` (re-check the model lines first — editor saves have reverted
+them twice), and a physical phone on the same LAN.
+
+| # | Check | Expected | Status |
+|---|---|---|---|
+| L1 | Happy path | Gemini reading → review → Mistral analysis → result | pending |
+| L2 | Bad `GEMINI_API_KEY` | error page, Tesseract never runs (O6) | pending |
+| L3 | Airplane mode after routing online | Tesseract reads, fallback banner (O7) | pending |
+| L4 | `online_ocr_enabled` off mid-flow | Tesseract reads, fallback banner (O10) | pending |
+| L5 | Bad `MISTRAL_API_KEY` | `INTERNAL_ERROR`, Groq never called (A6) | pending |
+| L6 | Bad `MISTRAL_MODEL` | error, Groq never called (A7) | pending |
+| L7 | Retake while the reading is in flight | the late answer never shows (O16) | pending |
+| L8 | Offline route | unchanged: `/ocr` → review with the offline banner | pending |
+
+Transient provider rows (O3, O4, O5, A1–A5, A10) are covered by fakes only;
+they cannot be forced live on demand. The production flip stays off until the
+owner confirms.
+
 ## Gate protocol
 
 - **One task at a time.** A task is marked DONE here, then committed and pushed

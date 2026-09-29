@@ -245,8 +245,9 @@ Deno.test("an absent optional candidate field reads as null", () => {
 });
 
 // ── image-intake path (§29b, F13-T09) ──────────────────────────────────────
-// Not yet routed from analyze-handler.ts (F13-T11) — these test the contract
-// in isolation, same as F13-T06's field-verification tests did ahead of T08.
+// Since F20-T15 this is `ocr-document`'s request body (analyze-document takes
+// the text shape only), so every gate here is an O12 gate on the online
+// reading.
 
 function assertImageCode(code: string, body: unknown, config = CONFIG): void {
   const error = assertThrows(
@@ -328,5 +329,17 @@ Deno.test("session and installation ids must be uuids on the image shape too", (
   assertImageCode(
     "INVALID_REQUEST",
     validImageRequestBody({ session_id: "not-a-uuid" }),
+  );
+});
+
+Deno.test("an app below the minimum version is refused on the image shape too (O12)", () => {
+  // F20 matrix O12: `ocr-document` must refuse an outdated app before any
+  // image is read, exactly as `analyze-document` does — and the app maps it
+  // to UnsupportedAppVersionFailure, which never falls back to the device.
+  const config = testConfig({ minimumAppVersion: "1.2.0" });
+  assertImageCode(
+    "UNSUPPORTED_APP_VERSION",
+    validImageRequestBody({ app_version: "1.1.9" }),
+    config,
   );
 });
