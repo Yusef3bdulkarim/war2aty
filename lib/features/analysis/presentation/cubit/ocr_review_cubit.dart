@@ -68,6 +68,11 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   final GetAnalysisConsent? _getAnalysisConsent;
   final ImageAnalysisSessionHolder? _imageHolder;
 
+  /// The current request's token (F20 §4). Each [runOcr] takes a new one and
+  /// [cancelPending] moves it on, so an answer to any earlier request is
+  /// recognisably stale when it lands.
+  int _generation = 0;
+
   /// Calls the ocr-document endpoint. Called once when the screen mounts
   /// (online path only).
   ///
@@ -75,20 +80,27 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   /// disk through [OcrReviewReady]/[OcrReviewPoorQuality]/[OcrReviewFailed]
   /// so the user can view it during review (F14 image lifecycle). Cleanup is
   /// explicit, via [cleanupImage] or [close].
+  ///
+  /// Every `await` is followed by a staleness check: a request the user left
+  /// behind (Retake, Pick another, Back, or a newer [runOcr]) never emits.
   Future<void> runOcr() async {
     if (isClosed) return;
+    final generation = ++_generation;
     emit(const OcrReviewLoading());
 
     // Same gate `AnalysisResultCubit.analyze` checks (F11-T02) — this screen
     // is now the first place the online route sends anything off the phone,
     // so the consent check moves here rather than staying only on /result.
     final consent = _getAnalysisConsent;
-    if (consent != null && !await consent()) {
-      if (isClosed) return;
-      emit(const OcrReviewFailed(AnalysisConsentDeclinedFailure()));
-      return;
+    if (consent != null) {
+      final allowed = await consent();
+      // Left behind while consent was read: nothing is sent at all.
+      if (_isStale(generation)) return;
+      if (!allowed) {
+        emit(const OcrReviewFailed(AnalysisConsentDeclinedFailure()));
+        return;
+      }
     }
-    if (isClosed) return;
 
     final photo = _photo;
     final ocrImage = _ocrImage;
@@ -102,10 +114,18 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     final result = await ocrImage(
       AnalysisImageRequest(sessionId: _session.id, photo: photo),
     );
-    if (isClosed) return;
+    // A stale answer is discarded whatever it says — success or failure.
+    if (_isStale(generation)) return;
 
     emit(result.when(ok: _readyOrPoorQuality, err: OcrReviewFailed.new));
   }
+
+  /// Leaves any request in flight behind: its answer is discarded when it
+  /// lands (F20 §4). Called by [cleanupImage] and [close], which every exit
+  /// — Retake, Pick another, Analyze, Back — goes through.
+  void cancelPending() => _generation++;
+
+  bool _isStale(int generation) => isClosed || generation != _generation;
 
   /// Loads an already-completed offline [ExtractionResult] directly into the
   /// review state. Called once when the screen mounts (offline path only).
@@ -186,9 +206,14 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   /// Deletes the temp corrected image. Called explicitly before leaving the
   /// screen on every exit path — analyze, retake, pick another.
   ///
-  /// A no-op on the offline path where [_imageHolder] is `null` — the offline
-  /// image lifecycle is managed by the caller, not this cubit.
+  /// Cancels any pending request first: the file is about to go, and nothing
+  /// may act on it — or emit over the screen being left — afterwards.
+  ///
+  /// The deletion is a no-op on the offline path where [_imageHolder] is
+  /// `null` — the offline image lifecycle is managed by the caller, not this
+  /// cubit.
   void cleanupImage() {
+    cancelPending();
     _imageHolder?.clear();
   }
 
@@ -198,6 +223,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     // the app is killed mid-review. `clear()` is idempotent, so this is a
     // no-op when [cleanupImage] already ran (privacy §7 — no temp copy may
     // outlive the flow that created it).
+    cancelPending();
     _imageHolder?.clear();
     return super.close();
   }

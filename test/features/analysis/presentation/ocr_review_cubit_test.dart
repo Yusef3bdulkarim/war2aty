@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/analysis_consent_store.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
@@ -38,12 +40,28 @@ const _serverExtraction = ExtractionResult(
   amounts: [AmountCandidate(rawText: '850 جنيه', value: 850, currency: 'EGP')],
 );
 
+/// An answer that belongs to a request the user already left behind.
+const _staleExtraction = ExtractionResult(
+  text: NormalizedOcrText(
+    originalText: 'نص قديم من طلب سابق',
+    cleanedText: 'نص قديم من طلب سابق',
+  ),
+);
+
+/// One trip round the event loop, so every pending microtask has run.
+Future<void> _settle() => Future<void>.delayed(Duration.zero);
+
 /// Records what it was asked, answers what it was told to. [analyze] is
 /// never exercised by [OcrReviewCubit] — it throws if hit, so a wiring
 /// regression fails loudly instead of silently.
+///
+/// With [hold] set, each call parks on its own completer in [pending] until
+/// the test answers it — so the order answers land in is the test's choice.
 final class _FakeAnalysisRepository implements AnalysisRepository {
   Result<ExtractionResult, AppFailure>? ocrAnswer;
   final List<AnalysisImageRequest> ocrRequests = [];
+  bool hold = false;
+  final List<Completer<Result<ExtractionResult, AppFailure>>> pending = [];
 
   @override
   Future<Result<DocumentAnalysis, AppFailure>> analyze(
@@ -55,6 +73,11 @@ final class _FakeAnalysisRepository implements AnalysisRepository {
     AnalysisImageRequest request,
   ) async {
     ocrRequests.add(request);
+    if (hold) {
+      final answer = Completer<Result<ExtractionResult, AppFailure>>();
+      pending.add(answer);
+      return answer.future;
+    }
     return ocrAnswer ?? const Ok(_serverExtraction);
   }
 }
@@ -265,17 +288,145 @@ void main() {
       expect(cubit.state, isA<OcrReviewLoading>());
     });
   });
+
+  group('stale requests (F20 §4)', () {
+    late List<OcrReviewState> emitted;
+    late StreamSubscription<OcrReviewState> subscription;
+
+    OcrReviewCubit watchedCubit() {
+      final cubit = buildCubit();
+      emitted = [];
+      subscription = cubit.stream.listen(emitted.add);
+      return cubit;
+    }
+
+    tearDown(() => subscription.cancel());
+
+    test('Retake mid-flight: the late answer is discarded', () async {
+      repository.hold = true;
+      final cubit = watchedCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+      expect(repository.pending, hasLength(1));
+
+      // What the Retake / Pick-another handlers call before navigating.
+      cubit.cleanupImage();
+      repository.pending.single.complete(const Ok(_serverExtraction));
+      await run;
+
+      expect(cubit.state, isA<OcrReviewLoading>());
+      await _settle();
+      expect(emitted, everyElement(isA<OcrReviewLoading>()));
+      expect(imageHolder.photo, isNull);
+      await cubit.close();
+    });
+
+    test('Retake during the consent check: nothing is sent', () async {
+      final store = _FakeConsentStore()..gate = Completer<void>();
+      consentStore = store;
+      final cubit = watchedCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+
+      cubit.cleanupImage();
+      store.gate!.complete();
+      await run;
+
+      expect(repository.ocrRequests, isEmpty);
+      await _settle();
+      expect(emitted, everyElement(isA<OcrReviewLoading>()));
+      await cubit.close();
+    });
+
+    test('double retry: only the newest request may emit', () async {
+      repository.hold = true;
+      final cubit = watchedCubit();
+
+      final first = cubit.runOcr();
+      await _settle();
+      final second = cubit.runOcr();
+      await _settle();
+      expect(repository.pending, hasLength(2));
+
+      // The older answer lands first — it must not pre-empt the newer one.
+      repository.pending[0].complete(const Ok(_staleExtraction));
+      await first;
+      expect(cubit.state, isA<OcrReviewLoading>());
+
+      repository.pending[1].complete(const Ok(_serverExtraction));
+      await second;
+
+      final ready = cubit.state as OcrReviewReady;
+      expect(ready.originalOcrText, _serverExtraction.text.cleanedText);
+      await _settle();
+      expect(emitted.whereType<OcrReviewReady>(), hasLength(1));
+      await cubit.close();
+    });
+
+    test('a late stale result never overwrites the current one', () async {
+      repository.hold = true;
+      final cubit = watchedCubit();
+
+      final first = cubit.runOcr();
+      await _settle();
+      final second = cubit.runOcr();
+      await _settle();
+
+      repository.pending[1].complete(const Ok(_serverExtraction));
+      await second;
+      expect(cubit.state, isA<OcrReviewReady>());
+
+      // The superseded request finally answers — with a failure, which would
+      // otherwise replace the review the user is already reading.
+      repository.pending[0].complete(const Err(OnlineOcrUnavailableFailure()));
+      await first;
+
+      final ready = cubit.state as OcrReviewReady;
+      expect(ready.originalOcrText, _serverExtraction.text.cleanedText);
+      await _settle();
+      expect(emitted.whereType<OcrReviewFailed>(), isEmpty);
+      await cubit.close();
+    });
+
+    test(
+      'close mid-call: the answer lands without emitting or throwing',
+      () async {
+        repository.hold = true;
+        final cubit = watchedCubit();
+
+        final run = cubit.runOcr();
+        await _settle();
+
+        await cubit.close();
+        repository.pending.single.complete(const Ok(_serverExtraction));
+
+        // An emit after close would throw a StateError out of this future.
+        await expectLater(run, completes);
+        await _settle();
+        expect(emitted, everyElement(isA<OcrReviewLoading>()));
+        expect(imageHolder.photo, isNull);
+      },
+    );
+  });
 }
 
 /// In-memory [AnalysisConsentStore] — `null`/`true` both mean "allowed"
 /// ([GetAnalysisConsent] defaults on), same as F11-T02's real store.
+///
+/// With [gate] set, the read waits for it, so a test can act mid-check.
 final class _FakeConsentStore implements AnalysisConsentStore {
   _FakeConsentStore([this._consent]);
 
   bool? _consent;
+  Completer<void>? gate;
 
   @override
-  Future<bool?> readConsent() async => _consent;
+  Future<bool?> readConsent() async {
+    await gate?.future;
+    return _consent;
+  }
 
   @override
   Future<void> writeConsent(bool consent) async => _consent = consent;
