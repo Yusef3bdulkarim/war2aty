@@ -28,7 +28,7 @@ const String kOcrDocumentPath = '/ocr-document';
 /// promise this class has to keep. [analyzeImage] and [ocrImage] are the
 /// deliberate exceptions (F13 locked decisions, §29b; F14) — they exist
 /// specifically to send the image, gated server-side behind
-/// `azureOcrEnabled`. [ocrImage] stops at OCR text and candidates and never
+/// `onlineOcrEnabled`. [ocrImage] stops at OCR text and candidates and never
 /// reaches Groq (F14's two-call split, `ocr-document` then `analyze-document`
 /// text path).
 final class EdgeFunctionAnalysisRemoteDataSource

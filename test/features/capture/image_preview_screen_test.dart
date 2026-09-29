@@ -52,7 +52,7 @@ Future<_Result> _pumpPreview(
       // the online route without also having to know this flag exists.
       usage ??
           FakeUsageRepository(
-            seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+            seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
           ),
     ),
     correctPerspective: CorrectPerspective(

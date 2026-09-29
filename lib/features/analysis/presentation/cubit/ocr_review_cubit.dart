@@ -16,7 +16,7 @@ import 'ocr_review_state.dart';
 /// offline) and Groq analysis.
 ///
 /// Two construction paths:
-/// - **Online** (default constructor): takes a [CapturedPhoto], runs Azure OCR
+/// - **Online** (default constructor): takes a [CapturedPhoto], runs the online reading
 ///   via [OcrImage], checks consent via [GetAnalysisConsent]. Caller invokes
 ///   [runOcr] on mount.
 /// - **Offline** ([OcrReviewCubit.offline]): the Tesseract OCR already ran on
@@ -28,12 +28,12 @@ import 'ocr_review_state.dart';
 /// - [GetAnalysisConsent] — same F11-T02 gate [AnalysisResultCubit] checks,
 ///   run here too since this is now the first thing that sends data off the
 ///   phone on the online route.
-/// - [OcrImage] — runs Azure OCR + extractors, stops short of Groq.
+/// - [OcrImage] — runs the online reading + extractors, stops short of analysis.
 /// - [ExtractCandidates] — reruns normalization + all five extractors on the
 ///   user's *approved* text, so Groq never receives a candidate that does not
 ///   match what the user actually reviewed (locked correction #1).
 final class OcrReviewCubit extends Cubit<OcrReviewState> {
-  /// Online path: Azure OCR runs inside this cubit.
+  /// Online path: the online reading runs inside this cubit.
   OcrReviewCubit({
     required AnalysisSession session,
     required CapturedPhoto photo,
@@ -164,7 +164,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   ///
   /// Re-runs [ExtractCandidates] on [OcrReviewReady.reviewedOcrText] rather
   /// than reusing [OcrReviewReady.serverCandidates] — those were extracted
-  /// from Azure's original text and would go stale the moment the user edits
+  /// from the server's original text and would go stale the moment the user edits
   /// a date or amount (locked correction #1).
   ///
   /// Only ever called from the Analyze button, which only exists in

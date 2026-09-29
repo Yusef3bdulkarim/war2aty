@@ -522,8 +522,8 @@ abstract interface class AppStrings {
   String get ocrReviewSubtitle;
   String get ocrReviewDone;
 
-  // OCR online review screen (F14) — the online route's stop between Azure
-  // OCR and Groq analysis.
+  // OCR online review screen (F14) — the online route's stop between the
+  // online reading and the analysis.
   String get ocrOnlineReviewTitle;
   String get ocrOnlineReviewSubtitle;
   String get ocrOnlineLoading;
@@ -534,7 +534,7 @@ abstract interface class AppStrings {
   String get ocrOnlineAmbiguityNotice;
 
   /// Amber warning banner shown on the review screen when OCR ran offline
-  /// (Tesseract) — accuracy may be lower than the online (Azure) path.
+  /// (Tesseract) — accuracy may be lower than the online reading.
   String get ocrOfflineQualityWarning;
 
   /// "الاستماع للنص" button on the review screen — reads the extracted text

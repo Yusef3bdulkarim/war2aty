@@ -195,7 +195,14 @@ void main() {
 
     test('no user-facing privacy copy names a provider', () {
       // §7, unchanged since F13-T18 and binding on every string here.
-      const providers = ['Azure', 'Google', 'Gemini', 'Groq', 'OpenAI'];
+      const providers = [
+        'Azure',
+        'Google',
+        'Gemini',
+        'Mistral',
+        'Groq',
+        'OpenAI',
+      ];
 
       for (final get in _accessors) {
         for (final name in providers) {

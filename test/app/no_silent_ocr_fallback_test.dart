@@ -143,11 +143,11 @@ void main() {
     ocrProcessingCubitConstructed = false;
 
     final onboarding = FakeOnboardingRepository(seen: true);
-    // azureOcrEnabled: true — this test exercises the online route
+    // onlineOcrEnabled: true — this test exercises the online route
     // specifically (its whole point is proving no silent OCR fallback once
     // online is chosen), so the pipeline must actually be live.
     final usage = FakeUsageRepository(
-      seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+      seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
     );
     addTearDown(usage.dispose);
     final documents = FakeRecentDocumentsRepository();
@@ -345,8 +345,8 @@ void main() {
       await tester.tap(find.text(_strings.previewUseImage));
       await tester.pumpAndSettle();
 
-      // Landed on the OCR review screen's failure page (F14) — Azure OCR
-      // itself failed, so /result and Groq are never reached.
+      // Landed on the OCR review screen's failure page (F14) — the online
+      // reading itself failed, so /result and the analysis are never reached.
       expect(find.text(_strings.ocrErrorTitle), findsOneWidget);
       expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
       expect(repository.ocrImageCalls, 1);

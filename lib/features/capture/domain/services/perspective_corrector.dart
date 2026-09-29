@@ -6,7 +6,7 @@ import '../entities/captured_photo.dart';
 /// flat, upright rectangle.
 ///
 /// Online-pipeline only (F13 locked decision #1: capture → rotate →
-/// perspective-correct → quality-check → Azure). Offline/Tesseract capture is
+/// perspective-correct → quality-check → online reading). Offline/Tesseract capture is
 /// untouched — this step never runs on that path. When no document-like quad
 /// is found, implementations return the original photo unchanged rather than
 /// forcing a bad crop.

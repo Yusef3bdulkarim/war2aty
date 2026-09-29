@@ -760,7 +760,7 @@ final class FakeUsageRepository implements UsageRepository {
 DailyUsage usageWith({
   required int limit,
   required int remaining,
-  bool azureOcrEnabled = false,
+  bool onlineOcrEnabled = false,
 }) {
   final today = DateTime.utc(2026, 7, 22);
   return DailyUsage(
@@ -769,7 +769,7 @@ DailyUsage usageWith({
     usedCount: limit - remaining,
     remainingCount: remaining,
     resetsAt: today.add(const Duration(days: 1)),
-    azureOcrEnabled: azureOcrEnabled,
+    onlineOcrEnabled: onlineOcrEnabled,
   );
 }
 

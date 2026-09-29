@@ -45,7 +45,7 @@ final class MockAnalysisRemoteDataSource implements AnalysisRemoteDataSource {
 
   /// No OCR text to keyword-match against an image, so this always answers
   /// with [forcedFixture] or the invoice fixture — enough to demo the online
-  /// route's loading/result states before Azure/Google are wired (F13-T14).
+  /// route's loading/result states without a real online reader (F13-T14).
   @override
   Future<AnalysisApiResponse> analyzeImage(
     AnalysisImageRequestDto request,

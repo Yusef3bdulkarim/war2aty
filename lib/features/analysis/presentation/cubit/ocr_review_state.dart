@@ -2,12 +2,12 @@ import '../../../../core/error/app_failure.dart';
 import '../../../ocr/domain/entities/extraction_result.dart';
 
 /// States for the OCR review screen (F14) — the online route's stop between
-/// Azure OCR and Groq analysis.
+/// the online reading and the analysis.
 sealed class OcrReviewState {
   const OcrReviewState();
 }
 
-/// Azure OCR is running on the server.
+/// The online reading is running on the server.
 final class OcrReviewLoading extends OcrReviewState {
   const OcrReviewLoading();
 }
@@ -24,7 +24,7 @@ final class OcrReviewReady extends OcrReviewState {
     this.isOffline = false,
   });
 
-  /// The text Azure returned, untouched. Kept so [isEdited] can tell whether
+  /// The text the online reading returned, untouched. Kept so [isEdited] can tell whether
   /// the user changed anything — never shown or logged on its own (§7).
   final String originalOcrText;
 
@@ -32,14 +32,14 @@ final class OcrReviewReady extends OcrReviewState {
   /// via `OcrReviewCubit.updateOcrText`. This is what Groq ultimately sees.
   final String reviewedOcrText;
 
-  /// Candidates extracted server-side (Azure + extractors). Shown as review
+  /// Candidates extracted server-side (online reading + extractors). Shown as review
   /// hints only — when the user taps analyze, fresh candidates are
   /// re-extracted from [reviewedOcrText] client-side (`buildReviewedResult`),
   /// so Groq never receives a candidate that does not match the approved
   /// text.
   final ExtractionResult serverCandidates;
 
-  /// Languages Azure detected, carried through to the analysis request once
+  /// Languages the reading reported, carried through to the analysis request once
   /// the user approves.
   final List<String> detectedLanguages;
 

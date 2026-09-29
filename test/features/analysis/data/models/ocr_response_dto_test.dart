@@ -92,22 +92,25 @@ void main() {
       expect(reference.isAmbiguous, isTrue);
     });
 
-    test('leaves normalizedDate null when Azure found no parseable date', () {
-      final json = jsonDecode(_fullResponse) as Map<String, dynamic>;
-      (json['candidates'] as Map<String, dynamic>)['dates'] = [
-        {
-          'raw_text': 'شهر رمضان',
-          'normalized_date': null,
-          'is_ambiguous': true,
-        },
-      ];
-      final dto = OcrResponseDto.fromJson(json);
+    test(
+      'leaves normalizedDate null when the server found no parseable date',
+      () {
+        final json = jsonDecode(_fullResponse) as Map<String, dynamic>;
+        (json['candidates'] as Map<String, dynamic>)['dates'] = [
+          {
+            'raw_text': 'شهر رمضان',
+            'normalized_date': null,
+            'is_ambiguous': true,
+          },
+        ];
+        final dto = OcrResponseDto.fromJson(json);
 
-      final extraction = dto.toExtractionResult();
+        final extraction = dto.toExtractionResult();
 
-      expect(extraction.dates.single.normalizedDate, isNull);
-      expect(extraction.dates.single.isAmbiguous, isTrue);
-    });
+        expect(extraction.dates.single.normalizedDate, isNull);
+        expect(extraction.dates.single.isAmbiguous, isTrue);
+      },
+    );
 
     test('leaves normalizedDate null on a malformed date string', () {
       final json = jsonDecode(_fullResponse) as Map<String, dynamic>;

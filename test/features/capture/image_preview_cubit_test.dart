@@ -54,7 +54,7 @@ ImagePreviewCubit cubitFor(
   final u =
       usage ??
       FakeUsageRepository(
-        seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+        seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
       );
   final corrector = perspectiveCorrector ?? FakePerspectiveCorrector();
   return ImagePreviewCubit(

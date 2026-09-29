@@ -156,7 +156,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               // locked decision #1) — but unlike before F14, the online
               // route still stops at an OCR review before analysis: the
               // review screen reads the corrected photo back out of
-              // `ImageAnalysisSessionHolder` and runs Azure OCR itself.
+              // `ImageAnalysisSessionHolder` and runs the online reading itself.
               onOnlineReady: (_) =>
                   context.pushReplacement(AppRoutes.ocrReview),
               onRetake: context.pop,
@@ -205,8 +205,8 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           );
         },
       ),
-      // The unified OCR review screen — serves both the online route (Azure
-      // OCR runs here) and the offline route (Tesseract already finished on
+      // The unified OCR review screen — serves both the online route (the
+      // online reading runs here) and the offline route (Tesseract already finished on
       // `/ocr`, result handed off via `OcrSessionHolder`). Also outside the
       // shell, like the routes either side of it.
       GoRoute(
@@ -231,7 +231,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             )..loadOffline(ocrHandoff.result!);
           } else if (onlineHandoff.session != null &&
               onlineHandoff.photo != null) {
-            // Online path: Azure OCR runs inside the cubit.
+            // Online path: the online reading runs inside the cubit.
             session = onlineHandoff.session;
             cubit = getIt<OcrReviewCubit>(
               param1: session,
@@ -292,7 +292,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
         builder: (context, state) {
           // Picked up from a hand-off holder rather than from `extra`, which
           // the OS drops when it kills and restores the app — and redoing
-          // either OCR or a full Azure/Google/Groq round trip silently would
+          // either OCR or a full reading-and-analysis round trip silently would
           // be expensive. `ImagePreviewCubit.proceed` clears both holders
           // before populating the one for the route it actually took, so at
           // most one of these is ever non-empty; the offline check runs
