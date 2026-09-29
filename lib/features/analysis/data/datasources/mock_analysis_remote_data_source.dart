@@ -43,24 +43,9 @@ final class MockAnalysisRemoteDataSource implements AnalysisRemoteDataSource {
     return AnalysisApiResponse(statusCode: 200, body: jsonDecode(json));
   }
 
-  /// No OCR text to keyword-match against an image, so this always answers
-  /// with [forcedFixture] or the invoice fixture — enough to demo the online
-  /// route's loading/result states without a real online reader (F13-T14).
-  @override
-  Future<AnalysisApiResponse> analyzeImage(
-    AnalysisImageRequestDto request,
-  ) async {
-    if (latency > Duration.zero) await Future<void>.delayed(latency);
-
-    final fixture = forcedFixture ?? AnalysisFixture.invoice;
-    final json = await _loadAsset(fixture.assetPath);
-
-    return AnalysisApiResponse(statusCode: 200, body: jsonDecode(json));
-  }
-
   /// Answers with a canned OCR response (F14) — enough to demo the OCR
   /// review screen before the `ocr-document` endpoint is deployed. Unlike
-  /// [analyze]/[analyzeImage], there is no bundled asset per document type:
+  /// [analyze], there is no bundled asset per document type:
   /// the review screen only needs *some* text and candidates to look real.
   @override
   Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {

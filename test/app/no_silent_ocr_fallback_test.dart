@@ -35,7 +35,6 @@ import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart'
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
-import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/domain/usecases/ocr_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/ocr_review_cubit.dart';
@@ -86,13 +85,12 @@ import '../support/fakes.dart';
 const _strings = ArStrings();
 const _imagePath = '/tmp/paper.jpg';
 
-/// Always fails, on either route — the online route is what this suite
-/// exercises, but [analyze] is wired too, so a regression that routed a
-/// retry through the offline path would show up as a non-zero count instead
+/// Always fails, on either call — the online reading is what this suite
+/// exercises, but [analyze] is wired too, so a regression that reached the
+/// analysis after a failed reading would show up as a non-zero count instead
 /// of going unnoticed.
 final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
   int analyzeCalls = 0;
-  int analyzeImageCalls = 0;
   int ocrImageCalls = 0;
 
   @override
@@ -100,14 +98,6 @@ final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
     AnalysisRequest request,
   ) async {
     analyzeCalls++;
-    return const Err(AnalysisServiceFailure());
-  }
-
-  @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) async {
-    analyzeImageCalls++;
     return const Err(AnalysisServiceFailure());
   }
 
@@ -219,7 +209,6 @@ void main() {
       ..registerLazySingleton<OcrSessionHolder>(OcrSessionHolder.new)
       ..registerLazySingleton<AnalysisRepository>(() => repository)
       ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
-      ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
       ..registerFactory<OcrImage>(() => OcrImage(getIt()))
       ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
         (session, photo) => OcrReviewCubit(
@@ -247,7 +236,6 @@ void main() {
           // consent state it isn't testing.
           getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
           analyzeDocument: getIt(),
-          analyzeImage: getIt(),
           buildResult: getIt(),
           syncDailyUsage: SyncDailyUsage(usage),
         ),
@@ -350,7 +338,6 @@ void main() {
       expect(find.text(_strings.ocrErrorTitle), findsOneWidget);
       expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
       expect(repository.ocrImageCalls, 1);
-      expect(repository.analyzeImageCalls, 0);
       expect(repository.analyzeCalls, 0);
 
       // Retaking leaves the online route for a fresh capture — never a
@@ -364,7 +351,6 @@ void main() {
         startsWith(AppRoutes.capture),
       );
       expect(repository.ocrImageCalls, 1);
-      expect(repository.analyzeImageCalls, 0);
       expect(repository.analyzeCalls, 0);
       expect(
         ocrEngineConstructed,

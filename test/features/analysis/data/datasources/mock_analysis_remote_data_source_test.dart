@@ -124,23 +124,15 @@ void main() {
     });
   });
 
-  group('analyzeImage (F13-T14)', () {
-    test('answers 200 with a body the validator accepts', () async {
-      final response = await _source().analyzeImage(_imageRequest);
+  group('ocrImage (F14)', () {
+    test('answers 200 with a versioned OCR body, not an analysis', () async {
+      final response = await _source().ocrImage(_imageRequest);
 
       expect(response.statusCode, 200);
-      const validator = AnalysisResponseValidator();
-      expect(validator.validate(response.body).isOk, isTrue);
-    });
-
-    test('honours a forced fixture, having no text to match against', () async {
-      final response = await _source(
-        forced: AnalysisFixture.appointment,
-      ).analyzeImage(_imageRequest);
-
-      const validator = AnalysisResponseValidator();
-      final analysis = validator.validate(response.body).valueOrNull!;
-      expect(analysis.kind, DocumentKind.appointment);
+      final body = response.body! as Map<String, Object?>;
+      expect(body['schema_version'], '2.0');
+      expect(body['ocr_text'], isA<String>());
+      expect(body, isNot(contains('status')));
     });
   });
 }

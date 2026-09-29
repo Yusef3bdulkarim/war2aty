@@ -291,34 +291,17 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
         path: AppRoutes.result,
         builder: (context, state) {
           // Picked up from a hand-off holder rather than from `extra`, which
-          // the OS drops when it kills and restores the app — and redoing
-          // either OCR or a full reading-and-analysis round trip silently would
-          // be expensive. `ImagePreviewCubit.proceed` clears both holders
-          // before populating the one for the route it actually took, so at
-          // most one of these is ever non-empty; the offline check runs
-          // first purely because it has to run first, not to break a tie.
+          // the OS drops when it kills and restores the app — and redoing OCR
+          // silently would be expensive. Both routes arrive here through the
+          // OCR review, which leaves the reviewed text in `OcrSessionHolder`:
+          // every analysis is text (F20-T19).
           final ocrHandoff = getIt<OcrSessionHolder>();
-          final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
-
-          final AnalysisSession? session;
-          final AnalysisSource? source;
+          final session = ocrHandoff.session;
           final ocrExtraction = ocrHandoff.result;
-          if (ocrHandoff.session != null && ocrExtraction != null) {
-            session = ocrHandoff.session;
-            source = OcrAnalysisSource(ocrExtraction);
-          } else {
-            final onlinePhoto = onlineHandoff.photo;
-            if (onlineHandoff.session != null && onlinePhoto != null) {
-              session = onlineHandoff.session;
-              source = ImageAnalysisSource(onlinePhoto);
-            } else {
-              session = null;
-              source = null;
-            }
-          }
-          if (session == null || source == null) {
+          if (session == null || ocrExtraction == null) {
             return const _BackToHome();
           }
+          final AnalysisSource source = OcrAnalysisSource(ocrExtraction);
           return MultiBlocProvider(
             providers: [
               BlocProvider<AnalysisResultCubit>(
@@ -348,7 +331,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                     context.go(AppRoutes.home);
                     context.push(AppRoutes.captureWith(CaptureSource.camera));
                   },
-                  onSave: () => unawaited(_saveResult(context, session!)),
+                  onSave: () => unawaited(_saveResult(context, session)),
                   onCreateReminder: (date) =>
                       _startReminderFromDate(context, date),
                   // The way out of a declined analysis consent (F11-T02).

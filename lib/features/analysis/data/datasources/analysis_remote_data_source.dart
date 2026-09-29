@@ -26,10 +26,6 @@ abstract interface class AnalysisRemoteDataSource {
   /// translates those into failures.
   Future<AnalysisApiResponse> analyze(AnalysisRequestDto request);
 
-  /// Online counterpart of [analyze] (F13-T14/§29b) — same endpoint, image
-  /// shape instead of OCR text.
-  Future<AnalysisApiResponse> analyzeImage(AnalysisImageRequestDto request);
-
   /// Sends [request] to the OCR-only endpoint (F14) — the online reading +
   /// extractors, no analysis. The body it answers with is an OCR response, not an analysis;
   /// callers must not run it through [analyze]'s response handling.

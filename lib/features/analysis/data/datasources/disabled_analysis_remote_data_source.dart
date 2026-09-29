@@ -22,13 +22,6 @@ final class DisabledAnalysisRemoteDataSource
   }
 
   @override
-  Future<AnalysisApiResponse> analyzeImage(
-    AnalysisImageRequestDto request,
-  ) async {
-    return _disabledResponse;
-  }
-
-  @override
   Future<AnalysisApiResponse> ocrImage(AnalysisImageRequestDto request) async {
     return _disabledResponse;
   }

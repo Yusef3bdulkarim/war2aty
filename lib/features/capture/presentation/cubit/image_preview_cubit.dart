@@ -280,10 +280,10 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   @override
   Future<void> close() {
     // When the online handoff succeeded, every temp file is now owned by the
-    // ImageAnalysisSessionHolder — it deletes them in clear() after the
-    // analysis repository has read the image bytes. Deleting here would race
-    // against that read (pushReplacement disposes this cubit in the same
-    // frame the result route reads the file).
+    // ImageAnalysisSessionHolder — it deletes them in clear() once the online
+    // reading has read the image bytes. Deleting here would race against that
+    // read (pushReplacement disposes this cubit in the same frame the OCR
+    // review route reads the file).
     if (!_handedOffToOnline) {
       final paths = <String>{_source.path};
       final rotated = _rotatedPath;

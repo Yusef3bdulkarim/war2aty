@@ -169,15 +169,15 @@ void main() {
     });
   });
 
-  group('EdgeFunctionAnalysisRemoteDataSource — analyzeImage (F13-T14)', () {
-    test('posts the §29b body to the same endpoint', () async {
-      final adapter = _StubAdapter((_) => _json(200, '{"status":"success"}'));
+  group('EdgeFunctionAnalysisRemoteDataSource — ocrImage (F14)', () {
+    test('posts the §29b body to the OCR-only endpoint', () async {
+      final adapter = _StubAdapter((_) => _json(200, '{"ocr_text":""}'));
       final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
 
-      await source.analyzeImage(_imageRequest);
+      await source.ocrImage(_imageRequest);
 
       expect(adapter.lastRequest!.method, 'POST');
-      expect(adapter.lastRequest!.path, kAnalyzeDocumentPath);
+      expect(adapter.lastRequest!.path, kOcrDocumentPath);
 
       final body = adapter.lastBody! as Map<String, dynamic>;
       expect(body['input_type'], 'image');
@@ -198,7 +198,7 @@ void main() {
       );
       final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
 
-      final response = await source.analyzeImage(_imageRequest);
+      final response = await source.ocrImage(_imageRequest);
 
       expect(response.isSuccess, isFalse);
       expect(response.statusCode, 400);
@@ -214,7 +214,7 @@ void main() {
       final source = EdgeFunctionAnalysisRemoteDataSource(_dio(adapter));
 
       await expectLater(
-        source.analyzeImage(_imageRequest),
+        source.ocrImage(_imageRequest),
         throwsA(isA<DioException>()),
       );
     });

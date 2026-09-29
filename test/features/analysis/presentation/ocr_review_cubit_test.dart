@@ -38,9 +38,9 @@ const _serverExtraction = ExtractionResult(
   amounts: [AmountCandidate(rawText: '850 جنيه', value: 850, currency: 'EGP')],
 );
 
-/// Records what it was asked, answers what it was told to. [analyze] and
-/// [analyzeImage] are never exercised by [OcrReviewCubit] — they throw if
-/// hit, so a wiring regression fails loudly instead of silently.
+/// Records what it was asked, answers what it was told to. [analyze] is
+/// never exercised by [OcrReviewCubit] — it throws if hit, so a wiring
+/// regression fails loudly instead of silently.
 final class _FakeAnalysisRepository implements AnalysisRepository {
   Result<ExtractionResult, AppFailure>? ocrAnswer;
   final List<AnalysisImageRequest> ocrRequests = [];
@@ -49,11 +49,6 @@ final class _FakeAnalysisRepository implements AnalysisRepository {
   Future<Result<DocumentAnalysis, AppFailure>> analyze(
     AnalysisRequest request,
   ) => throw UnimplementedError('OcrReviewCubit never calls analyze');
-
-  @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) => throw UnimplementedError('OcrReviewCubit never calls analyzeImage');
 
   @override
   Future<Result<ExtractionResult, AppFailure>> ocrImage(

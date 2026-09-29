@@ -119,7 +119,6 @@ import '../../features/analysis/data/repositories/default_analysis_repository.da
 import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
-import '../../features/analysis/domain/usecases/analyze_image.dart';
 import '../../features/analysis/domain/usecases/ocr_image.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
@@ -627,9 +626,6 @@ void _registerAnalysis(AppEnvironment env) {
       ),
     )
     ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
-    // Online-route counterpart (F13-T14), wired into the capture flow by
-    // F13-T15's `ImageAnalysisSource`.
-    ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
     // OCR-only half of the online route's two-call split (F14) — stops
     // before Groq so the user can review the text first.
     ..registerFactory<OcrImage>(() => OcrImage(getIt()))
@@ -649,16 +645,8 @@ void _registerAnalysis(AppEnvironment env) {
         source: source,
         getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
-        analyzeImage: getIt(),
         buildResult: getIt(),
         syncDailyUsage: getIt(),
-        // On the online route the perspective-corrected file must survive
-        // until the repository has read its bytes — the preview cubit's
-        // close() skips it, so *this* callback takes ownership of deleting
-        // it after the analysis reads (or fails to read) the file.
-        onImageConsumed: source is ImageAnalysisSource
-            ? getIt<ImageAnalysisSessionHolder>().clear
-            : null,
       ),
     )
     // The OCR review screen (F14) — reuses `ExtractCandidates`, already
