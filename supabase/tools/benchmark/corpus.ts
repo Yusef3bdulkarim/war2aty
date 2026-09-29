@@ -9,12 +9,7 @@
 
 import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
-import { normaliseDigits } from "../../functions/_shared/validators/text-matching.ts";
-import { extractAmounts } from "../../functions/_shared/extractors/amount-extractor.ts";
-import { extractDates } from "../../functions/_shared/extractors/date-extractor.ts";
-import { extractPhones } from "../../functions/_shared/extractors/phone-extractor.ts";
-import { extractReferences } from "../../functions/_shared/extractors/reference-extractor.ts";
-import { extractTimes } from "../../functions/_shared/extractors/time-extractor.ts";
+import { readingFromText } from "../../functions/_shared/analyze/image-ocr-pipeline.ts";
 import { readTruth, type TruthStatus } from "./truth.ts";
 
 // ── command line ──────────────────────────────────────────────────────────
@@ -151,26 +146,16 @@ export function readDimensions(
   return null;
 }
 
-// ── the extractors, as the online route will run them ─────────────────────
+// ── the extractors, as the online route runs them ─────────────────────────
 
 /**
- * Candidates for a reading: digits folded, then every extractor.
- *
- * This is the order T13's `createImageOcrPipeline` fixes for Gemini's text,
- * and the order the app follows before it sends Tesseract's. When T13 lands,
- * the OCR benchmark should drive that pipeline instead of this copy: F17
- * found that a benchmark reimplementing the pipeline misses fixes made inside
- * it.
+ * Candidates for a reading, from the online OCR pipeline's own post-read step
+ * (`readingFromText`: digits folded, then every extractor), never a copy of
+ * it. F17 found that a benchmark reimplementing the pipeline misses fixes made
+ * inside it. The app follows the same order before it sends Tesseract's text.
  */
 export function candidatesFor(text: string): ExtractedCandidates {
-  const folded = normaliseDigits(text);
-  return {
-    dates: extractDates(folded),
-    times: extractTimes(folded),
-    amounts: extractAmounts(folded),
-    phones: extractPhones(folded),
-    references: extractReferences(folded),
-  };
+  return readingFromText(text).candidates;
 }
 
 // ── pacing ────────────────────────────────────────────────────────────────

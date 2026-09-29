@@ -25,11 +25,7 @@
 
 import type { AzureDocumentIntelligenceClient } from "../azure/azure-client.ts";
 import type { GoogleDocumentAiClient } from "../google/google-client.ts";
-import { extractAmounts } from "../extractors/amount-extractor.ts";
-import { extractDates } from "../extractors/date-extractor.ts";
-import { extractPhones } from "../extractors/phone-extractor.ts";
-import { extractReferences } from "../extractors/reference-extractor.ts";
-import { extractTimes } from "../extractors/time-extractor.ts";
+import { runExtractors } from "../extractors/run-extractors.ts";
 import type { ExtractedCandidates } from "../prompts/analysis-prompt.ts";
 import {
   mergeProviderVerification,
@@ -61,17 +57,6 @@ export interface ImageAnalysisPipelineOptions {
    * same as when the Google call fails at runtime.
    */
   readonly googleClient: GoogleDocumentAiClient | null;
-}
-
-/** Runs every T05 extractor over one OCR reading, in `ExtractedCandidates`' own field order. */
-function runExtractors(text: string): ExtractedCandidates {
-  return {
-    dates: extractDates(text),
-    times: extractTimes(text),
-    amounts: extractAmounts(text),
-    phones: extractPhones(text),
-    references: extractReferences(text),
-  };
 }
 
 /**

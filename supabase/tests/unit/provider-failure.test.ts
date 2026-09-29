@@ -11,6 +11,7 @@ import { assert, assertEquals, assertInstanceOf } from "jsr:@std/assert@1";
 import {
   analysisApiErrorFor,
   isFallbackEligible,
+  ocrApiErrorFor,
   PROVIDER_FAILURE_KINDS,
   ProviderFailure,
   providerFailureForStatus,
@@ -106,6 +107,35 @@ Deno.test("the mapped wire body never names the failure kind or a provider", () 
 
     assert(!body.includes(kind), `wire body leaked the kind "${kind}"`);
     for (const name of ["groq", "mistral", "gemini"]) {
+      assert(!body.toLowerCase().includes(name), `wire body named ${name}`);
+    }
+  }
+});
+
+// ── wire mapping for the OCR endpoint (rows O3–O6, F20-T13) ───────────────
+
+const OCR_WIRE: Record<ProviderFailureKind, ErrorCode> = {
+  rate_limited: "AI_RATE_LIMITED",
+  timeout: "TIMEOUT",
+  upstream_unavailable: "OCR_UNAVAILABLE",
+  network: "OCR_UNAVAILABLE",
+  invalid_output: "OCR_UNAVAILABLE",
+  auth: "INTERNAL_ERROR",
+  bad_request: "INTERNAL_ERROR",
+};
+
+for (const kind of PROVIDER_FAILURE_KINDS) {
+  Deno.test(`an OCR ${kind} reaches the app as ${OCR_WIRE[kind]}`, () => {
+    assertEquals(ocrApiErrorFor(new ProviderFailure(kind)).code, OCR_WIRE[kind]);
+  });
+}
+
+Deno.test("the OCR wire body never names the failure kind or a provider", () => {
+  for (const kind of PROVIDER_FAILURE_KINDS) {
+    const body = JSON.stringify(ocrApiErrorFor(new ProviderFailure(kind)).toBody());
+
+    assert(!body.includes(kind), `wire body leaked the kind "${kind}"`);
+    for (const name of ["gemini", "google", "azure"]) {
       assert(!body.toLowerCase().includes(name), `wire body named ${name}`);
     }
   }

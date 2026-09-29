@@ -1,26 +1,22 @@
 /**
- * F14 · `POST /functions/v1/ocr-document` — the OCR-only endpoint.
+ * F14, rewired in F20-T13 · `POST /functions/v1/ocr-document` — the OCR-only
+ * endpoint.
  *
  * Wiring only, same discipline as `analyze-document/index.ts`: the sequence
  * lives in `ocr-handler.ts`, every rule lives a layer below that. This file
- * exists so the client can get the raw OCR text and candidates back for
- * on-device review BEFORE the (unmodified) `analyze-document` Groq call.
+ * exists so the app can get the reading and its candidates back for on-device
+ * review BEFORE it asks `analyze-document` for the analysis.
  *
- * No `ChatClient`, no usage-slot store — this endpoint never touches the
- * daily quota (see `ocr-handler.ts`'s header comment) and never calls Groq.
+ * No chat client and no usage-slot store: this endpoint never touches the
+ * daily quota (see `ocr-handler.ts`'s header comment) and never analyses.
  */
 
 import { createOcrHandler } from "../_shared/analyze/ocr-handler.ts";
-import { createImageAnalysisPipeline } from "../_shared/analyze/image-analysis-pipeline.ts";
+import { createImageOcrPipeline } from "../_shared/analyze/image-ocr-pipeline.ts";
+import { createGeminiOcrClient } from "../_shared/ai/gemini-ocr-client.ts";
+import { geminiOptionsFromEnv } from "../_shared/ai/gemini-config.ts";
 import { createSupabaseTokenVerifier } from "../_shared/auth/supabase-token-verifier.ts";
-import { azureOptionsFromEnv } from "../_shared/azure/azure-config.ts";
-import { createAzureDocumentIntelligenceClient } from "../_shared/azure/azure-client.ts";
 import { loadRuntimeConfig } from "../_shared/config/supabase-runtime-config.ts";
-import {
-  googleDocumentAiOptionsFromEnv,
-  isGoogleDocumentAiConfigured,
-} from "../_shared/google/google-config.ts";
-import { createGoogleDocumentAiClient } from "../_shared/google/google-client.ts";
 import { createEndpoint } from "../_shared/http/endpoint.ts";
 import { createServiceRoleClient } from "../_shared/usage/supabase-usage-store.ts";
 
@@ -33,25 +29,12 @@ Deno.serve(
     handle: createOcrHandler({
       verifyToken: createSupabaseTokenVerifier(),
       loadConfig: () => loadRuntimeConfig(serviceClient),
-      // Azure/Google env vars are read here, not at module load — same
-      // reasoning `analyze-document/index.ts` documents: a deployment that
-      // never sees an image request (azureOcrEnabled dark) never has to have
-      // them configured.
-      //
-      // Google is optional: the pipeline works fine with Azure alone —
-      // unchecked fields simply stay flagged for user review.
-      createImagePipeline: (timeoutSeconds) =>
-        createImageAnalysisPipeline({
-          azureClient: createAzureDocumentIntelligenceClient({
-            ...azureOptionsFromEnv(),
-            timeoutSeconds,
-          }),
-          googleClient: isGoogleDocumentAiConfigured()
-            ? createGoogleDocumentAiClient({
-                ...googleDocumentAiOptionsFromEnv(),
-                timeoutSeconds,
-              })
-            : null,
+      // `GEMINI_*` is read here, per request, not at module load: a
+      // deployment with online reading switched off never has to have it,
+      // and one that does but lacks it fails loudly as INTERNAL_ERROR (O6).
+      createPipeline: () =>
+        createImageOcrPipeline({
+          geminiClient: createGeminiOcrClient(geminiOptionsFromEnv()),
         }),
     }),
   }),

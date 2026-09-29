@@ -140,3 +140,30 @@ export function analysisApiErrorFor(failure: ProviderFailure): ApiError {
       return ApiError.internalError();
   }
 }
+
+/**
+ * The §31 error `ocr-document` answers with when the online reader failed
+ * (matrix rows O3–O6, F20-T13).
+ *
+ * The code decides whether the app may read the page on the device instead:
+ * `AI_RATE_LIMITED`, `TIMEOUT` and `OCR_UNAVAILABLE` are on its closed
+ * fallback allowlist, `INTERNAL_ERROR` is not. So an outage, a dropped
+ * connection and an unusable reading become `OCR_UNAVAILABLE`, while a bad key
+ * or a bad request stays `INTERNAL_ERROR`: a deploy fault must be seen and
+ * fixed, not quietly papered over by the phone.
+ */
+export function ocrApiErrorFor(failure: ProviderFailure): ApiError {
+  switch (failure.kind) {
+    case "rate_limited":
+      return ApiError.aiRateLimited();
+    case "timeout":
+      return ApiError.timeout();
+    case "upstream_unavailable":
+    case "network":
+    case "invalid_output":
+      return ApiError.ocrUnavailable();
+    case "auth":
+    case "bad_request":
+      return ApiError.internalError();
+  }
+}
