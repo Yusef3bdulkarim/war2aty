@@ -150,9 +150,13 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
+      // Mounted the way HomeScreen mounts it — inside a vertical scroll view
+      // — so this checks what the user sees: nothing overflows sideways, and
+      // taller text scrolls. Mounted bare, any copy one line longer than
+      // today's overflowed a fixed viewport that Home never gives it (F20-T24).
       await pumpApp(
         tester,
-        buildActions().widget,
+        SingleChildScrollView(child: buildActions().widget),
         locale: AppLocalizations.english,
         textScaler: const TextScaler.linear(2),
       );

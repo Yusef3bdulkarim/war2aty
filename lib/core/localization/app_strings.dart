@@ -51,8 +51,18 @@ abstract interface class AppStrings {
   String get privacyTitle;
 
   /// The four promises listed on the privacy page, in display order.
+  ///
+  /// [privacyPointExtractText] says what happens to the PHOTO (F20-T24): sent
+  /// to an outside reader when online — which may keep it for a while and let
+  /// its staff review it — and read only on the phone when offline.
+  /// [privacyPointTextOnly] says what happens to the TEXT (F18-T02). Neither
+  /// may claim nobody sees what is sent, and neither may name a provider.
   String get privacyPointExtractText;
   String get privacyPointTextOnly;
+
+  /// Saving the photo ON THE PHONE needs the user's consent. Scoped to the
+  /// phone on purpose: the online reader may keep a copy for a while
+  /// ([privacyPointExtractText]), so an unscoped "not saved" would be false.
   String get privacyPointImageOptIn;
   String get privacyPointDeleteAnytime;
 
@@ -64,6 +74,9 @@ abstract interface class AppStrings {
   String get homeScanTitle;
   String get homeScanSubtitle;
   String get homePickImage;
+
+  /// Same promise as [privacyPointImageOptIn], and scoped to the phone for
+  /// the same reason.
   String get homeImagePrivacyNote;
 
   /// "You have N analyses left today."

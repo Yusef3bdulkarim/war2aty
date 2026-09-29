@@ -106,17 +106,20 @@ final class EnStrings implements AppStrings {
 
   @override
   String get privacyPointExtractText =>
-      'We read the text out of the photo so we can explain it.';
+      "When you're online, we send the photo of your paper to an outside "
+      "service that reads the text from it. We don't keep the photo, but "
+      'that service may keep it for a while, and its staff may review it to '
+      'improve their service. Without internet, the photo is read only on '
+      'your phone.';
 
   @override
   String get privacyPointTextOnly =>
       'We send your paper\'s text encrypted to an analysis service so we can '
-      'understand it, and we do not keep the text. The photo itself is never '
-      'saved, and nobody sees it.';
+      'understand it, and we do not keep the text.';
 
   @override
   String get privacyPointImageOptIn =>
-      'The photo is not saved unless you agree to it.';
+      'The photo is saved on your phone only if you agree to it.';
 
   @override
   String get privacyPointDeleteAnytime =>
@@ -144,7 +147,7 @@ final class EnStrings implements AppStrings {
 
   @override
   String get homeImagePrivacyNote =>
-      'Your photo is not saved unless you agree to it.';
+      'Your photo is saved on your phone only if you agree.';
 
   @override
   String homeUsageRemaining(int remaining) => switch (remaining) {
