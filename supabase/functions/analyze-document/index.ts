@@ -88,7 +88,7 @@ Deno.serve(
       slots: createSupabaseSlotStore(serviceClient),
       createAnalyser: createAnalysisChain,
       // Azure/Google env vars are read here, not at module load, so a
-      // deployment that never sees an image request (azureOcrEnabled dark)
+      // deployment that never sees an image request (onlineOcrEnabled dark)
       // never has to have them configured — same contract as
       // `azureOptionsFromEnv`/`googleDocumentAiOptionsFromEnv` document.
       //

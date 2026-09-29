@@ -26,7 +26,7 @@
  *
  * ── Two request shapes, one sequence (F13-T11) ────────────────────────────
  * `input_type` picks the shape before anything else is parsed. The `"image"`
- * shape is dark-launched behind `RuntimeConfig.azureOcrEnabled` (locked
+ * shape is dark-launched behind `RuntimeConfig.onlineOcrEnabled` (locked
  * decision #1): off, it is refused exactly as it always was before this task
  * — `INVALID_REQUEST`, indistinguishable from a shape this deployment does
  * not parse. On, the image is read by `image-analysis-pipeline.ts` (T04–T08)
@@ -78,7 +78,7 @@ export interface AnalyzeDependencies {
    * Same reasoning as {@link createAnalyser}: Azure/Google credentials are a
    * deploy fact and a missing one must fail loudly. Only ever invoked for an
    * image-shaped request (F13-T11) — text-shaped traffic, still the
-   * overwhelming majority while `azureOcrEnabled` stays dark, never
+   * overwhelming majority while `onlineOcrEnabled` stays dark, never
    * constructs this and so never requires Azure/Google to be configured.
    */
   readonly createImagePipeline: (timeoutSeconds: number) => ImageAnalysisPipeline;
@@ -162,9 +162,9 @@ export function createAnalyzeHandler(
     // §29 v2 dispatch. Off, the image shape is refused exactly as it always
     // was before this task — the parser below already throws INVALID_REQUEST
     // for anything but `input_type: "text"`, and that is precisely the
-    // behaviour a dark `azureOcrEnabled` must preserve.
+    // behaviour a dark `onlineOcrEnabled` must preserve.
     const isImageRequest = requestedInputType(rawBody) === "image";
-    if (isImageRequest && !config.azureOcrEnabled) throw ApiError.invalidRequest();
+    if (isImageRequest && !config.onlineOcrEnabled) throw ApiError.invalidRequest();
 
     const parsed = isImageRequest
       ? parseAnalyzeImageRequest(rawBody, config)

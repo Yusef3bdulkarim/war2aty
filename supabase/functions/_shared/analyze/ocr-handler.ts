@@ -83,7 +83,7 @@ export function createOcrHandler(
     // The app only calls this endpoint after choosing the online route. If
     // online reading was switched off since, the page can still be read on
     // the device, so this is OCR_UNAVAILABLE rather than a refusal (O10).
-    if (!config.azureOcrEnabled) throw ApiError.ocrUnavailable();
+    if (!config.onlineOcrEnabled) throw ApiError.ocrUnavailable();
 
     let rawBody: unknown;
     try {

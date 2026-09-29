@@ -71,7 +71,7 @@ function harness(options: HarnessOptions = {}): Harness {
   const pipelineBuilds: number[] = [];
   const deadlines: number[] = [];
 
-  const config = testConfig({ azureOcrEnabled: true, ...options.config });
+  const config = testConfig({ onlineOcrEnabled: true, ...options.config });
   const pipeline = options.pipeline ?? successfulPipeline();
 
   const handler = createEndpoint({
@@ -211,7 +211,7 @@ Deno.test("online reading switched off answers OCR_UNAVAILABLE, so the app reads
   // The app only calls this endpoint after choosing the online route; the
   // flag went off since. F14 refused this as INVALID_REQUEST, which left the
   // user an error page for a page the phone can still read.
-  const test = harness({ config: { azureOcrEnabled: false } });
+  const test = harness({ config: { onlineOcrEnabled: false } });
   const response = await test.call();
 
   assertEquals(response.status, 502);

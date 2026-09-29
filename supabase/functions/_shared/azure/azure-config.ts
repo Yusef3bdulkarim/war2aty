@@ -16,7 +16,7 @@ export interface AzureDocumentIntelligenceOptions {
 /**
  * @throws if `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT` or
  * `AZURE_DOCUMENT_INTELLIGENCE_KEY` is missing or blank. Reachable only once
- * `azureOcrEnabled` is on (F13-T03 runtime-config flag) and the image route
+ * `onlineOcrEnabled` is on (F13-T03 runtime-config flag) and the image route
  * is wired (T11) — until then nothing calls this.
  */
 export function azureOptionsFromEnv(

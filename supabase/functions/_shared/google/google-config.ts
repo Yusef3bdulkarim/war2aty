@@ -30,7 +30,7 @@ function requireEnv(
 
 /**
  * @throws if any of the five env vars below is missing or blank.
- * Reachable only once `azureOcrEnabled` is on and the cross-provider
+ * Reachable only once `onlineOcrEnabled` is on and the cross-provider
  * validator (T08) decides a second opinion is needed — until then nothing
  * calls this.
  */

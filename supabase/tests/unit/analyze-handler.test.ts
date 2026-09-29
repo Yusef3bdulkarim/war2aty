@@ -525,8 +525,8 @@ function successfulImagePipeline(): ImageAnalysisPipeline {
     });
 }
 
-Deno.test("an image request is refused as INVALID_REQUEST while azureOcrEnabled is dark, and never reaches the pipeline", async () => {
-  const test = harness({ config: { azureOcrEnabled: false } });
+Deno.test("an image request is refused as INVALID_REQUEST while onlineOcrEnabled is dark, and never reaches the pipeline", async () => {
+  const test = harness({ config: { onlineOcrEnabled: false } });
   const response = await test.call(validImageRequestBody());
 
   assertEquals(response.status, 400);
@@ -537,7 +537,7 @@ Deno.test("an image request is refused as INVALID_REQUEST while azureOcrEnabled 
 });
 
 Deno.test("the kill switch blocks an image request the same way it blocks a text one", async () => {
-  const test = harness({ config: { analysisEnabled: false, azureOcrEnabled: true } });
+  const test = harness({ config: { analysisEnabled: false, onlineOcrEnabled: true } });
   const response = await test.call(validImageRequestBody());
 
   assertEquals(response.status, 503);
@@ -545,9 +545,9 @@ Deno.test("the kill switch blocks an image request the same way it blocks a text
   assertEquals(test.imagePipelineCalls.length, 0);
 });
 
-Deno.test("azureOcrEnabled on routes an image request through the pipeline into the Groq prompt", async () => {
+Deno.test("onlineOcrEnabled on routes an image request through the pipeline into the Groq prompt", async () => {
   const test = harness({
-    config: { azureOcrEnabled: true },
+    config: { onlineOcrEnabled: true },
     imagePipeline: successfulImagePipeline(),
   });
   const response = await test.call(validImageRequestBody());
@@ -573,7 +573,7 @@ Deno.test("the text-only branch never touches the image pipeline", async () => {
 
 Deno.test("an exhausted quota on an image request never calls the pipeline", async () => {
   const test = harness({
-    config: { azureOcrEnabled: true },
+    config: { onlineOcrEnabled: true },
     reserveOutcome: "limit_reached",
     imagePipeline: successfulImagePipeline(),
   });
@@ -587,7 +587,7 @@ Deno.test("a failed online read releases the slot and never falls back to a text
   // Locked decision #2: a failed-while-online call fails outright — it must
   // not be retried as if it were the offline/Tesseract path.
   const test = harness({
-    config: { azureOcrEnabled: true },
+    config: { onlineOcrEnabled: true },
     imagePipeline: () => Promise.reject(ApiError.timeout()),
   });
   const response = await test.call(validImageRequestBody());
@@ -601,7 +601,7 @@ Deno.test("a failed online read releases the slot and never falls back to a text
 
 Deno.test("the response carries phones/references once the pipeline supplies verification", async () => {
   const test = harness({
-    config: { azureOcrEnabled: true },
+    config: { onlineOcrEnabled: true },
     imagePipeline: successfulImagePipeline(),
   });
   const body = await (await test.call(validImageRequestBody())).json();

@@ -15,14 +15,14 @@
  * can never smuggle `ocr_text`/`candidates`.
  *
  * `parseAnalyzeImageRequest` is called from `analyze-handler.ts` (F13-T11),
- * gated behind `RuntimeConfig.azureOcrEnabled`.
+ * gated behind `RuntimeConfig.onlineOcrEnabled`.
  *
  * ── Why unknown properties are rejected ──────────────────────────────────
  * Each shape's schema sets `additionalProperties: false`. For the TEXT shape
  * this is still a privacy tripwire, just a narrower one than it used to be:
  * §7's privacy model changed the day the image path was designed — a
  * photograph now legitimately reaches this Edge Function, but only over the
- * image shape, gated behind `azureOcrEnabled`. A text-shaped request must
+ * image shape, gated behind `onlineOcrEnabled`. A text-shaped request must
  * still never carry an `image` key, exactly as strictly as before.
  *
  * ── Why malformed candidates are dropped, not rejected ───────────────────
