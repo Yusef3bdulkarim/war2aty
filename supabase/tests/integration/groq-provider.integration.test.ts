@@ -11,11 +11,12 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { ApiError } from "../../functions/_shared/errors/api-error.ts";
+import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
 import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
 import {
   DEFAULT_GROQ_MODEL,
   GROQ_BASE_URL,
+  GROQ_REASONING_EFFORT,
 } from "../../functions/_shared/ai/groq-config.ts";
 import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
@@ -40,7 +41,7 @@ async function withRateLimitTolerance(
     await run();
     return;
   } catch (thrown) {
-    if (!(thrown instanceof ApiError) || thrown.code !== "AI_RATE_LIMITED") {
+    if (!(thrown instanceof ProviderFailure) || thrown.kind !== "rate_limited") {
       throw thrown;
     }
   }
@@ -51,7 +52,7 @@ async function withRateLimitTolerance(
   try {
     await run();
   } catch (thrown) {
-    if (thrown instanceof ApiError && thrown.code === "AI_RATE_LIMITED") {
+    if (thrown instanceof ProviderFailure && thrown.kind === "rate_limited") {
       console.warn(`  SKIPPED (still rate-limited): ${name}`);
       return;
     }
@@ -67,15 +68,17 @@ const NO_CANDIDATES: ExtractedCandidates = {
   references: [],
 };
 
+/** One Groq leg, bound to a fresh 25s signal per call. */
 function provider() {
-  return createAnalysisProvider({
+  const leg = createAnalysisProvider({
     client: createChatClient({
       baseUrl: GROQ_BASE_URL,
       apiKey: apiKey!,
       model,
-      timeoutSeconds: 25,
     }),
+    reasoningEffort: GROQ_REASONING_EFFORT,
   });
+  return (input: Parameters<typeof leg>[0]) => leg(input, AbortSignal.timeout(25_000));
 }
 
 const CONFIDENCES = ["high", "medium", "low"];

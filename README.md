@@ -11,12 +11,12 @@ A mobile app that reads printed documents using OCR and explains them in simple 
 | Feature | Description |
 |---------|-------------|
 | 📸 **Smart Capture** | Live camera with real-time document edge detection and auto-crop |
-| 🔍 **Dual OCR** | Online (Azure AI Document Intelligence) with offline fallback (Tesseract) |
+| 🔍 **Dual OCR** | Online (Gemini) when connected; on-device (Tesseract) when offline, or as an explicit, flagged fallback when the online reading is unavailable |
 | 🤖 **AI Analysis** | Classifies the document type, extracts key info, and explains what action is needed — in simple Egyptian Arabic |
 | 🔊 **Audio Reader** | Text-to-speech reads OCR text or narrates the full analysis screen |
 | 💾 **Saved Papers** | Browse, search, and filter analyzed documents locally |
 | ⏰ **Reminders** | Set reminders for deadlines mentioned in a document |
-| 🔒 **Privacy-first** | Images are never stored on any server — processed and deleted immediately |
+| 🔒 **Privacy-first** | We never store the image or the text on our servers, and the app says plainly what its free-tier providers may see |
 | ♿ **Accessible** | Large buttons, RTL-first, high contrast, reduced-motion support |
 
 ## 🏗️ Architecture
@@ -57,9 +57,9 @@ feature/
 | **Local Database** | Drift + SQLite |
 | **Backend** | Supabase Edge Functions (TypeScript / Deno) |
 | **Auth** | Supabase Anonymous Auth |
-| **OCR (online)** | Azure AI Document Intelligence → Supabase Edge Function |
-| **OCR (offline)** | Tesseract (on-device) |
-| **AI Analysis** | Groq Structured Output → Supabase Edge Function |
+| **OCR (online)** | Gemini (Flash-Lite) → `ocr-document` Edge Function |
+| **OCR (on-device)** | Tesseract — the offline route, and the explicit fallback for four online failures |
+| **AI Analysis** | Structured Output, text only: Mistral (Ministral), falling back to Groq → `analyze-document` Edge Function |
 | **DI** | get_it |
 | **Routing** | go_router |
 | **Security** | AES-256-GCM encrypted local images, flutter_secure_storage |
@@ -68,15 +68,16 @@ feature/
 
 ## 🔐 Privacy
 
-- **Images are never stored on any server** — processed in-memory and deleted immediately after OCR
-- The AI model receives only extracted text, never the original image
+- **We never store the image or the text on our servers**, and never log document content
+- Online, the photo goes to an outside reader (Gemini's free tier), which may keep it for a while and let its staff review it; offline, it is read only on the phone. The app's privacy page says exactly this — it never claims nobody sees the image or the text
+- The analysis model receives only the reviewed text, never the image
 - Local image storage (optional) is AES-256-GCM encrypted
 - No analytics, no tracking, no Firebase
 - User controls whether text is sent for analysis (consent gate)
 
 ## 🧪 Testing
 
-**1,900+ tests** covering domain logic, data layer, cubits, and widget tests.
+**1,990+ tests** covering domain logic, data layer, cubits, and widget tests.
 
 ```bash
 flutter test                    # Run all tests

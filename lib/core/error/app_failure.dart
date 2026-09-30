@@ -168,6 +168,16 @@ final class AiProviderRateLimitFailure extends NetworkFailure {
   const AiProviderRateLimitFailure();
 }
 
+/// The online reading gave no usable text (`OCR_UNAVAILABLE`, F20-T18).
+///
+/// An upstream outage, a network failure on the server's side, an unusable
+/// or blocked answer, or online reading switched off after the app chose the
+/// online route. Not a deploy fault — that stays [AnalysisServiceFailure] —
+/// so the page can still be read on the device instead (F20 matrix O5, O10).
+final class OnlineOcrUnavailableFailure extends NetworkFailure {
+  const OnlineOcrUnavailableFailure();
+}
+
 // ---------------------------------------------------------------------------
 // Business failures — the request/response was valid but the outcome isn't.
 // ---------------------------------------------------------------------------

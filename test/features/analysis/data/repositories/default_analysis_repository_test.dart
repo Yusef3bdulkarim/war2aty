@@ -39,24 +39,12 @@ final class _FakeDataSource implements AnalysisRemoteDataSource {
   /// The request the repository actually built.
   AnalysisRequestDto? sent;
 
-  /// The image request the repository actually built.
-  AnalysisImageRequestDto? sentImage;
-
   /// The image request [ocrImage] actually built.
   AnalysisImageRequestDto? sentOcrImage;
 
   @override
   Future<AnalysisApiResponse> analyze(AnalysisRequestDto request) async {
     sent = request;
-    if (error != null) throw error!;
-    return response!;
-  }
-
-  @override
-  Future<AnalysisApiResponse> analyzeImage(
-    AnalysisImageRequestDto request,
-  ) async {
-    sentImage = request;
     if (error != null) throw error!;
     return response!;
   }
@@ -395,16 +383,16 @@ void main() {
     });
   });
 
-  group('analyzeImage — request building', () {
+  group('ocrImage — request building', () {
     test('fills the envelope and the image shape', () async {
       final harness = _build(
-        response: _ok(_successBody()),
+        response: _ok(_ocrSuccessBody()),
         readImageBytes: (path) async => Uint8List.fromList([1, 2, 3]),
       );
 
-      await harness.repository.analyzeImage(_imageRequest);
+      await harness.repository.ocrImage(_imageRequest);
 
-      final sent = harness.dataSource.sentImage!;
+      final sent = harness.dataSource.sentOcrImage!;
       expect(sent.schemaVersion, kAnalysisRequestSchemaVersion);
       expect(sent.sessionId, 'session-1');
       expect(sent.installationId, 'install-42');
@@ -413,41 +401,26 @@ void main() {
       expect(sent.mimeType, 'image/jpeg');
     });
 
-    test('reads bytes from the photo path it was given', () async {
-      String? readPath;
-      final harness = _build(
-        response: _ok(_successBody()),
-        readImageBytes: (path) async {
-          readPath = path;
-          return Uint8List.fromList([1]);
-        },
-      );
-
-      await harness.repository.analyzeImage(_imageRequest);
-
-      expect(readPath, '/tmp/warped.jpg');
-    });
-
     test('picks image/png for a .png photo', () async {
-      final harness = _build(response: _ok(_successBody()));
+      final harness = _build(response: _ok(_ocrSuccessBody()));
 
-      await harness.repository.analyzeImage(
+      await harness.repository.ocrImage(
         const AnalysisImageRequest(
           sessionId: 'session-1',
           photo: CapturedPhoto('/tmp/warped.png'),
         ),
       );
 
-      expect(harness.dataSource.sentImage!.mimeType, 'image/png');
+      expect(harness.dataSource.sentOcrImage!.mimeType, 'image/png');
     });
 
     test('never puts the ocr-text shape in the payload', () async {
-      final harness = _build(response: _ok(_successBody()));
+      final harness = _build(response: _ok(_ocrSuccessBody()));
 
-      await harness.repository.analyzeImage(_imageRequest);
+      await harness.repository.ocrImage(_imageRequest);
 
       expect(
-        harness.dataSource.sentImage!.toJson().keys,
+        harness.dataSource.sentOcrImage!.toJson().keys,
         unorderedEquals([
           'schema_version',
           'session_id',
@@ -457,83 +430,7 @@ void main() {
           'image',
         ]),
       );
-      expect(harness.dataSource.sentImage!.toJson()['input_type'], 'image');
-    });
-  });
-
-  group('analyzeImage — outcomes', () {
-    test('returns the mapped analysis on success', () async {
-      final harness = _build(response: _ok(_successBody()));
-
-      final result = await harness.repository.analyzeImage(_imageRequest);
-
-      expect(result.valueOrNull?.kind, DocumentKind.invoice);
-    });
-
-    test('maps an error response through the shared §31 mapper', () async {
-      final harness = _build(
-        response: AnalysisApiResponse(
-          statusCode: 503,
-          body: _errorBody('ANALYSIS_DISABLED'),
-        ),
-      );
-
-      final result = await harness.repository.analyzeImage(_imageRequest);
-
-      expect(result.failureOrNull, isA<AnalysisDisabledFailure>());
-    });
-
-    test('maps a transport error the same way as the text route', () async {
-      final harness = _build(error: StateError('socket died'));
-
-      final result = await harness.repository.analyzeImage(_imageRequest);
-
-      expect(result.failureOrNull, isA<AnalysisServiceFailure>());
-    });
-
-    test(
-      'turns an unreadable file into a local failure without calling the service',
-      () async {
-        final harness = _build(
-          response: _ok(_successBody()),
-          readImageBytes: (path) => throw const FileSystemException('nope'),
-        );
-
-        final result = await harness.repository.analyzeImage(_imageRequest);
-
-        expect(result.failureOrNull, isA<ImageProcessingFailure>());
-        expect(harness.dataSource.sentImage, isNull);
-      },
-    );
-
-    test(
-      'propagates an identity failure without calling the service',
-      () async {
-        final harness = _build(
-          response: _ok(_successBody()),
-          identity: const Err(FileStorageFailure()),
-        );
-
-        final result = await harness.repository.analyzeImage(_imageRequest);
-
-        expect(result.failureOrNull, isA<FileStorageFailure>());
-        expect(harness.dataSource.sentImage, isNull);
-      },
-    );
-
-    test('logs a failure scoped to the session', () async {
-      final harness = _build(
-        response: AnalysisApiResponse(
-          statusCode: 401,
-          body: _errorBody('UNAUTHORIZED'),
-        ),
-      );
-
-      await harness.repository.analyzeImage(_imageRequest);
-
-      expect(harness.sink.writes, hasLength(1));
-      expect(harness.sink.writes.single['errorCode'], 'UNAUTHORIZED');
-      expect(harness.sink.writes.single['analysisSessionId'], 'session-1');
+      expect(harness.dataSource.sentOcrImage!.toJson()['input_type'], 'image');
     });
   });
 

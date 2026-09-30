@@ -27,7 +27,6 @@ import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart'
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
-import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress_view.dart';
@@ -74,15 +73,6 @@ final class _FakeRepository implements AnalysisRepository {
   }
 
   @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) async {
-    calls++;
-    await gate?.future;
-    return answer ?? Ok(invoiceAnalysis());
-  }
-
-  @override
   Future<Result<ExtractionResult, AppFailure>> ocrImage(
     AnalysisImageRequest request,
   ) async {
@@ -104,7 +94,6 @@ void main() {
       source: const OcrAnalysisSource(_extraction),
       getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
       analyzeDocument: AnalyzeDocument(repository),
-      analyzeImage: AnalyzeImage(repository),
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
     );
@@ -168,6 +157,45 @@ void main() {
 
       repository.gate!.complete();
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('finishes the progress bar before showing the result', (
+      tester,
+    ) async {
+      repository.gate = Completer<void>();
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 6));
+
+      repository.gate!.complete();
+      await tester.pump();
+
+      // The answer is in, but the bar gets its moment to reach full first.
+      expect(find.byType(AnalysisProgressView), findsOneWidget);
+      expect(find.text(_strings.analysisResultTitle), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(find.text(_strings.analysisResultTitle), findsOneWidget);
+    });
+
+    testWidgets('a failure replaces the progress page at once, bar halted', (
+      tester,
+    ) async {
+      repository
+        ..gate = Completer<void>()
+        ..answer = const Err(AnalysisServiceFailure());
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 4));
+
+      repository.gate!.complete();
+      await tester.pump();
+
+      expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(find.text(_strings.analysisFailedTitle), findsOneWidget);
     });
 
     testWidgets('shows the result page once the paper is understood', (

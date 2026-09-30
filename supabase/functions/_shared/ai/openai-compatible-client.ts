@@ -1,25 +1,36 @@
 /**
  * F06-T09 · OpenAI-compatible chat transport.
  *
- * The only place that speaks HTTP to an analysis provider. Prompt construction
- * is T10 and the schema-constrained call is T11; this layer just gets a request
- * there and a response back, turning provider failures into `ApiError` values
- * the endpoint already knows how to serialise.
+ * The only place that speaks HTTP to an analysis provider. It sends a request
+ * and gets a response back. Prompt construction (F06-T10) and the
+ * schema-constrained call (F06-T11) live above it.
  *
- * The provider is named by `baseUrl` alone — every provider reached from here
+ * The provider is named by `baseUrl` alone. Every provider reached from here
  * takes the same request shape (Bearer auth, `messages[]`, `response_format`,
- * `temperature`, `max_tokens`), which is what makes one transport enough.
+ * `temperature`, `max_tokens`), which is why one transport is enough.
+ *
+ * ── Failures (F20-T04) ────────────────────────────────────────────────────
+ * Every failure is thrown as a `ProviderFailure` with a closed `kind` (failure
+ * matrix §1), never as an `ApiError`. Whether a failure may fall back to a
+ * second provider, and which §31 code it becomes, is decided above this layer
+ * from the kind alone. This module only reports what happened.
+ *
+ * ── Time (F20-T04) ────────────────────────────────────────────────────────
+ * There is no timeout of its own. Each call takes the caller's `AbortSignal`,
+ * usually from a request `Deadline`, so one budget governs every attempt in a
+ * request (timeout contract §2) instead of each client carrying a fixed one.
  *
  * The app never learns which provider exists (§9): it talks to the Edge
- * Function, which holds the key. Nothing about the provider reaches the client —
+ * Function, which holds the key. Nothing about the provider reaches the client:
  * not its name, its model, nor its error text.
  *
  * PRIVACY (§7, §51): no prompt, no completion and no key is ever logged. Error
- * paths deliberately discard the provider's response body, which echoes the
- * prompt — and the prompt contains the user's document.
+ * bodies are discarded unread. The one exception is a 400, where exactly one
+ * machine-readable field (`error.code`) is read, and the body is dropped
+ * without being logged or attached to anything.
  */
 
-import { ApiError } from "../errors/api-error.ts";
+import { ProviderFailure, providerFailureForStatus } from "./provider-failure.ts";
 
 export type ChatRole = "system" | "user" | "assistant";
 
@@ -39,10 +50,17 @@ export type ChatResponseFormat =
 
 export interface ChatCompletionRequest {
   readonly messages: readonly ChatMessage[];
+  /**
+   * Aborts the call. Required: an unbounded provider call would hold the
+   * reserved slot until it lapsed and leave the user on a spinner. Abort with a
+   * `TimeoutError` reason (as `AbortSignal.timeout` and `Deadline.signal` do)
+   * to have it reported as `timeout`. Any other abort is reported as `network`.
+   */
+  readonly signal: AbortSignal;
   /** Defaults to the model the client was built with. */
   readonly model?: string;
   /**
-   * Defaults to 0. Document analysis is extraction, not creativity — the same
+   * Defaults to 0. Document analysis is extraction, not creativity: the same
    * paper should yield the same reading twice.
    */
   readonly temperature?: number;
@@ -50,10 +68,10 @@ export interface ChatCompletionRequest {
   readonly responseFormat?: ChatResponseFormat;
   /**
    * `openai/gpt-oss-*` models spend part of `maxTokens` on an internal
-   * reasoning trace before writing the answer — see
-   * {@link AnalysisProviderOptions} for why the analysis provider always sets
-   * this to `"low"`. Left optional here because it is meaningless for
-   * non-reasoning models.
+   * reasoning trace before writing the answer. See
+   * {@link AnalysisProviderOptions} for when the analysis provider sets it.
+   * Optional because it is meaningless for non-reasoning models, and some
+   * providers reject it.
    */
   readonly reasoningEffort?: "low" | "medium" | "high";
 }
@@ -74,13 +92,12 @@ export interface ChatClientOptions {
   readonly baseUrl: string;
   readonly apiKey: string;
   /**
-   * Required, and deliberately not defaulted here: a default in this module
+   * Required, and deliberately not defaulted here. A default in this module
    * would have to name one provider's model, which is exactly the knowledge
    * the seam exists to keep out. Each provider's config module supplies its
-   * own (`groq-config.ts`, `gemini-config.ts`).
+   * own.
    */
   readonly model: string;
-  readonly timeoutSeconds: number;
   /** Injected so tests never touch the network. */
   readonly fetchImpl?: typeof fetch;
 }
@@ -90,45 +107,47 @@ export type ChatClient = (
 ) => Promise<ChatCompletion>;
 
 /**
- * Maps a provider HTTP status to an `ApiError`.
- *
- * The provider's own message is never forwarded: it quotes the prompt on
- * validation errors, and the prompt holds the document.
+ * Groq's error code for a completion that failed its own strict-schema check.
+ * It arrives as an HTTP 400, but it describes the MODEL's output, not our
+ * request, so it is `invalid_output` rather than `bad_request`.
  */
-function errorForStatus(status: number): ApiError {
-  // Every status reaching here is the provider declining to answer, so all of
-  // them are provider faults and all are eligible for failover (F18-T05).
-  //
-  // 429 is the one the client can act on — it is asked to try again later. On a
-  // free tier it is also the COMMON case, and the whole reason the chain exists.
-  if (status === 429) return ApiError.aiRateLimited().asProviderFault();
-  // 5xx and the rest are ours to own; the user only ever sees "analysis
-  // failed", never that a third party was involved.
-  return ApiError.analysisFailed().asProviderFault();
+const SCHEMA_VALIDATION_FAILED_CODE = "json_validate_failed";
+
+/**
+ * Classifies a non-2xx response and releases its body.
+ *
+ * Only a 400 is read at all, and only for `error.code`. Every other body is
+ * cancelled unread.
+ */
+async function failureForResponse(response: Response): Promise<ProviderFailure> {
+  if (response.status === 400 && await errorCodeOf(response) === SCHEMA_VALIDATION_FAILED_CODE) {
+    return new ProviderFailure("invalid_output");
+  }
+  // Already consumed when it was a 400, in which case this is a no-op.
+  await response.body?.cancel().catch(() => {});
+  return providerFailureForStatus(response.status);
+}
+
+/** `error.code` of a JSON error body, or `null`. Nothing else is read. */
+async function errorCodeOf(response: Response): Promise<string | null> {
+  try {
+    const body: unknown = await response.json();
+    const error = (body as { error?: { code?: unknown } } | null)?.error;
+    return typeof error?.code === "string" ? error.code : null;
+  } catch {
+    return null;
+  }
 }
 
 interface ChatApiResponse {
   model?: string;
-  choices?: Array<{ message?: { content?: string } }>;
+  choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
-/**
- * Builds a client bound to a base URL, key, model and timeout.
- *
- * The timeout is the point of this task. Without one, a hung provider
- * connection holds the reserved slot until it expires and leaves the user
- * staring at a spinner; with it, the server gives up first, releases the slot
- * and answers 408 (§31 TIMEOUT).
- */
+/** Builds a client bound to a base URL, key and model. */
 export function createChatClient(options: ChatClientOptions): ChatClient {
-  const {
-    baseUrl,
-    apiKey,
-    model: defaultModel,
-    timeoutSeconds,
-    fetchImpl = fetch,
-  } = options;
+  const { baseUrl, apiKey, model: defaultModel, fetchImpl = fetch } = options;
 
   const chatCompletionsUrl = `${baseUrl}/chat/completions`;
 
@@ -139,7 +158,9 @@ export function createChatClient(options: ChatClientOptions): ChatClient {
       temperature: request.temperature ?? 0,
       ...(request.maxTokens === undefined ? {} : { max_tokens: request.maxTokens }),
       ...(request.responseFormat === undefined ? {} : { response_format: request.responseFormat }),
-      ...(request.reasoningEffort === undefined ? {} : { reasoning_effort: request.reasoningEffort }),
+      ...(request.reasoningEffort === undefined
+        ? {}
+        : { reasoning_effort: request.reasoningEffort }),
     };
 
     let response: Response;
@@ -151,43 +172,41 @@ export function createChatClient(options: ChatClientOptions): ChatClient {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(
-          Math.max(1, Math.floor(timeoutSeconds)) * 1000,
-        ),
+        signal: request.signal,
       });
     } catch (thrown) {
-      // A timeout aborts the fetch; so does a dropped connection. Both mean we
-      // have no answer, and the caller must release the slot either way.
+      // Our own budget running out and the connection dropping both mean we
+      // have no answer. Only the first is a timeout, which is what lets the
+      // caller answer 408 rather than a generic failure.
       if (thrown instanceof DOMException && thrown.name === "TimeoutError") {
-        throw ApiError.timeout().asProviderFault();
+        throw new ProviderFailure("timeout");
       }
-      throw ApiError.analysisFailed().asProviderFault();
+      throw new ProviderFailure("network");
     }
 
-    if (!response.ok) {
-      // Drain the body so the connection is not left dangling, and discard it:
-      // provider error bodies echo the prompt.
-      await response.body?.cancel();
-      throw errorForStatus(response.status);
-    }
+    if (!response.ok) throw await failureForResponse(response);
 
     let payload: ChatApiResponse;
     try {
       payload = await response.json();
     } catch {
       // A 200 whose body is not JSON is a broken response, not an answer.
-      throw ApiError.analysisFailed().asProviderFault();
+      throw new ProviderFailure("invalid_output");
     }
 
-    const content = payload.choices?.[0]?.message?.content;
+    const choice = payload.choices?.[0];
+    const content = choice?.message?.content;
     if (typeof content !== "string" || content.length === 0) {
       // A well-formed HTTP 200 carrying nothing usable is still a failed
       // analysis, and must not be counted against the user's quota.
-      //
-      // A provider fault, unlike the PARSER's failures in
-      // `analysis-provider.ts`: no answer at all is worth asking a second
-      // provider about, whereas an answer of the wrong shape is not.
-      throw ApiError.analysisFailed().asProviderFault();
+      throw new ProviderFailure("invalid_output");
+    }
+
+    if (choice?.finish_reason === "length") {
+      // Cut off at `max_tokens`. Whatever arrived is at best a prefix of the
+      // answer, and parsing a prefix of JSON is how silently-partial analyses
+      // happen.
+      throw new ProviderFailure("invalid_output");
     }
 
     return {

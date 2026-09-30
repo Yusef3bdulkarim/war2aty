@@ -9,8 +9,7 @@ import 'unit_rect.dart';
 /// This is *guidance geometry* and nothing else (F16 locked decision #1): it
 /// drives what the viewfinder draws, and never what the capture keeps. The
 /// T10 device pass settled that — a detection that collapsed to a sliver
-/// cropped a real page away — so the capture keeps the whole frame and
-/// `doclens` re-detects the real edges on the file afterwards. Nothing
+/// cropped a real page away — so the capture keeps the whole frame. Nothing
 /// downstream has to trust these numbers to be exact.
 ///
 /// [boundingRect] is still used, but only to place the guide's scan line and

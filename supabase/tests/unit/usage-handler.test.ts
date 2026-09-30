@@ -68,7 +68,7 @@ Deno.test("a fresh day reports the full allowance", async () => {
     remaining_today: 3,
     resets_at: "2026-07-27T00:00:00+03:00",
     analysis_enabled: true,
-    azure_ocr_enabled: false,
+    online_ocr_enabled: false,
   });
 });
 
@@ -110,11 +110,19 @@ Deno.test("the kill switch is reported so the app can explain before it tries", 
 });
 
 Deno.test("the online-pipeline flag is reported so the client can gate routing on it", async () => {
-  const off = await harness({ config: { azureOcrEnabled: false } }).call();
-  assertEquals((await off.json()).azure_ocr_enabled, false);
+  const off = await harness({ config: { onlineOcrEnabled: false } }).call();
+  assertEquals((await off.json()).online_ocr_enabled, false);
 
-  const on = await harness({ config: { azureOcrEnabled: true } }).call();
-  assertEquals((await on.json()).azure_ocr_enabled, true);
+  const on = await harness({ config: { onlineOcrEnabled: true } }).call();
+  assertEquals((await on.json()).online_ocr_enabled, true);
+});
+
+Deno.test("the retired azure_ocr_enabled field is gone from the wire (F20-T14)", async () => {
+  // An app built before F20-T17 reads the missing field as false and stays
+  // on the on-device route: the safe direction for a stale client.
+  const body = await (await harness({ config: { onlineOcrEnabled: true } }).call()).json();
+
+  assertEquals("azure_ocr_enabled" in body, false);
 });
 
 Deno.test("a runtime limit change is reflected immediately", async () => {

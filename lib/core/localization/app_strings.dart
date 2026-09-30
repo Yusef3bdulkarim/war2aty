@@ -51,8 +51,18 @@ abstract interface class AppStrings {
   String get privacyTitle;
 
   /// The four promises listed on the privacy page, in display order.
+  ///
+  /// [privacyPointExtractText] says what happens to the PHOTO (F20-T24): sent
+  /// to an outside reader when online — which may keep it for a while and let
+  /// its staff review it — and read only on the phone when offline.
+  /// [privacyPointTextOnly] says what happens to the TEXT (F18-T02). Neither
+  /// may claim nobody sees what is sent, and neither may name a provider.
   String get privacyPointExtractText;
   String get privacyPointTextOnly;
+
+  /// Saving the photo ON THE PHONE needs the user's consent. Scoped to the
+  /// phone on purpose: the online reader may keep a copy for a while
+  /// ([privacyPointExtractText]), so an unscoped "not saved" would be false.
   String get privacyPointImageOptIn;
   String get privacyPointDeleteAnytime;
 
@@ -64,6 +74,9 @@ abstract interface class AppStrings {
   String get homeScanTitle;
   String get homeScanSubtitle;
   String get homePickImage;
+
+  /// Same promise as [privacyPointImageOptIn], and scoped to the phone for
+  /// the same reason.
   String get homeImagePrivacyNote;
 
   /// "You have N analyses left today."
@@ -522,8 +535,8 @@ abstract interface class AppStrings {
   String get ocrReviewSubtitle;
   String get ocrReviewDone;
 
-  // OCR online review screen (F14) — the online route's stop between Azure
-  // OCR and Groq analysis.
+  // OCR online review screen (F14) — the online route's stop between the
+  // online reading and the analysis.
   String get ocrOnlineReviewTitle;
   String get ocrOnlineReviewSubtitle;
   String get ocrOnlineLoading;
@@ -534,8 +547,14 @@ abstract interface class AppStrings {
   String get ocrOnlineAmbiguityNotice;
 
   /// Amber warning banner shown on the review screen when OCR ran offline
-  /// (Tesseract) — accuracy may be lower than the online (Azure) path.
+  /// (Tesseract) — accuracy may be lower than the online reading.
   String get ocrOfflineQualityWarning;
+
+  /// Amber warning banner shown on the review screen when the online reading
+  /// failed and the page was read on the phone instead (F20-T23). Never names
+  /// the online reader, and never blames the connection — the cause may be a
+  /// busy or unavailable service, not the user's internet.
+  String get ocrOnlineFallbackWarning;
 
   /// "الاستماع للنص" button on the review screen — reads the extracted text
   /// aloud before analysis.

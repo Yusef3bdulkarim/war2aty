@@ -24,6 +24,7 @@ void main() {
         'ANALYSIS_FAILED': AnalysisServiceFailure,
         'INTERNAL_ERROR': AnalysisServiceFailure,
         'ANALYSIS_DISABLED': AnalysisDisabledFailure,
+        'OCR_UNAVAILABLE': OnlineOcrUnavailableFailure,
       };
 
       for (final entry in expected.entries) {
@@ -105,6 +106,33 @@ void main() {
           ),
         ),
         isA<GlobalCapacityReachedFailure>(),
+      );
+    });
+  });
+
+  group('OCR_UNAVAILABLE', () {
+    test('our 502 envelope is OnlineOcrUnavailableFailure', () {
+      expect(
+        failureFromErrorBody(_body('OCR_UNAVAILABLE'), statusCode: 502),
+        isA<OnlineOcrUnavailableFailure>(),
+      );
+    });
+
+    test('a gateway 502 without our envelope is not', () {
+      // F20 matrix O11: a bare 5xx is a deploy fault, not an outage the device
+      // can read around, so it must never look like OCR_UNAVAILABLE.
+      expect(
+        failureFromErrorBody('<html>502 Bad Gateway</html>', statusCode: 502),
+        isA<AnalysisServiceFailure>(),
+      );
+    });
+
+    test('a deploy fault from ocr-document stays a service failure', () {
+      // F20 matrix O6: a bad key or model answers INTERNAL_ERROR, not
+      // OCR_UNAVAILABLE, so it is never mistaken for an outage.
+      expect(
+        failureFromErrorBody(_body('INTERNAL_ERROR'), statusCode: 500),
+        isA<AnalysisServiceFailure>(),
       );
     });
   });

@@ -5,20 +5,20 @@ import '../../../../core/usage/usage_repository.dart';
 
 /// Picks the analysis pipeline before capture processing starts.
 ///
-/// Called once per capture, ahead of [PerspectiveCorrector]/`OcrEngine` —
+/// Called once per capture, ahead of `OcrEngine` or the online reading —
 /// never re-checked mid-flow, and never used to decide whether to fall back
 /// once [AnalysisRoute.online] has been chosen (F13 locked decision #2).
 ///
-/// Connectivity alone is not enough to route online: the backend's
-/// Azure/Google image pipeline is dark-launched behind its own
-/// `azureOcrEnabled` flag (`RuntimeConfig`), off by default. A build that
+/// Connectivity alone is not enough to route online: the backend's online
+/// reading (`ocr-document`) is switched on and off by its own
+/// `onlineOcrEnabled` flag (`RuntimeConfig`), off by default. A build that
 /// only checked connectivity would send every connected user's capture down
 /// a route the server rejects outright — and since locked decision #2
 /// forbids falling back once online is chosen, that is a dead end, not a
 /// harmless no-op. [_usageRepository] carries the same flag the Home screen
-/// already fetches (`get-usage`'s `azure_ocr_enabled`), so this checks it
+/// already fetches (`get-usage`'s `online_ocr_enabled`), so this checks it
 /// too, fetched fresh — a cached-only reading always reads `false` (see
-/// `DailyUsage.azureOcrEnabled`), and any failure to read it fails closed to
+/// `DailyUsage.onlineOcrEnabled`), and any failure to read it fails closed to
 /// offline, the always-available route.
 final class DecideAnalysisRoute {
   const DecideAnalysisRoute(this._connectivity, this._usageRepository);
@@ -52,7 +52,7 @@ final class DecideAnalysisRoute {
   Future<bool> _isOnlinePipelineLive() async {
     final result = await _usageRepository.syncUsage();
     return switch (result) {
-      Ok(:final value) => value.azureOcrEnabled,
+      Ok(:final value) => value.onlineOcrEnabled,
       Err() => false,
     };
   }

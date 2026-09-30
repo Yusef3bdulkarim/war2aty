@@ -25,12 +25,11 @@ const String kOcrDocumentPath = '/ocr-document';
 /// PRIVACY: [analyze] carries OCR text and candidates only — no image, no
 /// thumbnail, no EXIF, no GPS. `AnalysisRequestDto` has no field that could
 /// hold one (§7), which is what makes that guarantee structural rather than a
-/// promise this class has to keep. [analyzeImage] and [ocrImage] are the
-/// deliberate exceptions (F13 locked decisions, §29b; F14) — they exist
-/// specifically to send the image, gated server-side behind
-/// `azureOcrEnabled`. [ocrImage] stops at OCR text and candidates and never
-/// reaches Groq (F14's two-call split, `ocr-document` then `analyze-document`
-/// text path).
+/// promise this class has to keep. [ocrImage] is the deliberate exception
+/// (F13 locked decisions, §29b; F14) — it exists specifically to send the
+/// image, gated server-side behind `onlineOcrEnabled`, and stops at OCR text
+/// and candidates without ever reaching an analysis (F14's two-call split,
+/// `ocr-document` then `analyze-document` text path).
 final class EdgeFunctionAnalysisRemoteDataSource
     implements AnalysisRemoteDataSource {
   const EdgeFunctionAnalysisRemoteDataSource(this._dio);
@@ -52,21 +51,6 @@ final class EdgeFunctionAnalysisRemoteDataSource
       // Whatever came back. Not assumed to be a JSON object: a gateway can
       // answer with an HTML error page (§31 rule 4), and the repository is
       // built to expect that.
-      body: response.data,
-    );
-  }
-
-  @override
-  Future<AnalysisApiResponse> analyzeImage(
-    AnalysisImageRequestDto request,
-  ) async {
-    final response = await _dio.post<dynamic>(
-      kAnalyzeDocumentPath,
-      data: request.toJson(),
-    );
-
-    return AnalysisApiResponse(
-      statusCode: response.statusCode ?? 0,
       body: response.data,
     );
   }

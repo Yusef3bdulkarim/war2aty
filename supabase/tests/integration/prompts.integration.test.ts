@@ -16,10 +16,7 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
-import {
-  DEFAULT_GROQ_MODEL,
-  GROQ_BASE_URL,
-} from "../../functions/_shared/ai/groq-config.ts";
+import { DEFAULT_GROQ_MODEL, GROQ_BASE_URL } from "../../functions/_shared/ai/groq-config.ts";
 import {
   buildAnalysisMessages,
   type ExtractedCandidates,
@@ -42,7 +39,6 @@ function client() {
     baseUrl: GROQ_BASE_URL,
     apiKey: apiKey!,
     model,
-    timeoutSeconds: 25,
   });
 }
 
@@ -56,6 +52,7 @@ Deno.test({
   ignore: skip,
   fn: async () => {
     const completion = await client()({
+      signal: AbortSignal.timeout(25_000),
       messages: buildAnalysisMessages({
         ocrText: [
           "شركة جنوب القاهرة لتوزيع الكهرباء",
@@ -91,6 +88,7 @@ Deno.test({
     // A paper printed with an instruction aimed at the model. This is not
     // hypothetical: anyone can print a sentence and photograph it.
     const completion = await client()({
+      signal: AbortSignal.timeout(25_000),
       messages: buildAnalysisMessages({
         ocrText: [
           "فاتورة كهرباء",

@@ -294,8 +294,7 @@ void main() {
     ) async {
       final cropper = await pumpAndCapture(tester, detected: quad);
 
-      // The guide is drawn on the page, but the file keeps the whole frame —
-      // `doclens` does the real edge-detect/dewarp on it afterwards.
+      // The guide is drawn on the page, but the file keeps the whole frame.
       expect(cropper.lastRegion, UnitRect.full);
     });
 

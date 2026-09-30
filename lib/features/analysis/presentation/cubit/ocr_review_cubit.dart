@@ -2,13 +2,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/storage/analysis_session.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../ocr/domain/entities/extraction_result.dart';
 import '../../../ocr/domain/entities/ocr_result.dart';
 import '../../../ocr/domain/usecases/extract_candidates.dart';
+import '../../../ocr/domain/usecases/extract_document_text.dart';
 import '../../domain/entities/analysis_image_request.dart';
 import '../../domain/usecases/ocr_image.dart';
+import '../../domain/usecases/should_fall_back_to_on_device_ocr.dart';
 import '../image_analysis_session_holder.dart';
 import 'ocr_review_state.dart';
 
@@ -16,7 +19,7 @@ import 'ocr_review_state.dart';
 /// offline) and Groq analysis.
 ///
 /// Two construction paths:
-/// - **Online** (default constructor): takes a [CapturedPhoto], runs Azure OCR
+/// - **Online** (default constructor): takes a [CapturedPhoto], runs the online reading
 ///   via [OcrImage], checks consent via [GetAnalysisConsent]. Caller invokes
 ///   [runOcr] on mount.
 /// - **Offline** ([OcrReviewCubit.offline]): the Tesseract OCR already ran on
@@ -28,12 +31,15 @@ import 'ocr_review_state.dart';
 /// - [GetAnalysisConsent] — same F11-T02 gate [AnalysisResultCubit] checks,
 ///   run here too since this is now the first thing that sends data off the
 ///   phone on the online route.
-/// - [OcrImage] — runs Azure OCR + extractors, stops short of Groq.
+/// - [OcrImage] — runs the online reading + extractors, stops short of analysis.
+/// - [ExtractDocumentText] — reads the photo on the device when the online
+///   reading fails with a failure [shouldFallBackToOnDeviceOcr] allows
+///   (F20-T22). Never on any other failure: that one is shown as it is.
 /// - [ExtractCandidates] — reruns normalization + all five extractors on the
 ///   user's *approved* text, so Groq never receives a candidate that does not
 ///   match what the user actually reviewed (locked correction #1).
 final class OcrReviewCubit extends Cubit<OcrReviewState> {
-  /// Online path: Azure OCR runs inside this cubit.
+  /// Online path: the online reading runs inside this cubit.
   OcrReviewCubit({
     required AnalysisSession session,
     required CapturedPhoto photo,
@@ -41,12 +47,14 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     required ExtractCandidates extractCandidates,
     required GetAnalysisConsent getAnalysisConsent,
     required ImageAnalysisSessionHolder imageHolder,
+    required ExtractDocumentText extractDocumentText,
   }) : _session = session,
        _photo = photo,
        _ocrImage = ocrImage,
        _extractCandidates = extractCandidates,
        _getAnalysisConsent = getAnalysisConsent,
        _imageHolder = imageHolder,
+       _extractDocumentText = extractDocumentText,
        super(const OcrReviewLoading());
 
   /// Offline path: Tesseract OCR already finished on [OcrProcessingScreen].
@@ -59,6 +67,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
        _extractCandidates = extractCandidates,
        _getAnalysisConsent = null,
        _imageHolder = null,
+       _extractDocumentText = null,
        super(const OcrReviewLoading());
 
   final AnalysisSession _session;
@@ -67,6 +76,12 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   final ExtractCandidates _extractCandidates;
   final GetAnalysisConsent? _getAnalysisConsent;
   final ImageAnalysisSessionHolder? _imageHolder;
+  final ExtractDocumentText? _extractDocumentText;
+
+  /// The current request's token (F20 §4). Each [runOcr] takes a new one and
+  /// [cancelPending] moves it on, so an answer to any earlier request is
+  /// recognisably stale when it lands.
+  int _generation = 0;
 
   /// Calls the ocr-document endpoint. Called once when the screen mounts
   /// (online path only).
@@ -75,20 +90,27 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   /// disk through [OcrReviewReady]/[OcrReviewPoorQuality]/[OcrReviewFailed]
   /// so the user can view it during review (F14 image lifecycle). Cleanup is
   /// explicit, via [cleanupImage] or [close].
+  ///
+  /// Every `await` is followed by a staleness check: a request the user left
+  /// behind (Retake, Pick another, Back, or a newer [runOcr]) never emits.
   Future<void> runOcr() async {
     if (isClosed) return;
+    final generation = ++_generation;
     emit(const OcrReviewLoading());
 
     // Same gate `AnalysisResultCubit.analyze` checks (F11-T02) — this screen
     // is now the first place the online route sends anything off the phone,
     // so the consent check moves here rather than staying only on /result.
     final consent = _getAnalysisConsent;
-    if (consent != null && !await consent()) {
-      if (isClosed) return;
-      emit(const OcrReviewFailed(AnalysisConsentDeclinedFailure()));
-      return;
+    if (consent != null) {
+      final allowed = await consent();
+      // Left behind while consent was read: nothing is sent at all.
+      if (_isStale(generation)) return;
+      if (!allowed) {
+        emit(const OcrReviewFailed(AnalysisConsentDeclinedFailure()));
+        return;
+      }
     }
-    if (isClosed) return;
 
     final photo = _photo;
     final ocrImage = _ocrImage;
@@ -102,10 +124,63 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     final result = await ocrImage(
       AnalysisImageRequest(sessionId: _session.id, photo: photo),
     );
-    if (isClosed) return;
+    // A stale answer is discarded whatever it says — success or failure —
+    // so a stale failure never starts the on-device reading either (O16).
+    if (_isStale(generation)) return;
 
-    emit(result.when(ok: _readyOrPoorQuality, err: OcrReviewFailed.new));
+    switch (result) {
+      case Ok(:final value):
+        emit(_readyOrPoorQuality(value, OcrReadMode.online));
+      case Err(:final failure) when shouldFallBackToOnDeviceOcr(failure):
+        await _readOnDevice(photo, failure, generation);
+      case Err(:final failure):
+        emit(OcrReviewFailed(failure));
+    }
   }
+
+  /// The explicit fallback (F20 §1, O3–O5, O7, O10): reads [photo] on the
+  /// device, then extracts candidates from that text as the offline route
+  /// does.
+  ///
+  /// When the device cannot read the page either (O14), the user sees the
+  /// [onlineFailure] that started this — the reason the online reading
+  /// failed is the one they can act on, not the fallback's. Too little text
+  /// (O15) is the same poor-quality outcome an online empty reading gets.
+  Future<void> _readOnDevice(
+    CapturedPhoto photo,
+    AppFailure onlineFailure,
+    int generation,
+  ) async {
+    final extractText = _extractDocumentText;
+    if (extractText == null) {
+      // Only the offline constructor leaves this null, and it never runs
+      // [runOcr]. Guard rather than crash (CLAUDE.md §A3).
+      emit(OcrReviewFailed(onlineFailure));
+      return;
+    }
+
+    final read = await extractText(photo.path);
+    // Left behind while the device was reading: discard it (O16).
+    if (_isStale(generation)) return;
+
+    emit(switch (read) {
+      Ok(:final value) => _readyOrPoorQuality(
+        _extractCandidates(value),
+        OcrReadMode.onlineFallback,
+      ),
+      Err(failure: NoTextDetectedFailure()) => OcrReviewPoorQuality(
+        imagePath: photo.path,
+      ),
+      Err() => OcrReviewFailed(onlineFailure),
+    });
+  }
+
+  /// Leaves any request in flight behind: its answer is discarded when it
+  /// lands (F20 §4). Called by [cleanupImage] and [close], which every exit
+  /// — Retake, Pick another, Analyze, Back — goes through.
+  void cancelPending() => _generation++;
+
+  bool _isStale(int generation) => isClosed || generation != _generation;
 
   /// Loads an already-completed offline [ExtractionResult] directly into the
   /// review state. Called once when the screen mounts (offline path only).
@@ -123,12 +198,15 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
         serverCandidates: result,
         detectedLanguages: result.detectedLanguages,
         imagePath: _session.imagePath,
-        isOffline: true,
+        readMode: OcrReadMode.offline,
       ),
     );
   }
 
-  OcrReviewState _readyOrPoorQuality(ExtractionResult extraction) {
+  OcrReviewState _readyOrPoorQuality(
+    ExtractionResult extraction,
+    OcrReadMode readMode,
+  ) {
     final text = extraction.text.cleanedText;
     if (text.trim().isEmpty) {
       return OcrReviewPoorQuality(imagePath: _photo?.path);
@@ -139,6 +217,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
       serverCandidates: extraction,
       detectedLanguages: extraction.detectedLanguages,
       imagePath: _photo?.path,
+      readMode: readMode,
     );
   }
 
@@ -154,7 +233,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
         serverCandidates: current.serverCandidates,
         detectedLanguages: current.detectedLanguages,
         imagePath: current.imagePath,
-        isOffline: current.isOffline,
+        readMode: current.readMode,
       ),
     );
   }
@@ -164,7 +243,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   ///
   /// Re-runs [ExtractCandidates] on [OcrReviewReady.reviewedOcrText] rather
   /// than reusing [OcrReviewReady.serverCandidates] — those were extracted
-  /// from Azure's original text and would go stale the moment the user edits
+  /// from the server's original text and would go stale the moment the user edits
   /// a date or amount (locked correction #1).
   ///
   /// Only ever called from the Analyze button, which only exists in
@@ -186,9 +265,14 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   /// Deletes the temp corrected image. Called explicitly before leaving the
   /// screen on every exit path — analyze, retake, pick another.
   ///
-  /// A no-op on the offline path where [_imageHolder] is `null` — the offline
-  /// image lifecycle is managed by the caller, not this cubit.
+  /// Cancels any pending request first: the file is about to go, and nothing
+  /// may act on it — or emit over the screen being left — afterwards.
+  ///
+  /// The deletion is a no-op on the offline path where [_imageHolder] is
+  /// `null` — the offline image lifecycle is managed by the caller, not this
+  /// cubit.
   void cleanupImage() {
+    cancelPending();
     _imageHolder?.clear();
   }
 
@@ -198,6 +282,7 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     // the app is killed mid-review. `clear()` is idempotent, so this is a
     // no-op when [cleanupImage] already ran (privacy §7 — no temp copy may
     // outlive the flow that created it).
+    cancelPending();
     _imageHolder?.clear();
     return super.close();
   }

@@ -4,7 +4,10 @@
 
 import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
 
-import { ApiError } from "../../functions/_shared/errors/api-error.ts";
+import {
+  isFallbackEligible,
+  ProviderFailure,
+} from "../../functions/_shared/ai/provider-failure.ts";
 import type {
   ChatClient,
   ChatCompletionRequest,
@@ -47,6 +50,9 @@ function fakeClient(content: string) {
   return { client, requests };
 }
 
+/** A signal that never fires, for tests that are not about time. */
+const OPEN_SIGNAL = new AbortController().signal;
+
 function providerReturning(value: unknown) {
   const { client, requests } = fakeClient(JSON.stringify(value));
   return { provider: createAnalysisProvider({ client }), requests };
@@ -65,7 +71,7 @@ Deno.test("the call is constrained by the json schema", () => {
 Deno.test("the provider sends the schema and a zero temperature", async () => {
   const { provider, requests } = providerReturning(VALID);
 
-  await provider(INPUT);
+  await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(requests[0].responseFormat, ANALYSIS_RESPONSE_FORMAT);
   assertEquals(requests[0].temperature, 0);
@@ -75,27 +81,36 @@ Deno.test("the provider bounds the output length", async () => {
   // An unbounded budget lets a looping model burn the entire timeout.
   const { provider, requests } = providerReturning(VALID);
 
-  await provider(INPUT);
+  await provider(INPUT, OPEN_SIGNAL);
 
   assert((requests[0].maxTokens ?? 0) > 0);
 });
 
-Deno.test("the provider caps reasoning effort", async () => {
-  // openai/gpt-oss-120b spends part of maxTokens on an internal reasoning
-  // trace before writing the answer; left at the default effort this was
-  // measured consuming 1,100-1,300 tokens on an ordinary document, regularly
-  // crowding out the JSON answer itself. "low" is required, not incidental.
-  const { provider, requests } = providerReturning(VALID);
+Deno.test("the provider sends the reasoning effort it is built with", async () => {
+  // Groq's gpt-oss models need "low" (GROQ_REASONING_EFFORT); the leg must pass
+  // on whatever it was given, unchanged.
+  const { client, requests } = fakeClient(JSON.stringify(VALID));
+  const provider = createAnalysisProvider({ client, reasoningEffort: "low" });
 
-  await provider(INPUT);
+  await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(requests[0].reasoningEffort, "low");
+});
+
+Deno.test("no reasoning effort is sent unless one is given", async () => {
+  // F20-T06: Mistral takes no such parameter. A default here would reach
+  // every provider unasked, and a rejected field is a 4xx that never falls back.
+  const { provider, requests } = providerReturning(VALID);
+
+  await provider(INPUT, OPEN_SIGNAL);
+
+  assertEquals(requests[0].reasoningEffort, undefined);
 });
 
 Deno.test("the provider sends the built prompt messages", async () => {
   const { provider, requests } = providerReturning(VALID);
 
-  await provider(INPUT);
+  await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(requests[0].messages.length, 2);
   assertEquals(requests[0].messages[0].role, "system");
@@ -207,19 +222,19 @@ Deno.test("the enums match API_CONTRACT §30", () => {
 Deno.test("a valid answer is returned as-is", async () => {
   const { provider } = providerReturning(VALID);
 
-  const result = await provider(INPUT);
+  const result = await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(result.status, "success");
   assertEquals(result.document_type.title, "فاتورة كهرباء");
 });
 
-Deno.test("unparseable content becomes ANALYSIS_FAILED", async () => {
+Deno.test("unparseable content is invalid_output", async () => {
   const { client } = fakeClient("not json at all");
   const provider = createAnalysisProvider({ client });
 
-  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+  const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
 
-  assertEquals((thrown as ApiError).code, "ANALYSIS_FAILED");
+  assertEquals((thrown as ProviderFailure).kind, "invalid_output");
 });
 
 Deno.test("the failure never quotes the model output", async () => {
@@ -227,8 +242,8 @@ Deno.test("the failure never quotes the model output", async () => {
   const { client } = fakeClient("broken: مبلغ 850 جنيه حساب 12345678");
   const provider = createAnalysisProvider({ client });
 
-  const thrown = await assertRejects(() => provider(INPUT), ApiError);
-  const message = (thrown as ApiError).message;
+  const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
+  const message = (thrown as ProviderFailure).message;
 
   assert(!message.includes("850"));
   assert(!message.includes("12345678"));
@@ -252,10 +267,10 @@ Deno.test("a wrong shape is rejected rather than passed to the device", async ()
 
   for (const value of malformed) {
     const { provider } = providerReturning(value);
-    const thrown = await assertRejects(() => provider(INPUT), ApiError);
+    const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
     assertEquals(
-      (thrown as ApiError).code,
-      "ANALYSIS_FAILED",
+      (thrown as ProviderFailure).kind,
+      "invalid_output",
       `should reject ${JSON.stringify(value)?.slice(0, 60)}`,
     );
   }
@@ -280,8 +295,8 @@ Deno.test("a missing collection is rejected", async () => {
     delete value[key];
 
     const { provider } = providerReturning(value);
-    const thrown = await assertRejects(() => provider(INPUT), ApiError);
-    assertEquals((thrown as ApiError).code, "ANALYSIS_FAILED", `missing ${key}`);
+    const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
+    assertEquals((thrown as ProviderFailure).kind, "invalid_output", `missing ${key}`);
   }
 });
 
@@ -289,7 +304,7 @@ Deno.test("empty collections are accepted", async () => {
   // A document with no dates or amounts is perfectly valid.
   const { provider } = providerReturning(VALID);
 
-  const result = await provider(INPUT);
+  const result = await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(result.dates, []);
   assertEquals(result.amounts, []);
@@ -303,33 +318,95 @@ Deno.test("an unsupported document is a normal answer, not an error", async () =
     missing_fields: ["everything"],
   });
 
-  const result = await provider(INPUT);
+  const result = await provider(INPUT, OPEN_SIGNAL);
 
   assertEquals(result.status, "unsupported");
 });
 
-// ── the parser's failures are NOT provider faults (F18-T05) ───────────────
-// A well-formed 200 whose JSON is unusable is the model's considered answer
-// about a damaged document, not a provider failing to answer. Marking these
-// would make the chain call a second provider for a case the other model will
-// usually fail too, doubling the user's wait to learn the same thing.
+// ── the parser's failures are fallback-eligible (F20 matrix row A5) ─────
+// F18 treated unusable JSON as the model's considered verdict and never asked a
+// second provider. F20 reverses that: a different model may well produce a
+// valid answer where this one did not, and the fallback is cheap next to
+// failing the user's analysis outright.
 
-Deno.test("unparseable content is not a provider fault", async () => {
+Deno.test("unparseable content may fall back", async () => {
   const { client } = fakeClient("not json at all");
   const provider = createAnalysisProvider({ client });
 
-  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+  const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
 
-  assertEquals((thrown as ApiError).code, "ANALYSIS_FAILED");
-  assertEquals((thrown as ApiError).providerFault, false);
+  assert(isFallbackEligible((thrown as ProviderFailure).kind));
 });
 
-Deno.test("a wrong-shaped answer is not a provider fault", async () => {
+Deno.test("a wrong-shaped answer may fall back", async () => {
   // Valid JSON, valid HTTP, wrong object — exactly what `assertModelAnalysis`
-  // exists to catch, and exactly what must not trigger a second call.
+  // exists to catch.
   const { provider } = providerReturning({ status: "success" });
 
-  const thrown = await assertRejects(() => provider(INPUT), ApiError);
+  const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
 
-  assertEquals((thrown as ApiError).providerFault, false);
+  assert(isFallbackEligible((thrown as ProviderFailure).kind));
+});
+
+// ── semantic validation runs inside the attempt (F20-T06, §3) ─────────────
+
+Deno.test("a well-shaped answer in English is invalid_output and may fall back", async () => {
+  // Passes `assertModelAnalysis`; fails S2. Another model may answer in Arabic.
+  const { provider } = providerReturning({
+    ...VALID,
+    document_type: { type: "invoice", title: "Electricity bill", confidence: "high" },
+    summary: {
+      short: "An electricity bill of 850.50 EGP.",
+      detailed: "This is an electricity bill; the amount due is 850.50 EGP.",
+    },
+  });
+
+  const thrown = await assertRejects(() => provider(INPUT, OPEN_SIGNAL), ProviderFailure);
+
+  assertEquals((thrown as ProviderFailure).kind, "invalid_output");
+  assert(isFallbackEligible((thrown as ProviderFailure).kind));
+});
+
+Deno.test("the semantic check is run against this request's own OCR text", async () => {
+  // S4 needs the input the leg was given: a summary that echoes it is rejected.
+  const page = "يرجى الحضور إلى مكتب السجل المدني بالعباسية يوم الأحد الموافق 2026/10/04 " +
+    "ومعكم أصل شهادة الميلاد وصورة البطاقة الشخصية";
+  const { provider } = providerReturning({
+    ...VALID,
+    summary: { short: "ورقة من السجل المدني.", detailed: page },
+  });
+
+  const thrown = await assertRejects(
+    () => provider({ ...INPUT, ocrText: page }, OPEN_SIGNAL),
+    ProviderFailure,
+  );
+
+  assertEquals((thrown as ProviderFailure).kind, "invalid_output");
+});
+
+Deno.test("the same answer passes when it does not echo the input", async () => {
+  // The control for the test above: only the OCR text differs.
+  const page = "يرجى الحضور إلى مكتب السجل المدني بالعباسية يوم الأحد الموافق 2026/10/04 " +
+    "ومعكم أصل شهادة الميلاد وصورة البطاقة الشخصية";
+  const { provider } = providerReturning({
+    ...VALID,
+    summary: { short: "ورقة من السجل المدني.", detailed: page },
+  });
+
+  const result = await provider(INPUT, OPEN_SIGNAL);
+
+  assertEquals(result.summary.detailed, page);
+});
+
+// ── the signal ────────────────────────────────────────────────────────────
+
+Deno.test("the leg forwards the signal it is given to the transport", async () => {
+  // The leg never picks its own timeout: one request-wide budget governs every
+  // attempt (timeout contract §2).
+  const { provider, requests } = providerReturning(VALID);
+  const controller = new AbortController();
+
+  await provider(INPUT, controller.signal);
+
+  assertEquals(requests[0].signal, controller.signal);
 });

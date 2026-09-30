@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/analysis_consent_store.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
@@ -17,6 +19,8 @@ import 'package:war2aty/features/ocr/domain/entities/amount_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/date_candidate.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
+import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
+import 'package:war2aty/features/ocr/domain/repositories/ocr_repository.dart';
 import 'package:war2aty/features/ocr/domain/services/amount_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/date_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/phone_extractor.dart';
@@ -24,6 +28,7 @@ import 'package:war2aty/features/ocr/domain/services/reference_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/text_normalizer.dart';
 import 'package:war2aty/features/ocr/domain/services/time_extractor.dart';
 import 'package:war2aty/features/ocr/domain/usecases/extract_candidates.dart';
+import 'package:war2aty/features/ocr/domain/usecases/extract_document_text.dart';
 
 const _session = AnalysisSession(id: 'session-1', imagePath: '/tmp/paper.jpg');
 const _photo = CapturedPhoto('/tmp/corrected.jpg');
@@ -38,12 +43,48 @@ const _serverExtraction = ExtractionResult(
   amounts: [AmountCandidate(rawText: '850 جنيه', value: 850, currency: 'EGP')],
 );
 
-/// Records what it was asked, answers what it was told to. [analyze] and
-/// [analyzeImage] are never exercised by [OcrReviewCubit] — they throw if
-/// hit, so a wiring regression fails loudly instead of silently.
+/// An answer that belongs to a request the user already left behind.
+const _staleExtraction = ExtractionResult(
+  text: NormalizedOcrText(
+    originalText: 'نص قديم من طلب سابق',
+    cleanedText: 'نص قديم من طلب سابق',
+  ),
+);
+
+/// What the on-device reader finds on the page in the fallback tests.
+const _deviceText = 'فاتورة كهرباء المبلغ 850 جنيه';
+
+/// The on-device reader (Tesseract, behind [OcrRepository]). Records every
+/// path it was asked to read; with [gate] set, the read waits for it.
+final class _FakeDeviceOcr implements OcrRepository {
+  Result<OcrResult, AppFailure> answer = const Ok(
+    OcrResult(originalText: _deviceText),
+  );
+  Completer<void>? gate;
+  final List<String> readPaths = [];
+
+  @override
+  Future<Result<OcrResult, AppFailure>> recognizeText(String imagePath) async {
+    readPaths.add(imagePath);
+    await gate?.future;
+    return answer;
+  }
+}
+
+/// One trip round the event loop, so every pending microtask has run.
+Future<void> _settle() => Future<void>.delayed(Duration.zero);
+
+/// Records what it was asked, answers what it was told to. [analyze] is
+/// never exercised by [OcrReviewCubit] — it throws if hit, so a wiring
+/// regression fails loudly instead of silently.
+///
+/// With [hold] set, each call parks on its own completer in [pending] until
+/// the test answers it — so the order answers land in is the test's choice.
 final class _FakeAnalysisRepository implements AnalysisRepository {
   Result<ExtractionResult, AppFailure>? ocrAnswer;
   final List<AnalysisImageRequest> ocrRequests = [];
+  bool hold = false;
+  final List<Completer<Result<ExtractionResult, AppFailure>>> pending = [];
 
   @override
   Future<Result<DocumentAnalysis, AppFailure>> analyze(
@@ -51,15 +92,15 @@ final class _FakeAnalysisRepository implements AnalysisRepository {
   ) => throw UnimplementedError('OcrReviewCubit never calls analyze');
 
   @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) => throw UnimplementedError('OcrReviewCubit never calls analyzeImage');
-
-  @override
   Future<Result<ExtractionResult, AppFailure>> ocrImage(
     AnalysisImageRequest request,
   ) async {
     ocrRequests.add(request);
+    if (hold) {
+      final answer = Completer<Result<ExtractionResult, AppFailure>>();
+      pending.add(answer);
+      return answer.future;
+    }
     return ocrAnswer ?? const Ok(_serverExtraction);
   }
 }
@@ -69,9 +110,11 @@ void main() {
   late AnalysisConsentStore consentStore;
   late ImageAnalysisSessionHolder imageHolder;
   late ExtractCandidates extractCandidates;
+  late _FakeDeviceOcr deviceOcr;
 
   setUp(() {
     repository = _FakeAnalysisRepository();
+    deviceOcr = _FakeDeviceOcr();
     consentStore = _FakeConsentStore();
     imageHolder = ImageAnalysisSessionHolder()..set(_session, _photo);
     extractCandidates = ExtractCandidates(
@@ -91,6 +134,7 @@ void main() {
     extractCandidates: extractCandidates,
     getAnalysisConsent: GetAnalysisConsent(consentStore),
     imageHolder: imageHolder,
+    extractDocumentText: ExtractDocumentText(deviceOcr),
   );
 
   group('OcrReviewCubit', () {
@@ -120,6 +164,8 @@ void main() {
         expect(ready.serverCandidates, _serverExtraction);
         expect(ready.detectedLanguages, ['ar']);
         expect(ready.imagePath, _photo.path);
+        expect(ready.readMode, OcrReadMode.online);
+        expect(deviceOcr.readPaths, isEmpty);
         expect(repository.ocrRequests.single.sessionId, 'session-1');
         expect(repository.ocrRequests.single.photo, _photo);
         await cubit.close();
@@ -270,17 +316,331 @@ void main() {
       expect(cubit.state, isA<OcrReviewLoading>());
     });
   });
+
+  group('on-device fallback (F20 §1, layer 1)', () {
+    // O3, O4, O5/O10, O7: the online reading failed for a reason the device
+    // can work around.
+    final fallsBack = <String, AppFailure>{
+      'O3 rate limited': const AiProviderRateLimitFailure(),
+      'O4/O7 timeout': const RequestTimeoutFailure(),
+      'O5/O10 online reading unavailable': const OnlineOcrUnavailableFailure(),
+      'O7 offline': const NoInternetFailure(),
+    };
+
+    for (final MapEntry(key: row, value: failure) in fallsBack.entries) {
+      test('$row: reads the photo on the device instead', () async {
+        repository.ocrAnswer = Err(failure);
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(deviceOcr.readPaths, [_photo.path]);
+        final ready = cubit.state as OcrReviewReady;
+        // Normalised exactly as the offline route normalises device text.
+        final expected = extractCandidates(
+          const OcrResult(originalText: _deviceText),
+        ).text.cleanedText;
+        expect(ready.readMode, OcrReadMode.onlineFallback);
+        expect(ready.originalOcrText, expected);
+        expect(ready.reviewedOcrText, expected);
+        expect(ready.imagePath, _photo.path);
+        // Candidates come from the device text, as on the offline route.
+        expect(ready.serverCandidates.amounts.single.value, 850);
+        await cubit.close();
+      });
+    }
+
+    // O6/O11 deploy fault, O9 session, O12 refusals, O13 broken contract:
+    // shown as they are, and the device never reads anything.
+    final noFallback = <String, AppFailure>{
+      'O6/O11 service fault': const AnalysisServiceFailure(),
+      'O9 unauthorized': const UnauthorizedFailure(),
+      'O12 analysis disabled': const AnalysisDisabledFailure(),
+      'O12 app too old': const UnsupportedAppVersionFailure(),
+      'O12 invalid request': const InvalidRequestFailure(),
+      'O13 broken response': const InvalidAnalysisResponseFailure(),
+      'unreadable photo': const ImageProcessingFailure(),
+    };
+
+    for (final MapEntry(key: row, value: failure) in noFallback.entries) {
+      test('$row: fails without reading on the device', () async {
+        repository.ocrAnswer = Err(failure);
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(cubit.state, OcrReviewFailed(failure));
+        expect(deviceOcr.readPaths, isEmpty);
+        await cubit.close();
+      });
+    }
+
+    test(
+      'O2: an empty online reading is poor quality, not a fallback',
+      () async {
+        repository.ocrAnswer = const Ok(
+          ExtractionResult(
+            text: NormalizedOcrText(originalText: '', cleanedText: ''),
+          ),
+        );
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(
+          cubit.state,
+          const OcrReviewPoorQuality(imagePath: '/tmp/corrected.jpg'),
+        );
+        expect(deviceOcr.readPaths, isEmpty);
+        await cubit.close();
+      },
+    );
+
+    test('O8: a declined consent never reads on the device', () async {
+      consentStore = _FakeConsentStore(false);
+      final cubit = buildCubit();
+
+      await cubit.runOcr();
+
+      expect(
+        cubit.state,
+        const OcrReviewFailed(AnalysisConsentDeclinedFailure()),
+      );
+      expect(repository.ocrRequests, isEmpty);
+      expect(deviceOcr.readPaths, isEmpty);
+      await cubit.close();
+    });
+
+    test(
+      'O14: when the device fails too, the online failure is shown',
+      () async {
+        repository.ocrAnswer = const Err(OnlineOcrUnavailableFailure());
+        deviceOcr.answer = const Err(OcrFailure());
+        final cubit = buildCubit();
+
+        await cubit.runOcr();
+
+        expect(deviceOcr.readPaths, [_photo.path]);
+        expect(
+          cubit.state,
+          const OcrReviewFailed(OnlineOcrUnavailableFailure()),
+        );
+        await cubit.close();
+      },
+    );
+
+    test('O15: too little text on the device is poor quality', () async {
+      repository.ocrAnswer = const Err(RequestTimeoutFailure());
+      deviceOcr.answer = const Ok(OcrResult(originalText: '  ؟  '));
+      final cubit = buildCubit();
+
+      await cubit.runOcr();
+
+      expect(
+        cubit.state,
+        const OcrReviewPoorQuality(imagePath: '/tmp/corrected.jpg'),
+      );
+      await cubit.close();
+    });
+
+    test('O16: a stale failure never starts the device reading', () async {
+      repository
+        ..hold = true
+        ..ocrAnswer = null;
+      final cubit = buildCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+      cubit.cleanupImage();
+      repository.pending.single.complete(const Err(NoInternetFailure()));
+      await run;
+
+      expect(deviceOcr.readPaths, isEmpty);
+      expect(cubit.state, isA<OcrReviewLoading>());
+      await cubit.close();
+    });
+
+    test('O16: a device reading left behind is discarded', () async {
+      repository.ocrAnswer = const Err(AiProviderRateLimitFailure());
+      deviceOcr.gate = Completer<void>();
+      final cubit = buildCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+      expect(deviceOcr.readPaths, [_photo.path]);
+
+      cubit.cleanupImage();
+      deviceOcr.gate!.complete();
+      await run;
+
+      expect(cubit.state, isA<OcrReviewLoading>());
+      await cubit.close();
+    });
+
+    test('the offline route reports its own read mode', () async {
+      final cubit = OcrReviewCubit.offline(
+        session: _session,
+        extractCandidates: extractCandidates,
+      )..loadOffline(_serverExtraction);
+
+      expect((cubit.state as OcrReviewReady).readMode, OcrReadMode.offline);
+      expect(deviceOcr.readPaths, isEmpty);
+      await cubit.close();
+    });
+
+    test('the fallback review keeps its read mode through edits', () async {
+      repository.ocrAnswer = const Err(NoInternetFailure());
+      final cubit = buildCubit();
+      await cubit.runOcr();
+
+      cubit.updateOcrText('نص معدّل');
+
+      expect(
+        (cubit.state as OcrReviewReady).readMode,
+        OcrReadMode.onlineFallback,
+      );
+      await cubit.close();
+    });
+  });
+
+  group('stale requests (F20 §4)', () {
+    late List<OcrReviewState> emitted;
+    late StreamSubscription<OcrReviewState> subscription;
+
+    OcrReviewCubit watchedCubit() {
+      final cubit = buildCubit();
+      emitted = [];
+      subscription = cubit.stream.listen(emitted.add);
+      return cubit;
+    }
+
+    tearDown(() => subscription.cancel());
+
+    test('Retake mid-flight: the late answer is discarded', () async {
+      repository.hold = true;
+      final cubit = watchedCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+      expect(repository.pending, hasLength(1));
+
+      // What the Retake / Pick-another handlers call before navigating.
+      cubit.cleanupImage();
+      repository.pending.single.complete(const Ok(_serverExtraction));
+      await run;
+
+      expect(cubit.state, isA<OcrReviewLoading>());
+      await _settle();
+      expect(emitted, everyElement(isA<OcrReviewLoading>()));
+      expect(imageHolder.photo, isNull);
+      await cubit.close();
+    });
+
+    test('Retake during the consent check: nothing is sent', () async {
+      final store = _FakeConsentStore()..gate = Completer<void>();
+      consentStore = store;
+      final cubit = watchedCubit();
+
+      final run = cubit.runOcr();
+      await _settle();
+
+      cubit.cleanupImage();
+      store.gate!.complete();
+      await run;
+
+      expect(repository.ocrRequests, isEmpty);
+      await _settle();
+      expect(emitted, everyElement(isA<OcrReviewLoading>()));
+      await cubit.close();
+    });
+
+    test('double retry: only the newest request may emit', () async {
+      repository.hold = true;
+      final cubit = watchedCubit();
+
+      final first = cubit.runOcr();
+      await _settle();
+      final second = cubit.runOcr();
+      await _settle();
+      expect(repository.pending, hasLength(2));
+
+      // The older answer lands first — it must not pre-empt the newer one.
+      repository.pending[0].complete(const Ok(_staleExtraction));
+      await first;
+      expect(cubit.state, isA<OcrReviewLoading>());
+
+      repository.pending[1].complete(const Ok(_serverExtraction));
+      await second;
+
+      final ready = cubit.state as OcrReviewReady;
+      expect(ready.originalOcrText, _serverExtraction.text.cleanedText);
+      await _settle();
+      expect(emitted.whereType<OcrReviewReady>(), hasLength(1));
+      await cubit.close();
+    });
+
+    test('a late stale result never overwrites the current one', () async {
+      repository.hold = true;
+      final cubit = watchedCubit();
+
+      final first = cubit.runOcr();
+      await _settle();
+      final second = cubit.runOcr();
+      await _settle();
+
+      repository.pending[1].complete(const Ok(_serverExtraction));
+      await second;
+      expect(cubit.state, isA<OcrReviewReady>());
+
+      // The superseded request finally answers — with a failure, which would
+      // otherwise replace the review the user is already reading.
+      repository.pending[0].complete(const Err(OnlineOcrUnavailableFailure()));
+      await first;
+
+      final ready = cubit.state as OcrReviewReady;
+      expect(ready.originalOcrText, _serverExtraction.text.cleanedText);
+      await _settle();
+      expect(emitted.whereType<OcrReviewFailed>(), isEmpty);
+      await cubit.close();
+    });
+
+    test(
+      'close mid-call: the answer lands without emitting or throwing',
+      () async {
+        repository.hold = true;
+        final cubit = watchedCubit();
+
+        final run = cubit.runOcr();
+        await _settle();
+
+        await cubit.close();
+        repository.pending.single.complete(const Ok(_serverExtraction));
+
+        // An emit after close would throw a StateError out of this future.
+        await expectLater(run, completes);
+        await _settle();
+        expect(emitted, everyElement(isA<OcrReviewLoading>()));
+        expect(imageHolder.photo, isNull);
+      },
+    );
+  });
 }
 
 /// In-memory [AnalysisConsentStore] — `null`/`true` both mean "allowed"
 /// ([GetAnalysisConsent] defaults on), same as F11-T02's real store.
+///
+/// With [gate] set, the read waits for it, so a test can act mid-check.
 final class _FakeConsentStore implements AnalysisConsentStore {
   _FakeConsentStore([this._consent]);
 
   bool? _consent;
+  Completer<void>? gate;
 
   @override
-  Future<bool?> readConsent() async => _consent;
+  Future<bool?> readConsent() async {
+    await gate?.future;
+    return _consent;
+  }
 
   @override
   Future<void> writeConsent(bool consent) async => _consent = consent;

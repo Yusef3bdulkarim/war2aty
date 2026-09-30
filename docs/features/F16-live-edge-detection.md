@@ -17,6 +17,13 @@ real edges on the captured file and dewarps them (F15 locked decision #4).**
 The live detector therefore only has to be good enough to *aim the user*, not
 to be exact — nothing downstream trusts its numbers.
 
+> **Amended 2026-09-30:** `doclens` was removed entirely (F15 locked decision
+> #4, amended). It cropped blurry or sparse pages to an inner text block. The
+> camera keeps the whole frame (as since F16-T10) and the user's own crop on
+> the preview screen is the only crop. Everything below that calls `doclens`
+> the source of geometric truth is historical. The live detector is still
+> guidance only.
+
 ## Locked decisions
 
 Decisions 1–5 were resolved with the user in the session that opened this

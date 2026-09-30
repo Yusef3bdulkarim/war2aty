@@ -69,7 +69,6 @@ import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
-import 'package:war2aty/features/capture/domain/services/perspective_corrector.dart';
 import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
 
@@ -654,38 +653,6 @@ final class FakeConnectivityService implements ConnectivityService {
   }
 }
 
-/// Scriptable [PerspectiveCorrector] — no `doclens` plugin.
-///
-/// Defaults to handing the photo back untouched, as if no document-like quad
-/// was found. Set [output] to model a successful crop, or [fails] for the
-/// typed-failure path.
-final class FakePerspectiveCorrector implements PerspectiveCorrector {
-  FakePerspectiveCorrector({this.output, this.fails = false});
-
-  /// The corrected photo to return. `null` means "hand the input back
-  /// unchanged", mirroring the real corrector's no-quad-detected case.
-  CapturedPhoto? output;
-  bool fails;
-
-  /// When set, [correct] waits on it before returning — lets a test hold the
-  /// perspective-correct step in flight and interleave a close()/suspend()
-  /// with it.
-  Completer<void>? gate;
-
-  int correctCount = 0;
-  CapturedPhoto? lastPhoto;
-
-  @override
-  Future<Result<CapturedPhoto, AppFailure>> correct(CapturedPhoto photo) async {
-    correctCount++;
-    lastPhoto = photo;
-    final gate = this.gate;
-    if (gate != null) await gate.future;
-    if (fails) return const Err(ImageProcessingFailure());
-    return Ok(output ?? photo);
-  }
-}
-
 /// A [CameraPreviewPort] that paints a plain marker instead of a live feed, so
 /// the viewfinder can be widget-tested without a camera.
 final class FakeCameraPreview implements CameraPreviewPort {
@@ -760,7 +727,7 @@ final class FakeUsageRepository implements UsageRepository {
 DailyUsage usageWith({
   required int limit,
   required int remaining,
-  bool azureOcrEnabled = false,
+  bool onlineOcrEnabled = false,
 }) {
   final today = DateTime.utc(2026, 7, 22);
   return DailyUsage(
@@ -769,7 +736,7 @@ DailyUsage usageWith({
     usedCount: limit - remaining,
     remainingCount: remaining,
     resetsAt: today.add(const Duration(days: 1)),
-    azureOcrEnabled: azureOcrEnabled,
+    onlineOcrEnabled: onlineOcrEnabled,
   );
 }
 

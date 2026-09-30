@@ -106,15 +106,19 @@ final class ArStrings implements AppStrings {
   String get privacyTitle => 'خصوصيتك مهمة';
 
   @override
-  String get privacyPointExtractText => 'بنستخرج النص من الصورة علشان نحلله.';
+  String get privacyPointExtractText =>
+      'لما تكون متصل بالإنترنت، بنبعت صورة الورقة لخدمة خارجية تقرا النص منها. '
+      'إحنا مابنحفظش الصورة، لكن الخدمة دي ممكن تحتفظ بيها فترة، وممكن '
+      'يراجعها موظفين عندها لتحسين خدمتها. من غير إنترنت، الصورة بتتقري على '
+      'موبايلك بس.';
 
   @override
   String get privacyPointTextOnly =>
-      'بنبعت نص ورقتك مشفَّر لخدمة تحليل علشان نفهمه، ومانحفظش النص عندنا. '
-      'أما صورة الورقة، مانحفظهاش ومحدش بيشوفها.';
+      'بنبعت نص ورقتك مشفَّر لخدمة تحليل علشان نفهمه، ومانحفظش النص عندنا.';
 
   @override
-  String get privacyPointImageOptIn => 'الصورة مش هتتحفظ إلا بعد موافقتك.';
+  String get privacyPointImageOptIn =>
+      'الصورة مش هتتحفظ على موبايلك إلا بعد موافقتك.';
 
   @override
   String get privacyPointDeleteAnytime => 'تقدر تحذف بياناتك في أي وقت.';
@@ -139,7 +143,8 @@ final class ArStrings implements AppStrings {
   String get homePickImage => 'اختار صورة من الموبايل';
 
   @override
-  String get homeImagePrivacyNote => 'صورتك مش هتتحفظ إلا بعد موافقتك.';
+  String get homeImagePrivacyNote =>
+      'صورتك مش هتتحفظ على موبايلك إلا بعد موافقتك.';
 
   @override
   String homeUsageRemaining(int remaining) => switch (remaining) {
@@ -727,6 +732,10 @@ final class ArStrings implements AppStrings {
   @override
   String get ocrOfflineQualityWarning =>
       'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
+  @override
+  String get ocrOnlineFallbackWarning =>
+      'القراءة الأونلاين مش متاحة دلوقتي، فقرينا الورقة على موبايلك. '
+      'النتيجة ممكن تكون أقل دقة — راجع النص كويس قبل ما تكمل.';
   @override
   String get ocrListenToText => 'الاستماع للنص';
 

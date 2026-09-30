@@ -1,5 +1,5 @@
 /**
- * F13-T05 · Time candidate extraction (Azure text path).
+ * F13-T05 · Time candidate extraction (server side, over the online reading).
  *
  * TypeScript port of `lib/features/ocr/domain/services/time_extractor.dart`,
  * field-for-field.

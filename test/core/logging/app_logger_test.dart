@@ -131,16 +131,17 @@ void main() {
       const AnalysisServiceFailure(),
       const InvalidAnalysisResponseFailure(),
       const AiProviderRateLimitFailure(),
+      const OnlineOcrUnavailableFailure(),
       const UnsupportedDocumentFailure(),
       PartialAnalysisFailure(['x']),
       const AmbiguousDateFailure(),
       const MissingReminderTimeFailure(),
     ];
 
-    test('maps all 28 failures to distinct non-empty codes', () {
+    test('maps all 29 failures to distinct non-empty codes', () {
       final codes = all.map(errorCodeOf).toList();
-      expect(codes, hasLength(28));
-      expect(codes.toSet(), hasLength(28));
+      expect(codes, hasLength(29));
+      expect(codes.toSet(), hasLength(29));
       expect(codes.every((c) => c.isNotEmpty), isTrue);
     });
   });

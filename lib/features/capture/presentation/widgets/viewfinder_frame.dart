@@ -28,8 +28,8 @@ const Duration _followDuration = Duration(milliseconds: 180);
 /// **This guide does not decide what the capture keeps.** The T10 device pass
 /// showed the detector collapsing to a sliver often enough that cropping to it
 /// discarded most of a real page, and with the static box gone there is no
-/// longer anything else to crop to — so the capture keeps the whole frame and
-/// `doclens` does the real edge-detect/dewarp on it afterwards.
+/// longer anything else to crop to — so the capture keeps the whole frame,
+/// and the user's own crop on the preview screen is the only crop.
 class ViewfinderFrame extends StatefulWidget {
   const ViewfinderFrame({this.quad, super.key});
 

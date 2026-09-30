@@ -11,7 +11,6 @@ import 'package:war2aty/features/capture/domain/entities/image_quality_result.da
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
@@ -35,7 +34,6 @@ Future<_Result> _pumpPreview(
   FakeAnalysisSessionStorage? storage,
   FakeConnectivityService? connectivity,
   FakeUsageRepository? usage,
-  FakePerspectiveCorrector? perspectiveCorrector,
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
   TextScaler? textScaler,
@@ -52,11 +50,8 @@ Future<_Result> _pumpPreview(
       // the online route without also having to know this flag exists.
       usage ??
           FakeUsageRepository(
-            seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+            seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
           ),
-    ),
-    correctPerspective: CorrectPerspective(
-      perspectiveCorrector ?? FakePerspectiveCorrector(),
     ),
     createSession: CreateAnalysisSession(
       storage ?? FakeAnalysisSessionStorage(),

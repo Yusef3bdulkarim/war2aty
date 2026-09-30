@@ -30,8 +30,7 @@ final class UnitRect {
   /// This region expanded by [fraction] of its own width/height on every
   /// side, then clamped back into the image's bounds (F15 locked decision #2
   /// — the guide-box crop's safety margin, so imperfect alignment doesn't
-  /// clip the document before `doclens` gets a chance to find its real
-  /// edges).
+  /// clip the document).
   UnitRect expanded(double fraction) {
     final dx = width * fraction;
     final dy = height * fraction;

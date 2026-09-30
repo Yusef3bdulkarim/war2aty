@@ -21,6 +21,8 @@ implementation.
    `ViewfinderFrame` guide box, applied automatically at capture time. (b) The
    existing `doclens` content-aware edge-detect/dewarp (`PerspectiveCorrector`),
    which keeps running afterward as a refinement — now on **both** routes.
+   *(Both are gone in practice: (a) became a no-op when F16 made the camera
+   keep the whole frame, and (b) was removed on 2026-09-30 — see decision #4.)*
 2. **Guide-box crop keeps a ~20% margin** on each side beyond the visible
    guide box, so a paper that isn't perfectly aligned isn't clipped before
    `doclens` gets a chance to find its real edges. Margin is one tunable
@@ -38,6 +40,14 @@ implementation.
    doclens on the online route (harmless there, since online reads from
    `ImageAnalysisSessionHolder` instead), but must not happen before doclens
    once the offline route depends on its output.
+   **Amended 2026-09-30 — `doclens` removed entirely (owner's decision).** It
+   warped to any quad it found, with no size check. On blurry, noisy or sparse
+   pages it latched onto an inner shape (a text block, table, shadow or fold),
+   so the rest of the page was never read, and the preview never showed that
+   crop. The confirmed image from the preview screen (rotate + the user's own
+   crop, decision #5) is now what both routes read, as is. `PerspectiveCorrector`,
+   `CorrectPerspective`, `DoclensPerspectiveCorrector` and the `doclens`
+   package are deleted.
 5. **Preview-screen crop is free-form**: 4 edge-midpoint drag pills (top,
    bottom, left, right), each single-axis only, no aspect-ratio lock, always
    visible/active (no separate "enter crop mode" control). No corner handles

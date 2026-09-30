@@ -6,8 +6,7 @@ import 'crop_image.dart';
 
 /// Crops a freshly-captured photo to the on-screen guide box the user framed
 /// it in, expanded by a safety margin so imperfect alignment doesn't clip the
-/// document before `doclens` gets a chance to find its real edges (F15
-/// locked decisions #1-#2).
+/// document (F15 locked decisions #1-#2).
 ///
 /// Camera-only: gallery picks never call this, since no guide box exists for
 /// them. [guideBox] is computed by the camera screen from real widget

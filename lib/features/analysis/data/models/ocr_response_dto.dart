@@ -50,7 +50,7 @@ final class OcrResponseDto {
   /// (Tesseract) pipeline produces, so the review screen and the eventual
   /// `AnalysisRequest` builder can treat either origin identically.
   ///
-  /// The server text is already cleaned (Azure OCR + backend normalization),
+  /// The server text is already cleaned (online reading + backend normalization),
   /// so original and cleaned are the same string here — unlike the offline
   /// route, where [NormalizedOcrText] carries the pre- and post-normalization
   /// text side by side.
@@ -108,7 +108,7 @@ ReferenceCandidate _referenceToEntity(ReferenceCandidateDto dto) =>
 
 /// Parses `normalized_date` (§29 `yyyy-MM-dd`, the same wire format
 /// [DateCandidateDto.fromEntity] writes) back into the local-midnight
-/// [DateTime] the extractors produce. `null` when Azure/the extractor found
+/// [DateTime] the extractors produce. `null` when the server's extractor found
 /// no parseable date, or the string is malformed.
 DateTime? _parseIsoDate(String? iso) {
   if (iso == null) return null;

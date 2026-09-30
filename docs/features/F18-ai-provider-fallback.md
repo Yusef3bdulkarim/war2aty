@@ -1,5 +1,15 @@
 # F18 · AI Provider Fallback (Gemini primary, Groq fallback)
 
+> **Superseded by F20** (`docs/features/F20-ocr-analysis-provider-refactor.md`).
+> Kept as the record of what F18 built. F20 made Mistral (Ministral) the
+> analysis primary with Groq as its fallback — Gemini now serves only the
+> online reading, which does see the image — replaced the `providerFault`
+> boolean with `ProviderFailure{kind}` (a semantically invalid answer now falls
+> back too), and replaced the 60/40 budget split with one deadline, a
+> per-attempt cap and a fallback floor (F20 §1 layer 2, §2). The
+> `gemini_primary_enabled` flag was never set; F20 removed it from the code, and
+> a leftover row is ignored. Where this doc and F20 disagree, F20 is current.
+
 - **Branch:** `feature/ai-provider-fallback` (off `develop`) · **Milestone:** post-F17
 - **Depends on:** F06 (the `AiAnalysisProvider` seam, the generation schema, the prompt builder — extended, not replaced), F13 (the optional-provider config pattern, the dark-launch `optInFlag`) · **Feeds:** analysis availability and headroom
 - **Progress:** 9 / 10 DONE · T10 tooling ready, live verification outstanding (the flag stays absent until it passes)

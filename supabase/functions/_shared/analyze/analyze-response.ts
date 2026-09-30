@@ -25,26 +25,26 @@
  * ── `rawValue` and the new `phones`/`references` arrays (§30 v2, locked
  * decision #6) ────────────────────────────────────────────────────────────
  * `dates[].rawValue`/`amounts[].rawValue` are looked up from the SAME
- * candidates the request carried — the client's on-device extractors on the
- * text shape, or Azure/Google's via `image-analysis-pipeline.ts` on the image
- * shape (F13-T11) — by matching normalized value — never invented, and
+ * candidates the request carried (the app's, from its on-device extractors or
+ * from `ocr-document`'s reading) by matching normalized value — never invented, and
  * `null` whenever the model's value has no literal match in the document (an
  * inferred date, say). This only annotates a value Groq already asserted; it
  * cannot make an unconfirmed one appear.
  *
- * `phones`/`references` are NOT read from `analysis` at all — Groq has no
- * concept of either until F13-T10 extends its schema. They come straight from
- * `candidates`, gated behind an explicit `verification` input: with no
- * verification (the offline/Tesseract path, which never produces one), both
- * arrays stay empty rather than surface a raw regex hit nothing has
- * confirmed. `needsUserReview` (unlike `verificationStatus`, locked decision
- * #6) is fair to put on the wire — it is the one bit the client actually
- * branches its UI on.
+ * `phones`/`references` stay on the §30 v2 wire and are always empty. F13
+ * filled them from `candidates` only when the Azure/Google cross-check had
+ * looked at them; F20-T15 removed that check, and a raw regex hit nothing has
+ * confirmed must not reach the user as a finding. The text path never had a
+ * cross-check, so its responses do not change.
  *
  * PRIVACY: the report counts and names fields. It never carries a value.
  */
 
-import type { AnalysisStatus, Confidence, ModelAnalysis } from "../schemas/analysis-output.schema.ts";
+import type {
+  AnalysisStatus,
+  Confidence,
+  ModelAnalysis,
+} from "../schemas/analysis-output.schema.ts";
 import { ApiError } from "../errors/api-error.ts";
 import { isWellFormedDate, isWellFormedTime } from "../validators/date-validator.ts";
 import type {
@@ -52,7 +52,6 @@ import type {
   DateCandidate,
   ExtractedCandidates,
 } from "../prompts/analysis-prompt.ts";
-import type { CrossProviderVerification } from "../verification/cross-provider-validator.ts";
 
 // ── the §30 wire shape ────────────────────────────────────────────────────
 
@@ -252,15 +251,8 @@ export function buildAnalysisResponse(input: {
    * every `rawValue` comes back `null`.
    */
   readonly candidates?: ExtractedCandidates;
-  /**
-   * Cross-provider verification for THIS analysis's candidates (F13-T08),
-   * index-aligned with `candidates`. `null`/omitted — the offline/Tesseract
-   * path, which never produces one — means `phones`/`references` come back
-   * empty rather than surface a raw regex hit nothing has confirmed.
-   */
-  readonly verification?: CrossProviderVerification | null;
 }): BuiltAnalysisResponse {
-  const { analysis, sessionId, schemaVersion, verification = null } = input;
+  const { analysis, sessionId, schemaVersion } = input;
   const candidates = input.candidates ?? EMPTY_CANDIDATES;
 
   const dropped: string[] = [];
@@ -400,23 +392,9 @@ export function buildAnalysisResponse(input: {
     ? "partial"
     : analysis.status;
 
-  // Only populated once something has actually looked at these candidates
-  // (F13-T08's cross-provider verification) — see the header comment.
-  const phones: ResponsePhone[] = verification
-    ? candidates.phones.map((c, i) => ({
-      rawValue: c.raw_text,
-      value: c.normalized_number,
-      needsUserReview: verification.phones[i]?.needsUserReview ?? true,
-    }))
-    : [];
-
-  const references: ResponseReference[] = verification
-    ? candidates.references.map((c, i) => ({
-      rawValue: c.raw_text,
-      value: c.value,
-      needsUserReview: verification.references[i]?.needsUserReview ?? true,
-    }))
-    : [];
+  // Always empty — see the header comment.
+  const phones: ResponsePhone[] = [];
+  const references: ResponseReference[] = [];
 
   return {
     body: {

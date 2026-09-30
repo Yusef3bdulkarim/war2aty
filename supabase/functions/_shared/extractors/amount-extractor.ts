@@ -1,5 +1,5 @@
 /**
- * F13-T05 · Amount candidate extraction (Azure text path).
+ * F13-T05 · Amount candidate extraction (server side, over the online reading).
  *
  * TypeScript port of `lib/features/ocr/domain/services/amount_extractor.dart`,
  * field-for-field.
@@ -54,8 +54,8 @@ function parseExplicit(match: RegExpMatchArray): AmountCandidate | null {
 
 // ── Keyword-adjacent: Arabic money keyword near a number ──────────────────
 
-/** Exported for T06 field verification — used to group amounts under a shared label. */
-export const AMOUNT_KEYWORDS = [
+/** Words that label an amount on the page. */
+const AMOUNT_KEYWORDS = [
   "إجمالي",
   "اجمالي",
   "المطلوب",

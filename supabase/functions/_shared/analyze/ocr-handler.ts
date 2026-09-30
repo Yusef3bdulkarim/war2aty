@@ -1,32 +1,33 @@
 /**
- * F14 · The ocr-document handler — Azure OCR + extractors, no Groq.
+ * F14, rewired in F20-T13 · The ocr-document handler: the online reading, no
+ * analysis.
  *
- * The online (F13) flow used to go straight from an image to a finished
- * `DocumentAnalysis` in one call. This handler is the first half of that
- * split: it runs exactly the same image pipeline `analyze-handler.ts` runs
- * for an `input_type: "image"` request, then STOPS and hands the OCR text
- * and candidates back to the client instead of feeding them to Groq. The
- * user reviews/edits the text on-device; the (unmodified) `analyze-document`
- * text path is what the client calls next, once the user approves.
+ * The first half of the online flow. Gemini reads the photo, the extractors
+ * pull candidates from the reading, and both go back to the app. The user
+ * reviews and edits the text on the device; `analyze-document`'s text path is
+ * what the app calls next, once the user approves.
  *
  * ── Why no slot reservation ────────────────────────────────────────────────
- * The daily quota (§9) is a limit on Groq analyses, not on reading a page.
+ * The daily quota (§9) is a limit on analyses, not on reading a page.
  * Charging a slot here would mean a user who retakes a blurry photo twice
  * during review has already spent two of their three analyses before a
- * single one reaches Groq. The quota is reserved exactly once, when the
- * reviewed text is submitted to `analyze-document` — unchanged by this file.
+ * single one is analysed. The quota is reserved exactly once, when the
+ * reviewed text is submitted to `analyze-document`.
  *
- * ── Why the same `azureOcrEnabled` gate ────────────────────────────────────
- * This endpoint has no reason to exist while the online image pipeline is
- * dark-launched off (locked decision #1): every request it could serve would
- * be refused by `analyze-document` a call later anyway. Same fixed
- * `INVALID_REQUEST` response as that endpoint gives an image-shaped body
- * while the flag is off — a disabled feature and a request this deployment
- * does not understand must look identical from the outside.
+ * ── Failures (F20 matrix §1, rows O3–O6, O10) ─────────────────────────────
+ * One Gemini attempt, with the whole `aiTimeoutSeconds` as its deadline (§2).
+ * Its `ProviderFailure` becomes a §31 error through `ocrApiErrorFor`, and that
+ * code alone tells the app whether it may read the page on the device instead.
+ * - Rate limit, timeout, outage, network, unusable reading: yes (429, 408,
+ *   502 `OCR_UNAVAILABLE`).
+ * - Bad key, bad request, or missing `GEMINI_*`: no (500 `INTERNAL_ERROR`).
+ *   A deploy fault must be seen and fixed, not papered over by the phone.
+ * - Online reading switched off after the app chose the online route: 502
+ *   `OCR_UNAVAILABLE`, so the app reads on the device (O10).
  *
  * PRIVACY: nothing derived from the document is logged. Every log line here
- * carries envelope fields and ids only (§51) — no OCR text, no candidate
- * value, no image byte.
+ * carries envelope fields, ids and failure kinds only (§51): no OCR text, no
+ * candidate value, no image byte.
  */
 
 import { ApiError, apiErrorForAuthFailure } from "../errors/api-error.ts";
@@ -35,19 +36,22 @@ import type { RuntimeConfig } from "../config/runtime-config.ts";
 import type { EndpointHandler } from "../http/endpoint.ts";
 import { jsonResponse } from "../http/response.ts";
 import type { ExtractedCandidates } from "../prompts/analysis-prompt.ts";
-import type { ImageAnalysisPipeline } from "./image-analysis-pipeline.ts";
+import type { ImageOcrPipeline } from "./image-ocr-pipeline.ts";
 import { logEvent } from "../observability/log.ts";
 import { parseAnalyzeImageRequest } from "./analyze-request.ts";
+import { ocrApiErrorFor, ProviderFailure } from "../ai/provider-failure.ts";
 
 export interface OcrDependencies {
   readonly verifyToken: TokenVerifier;
   readonly loadConfig: () => Promise<RuntimeConfig>;
   /**
-   * Same reasoning as `AnalyzeDependencies.createImagePipeline`: Azure/Google
-   * credentials are a deploy fact and a missing one must fail loudly, so the
-   * client is built per request rather than at module load.
+   * Built per request, so the `GEMINI_*` credentials are read when there is a
+   * page to read. A missing one throws here, before any provider call, and
+   * answers INTERNAL_ERROR (O6).
    */
-  readonly createImagePipeline: (timeoutSeconds: number) => ImageAnalysisPipeline;
+  readonly createPipeline: () => ImageOcrPipeline;
+  /** Injected so tests can see the deadline without a real timer. */
+  readonly timeoutSignal?: (ms: number) => AbortSignal;
 }
 
 /** The response this endpoint hands back — OCR output only, never an analysis. */
@@ -55,8 +59,7 @@ export interface OcrResponseBody {
   readonly schema_version: string;
   readonly session_id: string;
   readonly ocr_text: string;
-  /** Always `[]` — Azure's Read model result carries no language tags, same
-   * fallback `analyze-handler.ts` already uses for the image shape. */
+  /** Always `[]`: the reading carries no language tags. */
   readonly detected_languages: readonly string[];
   readonly candidates: ExtractedCandidates;
 }
@@ -64,7 +67,12 @@ export interface OcrResponseBody {
 export function createOcrHandler(
   dependencies: OcrDependencies,
 ): EndpointHandler {
-  const { verifyToken, loadConfig, createImagePipeline } = dependencies;
+  const {
+    verifyToken,
+    loadConfig,
+    createPipeline,
+    timeoutSignal = (ms: number) => AbortSignal.timeout(ms),
+  } = dependencies;
 
   return async ({ request, requestId }): Promise<Response> => {
     const auth = await requireUser(request, verifyToken);
@@ -72,9 +80,10 @@ export function createOcrHandler(
 
     const config = await loadConfig();
     if (!config.analysisEnabled) throw ApiError.analysisDisabled();
-    // Dark-launch gate — see header comment. Mirrors the check
-    // `analyze-handler.ts` runs before it will even parse an image body.
-    if (!config.azureOcrEnabled) throw ApiError.invalidRequest();
+    // The app only calls this endpoint after choosing the online route. If
+    // online reading was switched off since, the page can still be read on
+    // the device, so this is OCR_UNAVAILABLE rather than a refusal (O10).
+    if (!config.onlineOcrEnabled) throw ApiError.ocrUnavailable();
 
     let rawBody: unknown;
     try {
@@ -91,11 +100,26 @@ export function createOcrHandler(
     // `"image"`, so nothing else needs to check the discriminant first.
     const parsed = parseAnalyzeImageRequest(rawBody, config);
 
-    const pipeline = createImagePipeline(config.aiTimeoutSeconds);
-    const result = await pipeline({
-      data: parsed.image.data,
-      mimeType: parsed.image.mimeType,
-    });
+    const pipeline = createPipeline();
+    let result;
+    try {
+      result = await pipeline(
+        { data: parsed.image.data, mimeType: parsed.image.mimeType },
+        timeoutSignal(config.aiTimeoutSeconds * 1000),
+      );
+    } catch (thrown) {
+      // Anything else is our own bug; the endpoint turns it into
+      // INTERNAL_ERROR with its message discarded.
+      if (!(thrown instanceof ProviderFailure)) throw thrown;
+      const wire = ocrApiErrorFor(thrown);
+      logEvent("ocr.failed", {
+        request_id: requestId,
+        session_id: parsed.sessionId,
+        failure: thrown.kind,
+        error_code: wire.code,
+      });
+      throw wire;
+    }
 
     logEvent("ocr.completed", {
       request_id: requestId,

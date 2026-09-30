@@ -12,11 +12,12 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { ApiError } from "../../functions/_shared/errors/api-error.ts";
+import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
 import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
 import {
   DEFAULT_GROQ_MODEL,
   GROQ_BASE_URL,
+  GROQ_REASONING_EFFORT,
 } from "../../functions/_shared/ai/groq-config.ts";
 import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
@@ -53,19 +54,22 @@ Deno.test({
         baseUrl: GROQ_BASE_URL,
         apiKey: apiKey!,
         model,
-        timeoutSeconds: 25,
       }),
+      reasoningEffort: GROQ_REASONING_EFFORT,
     });
 
     let raw;
     try {
-      raw = await provider({
-        ocrText: BILL,
-        detectedLanguages: ["ar"],
-        candidates: NO_CANDIDATES,
-      });
+      raw = await provider(
+        {
+          ocrText: BILL,
+          detectedLanguages: ["ar"],
+          candidates: NO_CANDIDATES,
+        },
+        AbortSignal.timeout(25_000),
+      );
     } catch (thrown) {
-      if (thrown instanceof ApiError && thrown.code === "AI_RATE_LIMITED") {
+      if (thrown instanceof ProviderFailure && thrown.kind === "rate_limited") {
         console.warn("  SKIPPED (rate-limited)");
         return;
       }

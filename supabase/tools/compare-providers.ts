@@ -2,16 +2,21 @@
  * F18-T10 · Side-by-side provider comparison.
  *
  * Runs BOTH analysis legs over the same OCR text — same prompt builder, same
- * generation schema, same validation-free raw model output — and prints the
- * fields that decide whether one provider is as good as the other on Egyptian
- * paperwork: `status`, `document_type`, `amounts`, `dates`.
+ * generation schema, same shape and semantic checks, and none of the soft
+ * validation pipeline — and prints the fields that decide whether one provider
+ * is as good as the other on Egyptian paperwork: `status`, `document_type`,
+ * `amounts`, `dates`.
  *
- * This exists because `gemini_primary_enabled` must not be flipped on a guess.
- * The app cannot answer the question: it deliberately never learns which
- * provider served it, so quality has to be compared here, before the flip.
+ * The app cannot answer that question: it deliberately never learns which
+ * provider served it, so quality has to be compared here.
+ *
+ * F20-T07: the legs are Mistral (the analysis primary) and Groq (its
+ * fallback). Gemini became the OCR provider and is no longer an analysis leg.
+ * For the whole corpus rather than one document, use `analysis-benchmark.ts`
+ * (T08), which builds the same legs (`benchmark/legs.ts`).
  *
  * ── Usage ─────────────────────────────────────────────────────────────────
- *   GROQ_API_KEY=… GROQ_MODEL=… GEMINI_API_KEY=… GEMINI_MODEL=… \
+ *   GROQ_API_KEY=… GROQ_MODEL=… MISTRAL_API_KEY=… MISTRAL_MODEL=… \
  *     deno run --allow-net --allow-env --allow-read \
  *       supabase/tools/compare-providers.ts <file.txt>
  *
@@ -24,45 +29,25 @@
  *
  * ── PRIVACY, read before running ──────────────────────────────────────────
  * This sends the text you give it to BOTH providers, and prints it back to your
- * terminal. Free-tier Gemini's terms permit Google to use submitted content and
- * allow human review of API input (see CLAUDE.md §7). Feed it documents you are
- * willing to have read — a synthetic bill, or your own paperwork — and never
- * another person's. It writes nothing to disk and logs no key.
+ * terminal. Both run on free tiers whose terms may let the provider use or
+ * review API input (see CLAUDE.md §7). Feed it documents you are willing to
+ * have read — a synthetic bill, or your own paperwork — and never another
+ * person's. It writes nothing to disk and logs no key.
  *
  * ── Pacing ────────────────────────────────────────────────────────────────
  * One analysis per provider per run, so a single run is well inside Groq's
  * 8,000 tokens/minute. Comparing several documents in a loop is NOT: leave
  * ~20s between runs, or Groq will answer 429 and the comparison will look like
- * a Gemini win when it is only a rate limit.
+ * a Mistral win when it is only a rate limit.
  */
 
-import { createChatClient } from "../functions/_shared/ai/openai-compatible-client.ts";
-import { groqOptionsFromEnv, isGroqConfigured } from "../functions/_shared/ai/groq-config.ts";
-import {
-  geminiOptionsFromEnv,
-  isGeminiConfigured,
-} from "../functions/_shared/ai/gemini-config.ts";
-import { createAnalysisProvider } from "../functions/_shared/ai/analysis-provider.ts";
+import type { AnalysisLeg } from "../functions/_shared/ai/analysis-provider.ts";
 import type { AnalysisPromptInput } from "../functions/_shared/prompts/analysis-prompt.ts";
 import type { ModelAnalysis } from "../functions/_shared/schemas/analysis-output.schema.ts";
-import { extractAmounts } from "../functions/_shared/extractors/amount-extractor.ts";
-import { extractDates } from "../functions/_shared/extractors/date-extractor.ts";
-import { extractPhones } from "../functions/_shared/extractors/phone-extractor.ts";
-import { extractReferences } from "../functions/_shared/extractors/reference-extractor.ts";
-import { extractTimes } from "../functions/_shared/extractors/time-extractor.ts";
+import { candidatesFor } from "./benchmark/corpus.ts";
+import { analysisLeg } from "./benchmark/legs.ts";
 
 const TIMEOUT_SECONDS = 40;
-
-/** Mirrors `image-analysis-pipeline.ts`, so the prompt matches production. */
-function candidatesFor(text: string) {
-  return {
-    dates: extractDates(text),
-    times: extractTimes(text),
-    amounts: extractAmounts(text),
-    phones: extractPhones(text),
-    references: extractReferences(text),
-  };
-}
 
 function hasArabic(text: string): boolean {
   return /[؀-ۿ]/.test(text);
@@ -90,12 +75,15 @@ type Outcome =
 
 async function run(
   label: string,
-  provider: () => ReturnType<typeof createAnalysisProvider>,
+  leg: AnalysisLeg,
   input: AnalysisPromptInput,
 ): Promise<Outcome> {
   const startedAt = Date.now();
   try {
-    const analysis = await provider()(input);
+    const analysis = await leg(
+      input,
+      AbortSignal.timeout(TIMEOUT_SECONDS * 1000),
+    );
     return { ok: true, analysis, ms: Date.now() - startedAt };
   } catch (thrown) {
     const code = thrown instanceof Error ? thrown.message : String(thrown);
@@ -107,9 +95,7 @@ async function run(
 // ── rendering ─────────────────────────────────────────────────────────────
 
 function amountLines(analysis: ModelAnalysis): string[] {
-  return analysis.amounts.map((a) =>
-    `${a.value} ${a.currency} — ${a.label} [${a.confidence}]`
-  );
+  return analysis.amounts.map((a) => `${a.value} ${a.currency} — ${a.label} [${a.confidence}]`);
 }
 
 function dateLines(analysis: ModelAnalysis): string[] {
@@ -139,9 +125,9 @@ function summarise(outcome: Outcome): Record<string, string> {
   };
 }
 
-function render(groq: Outcome, gemini: Outcome): void {
-  const left = summarise(groq);
-  const right = summarise(gemini);
+function render(mistral: Outcome, groq: Outcome): void {
+  const left = summarise(mistral);
+  const right = summarise(groq);
   const keys = [...new Set([...Object.keys(left), ...Object.keys(right)])];
 
   for (const key of keys) {
@@ -152,23 +138,27 @@ function render(groq: Outcome, gemini: Outcome): void {
     const mark = key === "latency" ? " " : same ? "=" : "≠";
 
     console.log(`\n${mark} ${key.toUpperCase()}`);
-    console.log(`    groq   │ ${l.split("\n").join("\n           │ ")}`);
-    console.log(`    gemini │ ${r.split("\n").join("\n           │ ")}`);
+    console.log(`    mistral │ ${l.split("\n").join("\n            │ ")}`);
+    console.log(`    groq    │ ${r.split("\n").join("\n            │ ")}`);
   }
 }
 
-/** The fields a flip decision actually rests on. */
-function verdict(groq: Outcome, gemini: Outcome): void {
+/** The fields a quality comparison actually rests on. */
+function verdict(mistral: Outcome, groq: Outcome): void {
   console.log(`\n${"─".repeat(72)}`);
 
-  if (!groq.ok || !gemini.ok) {
-    console.log("INCOMPLETE — one leg failed, so no quality comparison is possible.");
-    console.log("If it was Groq with AI_RATE_LIMITED, wait a minute and re-run.");
+  if (!mistral.ok || !groq.ok) {
+    console.log(
+      "INCOMPLETE — one leg failed, so no quality comparison is possible.",
+    );
+    console.log(
+      "If it was Groq with AI_RATE_LIMITED, wait a minute and re-run.",
+    );
     return;
   }
 
+  const m = mistral.analysis;
   const g = groq.analysis;
-  const m = gemini.analysis;
 
   const checks: [string, boolean][] = [
     ["same document_type", g.document_type.type === m.document_type.type],
@@ -177,15 +167,18 @@ function verdict(groq: Outcome, gemini: Outcome): void {
     [
       "same amount values",
       JSON.stringify(g.amounts.map((a) => a.value).sort()) ===
-      JSON.stringify(m.amounts.map((a) => a.value).sort()),
+        JSON.stringify(m.amounts.map((a) => a.value).sort()),
     ],
     ["same date count", g.dates.length === m.dates.length],
     [
       "same date values",
       JSON.stringify(g.dates.map((d) => d.date).sort()) ===
-      JSON.stringify(m.dates.map((d) => d.date).sort()),
+        JSON.stringify(m.dates.map((d) => d.date).sort()),
     ],
-    ["both answered in Arabic", hasArabic(g.summary.detailed) && hasArabic(m.summary.detailed)],
+    [
+      "both answered in Arabic",
+      hasArabic(g.summary.detailed) && hasArabic(m.summary.detailed),
+    ],
   ];
 
   for (const [name, passed] of checks) {
@@ -195,19 +188,26 @@ function verdict(groq: Outcome, gemini: Outcome): void {
   const agreed = checks.every(([, passed]) => passed);
   console.log(
     agreed
-      ? "\nAGREED on every decision field. This document supports flipping the flag."
+      ? "\nAGREED on every decision field."
       : "\nDISAGREED on at least one field. Read the ⚠️ rows above and judge which " +
         "reading is correct against the paper itself — a difference is not " +
-        "automatically a Gemini failure.",
+        "automatically either provider's failure.",
   );
 }
 
 // ── main ──────────────────────────────────────────────────────────────────
 
-if (!isGroqConfigured() || !isGeminiConfigured()) {
+// Read once, up front: a missing variable fails before any text is sent. The
+// messages name the variable only, never a value.
+let mistralLeg: AnalysisLeg;
+let groqLeg: AnalysisLeg;
+try {
+  mistralLeg = analysisLeg("mistral");
+  groqLeg = analysisLeg("groq");
+} catch (thrown) {
   console.error(
-    "Both providers must be configured. Set GROQ_API_KEY, GROQ_MODEL, " +
-      "GEMINI_API_KEY and GEMINI_MODEL.",
+    `${thrown instanceof Error ? thrown.message : thrown} Both providers must be ` +
+      "configured: MISTRAL_API_KEY, MISTRAL_MODEL, GROQ_API_KEY and GROQ_MODEL.",
   );
   Deno.exit(1);
 }
@@ -226,7 +226,9 @@ const input: AnalysisPromptInput = {
 };
 
 console.log(`${"─".repeat(72)}`);
-console.log(`Document: ${ocrText.length} chars, ${ocrText.split("\n").length} lines`);
+console.log(
+  `Document: ${ocrText.length} chars, ${ocrText.split("\n").length} lines`,
+);
 console.log(
   `Candidates found on the page: ${input.candidates.amounts.length} amounts, ` +
     `${input.candidates.dates.length} dates, ${input.candidates.references.length} references`,
@@ -235,23 +237,8 @@ console.log(`${"─".repeat(72)}`);
 
 // Sequential, not Promise.all: two concurrent calls make the slower one look
 // slower than it is, and Groq's per-minute token budget is shared.
-const groq = await run(
-  "groq",
-  () =>
-    createAnalysisProvider({
-      client: createChatClient(groqOptionsFromEnv(TIMEOUT_SECONDS)),
-    }),
-  input,
-);
+const mistral = await run("mistral", mistralLeg, input);
+const groq = await run("groq", groqLeg, input);
 
-const gemini = await run(
-  "gemini",
-  () =>
-    createAnalysisProvider({
-      client: createChatClient(geminiOptionsFromEnv(TIMEOUT_SECONDS)),
-    }),
-  input,
-);
-
-render(groq, gemini);
-verdict(groq, gemini);
+render(mistral, groq);
+verdict(mistral, groq);

@@ -35,7 +35,6 @@ import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart'
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
-import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/domain/usecases/ocr_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/ocr_review_cubit.dart';
@@ -54,7 +53,6 @@ import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.da
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
@@ -66,14 +64,16 @@ import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cu
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
+import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
+import 'package:war2aty/features/ocr/domain/repositories/ocr_repository.dart';
 import 'package:war2aty/features/ocr/domain/services/amount_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/date_extractor.dart';
-import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/ocr/domain/services/phone_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/reference_extractor.dart';
 import 'package:war2aty/features/ocr/domain/services/text_normalizer.dart';
 import 'package:war2aty/features/ocr/domain/services/time_extractor.dart';
 import 'package:war2aty/features/ocr/domain/usecases/extract_candidates.dart';
+import 'package:war2aty/features/ocr/domain/usecases/extract_document_text.dart';
 import 'package:war2aty/features/ocr/presentation/cubit/ocr_processing_cubit.dart';
 import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -86,13 +86,14 @@ import '../support/fakes.dart';
 const _strings = ArStrings();
 const _imagePath = '/tmp/paper.jpg';
 
-/// Always fails, on either route — the online route is what this suite
-/// exercises, but [analyze] is wired too, so a regression that routed a
-/// retry through the offline path would show up as a non-zero count instead
-/// of going unnoticed.
-final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
+/// Fails the online reading with [ocrFailure]. [analyze] is wired too and
+/// always fails, so a regression that reached the analysis from the review
+/// screen would show up as a non-zero count instead of going unnoticed.
+final class _FakeAnalysisRepository implements AnalysisRepository {
+  _FakeAnalysisRepository(this.ocrFailure);
+
+  final AppFailure ocrFailure;
   int analyzeCalls = 0;
-  int analyzeImageCalls = 0;
   int ocrImageCalls = 0;
 
   @override
@@ -104,19 +105,27 @@ final class _AlwaysFailingAnalysisRepository implements AnalysisRepository {
   }
 
   @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) async {
-    analyzeImageCalls++;
-    return const Err(AnalysisServiceFailure());
-  }
-
-  @override
   Future<Result<ExtractionResult, AppFailure>> ocrImage(
     AnalysisImageRequest request,
   ) async {
     ocrImageCalls++;
-    return const Err(AnalysisServiceFailure());
+    return Err(ocrFailure);
+  }
+}
+
+/// The on-device reader (Tesseract, behind [OcrRepository]). Counts every
+/// run, so a test can assert it ran exactly once — or never.
+///
+/// Counted at run time, not construction: since F20-T22 `OcrReviewCubit`
+/// takes `ExtractDocumentText` on every online review, so the reader is
+/// always constructed; what the allowlist governs is whether it RUNS.
+final class _CountingDeviceOcr implements OcrRepository {
+  int runs = 0;
+
+  @override
+  Future<Result<OcrResult, AppFailure>> recognizeText(String imagePath) async {
+    runs++;
+    return const Ok(OcrResult(originalText: 'فاتورة كهرباء المبلغ 850 جنيه'));
   }
 }
 
@@ -124,37 +133,40 @@ void main() {
   setUp(getIt.reset);
   tearDown(getIt.reset);
 
-  late bool ocrEngineConstructed;
+  late _CountingDeviceOcr deviceOcr;
   late bool ocrProcessingCubitConstructed;
 
   /// Boots the real app — real DI wiring, real router — up to the point where
   /// a photo is ready to preview, with connectivity forced online (F13's
   /// [FakeConnectivityService] default) so [ImagePreviewCubit.proceed] takes
-  /// the online branch.
+  /// the online branch, and the online reading failing with [onlineFailure].
   ///
-  /// `OcrEngine` and `OcrProcessingCubit` are registered as poisoned: either
-  /// one being resolved — which is the only way Tesseract can ever run —
-  /// flips a flag this test asserts against, instead of letting a silent
-  /// fallback pass unnoticed.
-  Future<_AlwaysFailingAnalysisRepository> pumpToOnlinePreview(
-    WidgetTester tester,
-  ) async {
-    ocrEngineConstructed = false;
+  /// The on-device reader is counted ([deviceOcr]) and `OcrProcessingCubit`
+  /// is poisoned: those are the only ways Tesseract can run, so a fallback
+  /// the allowlist does not permit — or one that runs twice — cannot pass
+  /// unnoticed. [consent] seeds the analysis-consent store (`null` = never
+  /// asked, which reads as allowed).
+  Future<_FakeAnalysisRepository> pumpToOnlinePreview(
+    WidgetTester tester, {
+    required AppFailure onlineFailure,
+    bool? consent,
+  }) async {
+    deviceOcr = _CountingDeviceOcr();
     ocrProcessingCubitConstructed = false;
 
     final onboarding = FakeOnboardingRepository(seen: true);
-    // azureOcrEnabled: true — this test exercises the online route
+    // onlineOcrEnabled: true — this test exercises the online route
     // specifically (its whole point is proving no silent OCR fallback once
     // online is chosen), so the pipeline must actually be live.
     final usage = FakeUsageRepository(
-      seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+      seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
     );
     addTearDown(usage.dispose);
     final documents = FakeRecentDocumentsRepository();
     addTearDown(documents.dispose);
     final reminders = FakeUpcomingReminderRepository();
     addTearDown(reminders.dispose);
-    final repository = _AlwaysFailingAnalysisRepository();
+    final repository = _FakeAnalysisRepository(onlineFailure);
 
     getIt
       ..registerFactory<LocaleCubit>(() {
@@ -206,7 +218,6 @@ void main() {
           cropImage: CropImage(FakeImageCropper()),
           assessQuality: AssessImageQuality(FakeImageQualityService()),
           decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
-          correctPerspective: CorrectPerspective(FakePerspectiveCorrector()),
           createSession: CreateAnalysisSession(FakeAnalysisSessionStorage()),
           onlineHandoff: getIt(),
           ocrHandoff: getIt(),
@@ -219,7 +230,6 @@ void main() {
       ..registerLazySingleton<OcrSessionHolder>(OcrSessionHolder.new)
       ..registerLazySingleton<AnalysisRepository>(() => repository)
       ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
-      ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
       ..registerFactory<OcrImage>(() => OcrImage(getIt()))
       ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
         (session, photo) => OcrReviewCubit(
@@ -227,10 +237,11 @@ void main() {
           photo: photo,
           ocrImage: getIt(),
           extractCandidates: getIt(),
-          // Unset (default) — allowed, same reasoning as the result cubit's
-          // registration below: this suite is not exercising consent.
-          getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
+          getAnalysisConsent: GetAnalysisConsent(
+            FakeAnalysisConsentStore(consent),
+          ),
           imageHolder: getIt(),
+          extractDocumentText: ExtractDocumentText(deviceOcr),
         ),
       )
       ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
@@ -247,7 +258,6 @@ void main() {
           // consent state it isn't testing.
           getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
           analyzeDocument: getIt(),
-          analyzeImage: getIt(),
           buildResult: getIt(),
           syncDailyUsage: SyncDailyUsage(usage),
         ),
@@ -293,28 +303,20 @@ void main() {
           openPermissionSettings: OpenPermissionSettings(permissions),
         );
       })
-      // Real extractors — `OcrReviewCubit.buildReviewedResult` is not this
-      // suite's concern, but the cubit still needs one to construct.
+      // Real extractors — the fallback extracts candidates from the device
+      // text with them, exactly as the offline route does.
       ..registerFactory<ExtractCandidates>(
-        () => ExtractCandidates(
+        () => const ExtractCandidates(
           normalizer: TextNormalizer(),
-          dateExtractor: const DateExtractor(),
-          timeExtractor: const TimeExtractor(),
-          amountExtractor: const AmountExtractor(),
-          phoneExtractor: const PhoneExtractor(),
-          referenceExtractor: const ReferenceExtractor(),
+          dateExtractor: DateExtractor(),
+          timeExtractor: TimeExtractor(),
+          amountExtractor: AmountExtractor(),
+          phoneExtractor: PhoneExtractor(),
+          referenceExtractor: ReferenceExtractor(),
         ),
       )
-      // Poisoned (F13-T16): the online route must never reach either of
-      // these, whether on the first attempt or on any retry.
-      ..registerLazySingleton<OcrEngine>(() {
-        ocrEngineConstructed = true;
-        throw StateError(
-          'OcrEngine/Tesseract must never be constructed once the online '
-          'route is chosen — a failure must retry the online request, not '
-          'fall back to on-device OCR.',
-        );
-      })
+      // Poisoned (F13-T16): the online route must never reach the /ocr
+      // screen, whether on the first attempt or on any retry.
       ..registerFactoryParam<OcrProcessingCubit, AnalysisSession, void>((_, _) {
         ocrProcessingCubitConstructed = true;
         throw StateError(
@@ -333,24 +335,69 @@ void main() {
     return repository;
   }
 
+  /// Opens the preview and taps «استخدم الصورة», which takes the online route.
+  Future<void> useImage(WidgetTester tester) async {
+    getIt<GoRouter>().go(AppRoutes.previewWith(_imagePath));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(_strings.previewUseImage));
+    await tester.pumpAndSettle();
+  }
+
+  // F20 §1: the four failures the device can work around (O3, O4, O5/O10,
+  // O7). Each reads the page on the phone exactly once and warns about it.
+  const allowlisted = <String, AppFailure>{
+    'rate limited (O3)': AiProviderRateLimitFailure(),
+    'timed out (O4)': RequestTimeoutFailure(),
+    'online reading unavailable (O5/O10)': OnlineOcrUnavailableFailure(),
+    'offline (O7)': NoInternetFailure(),
+  };
+
+  for (final MapEntry(key: row, value: failure) in allowlisted.entries) {
+    testWidgets(
+      '$row: Tesseract runs exactly once and the fallback banner shows',
+      (tester) async {
+        final repository = await pumpToOnlinePreview(
+          tester,
+          onlineFailure: failure,
+        );
+
+        await useImage(tester);
+
+        // Still on the review screen — a review of the phone's reading, not
+        // the error page and not the offline /ocr screen.
+        expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
+        expect(find.text(_strings.ocrOnlineFallbackWarning), findsOneWidget);
+        expect(find.text(_strings.ocrOfflineQualityWarning), findsNothing);
+        expect(find.text(_strings.ocrErrorTitle), findsNothing);
+        expect(find.text(_strings.ocrOnlineAnalyze), findsOneWidget);
+
+        expect(repository.ocrImageCalls, 1);
+        expect(deviceOcr.runs, 1);
+        expect(repository.analyzeCalls, 0);
+        expect(ocrProcessingCubitConstructed, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
-    'a failed online OCR review never constructs Tesseract, even when the '
-    'user retakes',
+    'an online failure outside the allowlist never runs Tesseract, even '
+    'when the user retakes',
     (tester) async {
-      final repository = await pumpToOnlinePreview(tester);
+      // O6/O11: a deploy fault must surface, not hide behind a weaker read.
+      final repository = await pumpToOnlinePreview(
+        tester,
+        onlineFailure: const AnalysisServiceFailure(),
+      );
 
-      getIt<GoRouter>().go(AppRoutes.previewWith(_imagePath));
-      await tester.pumpAndSettle();
+      await useImage(tester);
 
-      await tester.tap(find.text(_strings.previewUseImage));
-      await tester.pumpAndSettle();
-
-      // Landed on the OCR review screen's failure page (F14) — Azure OCR
-      // itself failed, so /result and Groq are never reached.
+      // Landed on the OCR review screen's failure page (F14) — the online
+      // reading itself failed, so /result and the analysis are never reached.
       expect(find.text(_strings.ocrErrorTitle), findsOneWidget);
       expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
       expect(repository.ocrImageCalls, 1);
-      expect(repository.analyzeImageCalls, 0);
       expect(repository.analyzeCalls, 0);
 
       // Retaking leaves the online route for a fresh capture — never a
@@ -364,13 +411,37 @@ void main() {
         startsWith(AppRoutes.capture),
       );
       expect(repository.ocrImageCalls, 1);
-      expect(repository.analyzeImageCalls, 0);
       expect(repository.analyzeCalls, 0);
       expect(
-        ocrEngineConstructed,
-        isFalse,
-        reason: 'Tesseract must never be constructed on a failed online run',
+        deviceOcr.runs,
+        0,
+        reason:
+            'Tesseract must never run for an online failure outside the '
+            'F20 §1 allowlist',
       );
+      expect(ocrProcessingCubitConstructed, isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'a declined consent sends nothing and never runs Tesseract (O8)',
+    (tester) async {
+      // Even with an allowlisted failure queued: consent is checked before
+      // the online reading, so there is no failure to fall back from.
+      final repository = await pumpToOnlinePreview(
+        tester,
+        onlineFailure: const NoInternetFailure(),
+        consent: false,
+      );
+
+      await useImage(tester);
+
+      expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
+      expect(find.text(_strings.analysisConsentDeclinedTitle), findsOneWidget);
+      expect(repository.ocrImageCalls, 0, reason: 'no network call');
+      expect(deviceOcr.runs, 0, reason: 'no Tesseract either');
+      expect(repository.analyzeCalls, 0);
       expect(ocrProcessingCubitConstructed, isFalse);
       expect(tester.takeException(), isNull);
     },
