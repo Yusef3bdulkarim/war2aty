@@ -9,8 +9,9 @@ import '../theme/app_typography.dart';
 import 'top_bar_icon_button.dart';
 
 // The owner's result-screen review, mockup A (F21 locked decisions #14, #19,
-// #20). The bar's 56px is measured from the physical screen top and already
-// contains the 52px status bar, which [SafeArea] applies.
+// #20). In the mockup the bar sits 56px from the physical top: a 52px status
+// bar plus 4px. Here the status bar's height comes from [SafeArea], so only
+// the 4px is a constant.
 const double _barTop = 56 - 52;
 const double _barBottom = 4;
 const double _barSide = AppSpacing.screenHorizontal;

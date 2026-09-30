@@ -68,7 +68,7 @@ class _ExpandablePanelState extends State<ExpandablePanel>
           if (status == AnimationStatus.dismissed && mounted) setState(() {});
         });
 
-  late final Animation<double> _slideIn = CurvedAnimation(
+  late final CurvedAnimation _slideIn = CurvedAnimation(
     parent: _controller,
     curve: Curves.easeInOut,
   );
@@ -87,6 +87,7 @@ class _ExpandablePanelState extends State<ExpandablePanel>
 
   @override
   void dispose() {
+    _slideIn.dispose();
     _controller.dispose();
     super.dispose();
   }
