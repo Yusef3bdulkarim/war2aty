@@ -111,6 +111,35 @@ void main() {
     expect(_showing(_strings.analysisWaitStepActions), findsOneWidget);
   });
 
+  testWidgets('survives reduced motion switched on and back off', (
+    tester,
+  ) async {
+    // The dots drop their controller under reduced motion and make a new one
+    // when it is switched back, without leaving the page.
+    final still = ValueNotifier(false);
+    addTearDown(still.dispose);
+    await pumpApp(
+      tester,
+      ValueListenableBuilder<bool>(
+        valueListenable: still,
+        builder: (context, isStill, _) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: isStill),
+          child: const Center(child: WaitCaption()),
+        ),
+      ),
+      settle: false,
+    );
+
+    still.value = true;
+    await tester.pump();
+    expect(find.text('...'), findsOneWidget);
+
+    still.value = false;
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(tester.hasRunningAnimations, isTrue);
+  });
+
   testWidgets('is not read out by assistive technology', (tester) async {
     final semantics = tester.ensureSemantics();
     await pumpApp(tester, harness(), settle: false);

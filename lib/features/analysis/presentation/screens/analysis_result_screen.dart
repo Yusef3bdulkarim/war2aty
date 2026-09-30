@@ -115,12 +115,12 @@ class AnalysisResultScreen extends StatelessWidget {
   }
 }
 
-/// Holds the progress page up for its bar to reach full when a running
-/// analysis answers, then shows [child].
+/// Holds the progress page up for its finish — the check and its haptic —
+/// when a running analysis answers, then shows [child] (F22 #10).
 ///
 /// Only on analyzing → ready: a failure replaces the page at once (which
-/// disposes the bar and halts it), and a screen that opens on a ready result
-/// has no bar to finish.
+/// disposes the magnifier and halts it), and a screen that opens on a ready
+/// result has no wait to finish.
 class _FinishProgressFirst extends StatefulWidget {
   const _FinishProgressFirst({required this.state, required this.child});
 
@@ -149,8 +149,8 @@ class _FinishProgressFirstState extends State<_FinishProgressFirst> {
   @override
   Widget build(BuildContext context) {
     if (!_finishing) return widget.child;
-    // Same type in the same place as the analyzing page, so its bar keeps
-    // its state and finishes from wherever the wait had reached.
+    // Same type in the same place as the analyzing page, so the magnifier
+    // keeps its state and finishes from wherever the wait had reached.
     return AnalysisProgressView(
       finishing: true,
       onFinished: () => setState(() => _finishing = false),
