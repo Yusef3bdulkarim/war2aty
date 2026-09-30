@@ -21,6 +21,16 @@ import 'result_date_row.dart';
 const double _rowPaddingH = 16;
 const double _rowPaddingV = 14;
 const double _rowGap = 8;
+// A labelled row: its copy button brings its own 48 dp of room, so the end
+// side needs less padding than the start.
+const double _rowPaddingStart = 16;
+const double _rowPaddingEnd = 4;
+const double _twoLinePaddingV = 12;
+const double _labelValueGap = 12;
+
+/// Above this text scale a row always takes two lines (F21 #16): a label and
+/// a value side by side at that size read as one run of words.
+const double _largeTextScale = 1.3;
 const double _labelGapBelow = 2;
 const double _valueFontSize = 16;
 const double _subHeaderTop = 14;
@@ -226,8 +236,13 @@ class _SubHeader extends StatelessWidget {
   }
 }
 
-/// One labelled value: the label above it, its cautions beside it, and a copy
-/// button at the end.
+/// One labelled value, with a copy button at the end.
+///
+/// On one line — the label on the start side, the value on the end side —
+/// whenever that line can hold both (F21 locked decision #16). It falls back
+/// to the label above the value when the value is too long for the line, when
+/// a caution chip has to sit beside it, or under Large Text, so nothing is
+/// ever squeezed or cut off.
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.label,
@@ -246,45 +261,106 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final labelStyle = AppTypography.caption.copyWith(
+      fontWeight: AppTypography.semiBold,
+      color: colors.textCaption,
+    );
+    final valueStyle = AppTypography.bodyLarge.copyWith(
+      fontSize: _valueFontSize,
+      fontWeight: AppTypography.bold,
+      color: colors.ink,
+    );
+    final copy = _CopyButton(label: label, text: copyText);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: _rowPaddingH,
-        vertical: _rowPaddingV,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textWidth =
+            constraints.maxWidth -
+            _rowPaddingStart -
+            _rowPaddingEnd -
+            _rowGap -
+            _copyTarget;
+        final oneLine =
+            caveats.isEmpty &&
+            MediaQuery.textScalerOf(context).scale(1) <= _largeTextScale &&
+            _fitsOnOneLine(context, textWidth, labelStyle, valueStyle);
+
+        if (oneLine) {
+          return Padding(
+            padding: const EdgeInsetsDirectional.only(
+              start: _rowPaddingStart,
+              end: _rowPaddingEnd,
+            ),
+            child: Row(
               children: [
-                Text(
-                  label,
-                  style: AppTypography.caption.copyWith(
-                    fontWeight: AppTypography.semiBold,
-                    color: colors.textCaption,
-                  ),
-                ),
-                const SizedBox(height: _labelGapBelow),
-                CaveatedValue(
-                  value: Text(
-                    value,
-                    style: AppTypography.bodyLarge.copyWith(
-                      fontSize: _valueFontSize,
-                      fontWeight: AppTypography.bold,
-                      color: colors.ink,
-                    ),
-                  ),
-                  caveats: caveats,
-                ),
+                Expanded(child: Text(label, style: labelStyle)),
+                const SizedBox(width: _labelValueGap),
+                Text(value, style: valueStyle),
+                const SizedBox(width: _rowGap),
+                copy,
               ],
             ),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            _rowPaddingStart,
+            _twoLinePaddingV,
+            _rowPaddingEnd,
+            _twoLinePaddingV,
           ),
-          const SizedBox(width: _rowGap),
-          _CopyButton(label: label, text: copyText),
-        ],
-      ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: labelStyle),
+                    const SizedBox(height: _labelGapBelow),
+                    CaveatedValue(
+                      value: Text(value, style: valueStyle),
+                      caveats: caveats,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: _rowGap),
+              copy,
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  /// Whether the label and the value, side by side, fit in [width] at the
+  /// user's text size.
+  bool _fitsOnOneLine(
+    BuildContext context,
+    double width,
+    TextStyle labelStyle,
+    TextStyle valueStyle,
+  ) {
+    final direction = Directionality.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+
+    double widthOf(String text, TextStyle style) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final measured = painter.width;
+      painter.dispose();
+      return measured;
+    }
+
+    return widthOf(label, labelStyle) +
+            _labelValueGap +
+            widthOf(value, valueStyle) <=
+        width;
   }
 }
 

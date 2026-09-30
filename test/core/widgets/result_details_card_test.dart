@@ -296,6 +296,94 @@ void main() {
     });
   });
 
+  group('ResultDetailsCard — compact rows', () {
+    bool sameLine(WidgetTester tester, String label, String value) {
+      final l = tester.getRect(find.text(label));
+      final v = tester.getRect(find.text(value));
+      return v.top < l.bottom && v.bottom > l.top;
+    }
+
+    testWidgets('puts a short value on the same line as its label', (
+      tester,
+    ) async {
+      await pumpCard(tester, items: [_item()]);
+
+      expect(sameLine(tester, 'رقم المشترك', '624512'), isTrue);
+      // Arabic: the label on the right, the value to its left.
+      expect(
+        tester.getRect(find.text('624512')).right,
+        lessThan(tester.getRect(find.text('رقم المشترك')).left),
+      );
+    });
+
+    testWidgets('a compact row is one 48 dp line', (tester) async {
+      await pumpCard(
+        tester,
+        items: [
+          _item(),
+          _item(label: 'رقم العداد', value: '4471902'),
+        ],
+      );
+
+      // Label to label: one row's height plus its 1 px divider.
+      final first = tester.getCenter(find.text('رقم المشترك')).dy;
+      final second = tester.getCenter(find.text('رقم العداد')).dy;
+      expect(second - first, moreOrLessEquals(49));
+    });
+
+    testWidgets('drops a long value under its label', (tester) async {
+      const long = 'شركة شمال القاهرة لتوزيع الكهرباء — قطاع مدينة نصر';
+      await pumpCard(
+        tester,
+        items: [_item(label: 'الجهة', value: long)],
+      );
+
+      expect(sameLine(tester, 'الجهة', long), isFalse);
+      expect(
+        tester.getRect(find.text(long)).top,
+        greaterThanOrEqualTo(tester.getRect(find.text('الجهة')).bottom),
+      );
+    });
+
+    testWidgets('gives a value with a caution its own line', (tester) async {
+      await pumpCard(tester, items: [_item(confidence: ConfidenceBand.low)]);
+
+      expect(sameLine(tester, 'رقم المشترك', '624512'), isFalse);
+      expect(find.text(_strings.confidenceUncertain), findsOneWidget);
+    });
+
+    testWidgets('takes two lines under Large Text', (tester) async {
+      await pumpCard(
+        tester,
+        items: [_item()],
+        textScaler: const TextScaler.linear(1.5),
+      );
+
+      expect(sameLine(tester, 'رقم المشترك', '624512'), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('amounts are compact too', (tester) async {
+      await pumpCard(tester, amounts: [_amount()]);
+
+      expect(sameLine(tester, 'المبلغ المطلوب', '750 جنيه'), isTrue);
+    });
+
+    testWidgets('lays out the same way in English', (tester) async {
+      await pumpCard(
+        tester,
+        items: [_item(label: 'Account', value: '624512')],
+        locale: AppLocalizations.english,
+      );
+
+      expect(sameLine(tester, 'Account', '624512'), isTrue);
+      expect(
+        tester.getRect(find.text('624512')).left,
+        greaterThan(tester.getRect(find.text('Account')).right),
+      );
+    });
+  });
+
   group('ResultDetailsCard — the dates group', () {
     testWidgets('sits in the same card, after information and amounts', (
       tester,
