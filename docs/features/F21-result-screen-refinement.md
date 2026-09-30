@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/result-screen-refinement`, based on `feature/ocr-analysis-providers` (PR #20). Rebase onto `develop` once #20 is merged · **Milestone:** post-F20
 - **Depends on:** F07 (the result screen and its cards), F08 (the saved-paper details screen, which shares the same cards), F09 (the reminder button in the dates card)
-- **Progress:** 6 / 10 DONE
+- **Progress:** 7 / 10 DONE
 - **PR:** one PR at the end of the feature
 
 The owner's UI/UX review of the analysis result screen (2026-09-30). The screen
@@ -78,7 +78,7 @@ could not be opened from the session (DesignSync needs `/design-login`).
 | 5 | F21-T05 | Data card: dates join it | The dates group inside the same card. Day tile kept, reminder button at the group's end, multi-date picking unchanged (§5.8). No copy on dates. Both screens. Tests: each combination of the three groups present or absent | DONE — `ResultDatesCard` became `result_date_row.dart`, with public `ResultDateRow` and `ResultReminderButton` and no card or heading of its own. `ResultDetailsCard` gains a third group, «التواريخ والمواعيد»: date rows with dividers between them, then the reminder button as the group's footer, inside the card. `resultDetailsSections` includes `dates`. Its tests are ported to `result_details_card_test.dart`, and `date_selection_test` (multi-date picking, §5.8) runs unchanged against the new card |
 | 6 | F21-T06 | Compact warning banners | One banner per warning, minimum height 48, radius 8, grows under Large Text (#2, #10). Partial banner in the same style, still first on the page. Not colour alone (icon and text). Audio reader output unchanged, tested | DONE — new shared `CompactAlertBanner` (`core/widgets/`): warning tint, 1 px border, radius 8, `minHeight: 48`, an 18 px icon and 14 sp text that wraps. `ResultWarningsCard` draws one per warning, 8 px apart, with no drawn heading; each banner's screen-reader label is «تنبيه مهم: …», so the heading's meaning survives for TalkBack. `PartialResultBanner` uses the same banner and is still first on the page. The audio reader is untouched (it speaks from the strings, not the widgets), and its tests pass unchanged |
 | 7 | F21-T07 | Summary card redesign | Star removed, the new label in ar and en (#12). The visual redesign follows the owner's direction. **Blocked** on that direction and on the label confirmation | BLOCKED |
-| 8 | F21-T08 | 12 px card spacing | Every result card 12 px apart on both screens (#11) | TODO |
+| 8 | F21-T08 | 12 px card spacing | Every result card 12 px apart on both screens (#11) | DONE — one token, `AppSpacing.resultCardGap` (= `md`, 12), replaces the seven separate 14 px gaps (header, summary, actions, warnings, details, list cards, partial banner). The two result panels used to add a gap *above* (14 and 10), which stacked on the card before them (28 px). They now take the same 12 px *below*, through a new `ExpandablePanel.gapBelow`. Section headings above the list cards keep their own 20/12 spacing: they are headings, not cards. Test: the drawn gap between the header and summary cards is 12 |
 | 9 | F21-T09 | Smooth panel slide | `ExpandablePanel` animates its height in place, and is instant under reduced motion (#13). The body is still built only while open. Tests: open, close, reduced motion | TODO |
 | 10 | F21-T10 | End-to-end verification | Device pass on RMX2001: result screen and details screen, Arabic and English, Large Text, TalkBack; back gesture and back button; reminder from the dates group | TODO |
 

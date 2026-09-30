@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../documents/analysis_warning.dart';
 import '../localization/app_localizations.dart';
+import '../theme/app_spacing.dart';
 import 'compact_alert_banner.dart';
 
 // The owner's result-screen review (F21 locked decision #10).
-const double _gapBelow = 14;
+const double _gapBelow = AppSpacing.resultCardGap;
 const double _warningGap = 8;
 
 /// The medical, legal, financial and government disclaimers — one compact

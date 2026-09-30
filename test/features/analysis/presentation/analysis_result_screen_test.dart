@@ -234,6 +234,25 @@ void main() {
       expect(find.text(_strings.resultDatesTitle), findsOneWidget);
     });
 
+    testWidgets('keeps the cards 12 px apart', (tester) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      // The drawn surfaces, not the widgets: each card carries its own gap.
+      Rect surface(Type card) => tester.getRect(
+        find
+            .descendant(
+              of: find.byType(card),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+
+      final header = surface(ResultHeaderCard);
+      final summary = surface(ResultSummaryCard);
+      expect(summary.top - header.bottom, moreOrLessEquals(12));
+    });
+
     testWidgets('offers to listen without needing an external onListen', (
       tester,
     ) async {

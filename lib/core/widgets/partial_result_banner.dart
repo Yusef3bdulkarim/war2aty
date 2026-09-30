@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../localization/app_localizations.dart';
+import '../theme/app_spacing.dart';
 import 'compact_alert_banner.dart';
 
-const double _gapBelow = 14;
+const double _gapBelow = AppSpacing.resultCardGap;
 
 /// «قدرنا نفهم جزء من الورقة» — said above a result that is only half read.
 ///

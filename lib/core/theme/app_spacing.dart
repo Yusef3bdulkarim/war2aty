@@ -13,4 +13,9 @@ abstract final class AppSpacing {
 
   /// Standard horizontal padding for a screen's content.
   static const double screenHorizontal = 16;
+
+  /// The gap under every card and panel on the result page (and the saved
+  /// paper, which draws the same cards) — the owner's review, F21 locked
+  /// decision #11.
+  static const double resultCardGap = md;
 }

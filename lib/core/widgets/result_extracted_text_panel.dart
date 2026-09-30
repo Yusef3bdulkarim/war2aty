@@ -4,11 +4,11 @@ import 'package:flutter/services.dart';
 import '../icons/stroke_icon.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'expandable_panel.dart';
 
 // From `Waraqti.dc.html` → the result page's extracted-text panel.
-const double _gapAbove = 10;
 const double _textFontSize = 13.5;
 const double _textHeight = 1.9;
 const double _textGapBelow = 12;
@@ -59,7 +59,7 @@ class ResultExtractedTextPanel extends StatelessWidget {
 
     return ExpandablePanel(
       label: strings.resultShowExtractedText,
-      gapAbove: _gapAbove,
+      gapBelow: AppSpacing.resultCardGap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

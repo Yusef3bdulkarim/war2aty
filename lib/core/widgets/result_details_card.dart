@@ -12,6 +12,7 @@ import '../money/document_amount_label.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'caveated_value.dart';
 import 'result_date_row.dart';
@@ -27,7 +28,7 @@ const double _subHeaderBottom = 2;
 const double _reminderBottom = 16;
 const double _copyTarget = 48;
 const double _copyIconSize = 16;
-const double _cardGapBelow = 14;
+const double _cardGapBelow = AppSpacing.resultCardGap;
 
 /// How long the "copied" confirmation stays up.
 const Duration _copiedFeedback = Duration(seconds: 2);

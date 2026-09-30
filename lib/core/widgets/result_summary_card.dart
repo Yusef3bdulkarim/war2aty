@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import '../icons/stroke_icon.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 
 // From `Waraqti.dc.html` → the result page's summary card.
 const double _cardPadding = 22;
 const double _cardRadius = 22;
-const double _cardGapBelow = 14;
+const double _cardGapBelow = AppSpacing.resultCardGap;
 const double _labelIconSize = 20;
 const double _labelGap = 8;
 const double _labelGapBelow = 10;

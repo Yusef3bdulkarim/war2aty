@@ -47,7 +47,6 @@ const double _topBarGap = 8;
 const double _pageSide = 18;
 const double _pageTop = 18;
 const double _pageBottom = 24;
-const double _explanationGapAbove = 14;
 const double _explanationFontSize = 14.5;
 const double _explanationHeight = 1.9;
 const double _imageRadius = 14;
@@ -338,7 +337,7 @@ class _DetailsBodyState extends State<_DetailsBody> {
       ),
       AnalysisSection.detailedExplanation => ExpandablePanel(
         label: strings.resultShowExplanation,
-        gapAbove: _explanationGapAbove,
+        gapBelow: AppSpacing.resultCardGap,
         child: Text(
           analysis.summary.detailed,
           style: AppTypography.bodySmall.copyWith(

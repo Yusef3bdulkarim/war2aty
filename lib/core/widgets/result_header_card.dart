@@ -7,12 +7,13 @@ import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'caveat_badge.dart';
 
 // From `Waraqti.dc.html` → the result page's title card.
 const double _cardPadding = 18;
-const double _cardGapBelow = 14;
+const double _cardGapBelow = AppSpacing.resultCardGap;
 const double _chipPaddingH = 12;
 const double _chipPaddingV = 4;
 const double _chipFontSize = 12.5;

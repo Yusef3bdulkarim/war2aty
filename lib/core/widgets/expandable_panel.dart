@@ -32,6 +32,7 @@ class ExpandablePanel extends StatefulWidget {
     required this.label,
     required this.child,
     this.gapAbove = 0,
+    this.gapBelow = 0,
     super.key,
   });
 
@@ -43,6 +44,7 @@ class ExpandablePanel extends StatefulWidget {
   final Widget child;
 
   final double gapAbove;
+  final double gapBelow;
 
   @override
   State<ExpandablePanel> createState() => _ExpandablePanelState();
@@ -57,7 +59,7 @@ class _ExpandablePanelState extends State<ExpandablePanel> {
     final colors = AppColors.of(context);
 
     return Padding(
-      padding: EdgeInsets.only(top: widget.gapAbove),
+      padding: EdgeInsets.only(top: widget.gapAbove, bottom: widget.gapBelow),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.card,
