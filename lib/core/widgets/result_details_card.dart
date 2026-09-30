@@ -217,7 +217,8 @@ class _SubHeader extends StatelessWidget {
           title,
           style: AppTypography.caption.copyWith(
             fontWeight: AppTypography.bold,
-            color: colors.textMuted,
+            // Not `textMuted` (3.0:1): 13 px text needs 4.5:1 (F21 #18).
+            color: colors.textCaption,
           ),
         ),
       ),
@@ -261,7 +262,7 @@ class _DetailRow extends StatelessWidget {
                   label,
                   style: AppTypography.caption.copyWith(
                     fontWeight: AppTypography.semiBold,
-                    color: colors.iconSubtle,
+                    color: colors.textCaption,
                   ),
                 ),
                 const SizedBox(height: _labelGapBelow),

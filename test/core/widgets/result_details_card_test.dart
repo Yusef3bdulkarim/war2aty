@@ -9,6 +9,7 @@ import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/core/theme/app_colors.dart';
 import 'package:war2aty/core/widgets/caveat_badge.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
 
@@ -446,6 +447,28 @@ void main() {
       expect(find.text(english.resultDatesTitle), findsOneWidget);
       expect(find.text('25 August 2026'), findsOneWidget);
       expect(find.text(english.resultDateNoTime), findsOneWidget);
+    });
+  });
+
+  group('ResultDetailsCard — contrast', () {
+    testWidgets('its small grey text meets 4.5:1 (textCaption)', (
+      tester,
+    ) async {
+      await pumpCard(tester, items: [_item()], dates: [_date()]);
+
+      Color? colorOf(String text) =>
+          tester.widget<Text>(find.text(text)).style?.color;
+
+      // Sub-header, row label, date label, and the time line — all 13 px or
+      // smaller, where `textMuted` (3.0:1) and `iconSubtle` (3.7:1) failed AA.
+      for (final text in [
+        _strings.resultKeyInformationTitle,
+        'رقم المشترك',
+        'آخر موعد للسداد',
+        _strings.resultDateNoTime,
+      ]) {
+        expect(colorOf(text), AppColors.light.textCaption, reason: text);
+      }
     });
   });
 

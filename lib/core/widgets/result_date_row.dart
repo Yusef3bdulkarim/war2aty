@@ -119,7 +119,7 @@ class ResultDateRow extends StatelessWidget {
                 style: AppTypography.caption.copyWith(
                   fontSize: _roleFontSize,
                   fontWeight: AppTypography.semiBold,
-                  color: colors.iconSubtle,
+                  color: colors.textCaption,
                 ),
               ),
               const SizedBox(height: _valueGapAbove),
@@ -144,7 +144,8 @@ class ResultDateRow extends StatelessWidget {
                 style: AppTypography.caption.copyWith(
                   fontSize: _noteFontSize,
                   fontWeight: AppTypography.semiBold,
-                  color: colors.textMuted,
+                  // 4.5:1 for small text, not `textMuted`'s 3.0 (F21 #18).
+                  color: colors.textCaption,
                 ),
               ),
             ],
