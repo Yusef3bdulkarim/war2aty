@@ -221,16 +221,17 @@ void main() {
       expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
     });
 
-    testWidgets('draws key information and amounts as one card, once', (
+    testWidgets('draws information, amounts and dates as one card, once', (
       tester,
     ) async {
       await cubit.analyze();
       await pumpScreen(tester);
 
-      // Two §4 sections, one card — not one per section.
+      // Three §4 sections, one card — not one per section.
       expect(find.byType(ResultDetailsCard), findsOneWidget);
       expect(find.text(_strings.resultKeyInformationTitle), findsOneWidget);
       expect(find.text(_strings.resultAmountsTitle), findsOneWidget);
+      expect(find.text(_strings.resultDatesTitle), findsOneWidget);
     });
 
     testWidgets('offers to listen without needing an external onListen', (

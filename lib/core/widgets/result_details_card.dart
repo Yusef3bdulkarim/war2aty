@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../documents/analysis_amount.dart';
+import '../documents/analysis_date.dart';
 import '../documents/analysis_section.dart';
 import '../documents/confidence_label.dart';
 import '../documents/key_information.dart';
@@ -13,6 +14,7 @@ import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
 import 'caveated_value.dart';
+import 'result_date_row.dart';
 
 // The owner's result-screen review (F21 locked decisions #3 and #9).
 const double _rowPaddingH = 16;
@@ -22,6 +24,7 @@ const double _labelGapBelow = 2;
 const double _valueFontSize = 16;
 const double _subHeaderTop = 14;
 const double _subHeaderBottom = 2;
+const double _reminderBottom = 16;
 const double _copyTarget = 48;
 const double _copyIconSize = 16;
 const double _cardGapBelow = 14;
@@ -33,6 +36,7 @@ const Duration _copiedFeedback = Duration(seconds: 2);
 const Set<AnalysisSection> resultDetailsSections = {
   AnalysisSection.keyInformation,
   AnalysisSection.amounts,
+  AnalysisSection.dates,
 };
 
 /// Whether [section] is where the details card goes in [sections]: the first
@@ -45,8 +49,9 @@ bool isResultDetailsSlot(
     resultDetailsSections.contains(section) &&
     sections.firstWhere(resultDetailsSections.contains) == section;
 
-/// Everything read off the paper, in one card: «أهم المعلومات», then
-/// «المبالغ», each under a small neutral sub-header (F21 locked decision #9).
+/// Everything read off the paper, in one card: «أهم المعلومات», «المبالغ»,
+/// then «التواريخ والمواعيد», each under a small neutral sub-header (F21
+/// locked decision #9).
 ///
 /// Every row stands on its own: a value the analysis is unsure of, or worked
 /// out rather than read, says so in words beside it. Confidence is never
@@ -54,19 +59,33 @@ bool isResultDetailsSlot(
 /// §5.9 and §5.10).
 ///
 /// Values can be copied — these are the numbers a user retypes into a payment
-/// app or reads out on the phone. An amount copies the figure alone.
+/// app or reads out on the phone. An amount copies the figure alone; a date
+/// has no copy button.
+///
+/// The dates group ends with «إنشاء تذكير», the branch point into a reminder —
+/// where the user, not the app, picks which date it is for (§5.8).
 class ResultDetailsCard extends StatelessWidget {
   const ResultDetailsCard({
     required this.keyInformation,
     required this.amounts,
+    required this.dates,
+    this.onCreateReminder,
     super.key,
   }) : assert(
-         keyInformation.length + amounts.length > 0,
-         'BuildAnalysisResult drops both sections when there is nothing to show',
+         keyInformation.length + amounts.length + dates.length > 0,
+         'BuildAnalysisResult drops these sections when there is nothing to show',
        );
 
   final List<KeyInformation> keyInformation;
   final List<AnalysisAmount> amounts;
+
+  /// In the order the analysis reported them.
+  final List<AnalysisDate> dates;
+
+  /// Starts a reminder for the date the user settled on. Absent until there
+  /// is somewhere for it to go (F09); the button is left out while it is —
+  /// better no button than one that does nothing.
+  final ValueChanged<AnalysisDate>? onCreateReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +96,8 @@ class ResultDetailsCard extends StatelessWidget {
       if (keyInformation.isNotEmpty)
         (
           title: strings.resultKeyInformationTitle,
-          rows: [
+          footer: null,
+          rows: <Widget>[
             for (final item in keyInformation)
               _DetailRow(
                 label: item.label,
@@ -94,7 +114,8 @@ class ResultDetailsCard extends StatelessWidget {
       if (amounts.isNotEmpty)
         (
           title: strings.resultAmountsTitle,
-          rows: [
+          footer: null,
+          rows: <Widget>[
             for (final amount in amounts)
               _DetailRow(
                 label: amount.label,
@@ -105,6 +126,35 @@ class ResultDetailsCard extends StatelessWidget {
                 ),
                 caveats: [?confidenceLabel(strings, amount.confidence)],
                 copyText: formatAmountNumber(amount.value),
+              ),
+          ],
+        ),
+      if (dates.isNotEmpty)
+        (
+          title: strings.resultDatesTitle,
+          footer: switch (onCreateReminder) {
+            final onCreateReminder? => Padding(
+              padding: const EdgeInsets.fromLTRB(
+                _rowPaddingH,
+                0,
+                _rowPaddingH,
+                _reminderBottom,
+              ),
+              child: ResultReminderButton(
+                dates: dates,
+                onCreateReminder: onCreateReminder,
+              ),
+            ),
+            null => null,
+          },
+          rows: <Widget>[
+            for (final date in dates)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _rowPaddingH,
+                  vertical: _rowPaddingV,
+                ),
+                child: ResultDateRow(date: date),
               ),
           ],
         ),
@@ -132,6 +182,7 @@ class ResultDetailsCard extends StatelessWidget {
                   if (rowIndex > 0) divider,
                   row,
                 ],
+                ?group.footer,
               ],
             ],
           ),

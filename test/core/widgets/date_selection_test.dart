@@ -6,7 +6,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/widgets/date_selection_sheet.dart';
-import 'package:war2aty/core/widgets/result_dates_card.dart';
+import 'package:war2aty/core/widgets/result_details_card.dart';
 
 import '../../support/pump_app.dart';
 
@@ -43,7 +43,14 @@ void main() {
   }) => pumpApp(
     tester,
     Scaffold(
-      body: ResultDatesCard(dates: dates, onCreateReminder: onCreateReminder),
+      body: SingleChildScrollView(
+        child: ResultDetailsCard(
+          keyInformation: const [],
+          amounts: const [],
+          dates: dates,
+          onCreateReminder: onCreateReminder,
+        ),
+      ),
     ),
     locale: locale,
     textScaler: textScaler,

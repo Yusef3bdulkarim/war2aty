@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/documents/analysis_amount.dart';
+import 'package:war2aty/core/documents/analysis_date.dart';
 import 'package:war2aty/core/documents/analysis_section.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/key_information.dart';
@@ -39,18 +40,41 @@ AnalysisAmount _amount({
   confidence: confidence,
 );
 
+AnalysisDate _date({
+  String label = 'آخر موعد للسداد',
+  DateTime? on,
+  AnalysisTime? time,
+  DateRole role = DateRole.deadline,
+  bool isReminderWorthy = true,
+  ConfidenceBand confidence = ConfidenceBand.high,
+}) => AnalysisDate(
+  label: label,
+  date: on ?? DateTime(2026, 8, 25),
+  time: time,
+  role: role,
+  isReminderWorthy: isReminderWorthy,
+  confidence: confidence,
+);
+
 void main() {
   Future<void> pumpCard(
     WidgetTester tester, {
     List<KeyInformation> items = const [],
     List<AnalysisAmount> amounts = const [],
+    List<AnalysisDate> dates = const [],
+    ValueChanged<AnalysisDate>? onCreateReminder,
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
   }) => pumpApp(
     tester,
     Scaffold(
       body: SingleChildScrollView(
-        child: ResultDetailsCard(keyInformation: items, amounts: amounts),
+        child: ResultDetailsCard(
+          keyInformation: items,
+          amounts: amounts,
+          dates: dates,
+          onCreateReminder: onCreateReminder,
+        ),
       ),
     ),
     locale: locale,
@@ -271,6 +295,160 @@ void main() {
     });
   });
 
+  group('ResultDetailsCard — the dates group', () {
+    testWidgets('sits in the same card, after information and amounts', (
+      tester,
+    ) async {
+      await pumpCard(
+        tester,
+        items: [_item()],
+        amounts: [_amount()],
+        dates: [_date()],
+      );
+
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      final amounts = tester.getTopLeft(find.text(_strings.resultAmountsTitle));
+      final dates = tester.getTopLeft(find.text(_strings.resultDatesTitle));
+      expect(amounts.dy, lessThan(dates.dy));
+      expect(
+        tester
+            .getSemantics(find.text(_strings.resultDatesTitle))
+            .flagsCollection
+            .isHeader,
+        isTrue,
+      );
+    });
+
+    testWidgets('writes the date out in full and says what it is for', (
+      tester,
+    ) async {
+      await pumpCard(
+        tester,
+        dates: [
+          _date(),
+          _date(
+            label: 'تاريخ إصدار الفاتورة',
+            on: DateTime(2026, 8, 10),
+            role: DateRole.issued,
+            isReminderWorthy: false,
+          ),
+        ],
+      );
+
+      expect(find.text('25 أغسطس 2026'), findsOneWidget);
+      expect(find.text('آخر موعد للسداد'), findsOneWidget);
+      expect(find.text('تاريخ إصدار الفاتورة'), findsOneWidget);
+    });
+
+    testWidgets('keeps the order the analysis reported', (tester) async {
+      await pumpCard(
+        tester,
+        dates: [
+          _date(label: 'الأولى'),
+          _date(label: 'التانية', on: DateTime(2026, 8, 10)),
+        ],
+      );
+
+      final first = tester.getTopLeft(find.text('الأولى'));
+      final second = tester.getTopLeft(find.text('التانية'));
+      expect(first.dy, lessThan(second.dy));
+    });
+
+    testWidgets('shows the time the paper gives', (tester) async {
+      await pumpCard(
+        tester,
+        dates: [_date(time: const AnalysisTime(hour: 10, minute: 0))],
+      );
+
+      expect(find.text('10:00 ${_strings.timeAm}'), findsOneWidget);
+      expect(find.text(_strings.resultDateNoTime), findsNothing);
+    });
+
+    testWidgets('says so rather than inventing a missing time', (tester) async {
+      await pumpCard(tester, dates: [_date()]);
+
+      expect(find.text(_strings.resultDateNoTime), findsOneWidget);
+    });
+
+    testWidgets('qualifies a date the analysis is unsure of', (tester) async {
+      await pumpCard(tester, dates: [_date(confidence: ConfidenceBand.medium)]);
+
+      expect(find.text(_strings.confidenceReview), findsOneWidget);
+    });
+
+    testWidgets('lets a certain date stand on its own', (tester) async {
+      await pumpCard(tester, dates: [_date()]);
+
+      expect(find.byType(CaveatBadge), findsNothing);
+    });
+
+    testWidgets('the day tile is not read out twice', (tester) async {
+      await pumpCard(tester, dates: [_date()]);
+
+      // The tile repeats the day and month already spelled out beside it.
+      expect(find.text('25'), findsOneWidget);
+      expect(find.text('أغسطس'), findsOneWidget);
+      expect(find.bySemanticsLabel('25'), findsNothing);
+    });
+
+    testWidgets('has no copy button on a date', (tester) async {
+      await pumpCard(tester, dates: [_date()]);
+
+      expect(
+        find.bySemanticsLabel(_strings.resultCopyValueLabel('آخر موعد للسداد')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('ends the group with the reminder button, inside the card', (
+      tester,
+    ) async {
+      await pumpCard(
+        tester,
+        dates: [
+          _date(),
+          _date(label: 'التانية', on: DateTime(2026, 9, 1)),
+        ],
+        onCreateReminder: (_) {},
+      );
+
+      final card = tester.getRect(find.byType(ResultDetailsCard));
+      final button = tester.getRect(find.text(_strings.resultCreateReminder));
+      final lastDate = tester.getRect(find.text('التانية'));
+      expect(card.contains(button.center), isTrue);
+      expect(button.top, greaterThan(lastDate.bottom));
+    });
+
+    testWidgets('lays out under Large Text', (tester) async {
+      await pumpCard(
+        tester,
+        dates: [
+          _date(
+            label: 'آخر موعد لتقديم المستندات لمكتب السجل المدني',
+            confidence: ConfidenceBand.low,
+          ),
+        ],
+        onCreateReminder: (_) {},
+        textScaler: const TextScaler.linear(2),
+      );
+
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('follows the locale', (tester) async {
+      await pumpCard(
+        tester,
+        dates: [_date()],
+        locale: AppLocalizations.english,
+      );
+
+      const english = EnStrings();
+      expect(find.text(english.resultDatesTitle), findsOneWidget);
+      expect(find.text('25 August 2026'), findsOneWidget);
+      expect(find.text(english.resultDateNoTime), findsOneWidget);
+    });
+  });
+
   group('isResultDetailsSlot', () {
     test('is the first of the sections the card draws together', () {
       const sections = [
@@ -292,6 +470,18 @@ void main() {
       const sections = [AnalysisSection.header, AnalysisSection.amounts];
 
       expect(isResultDetailsSlot(sections, AnalysisSection.amounts), isTrue);
+    });
+
+    test('falls to dates when they are all there is', () {
+      const sections = [AnalysisSection.header, AnalysisSection.dates];
+
+      expect(isResultDetailsSlot(sections, AnalysisSection.dates), isTrue);
+    });
+
+    test('absorbs dates once key information holds the slot', () {
+      const sections = [AnalysisSection.keyInformation, AnalysisSection.dates];
+
+      expect(isResultDetailsSlot(sections, AnalysisSection.dates), isFalse);
     });
   });
 }
