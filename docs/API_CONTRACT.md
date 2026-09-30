@@ -313,7 +313,7 @@ The request body of `POST /functions/v1/ocr-document`, behind `RuntimeConfig.onl
 
   // ── the photo ───────────────────────────────────────────────────────
   "image": {
-    "data":      "<base64>",       // the perspective-corrected capture (F13-T12), never a thumbnail or the raw sensor frame
+    "data":      "<base64>",       // the capture as the user confirmed it (rotated/cropped), never a thumbnail
     "mime_type": "image/jpeg"      // "image/jpeg" | "image/png" only
   }
 }

@@ -97,7 +97,7 @@ const IMAGE_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
   "image",
 ]);
 
-/** Photo formats the capture flow (F04) and `doclens` crop (F13-T12) may produce. */
+/** Photo formats the capture flow (F04) and its rotate/crop steps may produce. */
 const IMAGE_MIME_TYPES: ReadonlySet<string> = new Set(["image/jpeg", "image/png"]);
 
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;

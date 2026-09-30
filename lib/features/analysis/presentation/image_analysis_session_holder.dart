@@ -4,11 +4,11 @@ import 'dart:io';
 import '../../../core/storage/analysis_session.dart';
 import '../../capture/domain/entities/captured_photo.dart';
 
-/// In-memory holder for the perspective-corrected photo the online route
+/// In-memory holder for the confirmed photo the online route
 /// (F13) hands off to the analysis feature — the online counterpart of
 /// `OcrSessionHolder`.
 ///
-/// Set by the capture flow once perspective correction succeeds, read by the
+/// Set by the capture flow once the analysis session exists, read by the
 /// OCR review route when it builds `OcrReviewCubit`. The route's own `extra`
 /// is dropped when the OS kills and restores the app mid-scan, so this
 /// instance is the source of truth, not the navigation state.

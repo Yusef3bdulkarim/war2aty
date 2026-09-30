@@ -9,7 +9,6 @@ import '../../domain/entities/captured_photo.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../../domain/usecases/assess_image_quality.dart';
 import '../../domain/usecases/cleanup_capture_files.dart';
-import '../../domain/usecases/correct_perspective.dart';
 import '../../domain/usecases/create_analysis_session.dart';
 import '../../domain/usecases/crop_image.dart';
 import '../../domain/usecases/decide_analysis_route.dart';
@@ -19,11 +18,12 @@ import 'image_preview_state.dart';
 /// Drives the crop/rotate preview: track the chosen rotation, then on confirm
 /// bake it into an upright file and assess its quality for OCR.
 ///
-/// [proceed] is also where the F13/F15 pipeline split happens: `doclens`
-/// perspective-corrects the confirmed photo on **both** routes (F15 locked
-/// decision #4), then [decideRoute] picks offline (hands the corrected
-/// image's session off to F04's OCR screen) or online (hands the corrected
-/// image straight to the analysis result screen, skipping OCR entirely).
+/// [proceed] is also where the F13/F15 pipeline split happens: [decideRoute]
+/// picks offline (hands the confirmed image's session off to F04's OCR
+/// screen) or online (hands the confirmed image straight to the analysis
+/// result screen, skipping OCR entirely). The confirmed image is read exactly
+/// as the user framed it — there is no automatic document crop (F15 locked
+/// decision #4, amended).
 final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   ImagePreviewCubit({
     required CapturedPhoto source,
@@ -31,7 +31,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     required CropImage cropImage,
     required AssessImageQuality assessQuality,
     required DecideAnalysisRoute decideRoute,
-    required CorrectPerspective correctPerspective,
     required CreateAnalysisSession createSession,
     required ImageAnalysisSessionHolder onlineHandoff,
     required OcrSessionHolder ocrHandoff,
@@ -41,7 +40,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
        _cropImage = cropImage,
        _assessQuality = assessQuality,
        _decideRoute = decideRoute,
-       _correctPerspective = correctPerspective,
        _createSession = createSession,
        _onlineHandoff = onlineHandoff,
        _ocrHandoff = ocrHandoff,
@@ -54,7 +52,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   final CropImage _cropImage;
   final AssessImageQuality _assessQuality;
   final DecideAnalysisRoute _decideRoute;
-  final CorrectPerspective _correctPerspective;
   final CreateAnalysisSession _createSession;
   final ImageAnalysisSessionHolder _onlineHandoff;
   final OcrSessionHolder _ocrHandoff;
@@ -69,12 +66,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// reason as [_rotatedPath] — an unencrypted temp copy of the user's
   /// document must not survive past this screen (CLAUDE.md §7).
   String? _croppedPath;
-
-  /// Path of the perspective-corrected file produced by [proceed] on the
-  /// online route, when it differs from the confirmed photo. Tracked for the
-  /// same reason as [_rotatedPath] — an unencrypted temp copy of the user's
-  /// document must not survive past this screen (CLAUDE.md §7).
-  String? _correctedPath;
 
   /// Set to `true` once [proceed] successfully hands off to the online
   /// analysis pipeline. When set, [close] skips file cleanup entirely —
@@ -188,14 +179,13 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     );
   }
 
-  /// Perspective-corrects, creates the analysis session from that corrected
-  /// image, then routes to the offline or online pipeline.
+  /// Creates the analysis session from the confirmed image, then routes to
+  /// the offline or online pipeline.
   ///
-  /// `doclens` runs on **both** routes (F15 locked decision #4, amending F13
-  /// locked decision #1 which was online-only) and *before* session creation
-  /// on both — `AnalysisSession.imagePath` is a copy of whatever photo
-  /// [_createSession] is given, and that copy is exactly what F04's offline
-  /// OCR reads, so the corrected image has to exist before that copy is made.
+  /// Both routes read the confirmed image as is: an automatic document crop
+  /// used to run here and, on blurry or sparse pages, latched onto one text
+  /// block so the rest of the page was never read. The user's own crop on
+  /// this screen is the only crop (F15 locked decision #4, amended).
   ///
   /// Only valid from [ImagePreviewConfirmed]; a no-op in any other state.
   Future<void> proceed() async {
@@ -214,28 +204,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     _ocrHandoff.clear();
     _onlineHandoff.clear();
 
-    final correctedResult = await _correctPerspective(current.photo);
-    final corrected = correctedResult.valueOrNull;
-    if (isClosed) {
-      // Same reasoning as confirm()'s rotate/crop steps: an untracked file
-      // produced after close() already swept must be cleaned up here.
-      if (corrected != null && corrected.path != current.photo.path) {
-        unawaited(_cleanupFiles([corrected.path]));
-      }
-      return;
-    }
-
-    if (corrected == null) {
-      emit(const ImagePreviewFailed(0));
-      return;
-    }
-
-    // Same reasoning as the rotated file: doclens may hand back the input
-    // unchanged (no quad detected), in which case there is nothing new to
-    // clean up — only a genuinely new file is tracked.
-    if (corrected.path != current.photo.path) _correctedPath = corrected.path;
-
-    final sessionResult = await _createSession(corrected);
+    final photo = current.photo;
+    final sessionResult = await _createSession(photo);
     if (isClosed) return;
 
     final session = sessionResult.valueOrNull;
@@ -267,10 +237,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     if (rotated != null) cleanupPaths.add(rotated);
     final manuallyCropped = _croppedPath;
     if (manuallyCropped != null) cleanupPaths.add(manuallyCropped);
-    final correctedP = _correctedPath;
-    if (correctedP != null) cleanupPaths.add(correctedP);
 
-    _onlineHandoff.set(session, corrected, cleanupPaths: cleanupPaths.toList());
+    _onlineHandoff.set(session, photo, cleanupPaths: cleanupPaths.toList());
     _handedOffToOnline = true;
     emit(
       ImagePreviewOnlineReady(session, quarterTurns: turns, cropRect: cropRect),
@@ -290,8 +258,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
       if (rotated != null) paths.add(rotated);
       final manuallyCropped = _croppedPath;
       if (manuallyCropped != null) paths.add(manuallyCropped);
-      final corrected = _correctedPath;
-      if (corrected != null) paths.add(corrected);
       unawaited(_cleanupFiles(paths.toList()));
     }
     return super.close();

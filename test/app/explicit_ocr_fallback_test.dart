@@ -53,7 +53,6 @@ import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.da
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
@@ -219,7 +218,6 @@ void main() {
           cropImage: CropImage(FakeImageCropper()),
           assessQuality: AssessImageQuality(FakeImageQualityService()),
           decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
-          correctPerspective: CorrectPerspective(FakePerspectiveCorrector()),
           createSession: CreateAnalysisSession(FakeAnalysisSessionStorage()),
           onlineHandoff: getIt(),
           ocrHandoff: getIt(),

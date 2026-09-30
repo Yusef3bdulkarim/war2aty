@@ -8,7 +8,6 @@ import 'package:war2aty/features/capture/domain/entities/image_quality_result.da
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/correct_perspective.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
 import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
@@ -38,7 +37,6 @@ ImagePreviewCubit cubitFor(
   FakeCaptureFileCleanup? cleanup,
   FakeConnectivityService? connectivity,
   FakeUsageRepository? usage,
-  FakePerspectiveCorrector? perspectiveCorrector,
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
 }) {
@@ -56,14 +54,12 @@ ImagePreviewCubit cubitFor(
       FakeUsageRepository(
         seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
       );
-  final corrector = perspectiveCorrector ?? FakePerspectiveCorrector();
   return ImagePreviewCubit(
     source: _source,
     rotate: RotateImage(rotator),
     cropImage: CropImage(cropper ?? FakeImageCropper()),
     assessQuality: AssessImageQuality(q),
     decideRoute: DecideAnalysisRoute(conn, u),
-    correctPerspective: CorrectPerspective(corrector),
     createSession: CreateAnalysisSession(s),
     onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
     ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
@@ -304,17 +300,13 @@ void main() {
   });
 
   group('ImagePreviewCubit.proceed — online route (F13)', () {
-    test('perspective-corrects the confirmed photo and hands it off, '
-        'skipping OCR entirely', () async {
-      const corrected = CapturedPhoto('/tmp/corrected.jpg');
+    test('hands the confirmed photo off, skipping OCR entirely', () async {
       final storage = FakeAnalysisSessionStorage(sessionId: 'sess-online');
-      final corrector = FakePerspectiveCorrector(output: corrected);
       final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
         FakeImageRotator(),
         storage: storage,
         connectivity: FakeConnectivityService(),
-        perspectiveCorrector: corrector,
         onlineHandoff: handoff,
       );
       addTearDown(cubit.close);
@@ -322,8 +314,6 @@ void main() {
       await cubit.confirm();
       await cubit.proceed();
 
-      expect(corrector.correctCount, 1);
-      expect(corrector.lastPhoto, _source);
       expect(
         cubit.state,
         const ImagePreviewOnlineReady(
@@ -340,33 +330,65 @@ void main() {
           imagePath: '/cache/analysis_sessions/sess-online/processed.jpg',
         ),
       );
-      expect(handoff.photo, corrected);
+      expect(handoff.photo, _source);
     });
+  });
 
-    test('no detected quad hands the original photo off unchanged', () async {
+  // Regression: an automatic document crop used to run in proceed() and, on
+  // blurry or sparse pages, latched onto one text block — the rest of the
+  // page was never read. The user's own framing is now final on both routes.
+  group('ImagePreviewCubit.proceed — reads the page as the user framed it', () {
+    const cropRect = UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85);
+    const cropped = CapturedPhoto('/tmp/cropped.jpg');
+
+    test('online: hands off exactly the confirmed photo', () async {
+      final storage = FakeAnalysisSessionStorage();
       final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
         FakeImageRotator(),
+        cropper: FakeImageCropper(output: cropped),
+        storage: storage,
         connectivity: FakeConnectivityService(),
-        perspectiveCorrector: FakePerspectiveCorrector(),
         onlineHandoff: handoff,
       );
       addTearDown(cubit.close);
 
+      cubit.updateCrop(cropRect);
       await cubit.confirm();
       await cubit.proceed();
 
       expect(cubit.state, isA<ImagePreviewOnlineReady>());
-      expect(handoff.photo, _source);
+      expect(handoff.photo, cropped);
+      expect(storage.lastPhoto, cropped);
     });
 
-    test('a failed perspective correction fails outright — never falls back '
-        'to the offline route', () async {
+    test(
+      'offline: makes the OCR session from exactly the confirmed photo',
+      () async {
+        final storage = FakeAnalysisSessionStorage();
+        final cubit = cubitFor(
+          FakeImageRotator(),
+          cropper: FakeImageCropper(output: cropped),
+          storage: storage,
+        );
+        addTearDown(cubit.close);
+
+        cubit.updateCrop(cropRect);
+        await cubit.confirm();
+        await cubit.proceed();
+
+        expect(cubit.state, isA<ImagePreviewSessionCreated>());
+        expect(storage.lastPhoto, cropped);
+      },
+    );
+
+    test('an uncropped photo goes through whole', () async {
+      final storage = FakeAnalysisSessionStorage();
       final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
         FakeImageRotator(),
+        storage: storage,
         connectivity: FakeConnectivityService(),
-        perspectiveCorrector: FakePerspectiveCorrector(fails: true),
         onlineHandoff: handoff,
       );
       addTearDown(cubit.close);
@@ -374,9 +396,8 @@ void main() {
       await cubit.confirm();
       await cubit.proceed();
 
-      expect(cubit.state, const ImagePreviewFailed(0));
-      expect(handoff.session, isNull);
-      expect(handoff.photo, isNull);
+      expect(handoff.photo, _source);
+      expect(storage.lastPhoto, _source);
     });
   });
 
@@ -486,49 +507,23 @@ void main() {
 
     test('close after online route skips cleanup entirely — '
         'the holder owns every temp file', () async {
-      const corrected = CapturedPhoto('/tmp/corrected.jpg');
       final cleanup = FakeCaptureFileCleanup();
       final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
         FakeImageRotator(),
         cleanup: cleanup,
         connectivity: FakeConnectivityService(),
-        perspectiveCorrector: FakePerspectiveCorrector(output: corrected),
         onlineHandoff: handoff,
       );
 
       await cubit.confirm();
       await cubit.proceed();
-
-      // After proceed, the holder received all cleanup paths.
-      expect(handoff.photo?.path, corrected.path);
+      expect(handoff.photo, _source);
 
       await cubit.close();
 
       // close() does NOT delete anything — the holder deletes all files
       // in clear() after the analysis has read the image bytes.
-      expect(cleanup.deleteCalls, isEmpty);
-    });
-
-    test('close after online route with no-op correction '
-        'also skips cleanup — holder owns the files', () async {
-      final cleanup = FakeCaptureFileCleanup();
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        cleanup: cleanup,
-        connectivity: FakeConnectivityService(),
-        perspectiveCorrector: FakePerspectiveCorrector(),
-        onlineHandoff: handoff,
-      );
-
-      await cubit.confirm();
-      await cubit.proceed();
-      await cubit.close();
-
-      // Even when doclens returned the input unchanged (no new corrected
-      // file), close() skips cleanup because the handoff succeeded.
-      // The holder's clear() will delete the source file later.
       expect(cleanup.deleteCalls, isEmpty);
     });
   });
@@ -741,7 +736,6 @@ void main() {
 
     test('online handoff includes the cropped file in cleanup paths', () async {
       const cropped = CapturedPhoto('/tmp/cropped.jpg');
-      const corrected = CapturedPhoto('/tmp/corrected.jpg');
       final cleanup = FakeCaptureFileCleanup();
       final handoff = ImageAnalysisSessionHolder();
       final cubit = cubitFor(
@@ -749,7 +743,6 @@ void main() {
         cropper: FakeImageCropper(output: cropped),
         cleanup: cleanup,
         connectivity: FakeConnectivityService(),
-        perspectiveCorrector: FakePerspectiveCorrector(output: corrected),
         onlineHandoff: handoff,
       );
 
@@ -760,8 +753,7 @@ void main() {
 
       // close() skips cleanup — holder owns all temp files.
       expect(cleanup.deleteCalls, isEmpty);
-      // The holder received the corrected photo.
-      expect(handoff.photo, corrected);
+      expect(handoff.photo, cropped);
     });
   });
 
@@ -827,34 +819,6 @@ void main() {
           expect(cleanup.deleteCalls[1], [cropped.path]);
         },
       );
-
-      test('close racing an in-flight perspective-correct cleans up the '
-          'orphaned corrected file', () async {
-        const corrected = CapturedPhoto('/tmp/corrected.jpg');
-        final gate = Completer<void>();
-        final corrector = FakePerspectiveCorrector(output: corrected)
-          ..gate = gate;
-        final cleanup = FakeCaptureFileCleanup();
-        final cubit = cubitFor(
-          FakeImageRotator(),
-          cleanup: cleanup,
-          perspectiveCorrector: corrector,
-        );
-
-        await cubit.confirm();
-        final proceeding = cubit.proceed();
-        // Let proceed() reach the awaiting-perspective-correct point.
-        await Future<void>.delayed(Duration.zero);
-
-        await cubit.close();
-
-        gate.complete();
-        await proceeding;
-
-        expect(cleanup.deleteCalls, hasLength(2));
-        expect(cleanup.deleteCalls[0], [_source.path]);
-        expect(cleanup.deleteCalls[1], [corrected.path]);
-      });
     },
   );
 }

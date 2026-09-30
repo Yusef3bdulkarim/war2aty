@@ -104,8 +104,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// The whole frame is kept: there is no static guide box to crop to any
   /// more, and the detected quad is not reliable enough to crop to — the T10
   /// device pass had it collapse to a sliver and discard most of a page.
-  /// `doclens` still does the real edge-detect/dewarp on the captured file, on
-  /// the full photo rather than a pre-cropped one.
+  /// The user's own crop on the preview screen is the only crop.
   void _capture() {
     context.read<CameraCaptureCubit>().capture(guideBox: UnitRect.full);
   }

@@ -14,9 +14,9 @@ import 'detector_tuning.dart';
 /// have no timing in them, and the isolate strategy can change (F16-T09)
 /// without touching a line of tested logic.
 ///
-/// Only good enough to *aim the user* (F16 locked decision #1) — `doclens`
-/// still does the real edge-detect/dewarp on the captured file, so nothing
-/// downstream depends on these numbers being exact.
+/// Only good enough to *aim the user* (F16 locked decision #1) — the capture
+/// keeps the whole frame, so nothing downstream depends on these numbers
+/// being exact.
 final class DocumentEdgeAlgorithm {
   const DocumentEdgeAlgorithm._();
 

@@ -145,7 +145,6 @@ import '../../features/bootstrap/presentation/splash_timing.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/dart_document_edge_detector.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
-import '../../features/capture/data/services/doclens_perspective_corrector.dart';
 import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
@@ -159,11 +158,9 @@ import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
-import '../../features/capture/domain/services/perspective_corrector.dart';
 import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
-import '../../features/capture/domain/usecases/correct_perspective.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
 import '../../features/capture/domain/usecases/crop_image.dart';
 import '../../features/capture/domain/usecases/crop_to_guide_box.dart';
@@ -524,12 +521,6 @@ void _registerCapture() {
     ..registerFactory<DecideAnalysisRoute>(
       () => DecideAnalysisRoute(getIt(), getIt()),
     )
-    // `doclens`'s pure file operations only — never its camera UI (F13
-    // locked decision #10).
-    ..registerLazySingleton<PerspectiveCorrector>(
-      DoclensPerspectiveCorrector.new,
-    )
-    ..registerFactory<CorrectPerspective>(() => CorrectPerspective(getIt()))
     // Parameterised by the acquired image's path — the cubit rotates,
     // assesses quality, and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
@@ -539,7 +530,6 @@ void _registerCapture() {
         cropImage: getIt(),
         assessQuality: getIt(),
         decideRoute: getIt(),
-        correctPerspective: getIt(),
         createSession: getIt(),
         onlineHandoff: getIt(),
         ocrHandoff: getIt(),

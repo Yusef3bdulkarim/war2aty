@@ -5,7 +5,7 @@ import '../../../../core/usage/usage_repository.dart';
 
 /// Picks the analysis pipeline before capture processing starts.
 ///
-/// Called once per capture, ahead of [PerspectiveCorrector]/`OcrEngine` —
+/// Called once per capture, ahead of `OcrEngine` or the online reading —
 /// never re-checked mid-flow, and never used to decide whether to fall back
 /// once [AnalysisRoute.online] has been chosen (F13 locked decision #2).
 ///

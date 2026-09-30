@@ -8,14 +8,13 @@ import '../entities/document_quad.dart';
 /// guide.
 ///
 /// This is guidance only (F16 locked decision #1) — the quad drives what is
-/// *drawn*, while `doclens` ([PerspectiveCorrector]) keeps doing the real
-/// edge-detect/dewarp on the captured file. The detector therefore only has to
+/// *drawn*, never what the capture keeps. The detector therefore only has to
 /// be good enough to aim the user.
 ///
 /// Implementations run in a background isolate and never touch the disk
-/// (locked decision #3). Mirrors [PerspectiveCorrector]'s shape: interface
-/// here, implementation in `data/services`, reached from the cubit through a
-/// use case and never from a widget (locked decision #5).
+/// (locked decision #3). Interface here, implementation in `data/services`,
+/// reached from the cubit through a use case and never from a widget (locked
+/// decision #5).
 abstract interface class DocumentEdgeDetector {
   /// Returns the document's corners in [frame]'s own normalised coordinates.
   ///

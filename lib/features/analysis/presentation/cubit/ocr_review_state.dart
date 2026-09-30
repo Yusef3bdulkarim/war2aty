@@ -56,7 +56,7 @@ final class OcrReviewReady extends OcrReviewState {
   /// the user approves.
   final List<String> detectedLanguages;
 
-  /// Path to the perspective-corrected temp image, so the user can view it
+  /// Path to the temp image that was read, so the user can view it
   /// alongside the text. Stays on disk for the whole review (F14 image
   /// lifecycle) — `null` only if it was already cleaned up.
   final String? imagePath;

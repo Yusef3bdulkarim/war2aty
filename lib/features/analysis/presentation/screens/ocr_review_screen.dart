@@ -501,7 +501,7 @@ class _MiniPlayerSlot extends StatelessWidget {
   }
 }
 
-/// Collapsible section that shows the perspective-corrected photo, so the
+/// Collapsible section that shows the photo that was read, so the
 /// user can compare it against the text without leaving the screen.
 class _ImageToggle extends StatelessWidget {
   const _ImageToggle({

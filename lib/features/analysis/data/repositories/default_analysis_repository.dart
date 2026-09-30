@@ -165,7 +165,7 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
     );
   }
 
-  /// Assembles the §29b wire request: reads the perspective-corrected file
+  /// Assembles the §29b wire request: reads the confirmed photo's file
   /// and base64-encodes it. This is the one place in the app that turns image
   /// bytes into something that leaves the device (F13 locked decisions).
   Future<AnalysisImageRequestDto> _buildImageRequest(
@@ -217,7 +217,7 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
     try {
       dto = await _buildImageRequest(request, identity.valueOrNull!);
     } on Object {
-      // The perspective-corrected file is gone or unreadable before the
+      // The photo's file is gone or unreadable before the
       // request ever reaches the wire — an on-device problem, not a
       // transport one.
       return const Err(ImageProcessingFailure());

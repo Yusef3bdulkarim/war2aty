@@ -47,7 +47,7 @@ class ImagePreviewScreen extends StatelessWidget {
   /// (F04's OCR screen).
   final void Function(AnalysisSession session) onSessionCreated;
 
-  /// Online route (F13): the perspective-corrected image is ready and
+  /// Online route (F13): the confirmed image is ready and
   /// handed off via `ImageAnalysisSessionHolder` — the on-device OCR screen
   /// is skipped; the OCR review reads the page online instead (F14).
   final void Function(AnalysisSession session) onOnlineReady;
