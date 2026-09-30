@@ -159,6 +159,45 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('finishes the progress bar before showing the result', (
+      tester,
+    ) async {
+      repository.gate = Completer<void>();
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 6));
+
+      repository.gate!.complete();
+      await tester.pump();
+
+      // The answer is in, but the bar gets its moment to reach full first.
+      expect(find.byType(AnalysisProgressView), findsOneWidget);
+      expect(find.text(_strings.analysisResultTitle), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+
+      expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(find.text(_strings.analysisResultTitle), findsOneWidget);
+    });
+
+    testWidgets('a failure replaces the progress page at once, bar halted', (
+      tester,
+    ) async {
+      repository
+        ..gate = Completer<void>()
+        ..answer = const Err(AnalysisServiceFailure());
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 4));
+
+      repository.gate!.complete();
+      await tester.pump();
+
+      expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(find.text(_strings.analysisFailedTitle), findsOneWidget);
+    });
+
     testWidgets('shows the result page once the paper is understood', (
       tester,
     ) async {

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/icons/stroke_icon.dart';
@@ -21,10 +23,19 @@ const double _barRadius = 6;
 const Alignment _gradientBegin = Alignment(-0.342, -0.940);
 const Alignment _gradientEnd = Alignment(0.342, 0.940);
 
-/// The design's `wqbar`: the fill runs from 6% to 96% and stops there.
-const double _barFrom = 0.06;
-const double _barTo = 0.96;
-const Duration _barDuration = Duration(milliseconds: 2400);
+/// While the analysis runs, the fill approaches [_barWaitingTarget] over
+/// [_barWaitingDuration] — longer than the server's 25 s deadline, so the bar
+/// is still visibly moving when a slow analysis answers (L1 took 16.6 s).
+const double _barWaitingTarget = 0.9;
+const Duration _barWaitingDuration = Duration(seconds: 40);
+
+/// How fast the approach flattens: about half the way by 5 s, three quarters
+/// by 10 s, 85% of the way by 16 s.
+const double _barApproachRate = 40 / 6;
+
+/// Once the analysis has answered, the fill runs to full over this before the
+/// result replaces the page.
+const Duration _barFinishDuration = Duration(milliseconds: 350);
 
 /// The full-bleed page shown while the analysis service is working.
 ///
@@ -32,8 +43,19 @@ const Duration _barDuration = Duration(milliseconds: 2400);
 /// waiting on their paper being understood, not on a pipeline (UX rule §5.13 —
 /// no technical terms). The bar is deliberately not a completion percentage —
 /// it eases towards, and stops short of, full while the wait lasts.
+///
+/// Set [finishing] once the analysis has answered: the bar runs to full, then
+/// [onFinished] fires so the caller can swap in the result. Removing the page
+/// (an error, leaving the route) disposes the bar and halts it.
 class AnalysisProgressView extends StatelessWidget {
-  const AnalysisProgressView({super.key});
+  const AnalysisProgressView({
+    this.finishing = false,
+    this.onFinished,
+    super.key,
+  });
+
+  final bool finishing;
+  final VoidCallback? onFinished;
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +114,7 @@ class AnalysisProgressView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: _messageGap),
-              const _ProgressBar(),
+              _ProgressBar(finishing: finishing, onFinished: onFinished),
             ],
           ),
         ),
@@ -104,7 +126,10 @@ class AnalysisProgressView extends StatelessWidget {
 /// The waiting bar. Its own [StatefulWidget] so the controller is created and
 /// disposed outside anyone's `build`.
 class _ProgressBar extends StatefulWidget {
-  const _ProgressBar();
+  const _ProgressBar({required this.finishing, this.onFinished});
+
+  final bool finishing;
+  final VoidCallback? onFinished;
 
   @override
   State<_ProgressBar> createState() => _ProgressBarState();
@@ -112,15 +137,58 @@ class _ProgressBar extends StatefulWidget {
 
 class _ProgressBarState extends State<_ProgressBar>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: _barDuration,
-  )..forward();
+  /// The controller's value IS the fill fraction, so waiting and finishing
+  /// are two `animateTo`s on one timeline and finishing starts wherever the
+  /// wait had reached.
+  late final AnimationController _controller = AnimationController(vsync: this);
 
-  late final Animation<double> _fill = Tween<double>(
-    begin: _barFrom,
-    end: _barTo,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Once: this runs again whenever an ancestor changes (e.g. text size).
+    if (_started) return;
+    _started = true;
+
+    if (widget.finishing) {
+      _finish();
+    } else if (MediaQuery.disableAnimationsOf(context)) {
+      // Reduced motion: a still bar, and no ticker burning frames.
+      _controller.value = _barWaitingTarget;
+    } else {
+      _controller.animateTo(
+        _barWaitingTarget,
+        duration: _barWaitingDuration,
+        curve: const _ApproachCurve(_barApproachRate),
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.finishing && !oldWidget.finishing) _finish();
+  }
+
+  void _finish() {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 1;
+      // After this frame: the callback rebuilds the caller, which must not
+      // happen while it is still building.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _notifyFinished());
+      return;
+    }
+    // A TickerFuture never completes if the controller is stopped or
+    // disposed first, so a halted bar never reports finishing.
+    _controller
+        .animateTo(1, duration: _barFinishDuration, curve: Curves.easeOut)
+        .then((_) => _notifyFinished());
+  }
+
+  void _notifyFinished() {
+    if (mounted) widget.onFinished?.call();
+  }
 
   @override
   void dispose() {
@@ -145,9 +213,13 @@ class _ProgressBarState extends State<_ProgressBar>
         clipBehavior: Clip.antiAlias,
         alignment: AlignmentDirectional.centerStart,
         child: AnimatedBuilder(
-          animation: _fill,
+          animation: _controller,
           builder: (context, _) => FractionallySizedBox(
-            widthFactor: _fill.value,
+            widthFactor: _controller.value,
+            // The track's `alignment` loosens the height to 0..8, and a
+            // childless box takes the smallest — without this the fill is 0 px
+            // tall and never shows.
+            heightFactor: 1,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: colors.mint,
@@ -159,4 +231,17 @@ class _ProgressBarState extends State<_ProgressBar>
       ),
     );
   }
+}
+
+/// Fast at first, then ever slower, and exactly 1 at the end: an exponential
+/// approach normalised to finish on the target. [rate] sets how early it
+/// flattens (higher = sooner).
+class _ApproachCurve extends Curve {
+  const _ApproachCurve(this.rate);
+
+  final double rate;
+
+  @override
+  double transformInternal(double t) =>
+      (1 - math.exp(-rate * t)) / (1 - math.exp(-rate));
 }

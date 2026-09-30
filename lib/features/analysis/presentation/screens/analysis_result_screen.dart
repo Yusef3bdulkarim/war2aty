@@ -102,25 +102,71 @@ class AnalysisResultScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colors.surface,
       body: BlocBuilder<AnalysisResultCubit, AnalysisResultState>(
-        builder: (context, state) => switch (state) {
-          // Full-bleed and without the top bar: there is nothing to go back to
-          // mid-analysis, and the design gives the wait the whole page.
-          AnalysisResultAnalyzing() => const AnalysisProgressView(),
-          AnalysisResultReady(:final result) => _ResultBody(
-            result: result,
-            onClose: onClose,
-            onCreateReminder: onCreateReminder,
-            onSave: onSave,
-          ),
-          AnalysisResultFailed() => _FailureBody(
-            state: state,
-            onClose: onClose,
-            onListen: onListen,
-            onCaptureAnother: onCaptureAnother,
-            onOpenSettings: onOpenSettings,
-          ),
-        },
+        builder: (context, state) => _FinishProgressFirst(
+          state: state,
+          child: switch (state) {
+            // Full-bleed and without the top bar: there is nothing to go back
+            // to mid-analysis, and the design gives the wait the whole page.
+            AnalysisResultAnalyzing() => const AnalysisProgressView(),
+            AnalysisResultReady(:final result) => _ResultBody(
+              result: result,
+              onClose: onClose,
+              onCreateReminder: onCreateReminder,
+              onSave: onSave,
+            ),
+            AnalysisResultFailed() => _FailureBody(
+              state: state,
+              onClose: onClose,
+              onListen: onListen,
+              onCaptureAnother: onCaptureAnother,
+              onOpenSettings: onOpenSettings,
+            ),
+          },
+        ),
       ),
+    );
+  }
+}
+
+/// Holds the progress page up for its bar to reach full when a running
+/// analysis answers, then shows [child].
+///
+/// Only on analyzing → ready: a failure replaces the page at once (which
+/// disposes the bar and halts it), and a screen that opens on a ready result
+/// has no bar to finish.
+class _FinishProgressFirst extends StatefulWidget {
+  const _FinishProgressFirst({required this.state, required this.child});
+
+  final AnalysisResultState state;
+  final Widget child;
+
+  @override
+  State<_FinishProgressFirst> createState() => _FinishProgressFirstState();
+}
+
+class _FinishProgressFirstState extends State<_FinishProgressFirst> {
+  bool _finishing = false;
+
+  @override
+  void didUpdateWidget(_FinishProgressFirst oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final state = widget.state;
+    if (oldWidget.state is AnalysisResultAnalyzing &&
+        state is AnalysisResultReady) {
+      _finishing = true;
+    } else if (state is! AnalysisResultReady) {
+      _finishing = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_finishing) return widget.child;
+    // Same type in the same place as the analyzing page, so its bar keeps
+    // its state and finishes from wherever the wait had reached.
+    return AnalysisProgressView(
+      finishing: true,
+      onFinished: () => setState(() => _finishing = false),
     );
   }
 }
