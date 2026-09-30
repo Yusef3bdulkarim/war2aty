@@ -407,7 +407,7 @@ void main() {
         tester,
         dates: [
           _date(),
-          _date(label: 'التانية', on: DateTime(2026, 9, 1)),
+          _date(label: 'التانية', on: DateTime(2026, 9, 3)),
         ],
         onCreateReminder: (_) {},
       );
