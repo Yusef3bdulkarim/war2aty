@@ -153,7 +153,7 @@ void main() {
       expect(find.byType(AnalysisProgressView), findsOneWidget);
       expect(find.text(_strings.analysisRunningTitle), findsOneWidget);
       // No way out mid-analysis: the page is full-bleed, without the top bar.
-      expect(find.text(_strings.analysisResultTitle), findsNothing);
+      expect(find.bySemanticsLabel(_strings.analysisResultTitle), findsNothing);
 
       repository.gate!.complete();
       await tester.pumpAndSettle();
@@ -172,13 +172,16 @@ void main() {
 
       // The answer is in, but the bar gets its moment to reach full first.
       expect(find.byType(AnalysisProgressView), findsOneWidget);
-      expect(find.text(_strings.analysisResultTitle), findsNothing);
+      expect(find.bySemanticsLabel(_strings.analysisResultTitle), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pump();
 
       expect(find.byType(AnalysisProgressView), findsNothing);
-      expect(find.text(_strings.analysisResultTitle), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a failure replaces the progress page at once, bar halted', (
@@ -204,7 +207,10 @@ void main() {
       await cubit.analyze();
       await pumpScreen(tester);
 
-      expect(find.text(_strings.analysisResultTitle), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+        findsOneWidget,
+      );
       expect(find.byType(AnalysisProgressView), findsNothing);
       // The first section §4 asks for, drawn from the analysis (F07-T02).
       expect(find.byType(ResultHeaderCard), findsOneWidget);
@@ -234,6 +240,37 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(closed, 1);
+    });
+
+    testWidgets('the system back gesture leaves the same way as the arrow', (
+      tester,
+    ) async {
+      var closed = 0;
+      await cubit.analyze();
+      await pumpScreen(tester, onClose: () => closed++);
+
+      // Android's back button / gesture, and iOS's edge swipe via the router.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(closed, 1);
+      expect(find.byType(ResultHeaderCard), findsOneWidget);
+    });
+
+    testWidgets('the bar is a lone arrow, but the page still has a heading', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      // No printed title (F21 locked decision #4)…
+      expect(find.text(_strings.analysisResultTitle), findsNothing);
+      // …but a screen reader still lands on the page's name as a heading.
+      final heading = tester.getSemantics(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+      );
+      expect(heading.flagsCollection.isHeader, isTrue);
+      expect(heading.rect.height, greaterThan(0));
     });
 
     testWidgets('lays out under Large Text and in English', (tester) async {

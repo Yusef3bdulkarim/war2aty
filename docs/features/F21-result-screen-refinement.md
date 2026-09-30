@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/result-screen-refinement`, based on `feature/ocr-analysis-providers` (PR #20). Rebase onto `develop` once #20 is merged · **Milestone:** post-F20
 - **Depends on:** F07 (the result screen and its cards), F08 (the saved-paper details screen, which shares the same cards), F09 (the reminder button in the dates card)
-- **Progress:** 1 / 10 DONE
+- **Progress:** 2 / 10 DONE
 - **PR:** one PR at the end of the feature
 
 The owner's UI/UX review of the analysis result screen (2026-09-30). The screen
@@ -72,7 +72,7 @@ could not be opened from the session (DesignSync needs `/design-login`).
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F21-T01 | Task file | This file and the README row, from the owner's decisions of 2026-09-30 | DONE |
-| 2 | F21-T02 | Light top bar and `PopScope` | Back icon only, no bar styling (#4). The system back gesture runs `onClose` (usage hint, then Home), tested. The page title is still announced as a header, tested. RTL and LTR arrow direction. Large Text | TODO |
+| 2 | F21-T02 | Light top bar and `PopScope` | Back icon only, no bar styling (#4). The system back gesture runs `onClose` (usage hint, then Home), tested. The page title is still announced as a header, tested. RTL and LTR arrow direction. Large Text | DONE — the bar is a lone arrow on the page surface; the title is an invisible `Semantics(header)` over the rest of the row, with real bounds. `PopScope(canPop: onClose == null)` sends the back gesture through `onClose`; the test was mutation-checked (it fails with `canPop: true`). Page top padding 18 → 8, since the bar's own 12 px and border are gone. Ready page only: the failure and fallback pages keep their own bars |
 | 3 | F21-T03 | Inline confidence chip | The caveat sits beside the value in key-information, amount and date rows and wraps under Large Text (#1). Icon and words, announced as its own sentence. Tests: each band, inferred, both at once, wrapping | TODO |
 | 4 | F21-T04 | Data card: key information and amounts | One card with neutral 13 sp sub-headers. Rows without the icon box, 1 px dividers. Amounts get a copy button that copies the number only (#9). Tests: copy payloads, only-info, only-amounts | TODO |
 | 5 | F21-T05 | Data card: dates join it | The dates group inside the same card. Day tile kept, reminder button at the group's end, multi-date picking unchanged (§5.8). No copy on dates. Both screens. Tests: each combination of the three groups present or absent | TODO |

@@ -36,15 +36,14 @@ import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
 
-// From `Waraqti.dc.html` → the result page. The top bar's 56px is measured
-// from the physical screen top and already contains the 52px status bar, which
-// [SafeArea] applies for us.
+// From `Waraqti.dc.html` → the result page, except the top bar, which F21
+// reduced to a lone back arrow. Its 56px is measured from the physical screen
+// top and already contains the 52px status bar, which [SafeArea] applies.
 const double _topBarTop = 56 - 52;
-const double _topBarBottom = 12;
+const double _topBarBottom = 0;
 const double _topBarSide = AppSpacing.screenHorizontal;
-const double _topBarGap = 8;
 const double _pageSide = 18;
-const double _pageTop = 18;
+const double _pageTop = 8;
 const double _pageBottom = 24;
 const double _explanationGapAbove = 14;
 const double _explanationFontSize = 14.5;
@@ -209,40 +208,49 @@ class _ResultBodyState extends State<_ResultBody> {
             SnackBar(content: Text(strings.audioReaderFailedFeedback)),
           );
       },
-      child: Column(
-        children: [
-          _TopBar(onClose: widget.onClose),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                _pageSide,
-                _pageTop,
-                _pageSide,
-                _pageBottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Above everything: a half-read paper must not look like a
-                  // fully understood one, whatever it managed to fill in.
-                  if (widget.result.analysis.isPartial)
-                    const PartialResultBanner(),
-                  for (final section in widget.result.sections)
-                    _section(context, section, strings),
-                ],
+      // The system back gesture leaves the way the arrow does, through
+      // `onClose` — otherwise it would pop to whatever the capture flow left
+      // underneath and skip what `onClose` does on the way out.
+      child: PopScope(
+        canPop: widget.onClose == null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) widget.onClose?.call();
+        },
+        child: Column(
+          children: [
+            _TopBar(onClose: widget.onClose),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  _pageSide,
+                  _pageTop,
+                  _pageSide,
+                  _pageBottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Above everything: a half-read paper must not look like a
+                    // fully understood one, whatever it managed to fill in.
+                    if (widget.result.analysis.isPartial)
+                      const PartialResultBanner(),
+                    for (final section in widget.result.sections)
+                      _section(context, section, strings),
+                  ],
+                ),
               ),
             ),
-          ),
-          _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
-          // Pinned below the scroll: these three are what the page is *for*,
-          // and the design keeps them in reach without scrolling to the end.
-          ResultActionBar(
-            dates: widget.result.analysis.dates,
-            onListen: _openAudioSheet,
-            onCreateReminder: widget.onCreateReminder,
-            onSave: widget.onSave,
-          ),
-        ],
+            _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
+            // Pinned below the scroll: these three are what the page is *for*,
+            // and the design keeps them in reach without scrolling to the end.
+            ResultActionBar(
+              dates: widget.result.analysis.dates,
+              onListen: _openAudioSheet,
+              onCreateReminder: widget.onCreateReminder,
+              onSave: widget.onSave,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -373,12 +381,13 @@ class _MiniPlayerSlot extends StatelessWidget {
   }
 }
 
-/// The page's own bar: a way back, and the page's name.
+/// The page's way back: a lone arrow on the page's own surface, with no bar
+/// drawn around it (F21 locked decision #4) — the result itself gets the top
+/// of the screen.
 ///
-/// The design also draws an overflow button on the trailing side. The three
-/// standing actions live in the bar at the foot of the page, so there is
-/// nothing to put behind it until saved documents arrive (F08) — the space is
-/// held open rather than filled with a menu that does nothing.
+/// The page's name is no longer printed, but a screen reader still announces
+/// it as the page's heading: it is carried by the empty rest of the row, so
+/// it has real bounds to land on rather than being a zero-size node.
 class _TopBar extends StatelessWidget {
   const _TopBar({this.onClose});
 
@@ -392,53 +401,37 @@ class _TopBar extends StatelessWidget {
     // English layout that is the other way round.
     final mirror = Directionality.of(context) == TextDirection.ltr;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.card,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            _topBarSide,
-            _topBarTop,
-            _topBarSide,
-            _topBarBottom,
-          ),
-          child: Row(
-            children: [
-              TopBarIconButton(
-                onPressed: onClose,
-                tooltip: strings.analysisResultBackLabel,
-                icon: Transform.flip(
-                  flipX: mirror,
-                  child: StrokeIcon(
-                    StrokeGlyph.arrowBack,
-                    color: colors.ink,
-                    strokeWidth: 2,
-                  ),
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          _topBarSide,
+          _topBarTop,
+          _topBarSide,
+          _topBarBottom,
+        ),
+        child: Row(
+          children: [
+            TopBarIconButton(
+              onPressed: onClose,
+              tooltip: strings.analysisResultBackLabel,
+              icon: Transform.flip(
+                flipX: mirror,
+                child: StrokeIcon(
+                  StrokeGlyph.arrowBack,
+                  color: colors.ink,
+                  strokeWidth: 2,
                 ),
               ),
-              const SizedBox(width: _topBarGap),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    strings.analysisResultTitle,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.labelCard.copyWith(
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
+            ),
+            Expanded(
+              child: Semantics(
+                header: true,
+                label: strings.analysisResultTitle,
+                child: const SizedBox(height: TopBarIconButton.dimension),
               ),
-              const SizedBox(width: _topBarGap),
-              // Balances the back button so the title stays centred.
-              const SizedBox.square(dimension: TopBarIconButton.dimension),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
