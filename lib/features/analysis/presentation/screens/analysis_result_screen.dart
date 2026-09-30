@@ -23,7 +23,6 @@ import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_details_card.dart';
 import '../../../../core/widgets/result_extracted_text_panel.dart';
-import '../../../../core/widgets/result_header_card.dart';
 import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
@@ -189,6 +188,7 @@ class _ResultBodyState extends State<_ResultBody> {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final detailsAt = resultDetailsIndex(widget.result.sections);
 
     // A `BlocListener` rather than a `BlocConsumer` around the whole page: a
     // reading in progress emits a fresh state on every `TtsProgressed` tick
@@ -231,8 +231,13 @@ class _ResultBodyState extends State<_ResultBody> {
                     // fully understood one, whatever it managed to fill in.
                     if (widget.result.analysis.isPartial)
                       const PartialResultBanner(),
-                    for (final section in widget.result.sections)
+                    for (final (index, section)
+                        in widget.result.sections.indexed) ...[
+                      if (index == detailsAt) _detailsCard(),
                       _section(context, section, strings),
+                    ],
+                    if (detailsAt == widget.result.sections.length)
+                      _detailsCard(),
                   ],
                 ),
               ),
@@ -281,6 +286,19 @@ class _ResultBodyState extends State<_ResultBody> {
     );
   }
 
+  /// Everything read off the paper, in one card (F21 #9, #15).
+  Widget _detailsCard() {
+    final analysis = widget.result.analysis;
+    return ResultDetailsCard(
+      kind: analysis.kind,
+      kindConfidence: analysis.kindConfidence,
+      keyInformation: analysis.keyInformation,
+      amounts: analysis.amounts,
+      dates: analysis.dates,
+      onCreateReminder: widget.onCreateReminder,
+    );
+  }
+
   /// The widget for one section. Each owns its own spacing and internal
   /// states, the way Home's sections do — and each is filled in by the task
   /// named beside it.
@@ -293,7 +311,6 @@ class _ResultBodyState extends State<_ResultBody> {
     final analysis = widget.result.analysis;
 
     return switch (section) {
-      AnalysisSection.header => ResultHeaderCard(analysis: analysis),
       AnalysisSection.summary => ResultSummaryCard(
         summary: analysis.summary.short,
       ),
@@ -303,17 +320,12 @@ class _ResultBodyState extends State<_ResultBody> {
       AnalysisSection.warnings => ResultWarningsCard(
         warnings: analysis.warnings,
       ),
+      // The type is a row of the details card now (F21 #15), and the three
+      // data sections are drawn together by it — see `_detailsCard`.
+      AnalysisSection.header ||
       AnalysisSection.keyInformation ||
       AnalysisSection.amounts ||
-      AnalysisSection.dates =>
-        isResultDetailsSlot(widget.result.sections, section)
-            ? ResultDetailsCard(
-                keyInformation: analysis.keyInformation,
-                amounts: analysis.amounts,
-                dates: analysis.dates,
-                onCreateReminder: widget.onCreateReminder,
-              )
-            : const SizedBox.shrink(),
+      AnalysisSection.dates => const SizedBox.shrink(),
       AnalysisSection.requiredDocuments => ResultListCard(
         glyph: StrokeGlyph.documentCheck,
         title: strings.resultRequiredDocumentsTitle,

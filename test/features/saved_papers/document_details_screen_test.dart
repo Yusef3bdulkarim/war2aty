@@ -18,7 +18,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
-import 'package:war2aty/core/widgets/result_header_card.dart';
+import 'package:war2aty/core/widgets/result_details_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
@@ -121,8 +121,10 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.text(ar.documentDetailsTitle), findsOneWidget);
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
-      expect(find.text('فاتورة كهرباء'), findsOneWidget);
+      // The type is a row of the details card; the title is shown only in
+      // the saved-papers list (F21 #15).
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      expect(find.text('فاتورة كهرباء'), findsNothing);
       expect(find.byType(ResultSummaryCard), findsOneWidget);
     });
 

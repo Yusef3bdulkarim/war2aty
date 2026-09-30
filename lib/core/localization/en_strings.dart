@@ -855,6 +855,8 @@ final class EnStrings implements AppStrings {
 
   // Document kinds
   @override
+  String get documentTypeLabel => 'Document type';
+  @override
   String get documentKindInvoice => 'Invoice';
   @override
   String get documentKindReceipt => 'Receipt';

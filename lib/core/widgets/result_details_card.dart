@@ -4,7 +4,10 @@ import 'package:flutter/services.dart';
 import '../documents/analysis_amount.dart';
 import '../documents/analysis_date.dart';
 import '../documents/analysis_section.dart';
+import '../documents/confidence_band.dart';
 import '../documents/confidence_label.dart';
+import '../documents/document_kind.dart';
+import '../documents/document_kind_label.dart';
 import '../documents/key_information.dart';
 import '../icons/stroke_icon.dart';
 import '../localization/app_localizations.dart';
@@ -43,26 +46,23 @@ const double _cardGapBelow = AppSpacing.resultCardGap;
 /// How long the "copied" confirmation stays up.
 const Duration _copiedFeedback = Duration(seconds: 2);
 
-/// The sections [ResultDetailsCard] draws together, in §4 order.
-const Set<AnalysisSection> resultDetailsSections = {
-  AnalysisSection.keyInformation,
-  AnalysisSection.amounts,
-  AnalysisSection.dates,
-};
+/// Where the details card goes in [sections]: before the first section §4
+/// places after the data, or at the end when there is none.
+///
+/// A fixed place rather than "at the first data section", because the card is
+/// drawn even for a paper with no key information, amounts or dates — it
+/// always carries the document type (F21 #15). The sections it absorbs draw
+/// nothing, so the §4 order (the domain's) is kept and the card appears once.
+int resultDetailsIndex(List<AnalysisSection> sections) {
+  final after = sections.indexWhere(
+    (section) => section.index > AnalysisSection.dates.index,
+  );
+  return after == -1 ? sections.length : after;
+}
 
-/// Whether [section] is where the details card goes in [sections]: the first
-/// of [resultDetailsSections] present. The others it absorbs draw nothing, so
-/// the §4 order (the domain's) is kept and the card appears exactly once.
-bool isResultDetailsSlot(
-  List<AnalysisSection> sections,
-  AnalysisSection section,
-) =>
-    resultDetailsSections.contains(section) &&
-    sections.firstWhere(resultDetailsSections.contains) == section;
-
-/// Everything read off the paper, in one card: «أهم المعلومات», «المبالغ»,
-/// then «التواريخ والمواعيد», each under a small neutral sub-header (F21
-/// locked decision #9).
+/// Everything read off the paper, in one card: «أهم المعلومات» (opening with
+/// the document type), «المبالغ», then «التواريخ والمواعيد», each under a
+/// small neutral sub-header (F21 locked decisions #9 and #15).
 ///
 /// Every row stands on its own: a value the analysis is unsure of, or worked
 /// out rather than read, says so in words beside it. Confidence is never
@@ -77,15 +77,20 @@ bool isResultDetailsSlot(
 /// where the user, not the app, picks which date it is for (§5.8).
 class ResultDetailsCard extends StatelessWidget {
   const ResultDetailsCard({
+    required this.kind,
+    required this.kindConfidence,
     required this.keyInformation,
     required this.amounts,
     required this.dates,
     this.onCreateReminder,
     super.key,
-  }) : assert(
-         keyInformation.length + amounts.length + dates.length > 0,
-         'BuildAnalysisResult drops these sections when there is nothing to show',
-       );
+  });
+
+  /// What kind of paper this is — always shown, as the first row.
+  final DocumentKind kind;
+
+  /// How sure the analysis is of [kind]; the row says so when it is not.
+  final ConfidenceBand kindConfidence;
 
   final List<KeyInformation> keyInformation;
   final List<AnalysisAmount> amounts;
@@ -104,24 +109,29 @@ class ResultDetailsCard extends StatelessWidget {
     final strings = context.strings;
 
     final groups = [
-      if (keyInformation.isNotEmpty)
-        (
-          title: strings.resultKeyInformationTitle,
-          footer: null,
-          rows: <Widget>[
-            for (final item in keyInformation)
-              _DetailRow(
-                label: item.label,
-                value: item.value,
-                caveats: [
-                  ?confidenceLabel(strings, item.confidence),
-                  if (item.source == InfoSource.inferred)
-                    strings.resultActionInferred,
-                ],
-                copyText: item.value,
-              ),
-          ],
-        ),
+      (
+        title: strings.resultKeyInformationTitle,
+        footer: null,
+        rows: <Widget>[
+          // Not something to paste anywhere, so no copy button.
+          _DetailRow(
+            label: strings.documentTypeLabel,
+            value: documentKindLabel(strings, kind),
+            caveats: [?confidenceLabel(strings, kindConfidence)],
+          ),
+          for (final item in keyInformation)
+            _DetailRow(
+              label: item.label,
+              value: item.value,
+              caveats: [
+                ?confidenceLabel(strings, item.confidence),
+                if (item.source == InfoSource.inferred)
+                  strings.resultActionInferred,
+              ],
+              copyText: item.value,
+            ),
+        ],
+      ),
       if (amounts.isNotEmpty)
         (
           title: strings.resultAmountsTitle,
@@ -248,15 +258,15 @@ class _DetailRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.caveats,
-    required this.copyText,
+    this.copyText,
   });
 
   final String label;
   final String value;
   final List<String> caveats;
 
-  /// What the copy button puts on the clipboard.
-  final String copyText;
+  /// What the copy button puts on the clipboard, or `null` for no button.
+  final String? copyText;
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +280,11 @@ class _DetailRow extends StatelessWidget {
       fontWeight: AppTypography.bold,
       color: colors.ink,
     );
-    final copy = _CopyButton(label: label, text: copyText);
+    final copy = switch (copyText) {
+      final text? => _CopyButton(label: label, text: text),
+      // Holds the button's room, so every value in the card ends in line.
+      null => const SizedBox(width: _copyTarget, height: _copyTarget),
+    };
 
     return LayoutBuilder(
       builder: (context, constraints) {

@@ -21,7 +21,7 @@ import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
-import 'package:war2aty/core/widgets/result_header_card.dart';
+import 'package:war2aty/core/widgets/result_actions_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
@@ -213,12 +213,13 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(AnalysisProgressView), findsNothing);
-      // The first section §4 asks for, drawn from the analysis (F07-T02).
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
-      expect(find.text(invoiceAnalysis().title), findsOneWidget);
-      // …followed by the second (F07-T03).
       expect(find.byType(ResultSummaryCard), findsOneWidget);
       expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
+      // No type card and no title (F21 #15): the type is the first row of
+      // the details card instead.
+      expect(find.text(invoiceAnalysis().title), findsNothing);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      expect(find.text(_strings.documentKindInvoice), findsOneWidget);
     });
 
     testWidgets('draws information, amounts and dates as one card, once', (
@@ -248,9 +249,9 @@ void main() {
             .first,
       );
 
-      final header = surface(ResultHeaderCard);
       final summary = surface(ResultSummaryCard);
-      expect(summary.top - header.bottom, moreOrLessEquals(12));
+      final actions = surface(ResultActionsCard);
+      expect(actions.top - summary.bottom, moreOrLessEquals(12));
     });
 
     testWidgets('offers to listen without needing an external onListen', (
@@ -287,7 +288,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(closed, 1);
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
     });
 
     testWidgets('the bar is a lone arrow, but the page still has a heading', (
@@ -327,14 +328,14 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.text(_strings.analysisFailedTitle), findsOneWidget);
-      expect(find.byType(ResultHeaderCard), findsNothing);
+      expect(find.byType(ResultDetailsCard), findsNothing);
 
       repository.answer = null;
       await tester.tap(find.text(_strings.actionRetry));
       await tester.pumpAndSettle();
 
       expect(repository.calls, 2);
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
     });
   });
 
@@ -591,7 +592,7 @@ void main() {
 
       // A half-read paper is worth showing — the part the user came for is
       // usually in it.
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
       expect(find.byType(ResultSummaryCard), findsOneWidget);
     });
 

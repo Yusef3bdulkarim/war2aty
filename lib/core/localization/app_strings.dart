@@ -696,7 +696,10 @@ abstract interface class AppStrings {
   String get extractedTextOnlyTitle;
   String get extractedTextOnlyNote;
 
-  /// What kind of paper this is — the chip above the result's title.
+  /// The label of the document-type row in «أهم المعلومات» (F21-T13).
+  String get documentTypeLabel;
+
+  /// What kind of paper this is — the value of that row.
   ///
   /// Finer-grained than the `documentCategory*` names, which label the four
   /// filters on Home and in the documents list.

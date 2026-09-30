@@ -848,6 +848,8 @@ final class ArStrings implements AppStrings {
 
   // Document kinds
   @override
+  String get documentTypeLabel => 'نوع المستند';
+  @override
   String get documentKindInvoice => 'فاتورة';
   @override
   String get documentKindReceipt => 'إيصال';

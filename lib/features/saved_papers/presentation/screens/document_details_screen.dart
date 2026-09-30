@@ -25,7 +25,6 @@ import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_details_card.dart';
 import '../../../../core/widgets/result_extracted_text_panel.dart';
-import '../../../../core/widgets/result_header_card.dart';
 import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
@@ -196,6 +195,7 @@ class _DetailsBodyState extends State<_DetailsBody> {
   Widget build(BuildContext context) {
     final strings = context.strings;
     final document = widget.document;
+    final detailsAt = resultDetailsIndex(widget.sections);
 
     // Same reasoning as `_ResultBodyState`: a `BlocListener` here, not a
     // `BlocBuilder` around the whole page, so a reading's progress ticks
@@ -233,8 +233,11 @@ class _DetailsBodyState extends State<_DetailsBody> {
                   // sees what was scanned before reading the result.
                   if (widget.imageBytes != null)
                     _DocumentImageCard(imageBytes: widget.imageBytes!),
-                  for (final section in widget.sections)
+                  for (final (index, section) in widget.sections.indexed) ...[
+                    if (index == detailsAt) _detailsCard(),
                     _section(context, section, strings),
+                  ],
+                  if (detailsAt == widget.sections.length) _detailsCard(),
                   // «ملاحظتي» lives between the analysis sections and the
                   // explanation/extracted-text panels — the same position
                   // the design draws it in, after the paper's own content
@@ -292,6 +295,19 @@ class _DetailsBodyState extends State<_DetailsBody> {
     );
   }
 
+  /// Everything read off the paper, in one card (F21 #9, #15).
+  Widget _detailsCard() {
+    final analysis = widget.document.analysis;
+    return ResultDetailsCard(
+      kind: analysis.kind,
+      kindConfidence: analysis.kindConfidence,
+      keyInformation: analysis.keyInformation,
+      amounts: analysis.amounts,
+      dates: analysis.dates,
+      onCreateReminder: widget.onCreateReminder,
+    );
+  }
+
   /// The widget for one section — the result screen's own mapping, over the
   /// document that was saved instead of the one just analysed.
   Widget _section(
@@ -303,7 +319,6 @@ class _DetailsBodyState extends State<_DetailsBody> {
     final analysis = widget.document.analysis;
 
     return switch (section) {
-      AnalysisSection.header => ResultHeaderCard(analysis: analysis),
       AnalysisSection.summary => ResultSummaryCard(
         summary: analysis.summary.short,
       ),
@@ -313,17 +328,12 @@ class _DetailsBodyState extends State<_DetailsBody> {
       AnalysisSection.warnings => ResultWarningsCard(
         warnings: analysis.warnings,
       ),
+      // The type is a row of the details card now (F21 #15), and the three
+      // data sections are drawn together by it — see `_detailsCard`.
+      AnalysisSection.header ||
       AnalysisSection.keyInformation ||
       AnalysisSection.amounts ||
-      AnalysisSection.dates =>
-        isResultDetailsSlot(widget.sections, section)
-            ? ResultDetailsCard(
-                keyInformation: analysis.keyInformation,
-                amounts: analysis.amounts,
-                dates: analysis.dates,
-                onCreateReminder: widget.onCreateReminder,
-              )
-            : const SizedBox.shrink(),
+      AnalysisSection.dates => const SizedBox.shrink(),
       AnalysisSection.requiredDocuments => ResultListCard(
         glyph: StrokeGlyph.documentCheck,
         title: strings.resultRequiredDocumentsTitle,

@@ -5,6 +5,7 @@ import 'package:war2aty/core/documents/analysis_amount.dart';
 import 'package:war2aty/core/documents/analysis_date.dart';
 import 'package:war2aty/core/documents/analysis_section.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
+import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -64,6 +65,7 @@ void main() {
     List<AnalysisAmount> amounts = const [],
     List<AnalysisDate> dates = const [],
     ValueChanged<AnalysisDate>? onCreateReminder,
+    ConfidenceBand kindConfidence = ConfidenceBand.high,
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
   }) => pumpApp(
@@ -71,6 +73,8 @@ void main() {
     Scaffold(
       body: SingleChildScrollView(
         child: ResultDetailsCard(
+          kind: DocumentKind.invoice,
+          kindConfidence: kindConfidence,
           keyInformation: items,
           amounts: amounts,
           dates: dates,
@@ -147,8 +151,10 @@ void main() {
     ) async {
       await pumpCard(tester, amounts: [_amount()]);
 
-      expect(find.text(_strings.resultKeyInformationTitle), findsNothing);
+      // Key information always has the type row; the dates group is dropped.
+      expect(find.text(_strings.resultKeyInformationTitle), findsOneWidget);
       expect(find.text(_strings.resultAmountsTitle), findsOneWidget);
+      expect(find.text(_strings.resultDatesTitle), findsNothing);
     });
 
     testWidgets('lets a value the analysis is sure of stand on its own', (
@@ -293,6 +299,69 @@ void main() {
       expect(find.text(english.resultKeyInformationTitle), findsOneWidget);
       expect(find.text(english.resultAmountsTitle), findsOneWidget);
       expect(find.text('750 EGP'), findsOneWidget);
+    });
+  });
+
+  group('ResultDetailsCard — the document type', () {
+    testWidgets('opens «أهم المعلومات» with the type', (tester) async {
+      await pumpCard(tester, items: [_item()]);
+
+      final typeLabel = tester.getTopLeft(
+        find.text(_strings.documentTypeLabel),
+      );
+      expect(find.text(_strings.documentKindInvoice), findsOneWidget);
+      expect(
+        typeLabel.dy,
+        lessThan(tester.getTopLeft(find.text('رقم المشترك')).dy),
+      );
+      expect(
+        typeLabel.dy,
+        greaterThan(
+          tester.getTopLeft(find.text(_strings.resultKeyInformationTitle)).dy,
+        ),
+      );
+    });
+
+    testWidgets('has no copy button', (tester) async {
+      await pumpCard(tester);
+
+      expect(
+        find.bySemanticsLabel(
+          _strings.resultCopyValueLabel(_strings.documentTypeLabel),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('keeps its value in line with the copyable rows', (
+      tester,
+    ) async {
+      await pumpCard(tester, items: [_item()]);
+
+      // Arabic: values end on the left, against the copy button's room.
+      expect(
+        tester.getRect(find.text(_strings.documentKindInvoice)).left,
+        moreOrLessEquals(tester.getRect(find.text('624512')).left),
+      );
+    });
+
+    testWidgets('says so when the analysis is unsure of the type', (
+      tester,
+    ) async {
+      await pumpCard(tester, kindConfidence: ConfidenceBand.medium);
+
+      expect(find.text(_strings.confidenceReview), findsOneWidget);
+    });
+
+    testWidgets('is there even when the paper has nothing else', (
+      tester,
+    ) async {
+      await pumpCard(tester);
+
+      expect(find.text(_strings.resultKeyInformationTitle), findsOneWidget);
+      expect(find.text(_strings.documentKindInvoice), findsOneWidget);
+      expect(find.text(_strings.resultAmountsTitle), findsNothing);
+      expect(find.text(_strings.resultDatesTitle), findsNothing);
     });
   });
 
@@ -560,39 +629,36 @@ void main() {
     });
   });
 
-  group('isResultDetailsSlot', () {
-    test('is the first of the sections the card draws together', () {
+  group('resultDetailsIndex', () {
+    test('sits right after the data, before what §4 puts after it', () {
       const sections = [
         AnalysisSection.header,
+        AnalysisSection.summary,
+        AnalysisSection.warnings,
         AnalysisSection.keyInformation,
-        AnalysisSection.amounts,
         AnalysisSection.dates,
+        AnalysisSection.requiredDocuments,
+        AnalysisSection.extractedText,
       ];
 
-      expect(
-        isResultDetailsSlot(sections, AnalysisSection.keyInformation),
-        isTrue,
-      );
-      expect(isResultDetailsSlot(sections, AnalysisSection.amounts), isFalse);
-      expect(isResultDetailsSlot(sections, AnalysisSection.header), isFalse);
+      expect(resultDetailsIndex(sections), 5);
     });
 
-    test('falls to amounts when there is no key information', () {
+    test('keeps its place when the paper has no data at all', () {
+      const sections = [
+        AnalysisSection.header,
+        AnalysisSection.summary,
+        AnalysisSection.instructions,
+      ];
+
+      // The card still carries the document type (F21 #15).
+      expect(resultDetailsIndex(sections), 2);
+    });
+
+    test('goes last when nothing follows the data', () {
       const sections = [AnalysisSection.header, AnalysisSection.amounts];
 
-      expect(isResultDetailsSlot(sections, AnalysisSection.amounts), isTrue);
-    });
-
-    test('falls to dates when they are all there is', () {
-      const sections = [AnalysisSection.header, AnalysisSection.dates];
-
-      expect(isResultDetailsSlot(sections, AnalysisSection.dates), isTrue);
-    });
-
-    test('absorbs dates once key information holds the slot', () {
-      const sections = [AnalysisSection.keyInformation, AnalysisSection.dates];
-
-      expect(isResultDetailsSlot(sections, AnalysisSection.dates), isFalse);
+      expect(resultDetailsIndex(sections), 2);
     });
   });
 }
