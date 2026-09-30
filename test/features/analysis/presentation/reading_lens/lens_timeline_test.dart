@@ -176,9 +176,7 @@ void main() {
   group('PaperLayout', () {
     test('four body lines of four, then the field\'s label and value', () {
       expect(PaperLayout.words, hasLength(18));
-      expect(PaperLayout.wordLines, hasLength(18));
       expect(PaperLayout.words.where((w) => w.isKey), hasLength(2));
-      expect(PaperLayout.wordLines.last, 4);
     });
 
     test('each body line runs right to left from the right margin', () {

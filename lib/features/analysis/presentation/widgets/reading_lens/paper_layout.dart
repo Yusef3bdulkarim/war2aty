@@ -70,14 +70,6 @@ abstract final class PaperLayout {
     PaperWord(_wordAt(34, lineCentres[4], 64), isKey: true),
   ];
 
-  /// The line each of [words] is on, in the same order.
-  static final List<int> wordLines = [
-    for (final (line, widths) in _bodyLines.indexed)
-      for (final _ in widths) line,
-    4,
-    4,
-  ];
-
   static Rect _wordAt(double left, double centreY, double width) =>
       Rect.fromLTWH(left, centreY - wordHeight / 2, width, wordHeight);
 
