@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -150,38 +151,43 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: captureBackdrop,
-      body: DecoratedBox(
-        // The design's radial lift behind the viewfinder.
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(0, -0.2),
-            radius: 1.1,
-            colors: [Color(0xFF2B3138), captureBackdrop],
+    // Light status-bar icons on the dark backdrop; the app's default is
+    // dark ones for its light screens (F21).
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: captureBackdrop,
+        body: DecoratedBox(
+          // The design's radial lift behind the viewfinder.
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(0, -0.2),
+              radius: 1.1,
+              colors: [Color(0xFF2B3138), captureBackdrop],
+            ),
           ),
-        ),
-        child: BlocConsumer<CameraCaptureCubit, CameraCaptureState>(
-          // A captured photo is a one-shot hand-off, not a screen: react to it
-          // in the listener and leave the builder to the visible states.
-          listenWhen: (_, s) => s is CameraCaptured,
-          listener: (context, state) {
-            if (state is CameraCaptured) widget.onCaptured(state.photo);
-          },
-          builder: (context, state) => SafeArea(
-            child: switch (state) {
-              CameraCaptureError() => _CameraError(
-                onRetry: context.read<CameraCaptureCubit>().start,
-                onClose: widget.onClose,
-              ),
-              _ => _Viewfinder(
-                state: state,
-                quad: _quadForPreview(state),
-                onClose: widget.onClose,
-                onShutter: _capture,
-                previewKey: _previewKey,
-              ),
+          child: BlocConsumer<CameraCaptureCubit, CameraCaptureState>(
+            // A captured photo is a one-shot hand-off, not a screen: react to it
+            // in the listener and leave the builder to the visible states.
+            listenWhen: (_, s) => s is CameraCaptured,
+            listener: (context, state) {
+              if (state is CameraCaptured) widget.onCaptured(state.photo);
             },
+            builder: (context, state) => SafeArea(
+              child: switch (state) {
+                CameraCaptureError() => _CameraError(
+                  onRetry: context.read<CameraCaptureCubit>().start,
+                  onClose: widget.onClose,
+                ),
+                _ => _Viewfinder(
+                  state: state,
+                  quad: _quadForPreview(state),
+                  onClose: widget.onClose,
+                  onShutter: _capture,
+                  previewKey: _previewKey,
+                ),
+              },
+            ),
           ),
         ),
       ),
