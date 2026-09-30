@@ -6,13 +6,13 @@ import '../../../../core/theme/app_colors.dart';
 import 'reading_lens/reading_lens_scene.dart';
 import 'reading_lens/wait_caption.dart';
 
-// From the approved C★ mockup (F22).
+// From the approved C+ mockup (F22 #18).
 const double _pagePadding = 24;
 
 /// Room either side of the paper for the lens and its handle, which reach
 /// past its edges as it reads.
 const double _sceneInset = 32;
-const double _sceneToCaption = 52;
+const double _sceneToCaption = 48;
 
 /// At most this share of the page's height goes to the drawing, so a short
 /// screen under Large Text keeps room for the words (F22 #14).
@@ -24,7 +24,7 @@ const double _gapHeightShare = 0.06;
 
 /// The full-bleed page shown while the analysis service is working: a
 /// magnifying glass reads a drawn paper while the caption says what is being
-/// looked for (F22, the approved C★ design).
+/// looked for (F22 #18, the approved C+ design).
 ///
 /// Fully passive — nothing to tap, nothing to cancel. The captions follow the
 /// clock (the service reports no stages) and never claim something was

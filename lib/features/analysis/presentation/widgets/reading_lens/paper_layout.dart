@@ -6,19 +6,10 @@ final class PaperWord {
 
   final Rect rect;
 
-  /// The one body word the lens pauses on. It keeps a mint underline once
-  /// read — a visual beat, never a claim that something was found (F22 #3).
+  /// One of the two words the lens pauses on. It gets a mint underline and a
+  /// sparkle as the lens reaches it — a visual beat, never a claim that
+  /// something was found (F22 #3).
   final bool isKey;
-}
-
-/// One of the two boxed fields at the bottom of the paper.
-final class PaperField {
-  const PaperField({required this.box, required this.label});
-
-  final Rect box;
-
-  /// The small caption bar in the field's top corner.
-  final Rect label;
 }
 
 /// The geometry of the paper the magnifier reads, in paper units.
@@ -26,59 +17,69 @@ final class PaperField {
 /// Fixed physical coordinates, not directional ones: the paper is a drawing,
 /// and the lens always reads it right to left (the app is Arabic only). The
 /// scene scales the whole thing to fit, so these are proportions as much as
-/// sizes. From the approved C★ mockup (F22).
+/// sizes. From the approved C+ mockup (F22 #18).
 abstract final class PaperLayout {
-  static const Size size = Size(260, 340);
+  static const Size size = Size(260, 360);
 
   static const double cornerRadius = 16;
 
-  /// A circle: the letterhead's mark.
-  static const Rect logo = Rect.fromLTWH(212, 20, 30, 30);
+  /// A circle: the letterhead's mark, with a bolt in it.
+  static const Rect logo = Rect.fromLTWH(206, 20, 30, 30);
 
-  static const Rect title = Rect.fromLTWH(104, 28, 96, 12);
+  static const Rect title = Rect.fromLTWH(100, 22, 96, 12);
 
-  /// Drawn around [title] once the lens has paused on it.
-  static const Rect titleOutline = Rect.fromLTWH(96, 20, 112, 28);
+  static const Rect subtitle = Rect.fromLTWH(136, 40, 60, 8);
 
-  static const Rect subtitle = Rect.fromLTWH(140, 52, 60, 8);
+  static const Rect divider = Rect.fromLTWH(24, 66, 212, 1);
 
-  static const Rect divider = Rect.fromLTWH(24, 76, 212, 1);
+  /// The boxed field at the bottom; its label and value are the last line of
+  /// [words].
+  static const Rect field = Rect.fromLTWH(24, 248, 212, 44);
 
-  static const List<PaperField> fields = [
-    PaperField(
-      box: Rect.fromLTWH(140, 222, 96, 48),
-      label: Rect.fromLTWH(196, 229, 32, 6),
-    ),
-    PaperField(
-      box: Rect.fromLTWH(24, 222, 96, 48),
-      label: Rect.fromLTWH(80, 229, 32, 6),
-    ),
-  ];
+  static const double fieldRadius = 10;
 
-  static const List<Rect> footer = [
-    Rect.fromLTWH(136, 294, 100, 8),
-    Rect.fromLTWH(176, 310, 60, 8),
-  ];
+  /// A faint round stamp in the bottom corner, drawn tilted.
+  static const Rect stamp = Rect.fromLTWH(30, 304, 42, 42);
 
-  /// Where each body line's words sit vertically (their centre), and their
-  /// widths from the right margin leftwards.
-  static const List<(double, List<double>)> _lines = [
-    (104, [46, 30, 54, 40]),
-    (140, [30, 56, 34, 44]),
-    (176, [52, 28, 46, 36]),
+  static const double stampTiltDegrees = -12;
+
+  static const Rect footer = Rect.fromLTWH(150, 318, 86, 8);
+
+  /// Where each line's words sit vertically (their centre): the four body
+  /// lines, then the field's line.
+  static const List<double> lineCentres = [96, 138, 180, 222, 270];
+
+  /// The body lines' word widths, from the right margin leftwards.
+  static const List<List<double>> _bodyLines = [
+    [44, 30, 52, 36],
+    [28, 60, 34, 40],
+    [50, 26, 44, 38],
+    [36, 48, 30, 52],
   ];
 
   static const double _rightMargin = 236;
   static const double _wordGap = 8;
-  static const double _wordHeight = 12;
+  static const double wordHeight = 12;
 
-  /// The body words, line by line and right to left, then each field's value.
+  /// The body words, line by line and right to left, then the field's label
+  /// and value.
   static final List<PaperWord> words = [
-    for (final (line, (centreY, widths)) in _lines.indexed)
-      ..._lineWords(line, centreY, widths),
-    const PaperWord(Rect.fromLTWH(150, 243, 60, 10)),
-    const PaperWord(Rect.fromLTWH(34, 243, 56, 10)),
+    for (final (line, widths) in _bodyLines.indexed)
+      ..._lineWords(line, lineCentres[line], widths),
+    PaperWord(_wordAt(178, lineCentres[4], 48)),
+    PaperWord(_wordAt(34, lineCentres[4], 64), isKey: true),
   ];
+
+  /// The line each of [words] is on, in the same order.
+  static final List<int> wordLines = [
+    for (final (line, widths) in _bodyLines.indexed)
+      for (final _ in widths) line,
+    4,
+    4,
+  ];
+
+  static Rect _wordAt(double left, double centreY, double width) =>
+      Rect.fromLTWH(left, centreY - wordHeight / 2, width, wordHeight);
 
   static List<PaperWord> _lineWords(
     int line,
@@ -90,12 +91,7 @@ abstract final class PaperLayout {
     for (final (index, width) in widths.indexed) {
       words.add(
         PaperWord(
-          Rect.fromLTWH(
-            right - width,
-            centreY - _wordHeight / 2,
-            width,
-            _wordHeight,
-          ),
+          _wordAt(right - width, centreY, width),
           // The second word of the second line: where the lens pauses.
           isKey: line == 1 && index == 1,
         ),
@@ -105,6 +101,19 @@ abstract final class PaperLayout {
     return words;
   }
 
-  /// The size of a review check (a green disc with a tick).
+  /// The mint underline under a key word.
+  static Rect underlineOf(Rect word) =>
+      Rect.fromLTWH(word.left, word.top + 16, word.width, 4);
+
+  /// The centre of a key word's sparkle: above the word and to the right of
+  /// it, where the lens has just come from, so the glass does not hide it.
+  static Offset sparkleOf(Rect word) =>
+      Offset(word.center.dx + 31, word.center.dy - 35);
+
+  static const double sparkleSize = 18;
+
+  /// The size of a review check (a green disc with a tick), and the left
+  /// edge they share, in the margin beside each line.
   static const double checkSize = 16;
+  static const double checkLeft = 6;
 }

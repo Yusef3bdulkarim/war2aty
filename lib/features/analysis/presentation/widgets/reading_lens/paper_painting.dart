@@ -2,15 +2,15 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import '../../../../../core/theme/app_colors.dart';
-import 'lens_timeline.dart';
 import 'paper_frame.dart';
 import 'paper_layout.dart';
 
-/// Drawing the paper the magnifier reads, in paper units.
+/// Drawing the paper the magnifier reads, in paper units (F22 #18, C+).
 ///
-/// Split into the stack (sheets, shadow, the paper itself) and its content,
-/// because the lens draws the content a second time, magnified, inside its
-/// glass (F22 #4) — the same calls, so the enlarged view is exact.
+/// Split into the stack (sheets, shadow, the paper itself), its content, and
+/// the marks drawn over the lens (sparkles, review checks), because the lens
+/// draws the content a second time, magnified, inside its glass (F22 #4) —
+/// the same calls, so the enlarged view is exact.
 ///
 /// Every colour is an [AppColors] token, so the page follows «تباين عالي».
 abstract final class PaperPainting {
@@ -28,21 +28,22 @@ abstract final class PaperPainting {
       canvas,
       colors.bgBase,
       colors,
-      degrees: -3.5,
+      degrees: -4,
       shift: const Offset(-6, 8),
     );
     _paintSheet(
       canvas,
       colors.surfaceAlt,
       colors,
-      degrees: 2,
-      shift: const Offset(5, 4),
+      degrees: 2.5,
+      shift: const Offset(6, 4),
     );
-    canvas.drawRRect(
-      _paper.shift(const Offset(0, 18)),
-      _shadow(colors.ink.withValues(alpha: 0.12), 25),
-    );
-    canvas.drawRRect(_paper, Paint()..color = colors.card);
+    canvas
+      ..drawRRect(
+        _paper.shift(const Offset(0, 18)),
+        _shadow(colors.ink.withValues(alpha: 0.12), 50),
+      )
+      ..drawRRect(_paper, Paint()..color = colors.card);
     if (finish > 0) {
       canvas.drawRRect(
         _paper.inflate(1.5),
@@ -56,60 +57,63 @@ abstract final class PaperPainting {
 
   /// Everything printed on the paper, as [frame] says it stands.
   static void paintContent(Canvas canvas, PaperFrame frame, AppColors colors) {
-    final fill = Paint();
-
-    // The letterhead.
-    canvas.drawOval(
-      PaperLayout.logo,
-      fill..color = colors.brandPrimary.withValues(alpha: 0.12),
-    );
-    _paintTitleOutline(canvas, frame.titleOutline, colors);
-    _bar(
-      canvas,
-      PaperLayout.title,
-      Color.lerp(colors.textSecondary, colors.brandPrimary, frame.titleLit)!,
-    );
+    _paintLogo(canvas, colors);
+    _bar(canvas, PaperLayout.title, colors.textSecondary);
     _bar(canvas, PaperLayout.subtitle, colors.borderStrong);
-    canvas.drawRect(PaperLayout.divider, fill..color = colors.borderSoft);
+    canvas.drawRect(PaperLayout.divider, Paint()..color = colors.borderSoft);
 
-    for (final (i, field) in PaperLayout.fields.indexed) {
-      _paintField(
-        canvas,
+    final field = RRect.fromRectAndRadius(
+      PaperLayout.field,
+      const Radius.circular(PaperLayout.fieldRadius),
+    );
+    canvas
+      ..drawRRect(
         field,
-        active: frame.fieldActive[i],
-        visited: frame.fieldVisited[i],
-        colors: colors,
+        Paint()..color = colors.brandPrimary.withValues(alpha: 0.05),
+      )
+      ..drawRRect(
+        field.deflate(0.5),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = colors.brandPrimary.withValues(alpha: 0.22),
       );
-    }
 
     for (final (i, word) in PaperLayout.words.indexed) {
-      final ink = frame.wordRead[i] ? colors.iconMuted : colors.border;
+      final ink = frame.words[i];
+      final settled = Color.lerp(colors.border, colors.iconMuted, ink.read)!;
       _bar(
         canvas,
         word.rect,
-        Color.lerp(ink, colors.brandPrimary, frame.wordLit[i])!,
+        Color.lerp(settled, colors.brandPrimary, ink.lit)!,
       );
-      if (word.isKey) {
-        _paintUnderline(canvas, word.rect, frame.keyUnderline, colors);
-      }
+      _paintUnderline(canvas, word.rect, frame.underlines[i], colors);
     }
 
-    for (final line in PaperLayout.footer) {
-      _bar(canvas, line, colors.borderSoft);
-    }
+    _paintStamp(canvas, colors);
+    _bar(canvas, PaperLayout.footer, colors.border);
   }
 
-  /// The review checks, as [frame] says they stand (F22 #8).
-  static void paintChecks(Canvas canvas, PaperFrame frame, AppColors colors) {
-    for (final (i, check) in LensTimeline.reviewChecks.indexed) {
-      final amount = frame.checks[i];
-      if (amount <= 0) continue;
-      final box = check.topLeft & const Size.square(PaperLayout.checkSize);
+  /// What is drawn over the lens: the key words' sparkles and the review
+  /// checks (F22 #8).
+  static void paintMarks(Canvas canvas, PaperFrame frame, AppColors colors) {
+    for (final (i, word) in PaperLayout.words.indexed) {
+      _paintSparkle(
+        canvas,
+        PaperLayout.sparkleOf(word.rect),
+        frame.sparkles[i],
+        colors,
+      );
+    }
+    for (final (line, check) in frame.checks.indexed) {
+      if (check.opacity <= 0 || check.scale <= 0) continue;
       paintCheckDisc(
         canvas,
-        box.center,
-        radius: PaperLayout.checkSize / 2 * (0.4 + 0.6 * easeOutBack(amount)),
-        opacity: amount,
+        Offset(
+          PaperLayout.checkLeft + PaperLayout.checkSize / 2,
+          PaperLayout.lineCentres[line],
+        ),
+        radius: PaperLayout.checkSize / 2 * check.scale,
+        opacity: check.opacity,
         colors: colors,
       );
     }
@@ -147,7 +151,7 @@ abstract final class PaperPainting {
     );
   }
 
-  /// Overshoots a little, then settles: the pop of the outline and checks.
+  /// Overshoots a little, then settles: the finish check's spring.
   static double easeOutBack(double u) {
     const c1 = 1.70158;
     const c3 = c1 + 1;
@@ -171,83 +175,115 @@ abstract final class PaperPainting {
       ..translate(shift.dx - centre.dx, shift.dy - centre.dy)
       ..drawRRect(
         _paper.shift(const Offset(0, 10)),
-        _shadow(colors.ink.withValues(alpha: 0.07), 15),
+        _shadow(colors.ink.withValues(alpha: 0.08), 30),
       )
       ..drawRRect(_paper, Paint()..color = color)
       ..restore();
   }
 
-  static void _paintTitleOutline(
-    Canvas canvas,
-    double amount,
-    AppColors colors,
-  ) {
-    if (amount <= 0) return;
-    final scale = 0.85 + 0.15 * easeOutBack(amount);
-    const rect = PaperLayout.titleOutline;
-    final scaled = Rect.fromCenter(
-      center: rect.center,
-      width: rect.width * scale,
-      height: rect.height * scale,
+  /// The letterhead: a pale teal disc with a lightning bolt.
+  static void _paintLogo(Canvas canvas, AppColors colors) {
+    const logo = PaperLayout.logo;
+    canvas.drawOval(
+      logo,
+      Paint()..color = colors.brandPrimary.withValues(alpha: 0.12),
     );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        scaled.deflate(1),
-        Radius.circular(scaled.height / 2),
-      ),
+    // The bolt, from a 24-unit icon box drawn 16 wide.
+    const unit = 16 / 24;
+    final origin = logo.center - const Offset(8, 8);
+    Offset at(double x, double y) => origin + Offset(x * unit, y * unit);
+    final bolt = Path()
+      ..moveTo(at(13, 3).dx, at(13, 3).dy)
+      ..lineTo(at(5, 13).dx, at(5, 13).dy)
+      ..lineTo(at(11, 13).dx, at(11, 13).dy)
+      ..lineTo(at(10, 21).dx, at(10, 21).dy)
+      ..lineTo(at(18, 11).dx, at(18, 11).dy)
+      ..lineTo(at(12, 11).dx, at(12, 11).dy)
+      ..close();
+    canvas.drawPath(
+      bolt,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = colors.brandPrimary.withValues(alpha: amount),
+        ..strokeWidth = 2 * unit
+        ..strokeJoin = StrokeJoin.round
+        ..color = colors.brandPrimary,
     );
   }
 
-  static void _paintField(
-    Canvas canvas,
-    PaperField field, {
-    required double active,
-    required bool visited,
-    required AppColors colors,
-  }) {
-    final box = RRect.fromRectAndRadius(field.box, const Radius.circular(10));
-    canvas.drawRRect(
-      box,
-      Paint()..color = colors.brandPrimary.withValues(alpha: 0.04),
-    );
-    if (active > 0) {
-      canvas.drawRRect(
-        box.inflate(2.75),
+  /// A faint round stamp, tilted, with an inner ring.
+  static void _paintStamp(Canvas canvas, AppColors colors) {
+    const stamp = PaperLayout.stamp;
+    final ink = colors.error.withValues(alpha: 0.3);
+    canvas
+      ..save()
+      ..translate(stamp.center.dx, stamp.center.dy)
+      ..rotate(PaperLayout.stampTiltDegrees * math.pi / 180)
+      ..drawCircle(
+        Offset.zero,
+        stamp.width / 2 - 1,
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 4
-          ..color = colors.mint.withValues(alpha: 0.22 * active),
-      );
-    }
-    final resting = colors.brandPrimary.withValues(alpha: visited ? 0.45 : 0.2);
-    canvas.drawRRect(
-      box.deflate(0.75),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = Color.lerp(resting, colors.brandPrimary, active)!,
-    );
-    _bar(canvas, field.label, colors.borderStrong);
+          ..strokeWidth = 2
+          ..color = ink,
+      )
+      ..drawCircle(
+        Offset.zero,
+        stamp.width / 2 - 7.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = ink,
+      )
+      ..restore();
   }
 
   /// Grows from the word's right edge — the start of an Arabic word.
   static void _paintUnderline(
     Canvas canvas,
     Rect word,
-    double amount,
+    Underline underline,
     AppColors colors,
   ) {
-    if (amount <= 0) return;
-    final width = word.width * easeOutCubic(amount);
+    if (underline.opacity <= 0 || underline.width <= 0) return;
+    final full = PaperLayout.underlineOf(word);
+    final width = full.width * underline.width;
     _bar(
       canvas,
-      Rect.fromLTWH(word.right - width, word.top + 16, width, 4),
-      colors.mint,
+      Rect.fromLTWH(full.right - width, full.top, width, full.height),
+      colors.mint.withValues(alpha: underline.opacity),
     );
+  }
+
+  /// A four-pointed star, bursting and turning.
+  static void _paintSparkle(
+    Canvas canvas,
+    Offset centre,
+    Sparkle sparkle,
+    AppColors colors,
+  ) {
+    if (sparkle.opacity <= 0 || sparkle.scale <= 0) return;
+    // The design's star, from a 24-unit icon box drawn 18 wide.
+    const unit = PaperLayout.sparkleSize / 24;
+    Offset at(double x, double y) => Offset((x - 12) * unit, (y - 12) * unit);
+    final star = Path()
+      ..moveTo(at(12, 1).dx, at(12, 1).dy)
+      ..lineTo(at(14.6, 9.4).dx, at(14.6, 9.4).dy)
+      ..lineTo(at(23, 12).dx, at(23, 12).dy)
+      ..lineTo(at(14.6, 14.6).dx, at(14.6, 14.6).dy)
+      ..lineTo(at(12, 23).dx, at(12, 23).dy)
+      ..lineTo(at(9.4, 14.6).dx, at(9.4, 14.6).dy)
+      ..lineTo(at(1, 12).dx, at(1, 12).dy)
+      ..lineTo(at(9.4, 9.4).dx, at(9.4, 9.4).dy)
+      ..close();
+    canvas
+      ..save()
+      ..translate(centre.dx, centre.dy)
+      ..rotate(sparkle.degrees * math.pi / 180)
+      ..scale(sparkle.scale)
+      ..drawPath(
+        star,
+        Paint()..color = colors.mint.withValues(alpha: sparkle.opacity),
+      )
+      ..restore();
   }
 
   /// A rounded bar: a word, a label, a line.
@@ -258,9 +294,10 @@ abstract final class PaperPainting {
     );
   }
 
+  /// A CSS box shadow's blur, [blurRadius] in its own units.
   static Paint _shadow(Color color, double blurRadius) => Paint()
     ..color = color
-    ..maskFilter = MaskFilter.blur(BlurStyle.normal, _sigma(blurRadius));
+    ..maskFilter = MaskFilter.blur(BlurStyle.normal, _sigma(blurRadius / 2));
 
   /// The same conversion as [BoxShadow.blurSigma].
   static double _sigma(double radius) => radius * 0.57735 + 0.5;

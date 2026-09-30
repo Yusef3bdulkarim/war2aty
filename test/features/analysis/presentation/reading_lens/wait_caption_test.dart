@@ -51,8 +51,8 @@ void main() {
     expect(find.text(_strings.analysisWaitHint), findsOneWidget);
 
     final steps = [
-      (1.6, _strings.analysisWaitStepActions),
-      (3.9, _strings.analysisWaitStepDates),
+      (1.9, _strings.analysisWaitStepActions),
+      (3.8, _strings.analysisWaitStepDates),
       (6.0, _strings.analysisWaitStillSeconds),
       (10.0, _strings.analysisWaitReviewing),
       (15.0, _strings.analysisWaitTakingLonger),
@@ -107,7 +107,7 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
     expect(find.text('...'), findsOneWidget);
 
-    await at(tester, 1.6, 0.5);
+    await at(tester, 1.9, 0.5);
     expect(_showing(_strings.analysisWaitStepActions), findsOneWidget);
   });
 

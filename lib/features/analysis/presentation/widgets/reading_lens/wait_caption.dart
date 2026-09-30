@@ -8,7 +8,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_typography.dart';
 import 'lens_timeline.dart';
 
-const double _captionGap = 6;
+const double _captionGap = 8;
 const Duration _switch = Duration(milliseconds: 450);
 const double _slide = 12;
 

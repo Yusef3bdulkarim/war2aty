@@ -69,10 +69,14 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2400));
       expect(_frame(tester).lens, LensTimeline.lensAt(2.4));
 
-      // 7.5 s: the second pass, its first part already re-checked.
-      await tester.pump(const Duration(milliseconds: 5100));
-      expect(_frame(tester).lens, LensTimeline.lensAt(7.5));
-      expect(_frame(tester).paper.checks.first, 1, reason: 'a later pass');
+      // 10.5 s: the second pass, its first line already re-checked.
+      await tester.pump(const Duration(milliseconds: 8100));
+      expect(_frame(tester).lens, LensTimeline.lensAt(10.5));
+      expect(
+        _frame(tester).paper.checks.first.opacity,
+        1,
+        reason: 'a later pass',
+      );
       expect(checks, 0);
       expect(finished, 0);
     });
@@ -87,7 +91,7 @@ void main() {
       );
       final size = tester.getSize(find.byType(CustomPaint).last);
       expect(size.width, 200);
-      expect(size.height, closeTo(200 * 340 / 260, 0.01));
+      expect(size.height, closeTo(200 * 360 / 260, 0.01));
     });
   });
 
@@ -100,16 +104,14 @@ void main() {
 
       finishing.value = true;
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(checks, 0, reason: 'the check waits 120 ms');
-
-      await tester.pump(const Duration(milliseconds: 40));
+      // The check springs in on the next frame (F22 #18).
+      await tester.pump(const Duration(milliseconds: 16));
       expect(checks, 1);
       expect(finished, 0);
 
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 600));
       expect(finished, 0, reason: 'the beat is 650 ms');
-      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 40));
       expect(finished, 1);
       expect(_frame(tester).check, greaterThan(0.9));
 
@@ -126,7 +128,9 @@ void main() {
       expect(finished, 1);
     });
 
-    testWidgets('removal stops everything and reports nothing', (tester) async {
+    testWidgets('removal mid-finish stops it, and never reports the finish', (
+      tester,
+    ) async {
       await pumpApp(tester, harness(), settle: false);
       await tester.pump(const Duration(seconds: 2));
       finishing.value = true;
@@ -138,7 +142,8 @@ void main() {
       expect(tester.hasRunningAnimations, isFalse);
 
       await tester.pump(const Duration(seconds: 2));
-      expect(checks, 0);
+      // The check had already sprung in; the finish never comes.
+      expect(checks, 1);
       expect(finished, 0);
     });
   });

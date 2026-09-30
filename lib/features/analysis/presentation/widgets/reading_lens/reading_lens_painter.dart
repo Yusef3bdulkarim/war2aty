@@ -10,11 +10,12 @@ import 'paper_painting.dart';
 import 'scene_frame.dart';
 
 /// Paints the scene [scene] holds, repainting whenever it changes — which is
-/// every frame while the lens moves, without rebuilding a single widget.
+/// every frame while the lens moves, without rebuilding a single widget
+/// (F22 #18, the C+ design).
 ///
 /// Draws in paper units, scaled to the size it is given (the paper's
-/// proportions). The lens, its handle and the rings reach outside that box;
-/// nothing above clips them.
+/// proportions). The light, the lens, its handle and the rings reach outside
+/// that box; nothing above clips them.
 class ReadingLensPainter extends CustomPainter {
   ReadingLensPainter({required this.scene, required this.colors})
     : super(repaint: scene);
@@ -23,9 +24,10 @@ class ReadingLensPainter extends CustomPainter {
   final AppColors colors;
 
   /// The lens's radius, in paper units, and its magnification (F22 #4).
-  static const double lensRadius = 52;
+  static const double lensRadius = 48;
   static const double magnification = 1.7;
 
+  static const double _spotlightRadius = 230;
   static const double _checkRadius = 32;
 
   @override
@@ -33,32 +35,41 @@ class ReadingLensPainter extends CustomPainter {
     final frame = scene.value;
     canvas
       ..save()
-      ..scale(size.width / PaperLayout.size.width);
+      ..scale(size.width / PaperLayout.size.width)
+      // Everything floats together: the light, the paper, the lens.
+      ..translate(0, frame.paperFloat);
 
-    final entering = frame.paperOpacity < 1;
-    if (entering) {
-      canvas.saveLayer(
-        null,
-        Paint()..color = Color.fromRGBO(0, 0, 0, frame.paperOpacity),
-      );
-    }
-    canvas.translate(0, frame.paperRise);
-
-    PaperPainting.paintStack(canvas, colors, finish: frame.finishRing);
+    _paintSpotlight(canvas, frame);
+    PaperPainting.paintStack(canvas, colors, finish: frame.settled);
     PaperPainting.paintContent(canvas, frame.paper, colors);
-    if (frame.lensOpacity > 0 && frame.lensScale > 0) _paintLens(canvas, frame);
-    PaperPainting.paintChecks(canvas, frame.paper, colors);
+    if (frame.lensOpacity > 0) _paintLens(canvas, frame);
+    PaperPainting.paintMarks(canvas, frame.paper, colors);
     _paintFinishCheck(canvas, frame);
 
-    if (entering) canvas.restore();
     canvas.restore();
   }
 
+  /// A soft light behind the paper that follows the lens, turning green
+  /// once the result has arrived.
+  void _paintSpotlight(Canvas canvas, SceneFrame frame) {
+    final centre = LensTimeline.centre + frame.spotlight;
+    final light = Color.lerp(colors.mint, colors.success, frame.settled)!;
+    final area = Rect.fromCircle(center: centre, radius: _spotlightRadius);
+    canvas.drawRect(
+      area,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [light.withValues(alpha: 0.22), light.withValues(alpha: 0)],
+          stops: const [0, 0.62],
+        ).createShader(area),
+    );
+  }
+
   void _paintLens(Canvas canvas, SceneFrame frame) {
+    final centre = frame.lens + Offset(0, frame.lensBob);
     canvas
       ..save()
-      ..translate(frame.lens.dx, frame.lens.dy)
-      ..scale(frame.lensScale);
+      ..translate(centre.dx, centre.dy);
     final fading = frame.lensOpacity < 1;
     if (fading) {
       canvas.saveLayer(
@@ -68,23 +79,24 @@ class ReadingLensPainter extends CustomPainter {
     }
 
     // Its shadow on the paper, below and to the right.
+    const shadowCentre = Offset(22, 30);
     canvas.drawCircle(
-      const Offset(18, 26),
+      shadowCentre,
       lensRadius,
       Paint()
         ..shader =
             RadialGradient(
               colors: [
-                colors.ink.withValues(alpha: 0.15),
+                colors.ink.withValues(alpha: 0.16),
                 colors.ink.withValues(alpha: 0),
               ],
-              stops: const [0, 0.66],
+              stops: const [0, 0.65],
             ).createShader(
-              Rect.fromCircle(center: const Offset(18, 26), radius: lensRadius),
+              Rect.fromCircle(center: shadowCentre, radius: lensRadius),
             ),
     );
 
-    _paintHandle(canvas, frame.handleDegrees);
+    _paintHandle(canvas);
 
     // The halo that lifts the glass off the page.
     canvas
@@ -92,20 +104,20 @@ class ReadingLensPainter extends CustomPainter {
         const Offset(0, 10),
         lensRadius,
         Paint()
-          ..color = colors.brandDeep.withValues(alpha: 0.28)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15.5),
+          ..color = colors.brandDeep.withValues(alpha: 0.3)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
       )
       ..drawCircle(
         Offset.zero,
         lensRadius,
         Paint()
-          ..color = colors.mint.withValues(alpha: 0.35)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15.5),
+          ..color = colors.mint.withValues(alpha: 0.4)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.6),
       );
 
-    _paintGlass(canvas, frame);
+    _paintGlass(canvas, frame, centre);
 
-    // The rim.
+    // The rim: a white edge, then the teal ring.
     canvas
       ..drawCircle(
         Offset.zero,
@@ -113,7 +125,7 @@ class ReadingLensPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
-          ..color = colors.card.withValues(alpha: 0.8),
+          ..color = colors.card.withValues(alpha: 0.75),
       )
       ..drawCircle(
         Offset.zero,
@@ -128,22 +140,19 @@ class ReadingLensPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// The handle trails from the rim down to the right, swinging with the
-  /// lens's movement; only the handle swings, never the glass.
-  void _paintHandle(Canvas canvas, double swingDegrees) {
+  /// The handle leaves the rim at the lower right, slanting down and away.
+  void _paintHandle(Canvas canvas) {
+    const grip = Rect.fromLTWH(-7, 0, 14, 50);
     canvas
       ..save()
-      ..rotate((-45 + swingDegrees) * math.pi / 180)
-      ..drawRRect(
-        RRect.fromLTRBR(-10, 44, 10, 56, const Radius.circular(4)),
-        Paint()..color = colors.brandDeep,
-      );
-    const grip = Rect.fromLTWH(-7, 54, 14, 50);
-    canvas
+      ..translate(35, 30)
+      ..rotate(-45 * math.pi / 180)
       ..drawRRect(
         RRect.fromRectAndRadius(grip, const Radius.circular(7)),
         Paint()
           ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [colors.brandPrimary, colors.brandDeep],
           ).createShader(grip),
       )
@@ -152,7 +161,7 @@ class ReadingLensPainter extends CustomPainter {
 
   /// The magnified paper under the glass: the same content, drawn again at
   /// ×[magnification] around the lens centre, clipped to the circle.
-  void _paintGlass(Canvas canvas, SceneFrame frame) {
+  void _paintGlass(Canvas canvas, SceneFrame frame, Offset centre) {
     final glass = Rect.fromCircle(center: Offset.zero, radius: lensRadius);
     canvas
       ..save()
@@ -160,39 +169,31 @@ class ReadingLensPainter extends CustomPainter {
       ..drawRect(glass, Paint()..color = colors.card)
       ..save()
       ..scale(magnification)
-      ..translate(-frame.lens.dx, -frame.lens.dy);
+      ..translate(-centre.dx, -centre.dy);
     PaperPainting.paintContent(canvas, frame.paper, colors);
     canvas
       ..restore()
       // A faint mint tint, and the glass's edge darkening inwards.
-      ..drawRect(glass, Paint()..color = colors.mint.withValues(alpha: 0.07))
+      ..drawRect(glass, Paint()..color = colors.mint.withValues(alpha: 0.08))
       ..drawRect(
         glass,
         Paint()
           ..shader = RadialGradient(
             colors: [
               colors.brandDeep.withValues(alpha: 0),
-              colors.brandDeep.withValues(alpha: 0.26),
+              colors.brandDeep.withValues(alpha: 0.28),
             ],
             stops: const [0.72, 1],
           ).createShader(glass),
-      )
-      ..drawCircle(
-        Offset.zero,
-        lensRadius - 1,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = colors.mint.withValues(alpha: 0.25),
       );
 
     if (frame.glint case final glint?) {
       // A slanted streak of light, crossing from left to right.
-      final x = -90 + 230 * glint - 38;
-      const streak = Rect.fromLTWH(-14, -86, 28, 172);
+      final x = 13 - 80 + 210 * glint - lensRadius;
+      const streak = Rect.fromLTWH(-13, -80, 26, 160);
       canvas
         ..save()
-        ..translate(x, 0)
+        ..translate(x, 2)
         ..rotate(25 * math.pi / 180)
         ..drawRect(
           streak,
@@ -200,7 +201,7 @@ class ReadingLensPainter extends CustomPainter {
             ..shader = LinearGradient(
               colors: [
                 colors.card.withValues(alpha: 0),
-                colors.card.withValues(alpha: 0.6),
+                colors.card.withValues(alpha: 0.65),
                 colors.card.withValues(alpha: 0),
               ],
             ).createShader(streak),
@@ -213,13 +214,14 @@ class ReadingLensPainter extends CustomPainter {
   void _paintFinishCheck(Canvas canvas, SceneFrame frame) {
     const centre = LensTimeline.centre;
     if (frame.checkRing case final ring?) {
+      final spread = PaperPainting.easeOutCubic(ring);
       canvas.drawCircle(
         centre,
-        _checkRadius * (1 + 1.3 * ring),
+        _checkRadius * (1 + 1.2 * spread),
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 3
-          ..color = colors.success.withValues(alpha: 0.6 * (1 - ring)),
+          ..color = colors.success.withValues(alpha: 0.6 * (1 - spread)),
       );
     }
     if (frame.check <= 0) return;
@@ -228,7 +230,7 @@ class ReadingLensPainter extends CustomPainter {
       _checkRadius * frame.check,
       Paint()
         ..color = colors.success.withValues(alpha: 0.35)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14.4),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7.4),
     );
     PaperPainting.paintCheckDisc(
       canvas,

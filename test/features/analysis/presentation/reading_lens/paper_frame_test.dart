@@ -9,107 +9,121 @@ import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/pape
 
 const _pass = LensTimeline.pass;
 final int _key = PaperLayout.words.indexWhere((w) => w.isKey);
+final double _keyAt = LensTimeline.wordReadAt[_key];
 
 void main() {
-  group('PaperFrame.at — the first pass', () {
-    test('starts with nothing read, outlined, underlined or checked', () {
-      final frame = PaperFrame.at(0);
-      expect(frame.wordRead, everyElement(isFalse));
-      expect(frame.titleOutline, 0);
-      expect(frame.keyUnderline, 0);
-      expect(frame.fieldVisited, everyElement(isFalse));
-      expect(frame.checks, everyElement(0));
+  group('PaperFrame.at — words', () {
+    test('start unread', () {
+      final frame = PaperFrame.at(0.01);
+      expect(frame.words.skip(1), everyElement((lit: 0.0, read: 0.0)));
     });
 
-    test('lights a word only while the lens is on it', () {
-      final readAt = LensTimeline.wordReadAt[0];
-      expect(PaperFrame.at(readAt).wordLit[0], 1);
-      expect(PaperFrame.at(0).wordLit[0], 0);
-      expect(PaperFrame.at(readAt + 0.6).wordLit[0], 0);
+    test('flash teal as the lens reaches them, then settle to read', () {
+      final at = LensTimeline.wordReadAt[5];
+      expect(PaperFrame.at(at - 0.01).words[5], (lit: 0.0, read: 0.0));
+      expect(PaperFrame.at(at).words[5], (lit: 1.0, read: 1.0));
+      expect(PaperFrame.at(at + 0.4).words[5], (lit: 1.0, read: 1.0));
+      expect(PaperFrame.at(at + 0.8).words[5].lit, inExclusiveRange(0, 1));
+      expect(PaperFrame.at(at + 1.2).words[5], (lit: 0.0, read: 1.0));
     });
 
-    test('marks a word read from the moment the lens reaches it', () {
-      for (final (i, at) in LensTimeline.wordReadAt.indexed) {
-        expect(PaperFrame.at(at - 0.02).wordRead[i], isFalse, reason: '$i');
-        expect(PaperFrame.at(at).wordRead[i], isTrue, reason: '$i');
-      }
+    test('fade back to unread as their pass ends, ready to be read again', () {
+      final at = LensTimeline.wordReadAt[5];
+      expect(PaperFrame.at(at + 7.5).words[5].read, inExclusiveRange(0, 1));
+      expect(PaperFrame.at(at + _pass).words[5], (lit: 1.0, read: 1.0));
+    });
+  });
+
+  group('PaperFrame.at — key words', () {
+    test('underline as the lens arrives, and keep it for the pass', () {
+      expect(PaperFrame.at(_keyAt - 0.01).underlines[_key].opacity, 0);
+      final growing = PaperFrame.at(_keyAt + 0.16).underlines[_key];
+      expect(growing.width, closeTo(0.5, 1e-9));
+      expect(PaperFrame.at(_keyAt + 1).underlines[_key], (
+        opacity: 1.0,
+        width: 1.0,
+      ));
+      expect(
+        PaperFrame.at(_keyAt + 7.7).underlines[_key].opacity,
+        inExclusiveRange(0, 1),
+      );
     });
 
-    test('draws the title outline once the lens reaches the title', () {
-      expect(PaperFrame.at(LensTimeline.titleReachedAt).titleOutline, 0);
-      expect(PaperFrame.at(0.6).titleOutline, inExclusiveRange(0, 1));
-      expect(PaperFrame.at(1).titleOutline, 1);
-      expect(PaperFrame.at(0.7).titleLit, 1);
+    test('burst a sparkle a beat later, gone within half a second', () {
+      final at = _keyAt + 0.1;
+      expect(PaperFrame.at(at - 0.01).sparkles[_key].opacity, 0);
+      final peak = PaperFrame.at(at + 0.16).sparkles[_key];
+      expect(peak.scale, closeTo(1.3, 1e-9));
+      expect(peak.degrees, closeTo(45, 1e-9));
+      expect(PaperFrame.at(at + 0.3).sparkles[_key].degrees, greaterThan(45));
+      expect(PaperFrame.at(at + 0.6).sparkles[_key].opacity, 0);
     });
 
-    test('underlines the key word once the lens reaches it, and keeps it', () {
-      expect(PaperFrame.at(2.3).keyUnderline, 0);
-      expect(PaperFrame.at(2.6).keyUnderline, inExclusiveRange(0, 1));
-      expect(PaperFrame.at(3).keyUnderline, 1);
-      expect(PaperFrame.at(_pass - 0.01).keyUnderline, 1);
-      expect(PaperFrame.at(2.55).wordLit[_key], 1);
-    });
-
-    test('glows each field only around its pause, then keeps it visited', () {
-      for (final (i, (start, end)) in LensTimeline.fieldPauses.indexed) {
-        expect(PaperFrame.at(start - 0.05).fieldActive[i], 0);
-        expect(PaperFrame.at(end).fieldActive[i], closeTo(1, 1e-9));
-        expect(PaperFrame.at(end + 0.35).fieldActive[i], 0);
-        expect(PaperFrame.at(end - 0.01).fieldVisited[i], isFalse);
-        expect(PaperFrame.at(end).fieldVisited[i], isTrue);
-      }
-    });
-
-    test('shows no review checks', () {
-      for (var t = 0.0; t < _pass; t += 0.05) {
-        expect(PaperFrame.at(t).checks, everyElement(0), reason: 't = $t');
+    test('other words get no underline or sparkle', () {
+      for (var t = 0.0; t < _pass; t += 0.1) {
+        final frame = PaperFrame.at(t);
+        for (final (i, word) in PaperLayout.words.indexed) {
+          if (word.isKey) continue;
+          expect(frame.underlines[i].opacity, 0);
+          expect(frame.sparkles[i].opacity, 0);
+        }
       }
     });
   });
 
-  group('PaperFrame.at — later passes', () {
-    test('keeps everything read, outlined and underlined', () {
-      final frame = PaperFrame.at(_pass + 0.1);
-      expect(frame.wordRead, everyElement(isTrue));
-      expect(frame.titleOutline, 1);
-      expect(frame.keyUnderline, 1);
-      expect(frame.fieldVisited, everyElement(isTrue));
-    });
-
-    test('pops each check in as the lens leaves its part', () {
-      for (final (i, check) in LensTimeline.reviewChecks.indexed) {
-        expect(PaperFrame.at(_pass + check.at - 0.01).checks[i], 0);
-        expect(PaperFrame.at(_pass + check.at + 0.4).checks[i], 1);
+  group('PaperFrame.at — review checks', () {
+    test('none during the first pass', () {
+      for (var t = 0.0; t < _pass + LensTimeline.lineEnds.first; t += 0.05) {
+        expect(
+          PaperFrame.at(t).checks,
+          everyElement((scale: 0.0, opacity: 0.0)),
+          reason: 't = $t',
+        );
       }
     });
 
-    test('clears the checks at the start of every pass', () {
-      final lastPassEnd = PaperFrame.at(2 * _pass - 0.01);
-      expect(lastPassEnd.checks, everyElement(1));
-      final fading = PaperFrame.at(2 * _pass + 0.1);
-      expect(fading.checks.first, inExclusiveRange(0, 1));
-      expect(fading.checks.last, inExclusiveRange(0, 1));
-      final cleared = PaperFrame.at(2 * _pass + 0.3);
-      expect(cleared.checks, everyElement(0));
+    test('pop in past full size as the lens finishes each line', () {
+      for (final (line, end) in LensTimeline.lineEnds.indexed) {
+        final start = _pass + end;
+        expect(PaperFrame.at(start - 0.01).checks[line].opacity, 0);
+        expect(
+          PaperFrame.at(start + 0.24).checks[line].scale,
+          closeTo(1.2, 1e-9),
+        );
+        expect(PaperFrame.at(start + 1).checks[line], (
+          scale: 1.0,
+          opacity: 1.0,
+        ));
+      }
+    });
+
+    test('fade as their pass ends, and pop in again the next', () {
+      final end = LensTimeline.lineEnds.first;
+      expect(
+        PaperFrame.at(_pass + end + 7.8).checks.first.opacity,
+        inExclusiveRange(0, 1),
+      );
+      expect(PaperFrame.at(2 * _pass + end + 1).checks.first.opacity, 1);
     });
   });
 
   group('PaperFrame.resting and .finished', () {
-    test('resting: the title marked, the underline drawn, nothing moving', () {
+    test('resting: nothing read or lit, the key words underlined', () {
       final frame = PaperFrame.resting;
-      expect(frame.titleOutline, 1);
-      expect(frame.keyUnderline, 1);
-      expect(frame.wordLit, everyElement(0));
-      expect(frame.checks, everyElement(0));
+      expect(frame.words, everyElement((lit: 0.0, read: 0.0)));
+      expect(frame.underlines[_key], (opacity: 1.0, width: 1.0));
+      expect(
+        frame.sparkles,
+        everyElement((scale: 0.0, degrees: 0.0, opacity: 0.0)),
+      );
+      expect(frame.checks, everyElement((scale: 0.0, opacity: 0.0)));
     });
 
-    test('finished: every word read, nothing lit, no checks', () {
+    test('finished: every word read, nothing lit, no marks', () {
       final frame = PaperFrame.finished;
-      expect(frame.wordRead, everyElement(isTrue));
-      expect(frame.wordLit, everyElement(0));
-      expect(frame.titleLit, 0);
-      expect(frame.checks, everyElement(0));
-      expect(frame.keyUnderline, 1);
+      expect(frame.words, everyElement((lit: 0.0, read: 1.0)));
+      expect(frame.underlines[_key].opacity, 0);
+      expect(frame.checks, everyElement((scale: 0.0, opacity: 0.0)));
     });
   });
 
@@ -117,9 +131,8 @@ void main() {
     test('paints every kind of frame in both palettes', () {
       for (final colors in [AppColors.light, AppColors.highContrast]) {
         for (final frame in [
-          PaperFrame.at(0.7),
-          PaperFrame.at(4.4),
-          PaperFrame.at(2 * _pass + 0.1),
+          PaperFrame.at(_keyAt + 0.2),
+          PaperFrame.at(_pass + 3),
           PaperFrame.resting,
           PaperFrame.finished,
         ]) {
@@ -127,7 +140,7 @@ void main() {
           final canvas = Canvas(recorder);
           PaperPainting.paintStack(canvas, colors, finish: 0.5);
           PaperPainting.paintContent(canvas, frame, colors);
-          PaperPainting.paintChecks(canvas, frame, colors);
+          PaperPainting.paintMarks(canvas, frame, colors);
           recorder.endRecording().dispose();
         }
       }

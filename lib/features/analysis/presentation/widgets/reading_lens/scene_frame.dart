@@ -1,107 +1,103 @@
-import 'dart:math' as math;
 import 'dart:ui';
 
 import 'lens_timeline.dart';
 import 'paper_frame.dart';
 import 'paper_painting.dart';
 
-/// The whole scene at one moment: the paper, the lens, and the finish.
+/// The whole scene at one moment: the paper, the lens, the light behind
+/// them, and the finish (F22 #18, the C+ design).
 ///
 /// Pure functions of the clock, like [PaperFrame], so the painter only draws
-/// and every beat of the entrance, the reading and the finish is testable
-/// without a widget.
+/// and every beat of the reading and the finish is testable without a
+/// widget.
 final class SceneFrame {
   const SceneFrame({
     required this.paper,
     required this.lens,
-    required this.handleDegrees,
-    this.paperOpacity = 1,
-    this.paperRise = 0,
-    this.lensScale = 1,
+    this.lensBob = 0,
     this.lensOpacity = 1,
     this.glint,
-    this.finishRing = 0,
+    this.paperFloat = 0,
+    this.spotlight = Offset.zero,
+    this.settled = 0,
     this.check = 0,
     this.checkRing,
   });
 
   /// The lens reading, [seconds] after the page appeared.
   factory SceneFrame.reading(double seconds) {
-    final paperIn = _eased(seconds, LensTimeline.paperEntrance);
-    final lensIn = _eased(seconds, LensTimeline.lensEntrance);
+    final lens = LensTimeline.lensAt(seconds);
     return SceneFrame(
       paper: PaperFrame.at(seconds),
-      lens: LensTimeline.lensAt(seconds),
-      handleDegrees: LensTimeline.handleSwingAt(seconds),
-      paperOpacity: paperIn,
-      paperRise: _entranceRise * (1 - paperIn),
-      lensScale: 0.6 + 0.4 * lensIn,
-      lensOpacity: lensIn,
-      glint: _glintAt(seconds),
+      lens: lens,
+      lensBob: LensTimeline.bobAt(seconds),
+      glint: LensTimeline.glintAt(seconds),
+      paperFloat: LensTimeline.floatAt(seconds),
+      spotlight: LensTimeline.spotlightFor(lens),
     );
   }
 
   /// The finish, [seconds] after the page appeared, the result having arrived
-  /// at [finishedAt] (F22 #10): the lens glides from where it was to the
-  /// centre and fades; the check springs in; a ring spreads from it.
+  /// at [finishedAt] (F22 #10, #18): the lens fades as it keeps reading, the
+  /// check springs in with a ring spreading from it, and the paper, its float
+  /// and the light behind it come to rest in green.
   factory SceneFrame.finishing(double seconds, {required double finishedAt}) {
     final since = seconds - finishedAt;
-    final glide = _eased(since, LensTimeline.finishGlide);
-    final from = LensTimeline.lensAt(finishedAt);
-    final checkSince = since - _seconds(LensTimeline.checkDelay);
-    final ringSince = since - _ringDelay;
-    final ring = ringSince / _seconds(LensTimeline.finishRing);
+    final settled = _eased(since, LensTimeline.finishSettle);
+    final ring = since / _seconds(LensTimeline.finishRing);
     return SceneFrame(
       paper: PaperFrame.finished,
-      lens: Offset.lerp(from, LensTimeline.centre, glide)!,
-      handleDegrees: LensTimeline.handleSwingAt(finishedAt) * (1 - glide),
-      lensScale: 1 - 0.5 * glide,
-      lensOpacity: 1 - glide,
-      finishRing: (since / _finishRingDraw).clamp(0.0, 1.0),
+      lens: LensTimeline.lensAt(seconds),
+      lensBob: LensTimeline.bobAt(finishedAt) * (1 - settled),
+      lensOpacity: 1 - _eased(since, LensTimeline.lensFade),
+      paperFloat: LensTimeline.floatAt(finishedAt) * (1 - settled),
+      spotlight:
+          LensTimeline.spotlightFor(LensTimeline.lensAt(finishedAt)) *
+          (1 - settled),
+      settled: settled,
       check: PaperPainting.easeOutBack(
-        (checkSince / _seconds(LensTimeline.checkPop)).clamp(0.0, 1.0),
+        (since / _seconds(LensTimeline.checkPop)).clamp(0.0, 1.0),
       ),
-      checkRing: ring >= 0 && ring < 1 ? ring : null,
+      checkRing: ring < 1 ? ring : null,
     );
   }
 
-  /// Under reduced motion, while waiting: the lens rests over the title.
+  /// Under reduced motion, while waiting: the lens still, in the middle.
   static final SceneFrame resting = SceneFrame(
     paper: PaperFrame.resting,
-    lens: LensTimeline.restingPoint,
-    handleDegrees: 0,
+    lens: LensTimeline.centre,
   );
 
   /// Under reduced motion, once the result has arrived: the check, still.
   static final SceneFrame restingFinished = SceneFrame(
     paper: PaperFrame.finished,
-    lens: LensTimeline.restingPoint,
-    handleDegrees: 0,
+    lens: LensTimeline.centre,
     lensOpacity: 0,
-    finishRing: 1,
+    settled: 1,
     check: 1,
   );
 
   final PaperFrame paper;
 
-  /// The lens centre, in paper units.
+  /// The lens centre, in paper units, and how far it has bobbed below it.
   final Offset lens;
-  final double handleDegrees;
-
-  final double paperOpacity;
-
-  /// How far below its place the paper still is, in paper units.
-  final double paperRise;
-
-  final double lensScale;
+  final double lensBob;
   final double lensOpacity;
 
   /// Where the glint is in its sweep across the glass (0 → 1), or null
   /// between sweeps.
   final double? glint;
 
-  /// The green ring around the paper (0 → 1).
-  final double finishRing;
+  /// How far the paper (and everything on it) has floated, in paper units;
+  /// negative is up.
+  final double paperFloat;
+
+  /// Where the light behind the paper is, from the paper's middle.
+  final Offset spotlight;
+
+  /// How far the finish has settled (0 → 1): the paper's green ring and the
+  /// light turning green.
+  final double settled;
 
   /// The finish check's size, 0 → 1 (it overshoots a little on the way).
   final double check;
@@ -109,22 +105,8 @@ final class SceneFrame {
   /// The ring spreading from the check (0 → 1), or null when there is none.
   final double? checkRing;
 
-  static const double _entranceRise = 12;
-  static const double _finishRingDraw = 0.5;
-  static const double _ringDelay = 0.25;
-
   static double _seconds(Duration d) => d.inMicroseconds / 1e6;
 
   static double _eased(double seconds, Duration over) =>
       PaperPainting.easeOutCubic((seconds / _seconds(over)).clamp(0.0, 1.0));
-
-  static double? _glintAt(double seconds) {
-    final since = seconds - LensTimeline.glintDelay;
-    if (since < 0) return null;
-    final phase = (since % LensTimeline.glintPeriod) / LensTimeline.glintPeriod;
-    if (phase >= LensTimeline.glintSweep) return null;
-    final u = phase / LensTimeline.glintSweep;
-    // Ease in and out across the glass.
-    return u < 0.5 ? 2 * u * u : 1 - math.pow(-2 * u + 2, 2) / 2;
-  }
 }

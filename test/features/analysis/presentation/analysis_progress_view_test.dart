@@ -153,10 +153,10 @@ void main() {
 
       finishing.value = true;
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
       expect(haptics, isEmpty);
 
-      await tester.pump(const Duration(milliseconds: 40));
+      // The check springs in on the next frame, and the haptic with it.
+      await tester.pump(const Duration(milliseconds: 16));
       expect(haptics, ['HapticFeedbackType.lightImpact']);
       expect(
         find.bySemanticsLabel(_strings.analysisWaitReadyAnnouncement),
@@ -164,7 +164,9 @@ void main() {
       );
       expect(finished, 0);
 
-      await tester.pump(const Duration(milliseconds: 520));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(finished, 0);
+      await tester.pump(const Duration(milliseconds: 40));
       expect(finished, 1);
       expect(find.text(_strings.analysisWaitReady), findsOneWidget);
 
@@ -174,7 +176,9 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('removal stops it: no haptic, no finish', (tester) async {
+    testWidgets('removal mid-finish stops it: no finish, no second haptic', (
+      tester,
+    ) async {
       // The error path: the failure page replaces this one mid-finish.
       recordHaptics(tester);
       await pumpApp(tester, harness(), settle: false);
@@ -188,7 +192,8 @@ void main() {
       expect(tester.hasRunningAnimations, isFalse);
 
       await tester.pump(const Duration(seconds: 2));
-      expect(haptics, isEmpty);
+      // The haptic came with the check, before the page went; nothing after.
+      expect(haptics, hasLength(1));
       expect(finished, 0);
     });
   });

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-wait-screen`, based on `develop` · **Milestone:** post-F21
 - **Depends on:** F07 (the result screen and its `AnalysisProgressView`)
-- **Progress:** 8 / 9 DONE
+- **Progress:** 9 / 11 DONE (T09, the device pass, and T11 open)
 - **PR:** timing to be agreed with the owner once the tasks are done; base `develop`
 
 The owner's redesign of the page shown while the analysis service works
@@ -11,7 +11,13 @@ sparkle, a title and a bar that eased towards 90% — is replaced by **C★, the
 magnifier**: a paper drawing that a magnifying glass reads, right to left and
 line by line, while a caption says what is being looked for.
 
-Approved mockup (private canvas, frame «C★ · Magnifier, refined»):
+> **Pivot, 2026-10-01 (#18):** after T01–T08 were built to C★, the owner
+> switched the approved design to **C+** (frame «C+ · Magnifier, enhanced»).
+> T10 rebuilds the drawing and motion to C+; decisions #6–#10 and #12 are
+> amended by #18 where they differ.
+
+Approved mockup (private canvas, frame «C+ · Magnifier, enhanced»; C★ was the
+first approval):
 https://claude.ai/artifact/SbAsqtURXgL96haaTg4Vx1. It is the design source for
 this page; the Waraqti design is not updated by this feature. The owner
 approved it in writing on 2026-10-01, after four rounds (concepts A–D → C →
@@ -91,6 +97,40 @@ passive: no buttons, no touch response, no cancel.
 17. **`AnalysisProgressView` keeps its API** (`finishing`, `onFinished`), so
     `_FinishProgressFirst` in the result screen is unchanged.
 
+18. **The approved design is C+, not C★** (owner, 2026-10-01, after T08).
+    C+ is the visual and motion reference; where it is silent, the decisions
+    above still hold. What changes:
+    - **Paper (260 × 360):** a logo disc with a bolt, a title, a subtitle, a
+      divider, four body lines, **one** wide boxed field holding a label and a
+      value, a faint tilted stamp (the `error` token at 30%), a footer line.
+      No title outline and no per-field glow.
+    - **Path:** one pass is **8 s**, at a steady speed: four body lines, then
+      the field; pauses on the second line's key word and on the field's
+      value — the two **key words** (#6's title pause is gone).
+    - **Words** light teal as the lens centre crosses them, settle to «read»,
+      and **fade back to unread at the end of each pass** (every pass reads
+      afresh). Each key word gets a mint underline and a **sparkle** (a
+      four-pointed star bursting and turning).
+    - **Motion:** the lens **bobs** ±2 (1.3 s) — the handle does not swing;
+      the glint crosses every **2.8 s**; the whole paper stack **floats** 5 up
+      and back (5 s); a soft **mint light** behind the paper follows the lens.
+    - **Captions** change at **1.9** and **3.8 s** (then 6, 10, 15 as before);
+      the gap under the drawing is 48, under the caption 8.
+    - **Review checks** from the second pass (8 s on), one beside each line
+      as the lens finishes it, fading as each pass ends (#8).
+    - **No entrance** (#9 dropped): C+ has none, and the route's own
+      transition brings the page in.
+    - **Finish (#10):** the lens **keeps reading as it fades** (400 ms); the
+      check springs in **at once** (420 ms) with a ring (900 ms), and the
+      haptic with it; the paper rings green and the light turns green. The
+      beat before the result stays 650 ms.
+    - **Reduced motion (#12):** the lens rests in the paper's middle; the key
+      words' underlines are drawn; nothing moves.
+    - **Implementation calls where the mockup's CSS would jump:** when the
+      result arrives, the float, the bob and the light ease back to rest over
+      500 ms instead of snapping; the glass magnifies everything under it
+      (the stamp and the footer too, which the mockup's copy omitted).
+
 ## Tasks
 
 | # | ID | Title | Acceptance criteria | Status |
@@ -104,11 +144,13 @@ passive: no buttons, no touch response, no cancel.
 | 7 | F22-T07 | Screen tests | `analysis_result_screen_test` covers the new page end to end. «Finish before the result» and «failure replaces the page at once» still pass, mutation-checked | DONE — the three wait-page tests were adjusted in T06 (to keep that commit green); this task adds «one haptic when the result arrives, none on a failure» (a failure, then a successful retry, through the real cubit and screen). Mutation checks, each reverted: `finishBeat` → 0 fails «gives the finish its beat»; failures also holding the page fails «a failure replaces the page at once»; removing `HapticFeedback.lightImpact()` fails the new haptic test. 36 screen tests |
 | 8 | F22-T08 | Quality gate | `dart format .`, `flutter analyze` (no new issues), `flutter test`; `/flutter-code-review`; `@code-reviewer` offered | DONE — format clean (672 files, 0 changed); analyze 20 issues, the pre-F22 baseline (17 infos in untouched files, 3 warnings from the owner's `service_state_view.dart` WIP), none new; `flutter test` 2100/2100. `/flutter-code-review`: stale «bar» comments on `_FinishProgressFirst` corrected; a suspected ticker bug in `_PulsingDots` (reduced motion toggled off → on) was disproved by its own test on Flutter 3.41 (a disposed ticker may be replaced), so the code stays and the test stays as a behaviour check; one risk left for T09 — the single painter redraws the static sheet stack and its blurred shadows every frame; if DevTools shows dropped frames, split the stack into its own `CustomPaint` that repaints only during the entrance and the finish |
 | 9 | F22-T09 | Device pass | The owner on the phone: smoothness (DevTools, no dropped frames), TalkBack, the haptic, 2.0× text, a 22 s run | TODO |
+| 10 | F22-T10 | Rebuild to C+ | The drawing and motion match the C+ frame (#18); the view, captions, semantics, haptic and reduced motion keep their contracts. Tests follow the new geometry and timing | DONE — `PaperLayout` (C+ paper, 18 words, two key words, `wordLines`, underline and sparkle positions), `LensTimeline` (the 8 s linear path, `lineEnds`, captions at 1.9/3.8, `bobAt`/`floatAt`/`glintAt`/`spotlightFor`, `wordReadAt` solved exactly on the path's segments; the handle swing and the entrance removed), `PaperFrame` (per-word `WordInk`, `Underline`, `Sparkle`, per-line `Check`, each on its own pass-long cycle), `PaperPainting` (logo bolt, single field, stamp, footer, `paintMarks` for sparkles and checks), `SceneFrame` (bob, float, light, `settled`; the finish keeps the lens reading while it fades), `ReadingLensPainter` (the light behind, lens radius 48, the bobbing lens with a fixed handle), `ReadingLensScene` (the check and haptic on the first finishing frame; the ticker stops after the 900 ms ring). Tests rewritten for the timeline, frames and scene frame; the widget tests follow the new timing; the removal tests now assert that a removal mid-finish never reports the finish (the check, and its haptic, have already come) |
+| 11 | F22-T11 | Quality gate after the pivot | `dart format .`, `flutter analyze` (no new issues), `flutter test`; `/flutter-code-review`; then the PR to `develop` and `@code-reviewer` | TODO |
 
 ## Exit DoD
 
-While a paper is analysed, the magnifier reads it and the caption says what is
-being looked for; long runs keep changing and never look stuck; the result
+While a paper is analysed, the magnifier reads it (the C+ design, #18) and the
+caption says what is being looked for; long runs keep changing and never look stuck; the result
 arrives with one check and one haptic. Reduced motion and TalkBack get a calm,
 complete version of the same page. Nothing outside the analysis presentation
 layer (plus its strings and colour tokens) changed. `dart format .`,

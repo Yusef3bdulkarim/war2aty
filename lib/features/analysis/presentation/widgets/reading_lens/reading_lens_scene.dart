@@ -9,15 +9,15 @@ import 'paper_layout.dart';
 import 'reading_lens_painter.dart';
 import 'scene_frame.dart';
 
-/// The magnifier reading the paper (F22, the approved C★ design).
+/// The magnifier reading the paper (F22 #18, the approved C+ design).
 ///
 /// One [Ticker] drives it: each tick works out a [SceneFrame] from the time
 /// since the page appeared and hands it to the painter, which repaints
 /// without any widget rebuilding. Under reduced motion there is no ticker at
 /// all — the lens rests over the title (F22 #12).
 ///
-/// Set [finishing] once the analysis has answered: the lens glides away and
-/// the check springs in. [onCheckShown] fires once, as the check appears (the
+/// Set [finishing] once the analysis has answered: the lens fades as it
+/// reads on, and the check springs in. [onCheckShown] fires once, as the check appears (the
 /// caller's haptic, F22 #11); [onFinished] fires once, when the finish beat is
 /// over (F22 #10). Removing the scene stops everything and fires neither.
 class ReadingLensScene extends StatefulWidget {
@@ -57,7 +57,7 @@ class _ReadingLensSceneState extends State<ReadingLensScene>
 
   /// The last beat of the finish (the check's ring) ends here; the ticker
   /// stops then, in case the caller keeps the scene on screen.
-  static const double _finishEnd = 1.15;
+  static final double _finishEnd = _seconds(LensTimeline.finishRing);
 
   static double _seconds(Duration d) => d.inMicroseconds / 1e6;
 
@@ -99,7 +99,8 @@ class _ReadingLensSceneState extends State<ReadingLensScene>
 
     _scene.value = SceneFrame.finishing(_now, finishedAt: finishedAt);
     final since = _now - finishedAt;
-    if (!_checkShown && since >= _seconds(LensTimeline.checkDelay)) {
+    // The check springs in at once (F22 #18), and the haptic with it.
+    if (!_checkShown) {
       _checkShown = true;
       widget.onCheckShown?.call();
     }
