@@ -32,9 +32,9 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F15 | Document crop | [F15-document-crop.md](F15-document-crop.md) | `feature/document-crop` | post-M9 | 12 |
 | F16 | Live edge detection | [F16-live-edge-detection.md](F16-live-edge-detection.md) | `feature/live-edge-detection` | post-M9 | 10 |
 | F18 | AI provider fallback | [F18-ai-provider-fallback.md](F18-ai-provider-fallback.md) | `feature/ai-provider-fallback` | post-F17 | 10 |
-| F21 | Result screen refinement | [F21-result-screen-refinement.md](F21-result-screen-refinement.md) | `feature/result-screen-refinement` | post-F20 | 10 |
+| F21 | Result screen refinement | [F21-result-screen-refinement.md](F21-result-screen-refinement.md) | `feature/result-screen-refinement` | post-F20 | 16 |
 
-**Total: 216 tasks across 18 features.**
+**Total: 222 tasks across 18 features.**
 
 ## Critical path
 `F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place. F16 branches off F15 and is purely additive — it changes what the camera guide *shows*, never what the capture keeps, so it can be dropped without affecting the pipeline. (`doclens` perspective correction was removed on 2026-09-30 — see F15 locked decision #4; the user's own crop on the preview screen is the only crop.) F18 depends on F06 only (the `AiAnalysisProvider` seam) and is orthogonal to the OCR line of work — it changes which AI provider classifies the text, never how the text is read.
