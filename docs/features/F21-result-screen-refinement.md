@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/result-screen-refinement`, based on `feature/ocr-analysis-providers` (PR #20). Rebase onto `develop` once #20 is merged · **Milestone:** post-F20
 - **Depends on:** F07 (the result screen and its cards), F08 (the saved-paper details screen, which shares the same cards), F09 (the reminder button in the dates card)
-- **Progress:** 15 / 16 DONE
+- **Progress:** 16 / 16 DONE
 - **PR:** one PR at the end of the feature
 
 The owner's UI/UX review of the analysis result screen (2026-09-30). The screen
@@ -121,7 +121,7 @@ Mockups: the private canvas «Waraqti result top · summary options»
 | 14 | F21-T14 | Banners before the data | The partial-result banner moves from the top to right before «أهم المعلومات», after the warnings (#17), on both screens. Tests: order on a partial paper | DONE — each screen's `_dataBlock()` (was `_detailsCard()`) returns the partial banner (when the paper is partial) followed by `ResultDetailsCard`, placed at `resultDetailsIndex`. The warnings come before it in §4 order, so the page now reads summary → actions → warnings → partial banner → data card. On the saved-paper screen the kept photo is now the first thing. `PartialResultBanner`'s doc comment is updated. Tests: on both screens, the summary is above the banner and the banner above the data card; on the result screen, the warning is above the banner too |
 | 15 | F21-T15 | Warnings before the explanation | `warnings` moves in `AnalysisSection` to just before `detailedExplanation` (#21), on both screens and in the audio reader's full reading. Tests: domain order, screen order, reading order | DONE — one move in the enum (declaration order is display order), with its doc comment updated. `resultDetailsIndex` needed no change, because warnings now come after the data. Tests: `BuildAnalysisResult` order (full, and with gaps); the result screen draws instructions, then the warning, then the explanation panel, and the partial banner still right before the data; a new `readAll` test (there was none) reads the warning after the instructions and before the explanation |
 | 16 | F21-T16 | Audio reader drops the title | The full reading no longer opens with the title (#23). Tests updated | DONE — `BuildReadingText._readAll`'s `header` case now reads nothing (it had read `analysis.title`); the full reading opens with the summary. No other mode read the title. Test: `readAll` starts with the summary and has no title sentence |
-| 10 | F21-T10 | End-to-end verification | Device pass on RMX2001: result screen and details screen, Arabic and English, Large Text, TalkBack; back gesture and back button; reminder from the dates group | TODO |
+| 10 | F21-T10 | End-to-end verification | Device pass on RMX2001: result screen and details screen, Arabic and English, Large Text, TalkBack; back gesture and back button; reminder from the dates group | DONE — the owner's on-device pass on RMX2001, 2026-09-30 |
 
 ### Third review (owner, 2026-09-30)
 
