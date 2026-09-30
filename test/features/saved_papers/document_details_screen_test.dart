@@ -139,6 +139,16 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.text(ar.resultPartialBanner), findsOneWidget);
+      // Right before the data, below the summary (F21 #17).
+      final banner = tester.getRect(find.text(ar.resultPartialBanner));
+      expect(
+        tester.getRect(find.byType(ResultSummaryCard)).bottom,
+        lessThan(banner.top),
+      );
+      expect(
+        banner.bottom,
+        lessThan(tester.getRect(find.byType(ResultDetailsCard)).top),
+      );
     });
 
     testWidgets('says so when the document is gone', (tester) async {

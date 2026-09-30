@@ -227,17 +227,13 @@ class _ResultBodyState extends State<_ResultBody> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Above everything: a half-read paper must not look like a
-                    // fully understood one, whatever it managed to fill in.
-                    if (widget.result.analysis.isPartial)
-                      const PartialResultBanner(),
                     for (final (index, section)
                         in widget.result.sections.indexed) ...[
-                      if (index == detailsAt) _detailsCard(),
+                      if (index == detailsAt) ..._dataBlock(),
                       _section(context, section, strings),
                     ],
                     if (detailsAt == widget.result.sections.length)
-                      _detailsCard(),
+                      ..._dataBlock(),
                   ],
                 ),
               ),
@@ -286,17 +282,24 @@ class _ResultBodyState extends State<_ResultBody> {
     );
   }
 
-  /// Everything read off the paper, in one card (F21 #9, #15).
-  Widget _detailsCard() {
+  /// The partial-result banner when the paper was only half read, then
+  /// everything read off the paper in one card (F21 #9, #15, #17).
+  ///
+  /// The banner sits right before the data rather than at the top of the
+  /// page: it qualifies the figures below it, and the top stays the summary's.
+  List<Widget> _dataBlock() {
     final analysis = widget.result.analysis;
-    return ResultDetailsCard(
-      kind: analysis.kind,
-      kindConfidence: analysis.kindConfidence,
-      keyInformation: analysis.keyInformation,
-      amounts: analysis.amounts,
-      dates: analysis.dates,
-      onCreateReminder: widget.onCreateReminder,
-    );
+    return [
+      if (analysis.isPartial) const PartialResultBanner(),
+      ResultDetailsCard(
+        kind: analysis.kind,
+        kindConfidence: analysis.kindConfidence,
+        keyInformation: analysis.keyInformation,
+        amounts: analysis.amounts,
+        dates: analysis.dates,
+        onCreateReminder: widget.onCreateReminder,
+      ),
+    ];
   }
 
   /// The widget for one section. Each owns its own spacing and internal
@@ -321,7 +324,7 @@ class _ResultBodyState extends State<_ResultBody> {
         warnings: analysis.warnings,
       ),
       // The type is a row of the details card now (F21 #15), and the three
-      // data sections are drawn together by it — see `_detailsCard`.
+      // data sections are drawn together by it — see `_dataBlock`.
       AnalysisSection.header ||
       AnalysisSection.keyInformation ||
       AnalysisSection.amounts ||

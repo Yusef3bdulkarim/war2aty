@@ -576,13 +576,33 @@ void main() {
   });
 
   group('a partially understood paper', () {
-    testWidgets('is topped with a banner saying so', (tester) async {
+    testWidgets('is flagged with a banner saying so', (tester) async {
       repository.answer = Ok(invoiceAnalysis(status: AnalysisStatus.partial));
       await cubit.analyze();
       await pumpScreen(tester);
 
       expect(find.byType(PartialResultBanner), findsOneWidget);
       expect(find.text(_strings.resultPartialBanner), findsOneWidget);
+    });
+
+    testWidgets('puts that banner right before the data, after the warnings', (
+      tester,
+    ) async {
+      repository.answer = Ok(invoiceAnalysis(status: AnalysisStatus.partial));
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      final summary = tester.getRect(find.byType(ResultSummaryCard));
+      final warning = tester.getRect(
+        find.text(invoiceAnalysis().warnings.single.text),
+      );
+      final banner = tester.getRect(find.byType(PartialResultBanner));
+      final data = tester.getRect(find.byType(ResultDetailsCard));
+
+      // Not at the top any more (F21 #17): the summary comes first.
+      expect(summary.bottom, lessThan(banner.top));
+      expect(warning.bottom, lessThan(banner.top));
+      expect(banner.bottom, lessThanOrEqualTo(data.top));
     });
 
     testWidgets('still shows everything it did understand', (tester) async {

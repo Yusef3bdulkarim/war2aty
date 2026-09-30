@@ -223,21 +223,16 @@ class _DetailsBodyState extends State<_DetailsBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Above everything: a half-read paper must not look like a
-                  // fully understood one, whatever it managed to fill in —
-                  // the same rule the result screen follows for the same
-                  // status.
-                  if (document.analysis.isPartial) const PartialResultBanner(),
                   // The original page picture, when the user chose to keep it
                   // (F08-T04). Appears above the analysis sections so the user
                   // sees what was scanned before reading the result.
                   if (widget.imageBytes != null)
                     _DocumentImageCard(imageBytes: widget.imageBytes!),
                   for (final (index, section) in widget.sections.indexed) ...[
-                    if (index == detailsAt) _detailsCard(),
+                    if (index == detailsAt) ..._dataBlock(),
                     _section(context, section, strings),
                   ],
-                  if (detailsAt == widget.sections.length) _detailsCard(),
+                  if (detailsAt == widget.sections.length) ..._dataBlock(),
                   // «ملاحظتي» lives between the analysis sections and the
                   // explanation/extracted-text panels — the same position
                   // the design draws it in, after the paper's own content
@@ -295,17 +290,24 @@ class _DetailsBodyState extends State<_DetailsBody> {
     );
   }
 
-  /// Everything read off the paper, in one card (F21 #9, #15).
-  Widget _detailsCard() {
+  /// The partial-result banner when the paper was only half read, then
+  /// everything read off the paper in one card (F21 #9, #15, #17).
+  ///
+  /// The banner sits right before the data rather than at the top of the
+  /// page: it qualifies the figures below it, and the top stays the summary's.
+  List<Widget> _dataBlock() {
     final analysis = widget.document.analysis;
-    return ResultDetailsCard(
-      kind: analysis.kind,
-      kindConfidence: analysis.kindConfidence,
-      keyInformation: analysis.keyInformation,
-      amounts: analysis.amounts,
-      dates: analysis.dates,
-      onCreateReminder: widget.onCreateReminder,
-    );
+    return [
+      if (analysis.isPartial) const PartialResultBanner(),
+      ResultDetailsCard(
+        kind: analysis.kind,
+        kindConfidence: analysis.kindConfidence,
+        keyInformation: analysis.keyInformation,
+        amounts: analysis.amounts,
+        dates: analysis.dates,
+        onCreateReminder: widget.onCreateReminder,
+      ),
+    ];
   }
 
   /// The widget for one section — the result screen's own mapping, over the
@@ -329,7 +331,7 @@ class _DetailsBodyState extends State<_DetailsBody> {
         warnings: analysis.warnings,
       ),
       // The type is a row of the details card now (F21 #15), and the three
-      // data sections are drawn together by it — see `_detailsCard`.
+      // data sections are drawn together by it — see `_dataBlock`.
       AnalysisSection.header ||
       AnalysisSection.keyInformation ||
       AnalysisSection.amounts ||
