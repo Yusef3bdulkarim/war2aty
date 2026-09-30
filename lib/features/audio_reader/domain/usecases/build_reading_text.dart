@@ -95,7 +95,9 @@ final class BuildReadingText {
     for (final section in result.sections) {
       switch (section) {
         case AnalysisSection.header:
-          sentences.add(analysis.title);
+          // The title is no longer on either screen (F21 #15), so it is not
+          // read aloud either (F21 #23).
+          break;
 
         case AnalysisSection.summary:
           sentences.add(analysis.summary.short.trim());

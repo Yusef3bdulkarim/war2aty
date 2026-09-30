@@ -33,6 +33,22 @@ void main() {
       expect(text, invoiceAnalysis().summary.short);
     });
 
+    test(
+      'readAll does not read the title, which the screen no longer shows',
+      () {
+        final analysis = invoiceAnalysis();
+        final text = useCase(
+          result: _buildResult(analysis: analysis, extractedText: _ocrText),
+          mode: ReadingMode.readAll,
+          strings: ar,
+        );
+
+        // It opens with the summary instead (F21 #23).
+        expect(text, startsWith(analysis.summary.short));
+        expect(text.contains('${analysis.title}. '), isFalse);
+      },
+    );
+
     test('readAll reads the warnings where the screen shows them', () {
       final analysis = invoiceAnalysis();
       final text = useCase(
