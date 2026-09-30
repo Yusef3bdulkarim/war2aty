@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-wait-screen`, based on `develop` · **Milestone:** post-F21
 - **Depends on:** F07 (the result screen and its `AnalysisProgressView`)
-- **Progress:** 1 / 9 DONE
+- **Progress:** 2 / 9 DONE
 - **PR:** timing to be agreed with the owner once the tasks are done; base `develop`
 
 The owner's redesign of the page shown while the analysis service works
@@ -95,8 +95,8 @@ passive: no buttons, no touch response, no cancel.
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F22-T01 | Task file | This file and the README row, from the owner's decisions of 2026-10-01 | DONE |
-| 2 | F22-T02 | Lens timeline | Pure Dart `lens_timeline.dart`: the waypoints, `lensAt(t)` with easing, `stepAt(elapsed)`, pass helpers, review-check times, each word's `readAt`. Tests: exact positions at waypoints and pauses, wrap across passes, monotone moves, every step boundary, `readAt` order, checks only from the second pass | TODO |
-| 3 | F22-T03 | Paper painter | `paper_layout.dart` (paper geometry) and `reading_paper_painter.dart` drawing a `PaperFrame`; the magnified pass reuses it. New colour tokens with high-contrast values. Tests: `shouldRepaint` only on a changed frame; tokens in both palettes | TODO |
+| 2 | F22-T02 | Lens timeline and paper geometry | Pure Dart `lens_timeline.dart`: the waypoints, `lensAt(t)` with easing, `stepAt(elapsed)`, pass helpers, review-check times, each word's `readAt`. `paper_layout.dart`: the paper's geometry (moved here from T03, because `readAt` and the checks need it). Tests: exact positions at waypoints and pauses, wrap across passes, monotone moves, every step boundary, `readAt` order, checks only from the second pass | DONE — `LensTimeline` (abstract final, plain seconds): the 16-waypoint path (pass 5.75 s) with a cubic ease-in-out between points, `restingPoint`/`centre`, the title/key-word/field beats, six `ReviewCheck`s, `stepStarts` [0, 1.6, 3.9, 6, 10, 15], the entrance/finish/glint/handle constants, `passOf`/`timeInPass`, `handleSwingAt`, and `wordReadAt` (closest approach sampled every 10 ms, computed once). `PaperLayout`: 260 × 340, logo, title and its outline, subtitle, divider, two `PaperField`s, footer, and 14 `PaperWord`s (three right-to-left lines of four, one `isKey`, then the two field values). 23 tests in `test/features/analysis/presentation/reading_lens/lens_timeline_test.dart` |
+| 3 | F22-T03 | Paper painter | `reading_paper_painter.dart` drawing a `PaperFrame`; the magnified pass reuses it. New colour tokens with high-contrast values. Tests: `shouldRepaint` only on a changed frame; tokens in both palettes | TODO |
 | 4 | F22-T04 | Lens scene | `reading_lens_scene.dart`: one ticker, repaint through `repaint:` (no per-frame `setState`), `RepaintBoundary`; entrance, path, handle swing, glint, review checks, finish sequence. Tests with a fake clock: lens position at set times, ticker disposed, finish reported once, none after removal | TODO |
 | 5 | F22-T05 | Captions and strings | `wait_caption.dart` (caption, subline, pulsing dots) rebuilt only on a step change. All strings added in `AppStrings`/`ar`/`en` and the `app_strings_test` map; the two old ones removed. Tests: caption at each boundary, subline at 10 s, dots still under reduced motion | TODO |
 | 6 | F22-T06 | Progress view rewrite | `AnalysisProgressView` builds the scene and the captions; semantics, haptic, reduced-motion path; the bar deleted. Tests: haptic exactly once and only on finish; announcements once each; reduced motion schedules no frames and still finishes; no overflow at 2.0× on 320 × 568; RTL | TODO |
