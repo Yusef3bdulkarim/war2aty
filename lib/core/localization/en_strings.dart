@@ -781,7 +781,7 @@ final class EnStrings implements AppStrings {
   @override
   String get resultSavePaper => 'Save paper';
   @override
-  String get resultSummaryLabel => 'In short';
+  String get resultSummaryLabel => 'Document summary';
   @override
   String get resultActionRequiredTitle => 'What you need to do';
   @override
@@ -854,6 +854,8 @@ final class EnStrings implements AppStrings {
       'in this mode.';
 
   // Document kinds
+  @override
+  String get documentTypeLabel => 'Document type';
   @override
   String get documentKindInvoice => 'Invoice';
   @override

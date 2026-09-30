@@ -5,19 +5,15 @@ import '../documents/confidence_label.dart';
 import '../icons/stroke_icon.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_radii.dart';
-import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
 import '../time/document_date_label.dart';
+import 'caveated_value.dart';
 import 'date_selection_sheet.dart';
-import 'result_section_heading.dart';
-import 'value_caveat.dart';
 
-// From `Waraqti.dc.html` → the result page's «التواريخ والمواعيد» card.
-const double _cardPadding = 18;
-const double _cardGapBelow = 14;
+// From `Waraqti.dc.html` → the result page's «التواريخ والمواعيد» card. Since
+// F21 the rows and the button sit in `ResultDetailsCard`, not a card of their
+// own.
 const double _rowGap = 13;
-const double _rowSpacing = 14;
 const double _tileSize = 52;
 const double _tileRadius = 15;
 const double _tilePadding = 6;
@@ -28,92 +24,22 @@ const double _valueFontSize = 16.5;
 const double _valueGapAbove = 2;
 const double _noteFontSize = 12.5;
 const double _noteGapAbove = 3;
-const double _caveatGapAbove = 6;
 const double _buttonHeight = 48;
 const double _buttonRadius = 14;
 const double _buttonFontSize = 15.5;
 const double _buttonIconSize = 19;
-
-/// «التواريخ والمواعيد» — every date the analysis found, and what each is for.
-///
-/// Each row says its role in the analysis's own words, the day written out,
-/// and one line about the time. That last line is the point of the block: a
-/// paper that names a day but no hour says so («مافيهاش وقت محدد») instead of
-/// being given a plausible-looking one (UX rule §5.6).
-///
-/// It is also the branch point into a reminder — and where the user, not the
-/// app, picks which date that reminder is for.
-class ResultDatesCard extends StatelessWidget {
-  const ResultDatesCard({
-    required this.dates,
-    this.onCreateReminder,
-    super.key,
-  });
-
-  /// In the order the analysis reported them — never empty, since
-  /// `BuildAnalysisResult` drops the section otherwise.
-  final List<AnalysisDate> dates;
-
-  /// Starts a reminder for the date the user settled on.
-  ///
-  /// Absent until there is somewhere for it to go (F09), and the button is
-  /// left out entirely while it is — better no button than one that does
-  /// nothing.
-  final ValueChanged<AnalysisDate>? onCreateReminder;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ResultSectionHeading(
-          glyph: StrokeGlyph.calendar,
-          title: strings.resultDatesTitle,
-        ),
-        Padding(
-          padding: const EdgeInsets.only(bottom: _cardGapBelow),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.card,
-              borderRadius: BorderRadius.circular(AppRadii.xl),
-              boxShadow: AppShadows.card,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(_cardPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (index, date) in dates.indexed) ...[
-                    if (index > 0) const SizedBox(height: _rowSpacing),
-                    _DateRow(date: date),
-                  ],
-                  if (onCreateReminder case final onCreateReminder?) ...[
-                    const SizedBox(height: _rowSpacing),
-                    _ReminderButton(
-                      dates: dates,
-                      onCreateReminder: onCreateReminder,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 /// «إنشاء تذكير» — the way from a paper's date to a reminder about it.
 ///
 /// With one date there is nothing to ask. With several, the user says which
 /// one they meant before anything else happens (UX rule §5.8) — the app never
 /// picks for them, not even when the analysis has an opinion.
-class _ReminderButton extends StatelessWidget {
-  const _ReminderButton({required this.dates, required this.onCreateReminder});
+class ResultReminderButton extends StatelessWidget {
+  const ResultReminderButton({
+    required this.dates,
+    required this.onCreateReminder,
+    super.key,
+  });
 
   final List<AnalysisDate> dates;
   final ValueChanged<AnalysisDate> onCreateReminder;
@@ -157,13 +83,17 @@ class _ReminderButton extends StatelessWidget {
   }
 }
 
-/// One date: the day on a tile, then its role, the written-out date, and what
-/// the paper does or does not say about the time.
+/// One date: the day on a tile, then its role, the written-out date with its
+/// cautions, and what the paper does or does not say about the time.
+///
+/// That last line is the point of the row: a paper that names a day but no
+/// hour says so («مافيهاش وقت محدد») instead of being given a plausible-looking
+/// one (UX rule §5.6).
 ///
 /// The picking sheet draws its own, shorter row — it is choosing between dates
 /// rather than reporting them, and the time line would be noise there.
-class _DateRow extends StatelessWidget {
-  const _DateRow({required this.date});
+class ResultDateRow extends StatelessWidget {
+  const ResultDateRow({required this.date, super.key});
 
   final AnalysisDate date;
 
@@ -189,17 +119,20 @@ class _DateRow extends StatelessWidget {
                 style: AppTypography.caption.copyWith(
                   fontSize: _roleFontSize,
                   fontWeight: AppTypography.semiBold,
-                  color: colors.iconSubtle,
+                  color: colors.textCaption,
                 ),
               ),
               const SizedBox(height: _valueGapAbove),
-              Text(
-                formatDocumentDate(strings, date.date),
-                style: AppTypography.bodyLarge.copyWith(
-                  fontSize: _valueFontSize,
-                  fontWeight: AppTypography.extraBold,
-                  color: colors.ink,
+              CaveatedValue(
+                value: Text(
+                  formatDocumentDate(strings, date.date),
+                  style: AppTypography.bodyLarge.copyWith(
+                    fontSize: _valueFontSize,
+                    fontWeight: AppTypography.extraBold,
+                    color: colors.ink,
+                  ),
                 ),
+                caveats: [?caveat],
               ),
               const SizedBox(height: _noteGapAbove),
               Text(
@@ -211,13 +144,10 @@ class _DateRow extends StatelessWidget {
                 style: AppTypography.caption.copyWith(
                   fontSize: _noteFontSize,
                   fontWeight: AppTypography.semiBold,
-                  color: colors.textMuted,
+                  // 4.5:1 for small text, not `textMuted`'s 3.0 (F21 #18).
+                  color: colors.textCaption,
                 ),
               ),
-              if (caveat != null) ...[
-                const SizedBox(height: _caveatGapAbove),
-                ValueCaveat(text: caveat),
-              ],
             ],
           ),
         ),

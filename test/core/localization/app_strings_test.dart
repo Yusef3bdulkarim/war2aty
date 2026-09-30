@@ -312,6 +312,7 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'analysisCaptureAnother': (s) => s.analysisCaptureAnother,
   'extractedTextOnlyTitle': (s) => s.extractedTextOnlyTitle,
   'extractedTextOnlyNote': (s) => s.extractedTextOnlyNote,
+  'documentTypeLabel': (s) => s.documentTypeLabel,
   'documentKindInvoice': (s) => s.documentKindInvoice,
   'documentKindReceipt': (s) => s.documentKindReceipt,
   'documentKindAppointment': (s) => s.documentKindAppointment,

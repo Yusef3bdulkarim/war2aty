@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -74,68 +75,75 @@ class ImagePreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: previewBackground,
-      body: BlocConsumer<ImagePreviewCubit, ImagePreviewState>(
-        listenWhen: (_, s) =>
-            s is ImagePreviewConfirmed ||
-            s is ImagePreviewFailed ||
-            s is ImagePreviewSessionCreated ||
-            s is ImagePreviewOnlineReady,
-        listener: (context, state) {
-          switch (state) {
-            case ImagePreviewConfirmed(:final quality):
-              unawaited(_onQualityKnown(context, quality));
-            case ImagePreviewSessionCreated(:final session):
-              onSessionCreated(session);
-            case ImagePreviewOnlineReady(:final session):
-              onOnlineReady(session);
-            case ImagePreviewFailed():
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  SnackBar(content: Text(context.strings.previewErrorMessage)),
-                );
-            case ImagePreviewReady():
-            case ImagePreviewProcessing():
-            case ImagePreviewCreatingSession():
-              break;
-          }
-        },
-        builder: (context, state) {
-          final isProcessing =
-              state is ImagePreviewProcessing ||
-              state is ImagePreviewCreatingSession;
-          return SafeArea(
-            child: Column(
-              children: [
-                _TopBar(
-                  onBack: onRetake,
-                  onRotate: isProcessing
-                      ? null
-                      : context.read<ImagePreviewCubit>().rotateClockwise,
-                ),
-                Expanded(
-                  child: _ImageArea(
-                    imagePath: imagePath,
-                    quarterTurns: state.quarterTurns,
-                    cropRect: state.cropRect,
-                    isProcessing: isProcessing,
-                    onCropChanged: isProcessing
+    // Light status-bar icons on the dark backdrop; the app's default is
+    // dark ones for its light screens (F21).
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: previewBackground,
+        body: BlocConsumer<ImagePreviewCubit, ImagePreviewState>(
+          listenWhen: (_, s) =>
+              s is ImagePreviewConfirmed ||
+              s is ImagePreviewFailed ||
+              s is ImagePreviewSessionCreated ||
+              s is ImagePreviewOnlineReady,
+          listener: (context, state) {
+            switch (state) {
+              case ImagePreviewConfirmed(:final quality):
+                unawaited(_onQualityKnown(context, quality));
+              case ImagePreviewSessionCreated(:final session):
+                onSessionCreated(session);
+              case ImagePreviewOnlineReady(:final session):
+                onOnlineReady(session);
+              case ImagePreviewFailed():
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    SnackBar(
+                      content: Text(context.strings.previewErrorMessage),
+                    ),
+                  );
+              case ImagePreviewReady():
+              case ImagePreviewProcessing():
+              case ImagePreviewCreatingSession():
+                break;
+            }
+          },
+          builder: (context, state) {
+            final isProcessing =
+                state is ImagePreviewProcessing ||
+                state is ImagePreviewCreatingSession;
+            return SafeArea(
+              child: Column(
+                children: [
+                  _TopBar(
+                    onBack: onRetake,
+                    onRotate: isProcessing
                         ? null
-                        : context.read<ImagePreviewCubit>().updateCrop,
+                        : context.read<ImagePreviewCubit>().rotateClockwise,
                   ),
-                ),
-                _ActionBar(
-                  onUse: isProcessing
-                      ? null
-                      : context.read<ImagePreviewCubit>().confirm,
-                  onRetake: isProcessing ? null : onRetake,
-                ),
-              ],
-            ),
-          );
-        },
+                  Expanded(
+                    child: _ImageArea(
+                      imagePath: imagePath,
+                      quarterTurns: state.quarterTurns,
+                      cropRect: state.cropRect,
+                      isProcessing: isProcessing,
+                      onCropChanged: isProcessing
+                          ? null
+                          : context.read<ImagePreviewCubit>().updateCrop,
+                    ),
+                  ),
+                  _ActionBar(
+                    onUse: isProcessing
+                        ? null
+                        : context.read<ImagePreviewCubit>().confirm,
+                    onRetake: isProcessing ? null : onRetake,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

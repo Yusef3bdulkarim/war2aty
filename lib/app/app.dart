@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -126,11 +127,19 @@ class WaraqtiApp extends StatelessWidget {
 TransitionBuilder _appBuilder(TextSize textSize, bool highContrast) {
   final colors = highContrast ? AppColors.highContrast : AppColors.light;
   return (context, child) {
-    return AppColorsScope(
-      colors: colors,
-      child: MediaQuery(
-        data: MediaQuery.of(context).copyWith(textScaler: textSize.scaler),
-        child: child!,
+    // Dark status-bar icons by default: almost every screen is the light
+    // surface. A screen on a dark or teal surface asks for light ones with
+    // its own region — the result hero, the camera, the photo preview (F21).
+    // Without this default, Flutter would keep whichever style the last such
+    // screen asked for, leaving white icons on the light screens after it.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: AppColorsScope(
+        colors: colors,
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textSize.scaler),
+          child: child!,
+        ),
       ),
     );
   };

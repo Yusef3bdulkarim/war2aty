@@ -21,32 +21,19 @@ import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
 import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
-import '../../../../core/widgets/result_amounts_card.dart';
-import '../../../../core/widgets/result_dates_card.dart';
+import '../../../../core/widgets/result_details_card.dart';
 import '../../../../core/widgets/result_extracted_text_panel.dart';
-import '../../../../core/widgets/result_header_card.dart';
-import '../../../../core/widgets/result_key_information_card.dart';
+import '../../../../core/widgets/result_hero_scroll_view.dart';
 import '../../../../core/widgets/result_list_card.dart';
-import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
-import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
 
-// From `Waraqti.dc.html` → the result page. The top bar's 56px is measured
-// from the physical screen top and already contains the 52px status bar, which
-// [SafeArea] applies for us.
-const double _topBarTop = 56 - 52;
-const double _topBarBottom = 12;
-const double _topBarSide = AppSpacing.screenHorizontal;
-const double _topBarGap = 8;
-const double _pageSide = 18;
-const double _pageTop = 18;
-const double _pageBottom = 24;
-const double _explanationGapAbove = 14;
+// From `Waraqti.dc.html` → the result page. The top of the page is F21's
+// hero (`ResultHeroScrollView`).
 const double _explanationFontSize = 14.5;
 const double _explanationHeight = 1.9;
 
@@ -193,6 +180,7 @@ class _ResultBodyState extends State<_ResultBody> {
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
+    final detailsAt = resultDetailsIndex(widget.result.sections);
 
     // A `BlocListener` rather than a `BlocConsumer` around the whole page: a
     // reading in progress emits a fresh state on every `TtsProgressed` tick
@@ -209,40 +197,47 @@ class _ResultBodyState extends State<_ResultBody> {
             SnackBar(content: Text(strings.audioReaderFailedFeedback)),
           );
       },
-      child: Column(
-        children: [
-          _TopBar(onClose: widget.onClose),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                _pageSide,
-                _pageTop,
-                _pageSide,
-                _pageBottom,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+      // The system back gesture leaves the way the arrow does, through
+      // `onClose` — otherwise it would pop to whatever the capture flow left
+      // underneath and skip what `onClose` does on the way out.
+      child: PopScope(
+        canPop: widget.onClose == null,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) widget.onClose?.call();
+        },
+        child: Column(
+          children: [
+            Expanded(
+              child: ResultHeroScrollView(
+                heading: strings.analysisResultTitle,
+                backTooltip: strings.analysisResultBackLabel,
+                onBack: widget.onClose,
+                summary:
+                    widget.result.sections.contains(AnalysisSection.summary)
+                    ? widget.result.analysis.summary.short
+                    : null,
                 children: [
-                  // Above everything: a half-read paper must not look like a
-                  // fully understood one, whatever it managed to fill in.
-                  if (widget.result.analysis.isPartial)
-                    const PartialResultBanner(),
-                  for (final section in widget.result.sections)
+                  for (final (index, section)
+                      in widget.result.sections.indexed) ...[
+                    if (index == detailsAt) ..._dataBlock(),
                     _section(context, section, strings),
+                  ],
+                  if (detailsAt == widget.result.sections.length)
+                    ..._dataBlock(),
                 ],
               ),
             ),
-          ),
-          _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
-          // Pinned below the scroll: these three are what the page is *for*,
-          // and the design keeps them in reach without scrolling to the end.
-          ResultActionBar(
-            dates: widget.result.analysis.dates,
-            onListen: _openAudioSheet,
-            onCreateReminder: widget.onCreateReminder,
-            onSave: widget.onSave,
-          ),
-        ],
+            _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
+            // Pinned below the scroll: these three are what the page is *for*,
+            // and the design keeps them in reach without scrolling to the end.
+            ResultActionBar(
+              dates: widget.result.analysis.dates,
+              onListen: _openAudioSheet,
+              onCreateReminder: widget.onCreateReminder,
+              onSave: widget.onSave,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -276,6 +271,26 @@ class _ResultBodyState extends State<_ResultBody> {
     );
   }
 
+  /// The partial-result banner when the paper was only half read, then
+  /// everything read off the paper in one card (F21 #9, #15, #17).
+  ///
+  /// The banner sits right before the data rather than at the top of the
+  /// page: it qualifies the figures below it, and the top stays the summary's.
+  List<Widget> _dataBlock() {
+    final analysis = widget.result.analysis;
+    return [
+      if (analysis.isPartial) const PartialResultBanner(),
+      ResultDetailsCard(
+        kind: analysis.kind,
+        kindConfidence: analysis.kindConfidence,
+        keyInformation: analysis.keyInformation,
+        amounts: analysis.amounts,
+        dates: analysis.dates,
+        onCreateReminder: widget.onCreateReminder,
+      ),
+    ];
+  }
+
   /// The widget for one section. Each owns its own spacing and internal
   /// states, the way Home's sections do — and each is filled in by the task
   /// named beside it.
@@ -288,24 +303,20 @@ class _ResultBodyState extends State<_ResultBody> {
     final analysis = widget.result.analysis;
 
     return switch (section) {
-      AnalysisSection.header => ResultHeaderCard(analysis: analysis),
-      AnalysisSection.summary => ResultSummaryCard(
-        summary: analysis.summary.short,
-      ),
       AnalysisSection.actionRequired => ResultActionsCard(
         actions: analysis.actions,
       ),
       AnalysisSection.warnings => ResultWarningsCard(
         warnings: analysis.warnings,
       ),
-      AnalysisSection.keyInformation => ResultKeyInformationCard(
-        items: analysis.keyInformation,
-      ),
-      AnalysisSection.amounts => ResultAmountsCard(amounts: analysis.amounts),
-      AnalysisSection.dates => ResultDatesCard(
-        dates: analysis.dates,
-        onCreateReminder: widget.onCreateReminder,
-      ),
+      // The summary is the hero (F21 #14), the type a row of the details card
+      // (F21 #15), and the three data sections are drawn together by that
+      // card — see `_dataBlock`.
+      AnalysisSection.header ||
+      AnalysisSection.summary ||
+      AnalysisSection.keyInformation ||
+      AnalysisSection.amounts ||
+      AnalysisSection.dates => const SizedBox.shrink(),
       AnalysisSection.requiredDocuments => ResultListCard(
         glyph: StrokeGlyph.documentCheck,
         title: strings.resultRequiredDocumentsTitle,
@@ -319,7 +330,7 @@ class _ResultBodyState extends State<_ResultBody> {
       ),
       AnalysisSection.detailedExplanation => ExpandablePanel(
         label: strings.resultShowExplanation,
-        gapAbove: _explanationGapAbove,
+        gapBelow: AppSpacing.resultCardGap,
         child: Text(
           analysis.summary.detailed,
           style: AppTypography.bodySmall.copyWith(
@@ -369,78 +380,6 @@ class _MiniPlayerSlot extends StatelessWidget {
           ),
         AudioReaderIdle() || AudioReaderFailed() => const SizedBox.shrink(),
       },
-    );
-  }
-}
-
-/// The page's own bar: a way back, and the page's name.
-///
-/// The design also draws an overflow button on the trailing side. The three
-/// standing actions live in the bar at the foot of the page, so there is
-/// nothing to put behind it until saved documents arrive (F08) — the space is
-/// held open rather than filled with a menu that does nothing.
-class _TopBar extends StatelessWidget {
-  const _TopBar({this.onClose});
-
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.card,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            _topBarSide,
-            _topBarTop,
-            _topBarSide,
-            _topBarBottom,
-          ),
-          child: Row(
-            children: [
-              TopBarIconButton(
-                onPressed: onClose,
-                tooltip: strings.analysisResultBackLabel,
-                icon: Transform.flip(
-                  flipX: mirror,
-                  child: StrokeIcon(
-                    StrokeGlyph.arrowBack,
-                    color: colors.ink,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    strings.analysisResultTitle,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.labelCard.copyWith(
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              // Balances the back button so the title stays centred.
-              const SizedBox.square(dimension: TopBarIconButton.dimension),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -93,6 +94,19 @@ void main() {
       expect(find.text(_strings.previewHint), findsOneWidget);
       expect(find.text(_strings.previewUseImage), findsOneWidget);
       expect(find.text(_strings.previewRetake), findsOneWidget);
+    });
+
+    testWidgets('asks for light status-bar icons', (tester) async {
+      await _pumpPreview(tester);
+
+      // Light status-bar icons over the dark backdrop (F21).
+      final regions = tester.widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+      );
+      expect(
+        regions.map((region) => region.value),
+        contains(SystemUiOverlayStyle.light),
+      );
     });
 
     testWidgets('the rotate button turns the preview a quarter', (

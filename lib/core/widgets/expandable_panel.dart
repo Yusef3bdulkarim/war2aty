@@ -17,6 +17,9 @@ const double _bodyPaddingBottom = 18;
 const double _bodyPaddingTop = 6;
 const Duration _turn = Duration(milliseconds: 180);
 
+/// The body slides open and shut in place (F21 locked decision #13).
+const Duration _slide = Duration(milliseconds: 220);
+
 /// A titled panel the user opens to read the long text inside it.
 ///
 /// The page ends with two of these — the full explanation and what was read
@@ -32,32 +35,70 @@ class ExpandablePanel extends StatefulWidget {
     required this.label,
     required this.child,
     this.gapAbove = 0,
+    this.gapBelow = 0,
     super.key,
   });
 
   /// What the panel holds — shown whether it is open or not.
   final String label;
 
-  /// Built only while the panel is open: these bodies are long runs of text,
-  /// and there may be two of them on the page.
+  /// Built only while the panel is open (or sliding shut): these bodies are
+  /// long runs of text, and there may be two of them on the page.
   final Widget child;
 
   final double gapAbove;
+  final double gapBelow;
 
   @override
   State<ExpandablePanel> createState() => _ExpandablePanelState();
 }
 
-class _ExpandablePanelState extends State<ExpandablePanel> {
+class _ExpandablePanelState extends State<ExpandablePanel>
+    with SingleTickerProviderStateMixin {
   // Local UI state, held at the smallest widget that needs it (CLAUDE.md §2).
   bool _open = false;
+
+  /// How far open the body is. Its value drives the slide; once it is back at
+  /// 0 the body is no longer built at all.
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: _slide)
+        ..addStatusListener((status) {
+          // Fully shut: rebuild so the body is dropped rather than kept at
+          // zero height.
+          if (status == AnimationStatus.dismissed && mounted) setState(() {});
+        });
+
+  late final CurvedAnimation _slideIn = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeInOut,
+  );
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      // Reduced motion: open and shut at once, with no ticker running.
+      _controller.value = _open ? 1 : 0;
+    } else if (_open) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _slideIn.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Padding(
-      padding: EdgeInsets.only(top: widget.gapAbove),
+      padding: EdgeInsets.only(top: widget.gapAbove, bottom: widget.gapBelow),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.card,
@@ -78,7 +119,7 @@ class _ExpandablePanelState extends State<ExpandablePanel> {
                 child: Material(
                   type: MaterialType.transparency,
                   child: InkWell(
-                    onTap: () => setState(() => _open = !_open),
+                    onTap: _toggle,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: _headerPaddingH,
@@ -98,7 +139,7 @@ class _ExpandablePanelState extends State<ExpandablePanel> {
                           ),
                           const SizedBox(width: _labelGap),
                           AnimatedRotation(
-                            duration: _turn,
+                            duration: reduceMotion ? Duration.zero : _turn,
                             turns: _open ? 0.5 : 0,
                             child: StrokeIcon(
                               StrokeGlyph.chevronDown,
@@ -113,15 +154,21 @@ class _ExpandablePanelState extends State<ExpandablePanel> {
                   ),
                 ),
               ),
-              if (_open)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    _bodyPaddingH,
-                    _bodyPaddingTop,
-                    _bodyPaddingH,
-                    _bodyPaddingBottom,
+              // Built while open and while sliding shut, never once closed:
+              // the bodies are long runs of text.
+              if (_open || !_controller.isDismissed)
+                SizeTransition(
+                  sizeFactor: _slideIn,
+                  axisAlignment: -1,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      _bodyPaddingH,
+                      _bodyPaddingTop,
+                      _bodyPaddingH,
+                      _bodyPaddingBottom,
+                    ),
+                    child: widget.child,
                   ),
-                  child: widget.child,
                 ),
             ],
           ),

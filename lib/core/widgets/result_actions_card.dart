@@ -6,12 +6,13 @@ import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'caveat_badge.dart';
 
 // From `Waraqti.dc.html` → the result page's «المطلوب منك» card.
 const double _cardPadding = 18;
-const double _cardGapBelow = 14;
+const double _cardGapBelow = AppSpacing.resultCardGap;
 const double _accentWidth = 5;
 const double _titleIconSize = 20;
 const double _titleGap = 8;
