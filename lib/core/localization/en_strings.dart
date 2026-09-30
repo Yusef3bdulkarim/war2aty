@@ -745,12 +745,6 @@ final class EnStrings implements AppStrings {
 
   // Analysis — while it runs
   @override
-  String get analysisRunningTitle => 'Preparing a simple explanation';
-  @override
-  String get analysisRunningMessage =>
-      'A few seconds and we will show you the key information and what you '
-      'need to do.';
-  @override
   String get analysisRunningStatus =>
       'Preparing your explanation, just a few seconds';
   @override

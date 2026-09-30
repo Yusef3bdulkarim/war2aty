@@ -561,9 +561,6 @@ abstract interface class AppStrings {
   String get ocrListenToText;
 
   // Analysis — while it runs
-  String get analysisRunningTitle;
-  String get analysisRunningMessage;
-
   /// Announced to assistive technology once, when the wait page appears. The
   /// page's rotating captions are not read out — they follow a clock, not the
   /// service (F22 #13).

@@ -149,10 +149,14 @@ void main() {
     ) async {
       repository.gate = Completer<void>();
       unawaited(cubit.analyze());
-      await pumpScreen(tester);
+      // The lens reads for as long as the wait lasts: nothing settles.
+      await pumpScreen(tester, settle: false);
 
       expect(find.byType(AnalysisProgressView), findsOneWidget);
-      expect(find.text(_strings.analysisRunningTitle), findsOneWidget);
+      expect(
+        find.textContaining(_strings.analysisWaitStepType, findRichText: true),
+        findsOneWidget,
+      );
       // No way out mid-analysis: the page is full-bleed, without the top bar.
       expect(find.bySemanticsLabel(_strings.analysisResultTitle), findsNothing);
 
@@ -160,7 +164,7 @@ void main() {
       await tester.pumpAndSettle();
     });
 
-    testWidgets('finishes the progress bar before showing the result', (
+    testWidgets('gives the finish its beat before showing the result', (
       tester,
     ) async {
       repository.gate = Completer<void>();
@@ -171,11 +175,14 @@ void main() {
       repository.gate!.complete();
       await tester.pump();
 
-      // The answer is in, but the bar gets its moment to reach full first.
+      // The answer is in, but the check gets its moment first (F22 #10).
       expect(find.byType(AnalysisProgressView), findsOneWidget);
       expect(find.bySemanticsLabel(_strings.analysisResultTitle), findsNothing);
 
-      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(AnalysisProgressView), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pump();
 
       expect(find.byType(AnalysisProgressView), findsNothing);
@@ -185,7 +192,7 @@ void main() {
       );
     });
 
-    testWidgets('a failure replaces the progress page at once, bar halted', (
+    testWidgets('a failure replaces the progress page at once, lens halted', (
       tester,
     ) async {
       repository

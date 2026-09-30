@@ -741,11 +741,6 @@ final class ArStrings implements AppStrings {
 
   // Analysis — while it runs
   @override
-  String get analysisRunningTitle => 'بنجهز لك شرح بسيط للورقة';
-  @override
-  String get analysisRunningMessage =>
-      'ثواني وهنعرض لك أهم المعلومات والمطلوب منك.';
-  @override
   String get analysisRunningStatus => 'بنجهّز لك شرح الورقة، استنى ثواني';
   @override
   String get analysisWaitStepType => 'بنشوف نوع الورقة';
