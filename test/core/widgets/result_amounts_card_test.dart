@@ -6,8 +6,8 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/money/document_amount_label.dart';
+import 'package:war2aty/core/widgets/caveat_badge.dart';
 import 'package:war2aty/core/widgets/result_amounts_card.dart';
-import 'package:war2aty/core/widgets/value_caveat.dart';
 
 import '../../support/pump_app.dart';
 
@@ -58,7 +58,7 @@ void main() {
     testWidgets('lets a certain figure stand on its own', (tester) async {
       await pumpCard(tester, [_amount()]);
 
-      expect(find.byType(ValueCaveat), findsNothing);
+      expect(find.byType(CaveatBadge), findsNothing);
     });
 
     testWidgets('lays out under Large Text', (tester) async {

@@ -9,9 +9,9 @@ import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
 import '../time/document_date_label.dart';
+import 'caveated_value.dart';
 import 'date_selection_sheet.dart';
 import 'result_section_heading.dart';
-import 'value_caveat.dart';
 
 // From `Waraqti.dc.html` → the result page's «التواريخ والمواعيد» card.
 const double _cardPadding = 18;
@@ -28,7 +28,6 @@ const double _valueFontSize = 16.5;
 const double _valueGapAbove = 2;
 const double _noteFontSize = 12.5;
 const double _noteGapAbove = 3;
-const double _caveatGapAbove = 6;
 const double _buttonHeight = 48;
 const double _buttonRadius = 14;
 const double _buttonFontSize = 15.5;
@@ -193,13 +192,16 @@ class _DateRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: _valueGapAbove),
-              Text(
-                formatDocumentDate(strings, date.date),
-                style: AppTypography.bodyLarge.copyWith(
-                  fontSize: _valueFontSize,
-                  fontWeight: AppTypography.extraBold,
-                  color: colors.ink,
+              CaveatedValue(
+                value: Text(
+                  formatDocumentDate(strings, date.date),
+                  style: AppTypography.bodyLarge.copyWith(
+                    fontSize: _valueFontSize,
+                    fontWeight: AppTypography.extraBold,
+                    color: colors.ink,
+                  ),
                 ),
+                caveats: [?caveat],
               ),
               const SizedBox(height: _noteGapAbove),
               Text(
@@ -214,10 +216,6 @@ class _DateRow extends StatelessWidget {
                   color: colors.textMuted,
                 ),
               ),
-              if (caveat != null) ...[
-                const SizedBox(height: _caveatGapAbove),
-                ValueCaveat(text: caveat),
-              ],
             ],
           ),
         ),

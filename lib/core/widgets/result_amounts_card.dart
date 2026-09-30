@@ -9,8 +9,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
+import 'caveated_value.dart';
 import 'result_section_heading.dart';
-import 'value_caveat.dart';
 
 // Follows the «أهم المعلومات» list in `Waraqti.dc.html`, which is where the
 // design puts a money figure.
@@ -23,7 +23,6 @@ const double _iconSize = 20;
 const double _labelFontSize = 13;
 const double _labelGapBelow = 2;
 const double _valueFontSize = 16;
-const double _caveatGapAbove = 7;
 const double _cardGapBelow = 14;
 
 /// «المبالغ» — the money the paper is about.
@@ -133,22 +132,21 @@ class _AmountRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: _labelGapBelow),
-                  Text(
-                    formatDocumentAmount(
-                      strings,
-                      amount.value,
-                      amount.currency,
+                  CaveatedValue(
+                    value: Text(
+                      formatDocumentAmount(
+                        strings,
+                        amount.value,
+                        amount.currency,
+                      ),
+                      style: AppTypography.bodyLarge.copyWith(
+                        fontSize: _valueFontSize,
+                        fontWeight: AppTypography.bold,
+                        color: colors.ink,
+                      ),
                     ),
-                    style: AppTypography.bodyLarge.copyWith(
-                      fontSize: _valueFontSize,
-                      fontWeight: AppTypography.bold,
-                      color: colors.ink,
-                    ),
+                    caveats: [?caveat],
                   ),
-                  if (caveat != null) ...[
-                    const SizedBox(height: _caveatGapAbove),
-                    ValueCaveat(text: caveat),
-                  ],
                 ],
               ),
             ),

@@ -9,8 +9,8 @@ import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
+import 'caveated_value.dart';
 import 'result_section_heading.dart';
-import 'value_caveat.dart';
 
 // From `Waraqti.dc.html` → the result page's «أهم المعلومات» list.
 const double _rowPaddingH = 16;
@@ -22,7 +22,6 @@ const double _iconSize = 20;
 const double _labelFontSize = 13;
 const double _labelGapBelow = 2;
 const double _valueFontSize = 16;
-const double _caveatGapAbove = 7;
 const double _copyButton = 36;
 const double _copyButtonRadius = 11;
 const double _copyIconSize = 18;
@@ -146,18 +145,17 @@ class _InfoRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: _labelGapBelow),
-                  Text(
-                    item.value,
-                    style: AppTypography.bodyLarge.copyWith(
-                      fontSize: _valueFontSize,
-                      fontWeight: AppTypography.bold,
-                      color: colors.ink,
+                  CaveatedValue(
+                    value: Text(
+                      item.value,
+                      style: AppTypography.bodyLarge.copyWith(
+                        fontSize: _valueFontSize,
+                        fontWeight: AppTypography.bold,
+                        color: colors.ink,
+                      ),
                     ),
+                    caveats: caveats,
                   ),
-                  for (final caveat in caveats) ...[
-                    const SizedBox(height: _caveatGapAbove),
-                    ValueCaveat(text: caveat),
-                  ],
                 ],
               ),
             ),

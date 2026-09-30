@@ -6,8 +6,8 @@ import 'package:war2aty/core/documents/key_information.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/core/widgets/caveat_badge.dart';
 import 'package:war2aty/core/widgets/result_key_information_card.dart';
-import 'package:war2aty/core/widgets/value_caveat.dart';
 
 import '../../support/pump_app.dart';
 
@@ -59,7 +59,7 @@ void main() {
     ) async {
       await pumpCard(tester, [_item()]);
 
-      expect(find.byType(ValueCaveat), findsNothing);
+      expect(find.byType(CaveatBadge), findsNothing);
     });
 
     testWidgets('asks the user to check a medium-confidence value', (
@@ -91,7 +91,7 @@ void main() {
         _item(confidence: ConfidenceBand.low, source: InfoSource.inferred),
       ]);
 
-      expect(find.byType(ValueCaveat), findsNWidgets(2));
+      expect(find.byType(CaveatBadge), findsNWidgets(2));
       expect(find.text(_strings.confidenceUncertain), findsOneWidget);
       expect(find.text(_strings.resultActionInferred), findsOneWidget);
     });
@@ -107,7 +107,7 @@ void main() {
       ]);
 
       // Per-value, never per-document (UX rule §5.9).
-      expect(find.byType(ValueCaveat), findsOneWidget);
+      expect(find.byType(CaveatBadge), findsOneWidget);
     });
 
     testWidgets('copies one value to the clipboard', (tester) async {
