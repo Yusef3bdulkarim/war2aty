@@ -33,6 +33,23 @@ void main() {
       expect(text, invoiceAnalysis().summary.short);
     });
 
+    test('readAll reads the warnings where the screen shows them', () {
+      final analysis = invoiceAnalysis();
+      final text = useCase(
+        result: _buildResult(analysis: analysis, extractedText: _ocrText),
+        mode: ReadingMode.readAll,
+        strings: ar,
+      );
+
+      // After the instructions, just before the explanation (F21 #21).
+      final instructions = text.indexOf(analysis.instructions.single);
+      final warning = text.indexOf(analysis.warnings.single.text);
+      final explanation = text.indexOf(analysis.summary.detailed);
+      expect(instructions, isNonNegative);
+      expect(warning, greaterThan(instructions));
+      expect(explanation, greaterThan(warning));
+    });
+
     test('fullExplanation reads the detailed explanation untouched', () {
       final result = _buildResult(
         analysis: invoiceAnalysis(),

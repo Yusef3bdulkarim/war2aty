@@ -441,7 +441,7 @@ void main() {
     testWidgets('lays out the same way in English', (tester) async {
       await pumpCard(
         tester,
-        items: [_item(label: 'Account', value: '624512')],
+        items: [_item(label: 'Account')],
         locale: AppLocalizations.english,
       );
 
@@ -634,14 +634,14 @@ void main() {
       const sections = [
         AnalysisSection.header,
         AnalysisSection.summary,
-        AnalysisSection.warnings,
         AnalysisSection.keyInformation,
         AnalysisSection.dates,
         AnalysisSection.requiredDocuments,
+        AnalysisSection.warnings,
         AnalysisSection.extractedText,
       ];
 
-      expect(resultDetailsIndex(sections), 5);
+      expect(resultDetailsIndex(sections), 4);
     });
 
     test('keeps its place when the paper has no data at all', () {

@@ -20,8 +20,8 @@ import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
-import 'package:war2aty/core/widgets/result_details_card.dart';
 import 'package:war2aty/core/widgets/result_actions_card.dart';
+import 'package:war2aty/core/widgets/result_details_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
@@ -233,6 +233,26 @@ void main() {
       expect(find.text(_strings.resultKeyInformationTitle), findsOneWidget);
       expect(find.text(_strings.resultAmountsTitle), findsOneWidget);
       expect(find.text(_strings.resultDatesTitle), findsOneWidget);
+    });
+
+    testWidgets('puts the warnings right before the explanation', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      final warning = tester.getRect(
+        find.text(invoiceAnalysis().warnings.single.text),
+      );
+      // The fixture's last cards before the explanation are its instructions.
+      final instructions = tester.getRect(
+        find.text(invoiceAnalysis().instructions.single, findRichText: true),
+      );
+      final explanation = tester.getRect(
+        find.text(_strings.resultShowExplanation),
+      );
+      expect(instructions.bottom, lessThan(warning.top));
+      expect(warning.bottom, lessThan(explanation.top));
     });
 
     testWidgets('keeps the cards 12 px apart', (tester) async {
@@ -585,9 +605,7 @@ void main() {
       expect(find.text(_strings.resultPartialBanner), findsOneWidget);
     });
 
-    testWidgets('puts that banner right before the data, after the warnings', (
-      tester,
-    ) async {
+    testWidgets('puts that banner right before the data', (tester) async {
       repository.answer = Ok(invoiceAnalysis(status: AnalysisStatus.partial));
       await cubit.analyze();
       await pumpScreen(tester);
@@ -599,10 +617,11 @@ void main() {
       final banner = tester.getRect(find.byType(PartialResultBanner));
       final data = tester.getRect(find.byType(ResultDetailsCard));
 
-      // Not at the top any more (F21 #17): the summary comes first.
+      // Not at the top any more (F21 #17): the summary comes first. The
+      // warnings now come after the data (F21 #21).
       expect(summary.bottom, lessThan(banner.top));
-      expect(warning.bottom, lessThan(banner.top));
       expect(banner.bottom, lessThanOrEqualTo(data.top));
+      expect(warning.top, greaterThan(data.bottom));
     });
 
     testWidgets('still shows everything it did understand', (tester) async {
