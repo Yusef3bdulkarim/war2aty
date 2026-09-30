@@ -746,7 +746,33 @@ final class ArStrings implements AppStrings {
   String get analysisRunningMessage =>
       'ثواني وهنعرض لك أهم المعلومات والمطلوب منك.';
   @override
-  String get analysisRunningStatus => 'بنقرأ الورقة دلوقتي';
+  String get analysisRunningStatus => 'بنجهّز لك شرح الورقة، استنى ثواني';
+  @override
+  String get analysisWaitStepType => 'بنشوف نوع الورقة';
+  @override
+  String get analysisWaitStepActions => 'بنشوف المطلوب منك';
+  @override
+  String get analysisWaitStepDates => 'بندوّر على أي مواعيد';
+  @override
+  String get analysisWaitStillSeconds => 'لسه ثواني، الورقة فيها تفاصيل كتير';
+  @override
+  String get analysisWaitReviewing => 'بنراجع كل حاجة كويس علشانك';
+  @override
+  String get analysisWaitTakingLonger =>
+      'بتاخد وقت أطول من العادي، لسه شغالين عليها';
+  @override
+  String get analysisWaitReady => 'جاهز!';
+  @override
+  String get analysisWaitHint => 'خليك معانا، ده بياخد ثواني';
+  @override
+  String get analysisWaitHintLong => 'مش محتاج تعمل حاجة، هنكمّل لوحدنا';
+  @override
+  String get analysisWaitHintReady => 'بنفتح لك الشرح دلوقتي';
+  @override
+  String get analysisWaitLongAnnouncement =>
+      'الورقة بتاخد وقت أطول من العادي، لسه شغالين عليها';
+  @override
+  String get analysisWaitReadyAnnouncement => 'الشرح جاهز';
 
   // Analysis result
   @override

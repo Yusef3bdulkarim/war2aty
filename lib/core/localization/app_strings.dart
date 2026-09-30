@@ -564,9 +564,35 @@ abstract interface class AppStrings {
   String get analysisRunningTitle;
   String get analysisRunningMessage;
 
-  /// Announced to assistive technology while the analysis runs, since the
-  /// progress bar itself carries no meaning.
+  /// Announced to assistive technology once, when the wait page appears. The
+  /// page's rotating captions are not read out — they follow a clock, not the
+  /// service (F22 #13).
   String get analysisRunningStatus;
+
+  /// The wait page's caption for each step of the magnifier's reading (F22
+  /// #7): the first three follow the lens across the paper, the rest the
+  /// clock. Drawn with pulsing dots after them, so none ends in an ellipsis.
+  String get analysisWaitStepType;
+  String get analysisWaitStepActions;
+  String get analysisWaitStepDates;
+  String get analysisWaitStillSeconds;
+  String get analysisWaitReviewing;
+  String get analysisWaitTakingLonger;
+
+  /// The caption once the result has arrived.
+  String get analysisWaitReady;
+
+  /// The line under the caption: while waiting, from 10 s on, and once the
+  /// result has arrived.
+  String get analysisWaitHint;
+  String get analysisWaitHintLong;
+  String get analysisWaitHintReady;
+
+  /// Announced once, 15 s into the wait (F22 #13).
+  String get analysisWaitLongAnnouncement;
+
+  /// Announced once the result has arrived.
+  String get analysisWaitReadyAnnouncement;
 
   // Analysis result
   /// The result page's own name, in its top bar.
