@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
@@ -186,6 +187,57 @@ void main() {
       await tester.pump();
 
       expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('one haptic when the result arrives, none on a failure', (
+      tester,
+    ) async {
+      final haptics = <Object?>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            haptics.add(call.arguments);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      // A failure first: no haptic (F22 #11).
+      repository
+        ..gate = Completer<void>()
+        ..answer = const Err(AnalysisServiceFailure());
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 2));
+      repository.gate!.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(haptics, isEmpty);
+
+      // Then a retry that succeeds: exactly one.
+      repository
+        ..gate = Completer<void>()
+        ..answer = Ok(invoiceAnalysis());
+      unawaited(cubit.analyze());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      repository.gate!.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(haptics, ['HapticFeedbackType.lightImpact']);
       expect(
         find.bySemanticsLabel(_strings.analysisResultTitle),
         findsOneWidget,
