@@ -54,8 +54,8 @@ final class BuildReadingText {
   /// The quick summary, then one sentence per labelled fact.
   ///
   /// Reuses `resultKeyInformationTitle` as the spoken heading rather than
-  /// inventing new copy, and the same caveats `ResultKeyInformationCard`
-  /// shows beneath a value (§30.5) — an uncertain or inferred reading is
+  /// inventing new copy, and the same caveats `ResultDetailsCard` shows
+  /// beside a value (§30.5) — an uncertain or inferred reading is
   /// never read aloud as plain fact any more than it is shown as one.
   String _summaryAndKeyInformation(
     DocumentAnalysis analysis,

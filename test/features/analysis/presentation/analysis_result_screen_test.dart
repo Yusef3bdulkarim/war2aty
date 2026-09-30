@@ -20,6 +20,7 @@ import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
+import 'package:war2aty/core/widgets/result_details_card.dart';
 import 'package:war2aty/core/widgets/result_header_card.dart';
 import 'package:war2aty/core/widgets/result_summary_card.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
@@ -218,6 +219,18 @@ void main() {
       // …followed by the second (F07-T03).
       expect(find.byType(ResultSummaryCard), findsOneWidget);
       expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
+    });
+
+    testWidgets('draws key information and amounts as one card, once', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      // Two §4 sections, one card — not one per section.
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      expect(find.text(_strings.resultKeyInformationTitle), findsOneWidget);
+      expect(find.text(_strings.resultAmountsTitle), findsOneWidget);
     });
 
     testWidgets('offers to listen without needing an external onListen', (

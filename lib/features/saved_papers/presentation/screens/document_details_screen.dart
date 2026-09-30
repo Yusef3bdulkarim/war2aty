@@ -23,11 +23,10 @@ import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
 import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
-import '../../../../core/widgets/result_amounts_card.dart';
 import '../../../../core/widgets/result_dates_card.dart';
+import '../../../../core/widgets/result_details_card.dart';
 import '../../../../core/widgets/result_extracted_text_panel.dart';
 import '../../../../core/widgets/result_header_card.dart';
-import '../../../../core/widgets/result_key_information_card.dart';
 import '../../../../core/widgets/result_list_card.dart';
 import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
@@ -316,10 +315,13 @@ class _DetailsBodyState extends State<_DetailsBody> {
       AnalysisSection.warnings => ResultWarningsCard(
         warnings: analysis.warnings,
       ),
-      AnalysisSection.keyInformation => ResultKeyInformationCard(
-        items: analysis.keyInformation,
-      ),
-      AnalysisSection.amounts => ResultAmountsCard(amounts: analysis.amounts),
+      AnalysisSection.keyInformation || AnalysisSection.amounts =>
+        isResultDetailsSlot(widget.sections, section)
+            ? ResultDetailsCard(
+                keyInformation: analysis.keyInformation,
+                amounts: analysis.amounts,
+              )
+            : const SizedBox.shrink(),
       AnalysisSection.dates => ResultDatesCard(
         dates: analysis.dates,
         onCreateReminder: widget.onCreateReminder,
