@@ -775,7 +775,7 @@ final class ArStrings implements AppStrings {
   @override
   String get resultSavePaper => 'حفظ الورقة';
   @override
-  String get resultSummaryLabel => 'الخلاصة';
+  String get resultSummaryLabel => 'ملخص المستند';
   @override
   String get resultActionRequiredTitle => 'المطلوب منك';
   @override

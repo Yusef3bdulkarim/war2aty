@@ -598,8 +598,9 @@ abstract interface class AppStrings {
   String get resultListen;
   String get resultSavePaper;
 
-  /// Heads the one-line summary card. Deliberately not a claim about how sure
-  /// the analysis is — confidence belongs to individual values (UX rule §5.9).
+  /// Heads the one-line summary in the result's hero, «ملخص المستند» (F21).
+  /// Deliberately not a claim about how sure the analysis is — confidence
+  /// belongs to individual values (UX rule §5.9).
   String get resultSummaryLabel;
 
   /// Heads «المطلوب منك» — what the paper asks the user to do.

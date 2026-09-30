@@ -25,8 +25,8 @@ import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_details_card.dart';
 import '../../../../core/widgets/result_extracted_text_panel.dart';
+import '../../../../core/widgets/result_hero_scroll_view.dart';
 import '../../../../core/widgets/result_list_card.dart';
-import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
 import '../../../../core/widgets/top_bar_icon_button.dart';
@@ -38,14 +38,7 @@ import '../widgets/note_editor_sheet.dart';
 import '../widgets/title_editor_sheet.dart';
 
 // From `Waraqti.dc.html` → `docDetails`, which shares the result page's own
-// layout constants (`resultScreenLabel`) — see `analysis_result_screen.dart`.
-const double _topBarTop = 56 - 52;
-const double _topBarBottom = 12;
-const double _topBarSide = AppSpacing.screenHorizontal;
-const double _topBarGap = 8;
-const double _pageSide = 18;
-const double _pageTop = 18;
-const double _pageBottom = 24;
+// layout — the top of the page is F21's hero (`ResultHeroScrollView`).
 const double _explanationFontSize = 14.5;
 const double _explanationHeight = 1.9;
 const double _imageRadius = 14;
@@ -211,35 +204,37 @@ class _DetailsBodyState extends State<_DetailsBody> {
       },
       child: Column(
         children: [
-          _TopBar(document: document, onClose: widget.onClose),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                _pageSide,
-                _pageTop,
-                _pageSide,
-                _pageBottom,
+            // The same hero as the result page (F21 #14), with the paper's ⋮
+            // menu in its pinned bar.
+            child: ResultHeroScrollView(
+              heading: strings.documentDetailsTitle,
+              backTooltip: strings.analysisResultBackLabel,
+              onBack: widget.onClose,
+              trailing: _OverflowMenu(
+                document: document,
+                onClose: widget.onClose,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // The original page picture, when the user chose to keep it
-                  // (F08-T04). Appears above the analysis sections so the user
-                  // sees what was scanned before reading the result.
-                  if (widget.imageBytes != null)
-                    _DocumentImageCard(imageBytes: widget.imageBytes!),
-                  for (final (index, section) in widget.sections.indexed) ...[
-                    if (index == detailsAt) ..._dataBlock(),
-                    _section(context, section, strings),
-                  ],
-                  if (detailsAt == widget.sections.length) ..._dataBlock(),
-                  // «ملاحظتي» lives between the analysis sections and the
-                  // explanation/extracted-text panels — the same position
-                  // the design draws it in, after the paper's own content
-                  // and before the raw OCR output (F08-T09).
-                  _NoteSection(document: document),
+              summary: widget.sections.contains(AnalysisSection.summary)
+                  ? document.analysis.summary.short
+                  : null,
+              children: [
+                // The original page picture, when the user chose to keep it
+                // (F08-T04). Appears above the analysis sections so the user
+                // sees what was scanned before reading the result.
+                if (widget.imageBytes != null)
+                  _DocumentImageCard(imageBytes: widget.imageBytes!),
+                for (final (index, section) in widget.sections.indexed) ...[
+                  if (index == detailsAt) ..._dataBlock(),
+                  _section(context, section, strings),
                 ],
-              ),
+                if (detailsAt == widget.sections.length) ..._dataBlock(),
+                // «ملاحظتي» lives between the analysis sections and the
+                // explanation/extracted-text panels — the same position
+                // the design draws it in, after the paper's own content
+                // and before the raw OCR output (F08-T09).
+                _NoteSection(document: document),
+              ],
             ),
           ),
           _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
@@ -321,9 +316,6 @@ class _DetailsBodyState extends State<_DetailsBody> {
     final analysis = widget.document.analysis;
 
     return switch (section) {
-      AnalysisSection.summary => ResultSummaryCard(
-        summary: analysis.summary.short,
-      ),
       AnalysisSection.actionRequired => ResultActionsCard(
         actions: analysis.actions,
       ),
@@ -333,6 +325,7 @@ class _DetailsBodyState extends State<_DetailsBody> {
       // The type is a row of the details card now (F21 #15), and the three
       // data sections are drawn together by it — see `_dataBlock`.
       AnalysisSection.header ||
+      AnalysisSection.summary ||
       AnalysisSection.keyInformation ||
       AnalysisSection.amounts ||
       AnalysisSection.dates => const SizedBox.shrink(),
@@ -568,74 +561,6 @@ class _NoteSection extends StatelessWidget {
   }
 }
 
-/// The page's own bar: a way back, the page's name, and an overflow menu for
-/// rename and category change (F08-T10).
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.document, this.onClose});
-
-  final SavedDocument document;
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.card,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            _topBarSide,
-            _topBarTop,
-            _topBarSide,
-            _topBarBottom,
-          ),
-          child: Row(
-            children: [
-              TopBarIconButton(
-                onPressed: onClose,
-                tooltip: strings.analysisResultBackLabel,
-                icon: Transform.flip(
-                  flipX: mirror,
-                  child: StrokeIcon(
-                    StrokeGlyph.arrowBack,
-                    color: colors.ink,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    strings.documentDetailsTitle,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.labelCard.copyWith(
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              _OverflowMenu(document: document, onClose: onClose),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The three-dot menu that holds rename and category change (F08-T10).
 ///
 /// Each action opens a bottom sheet, writes through the cubit, and shows a
@@ -657,7 +582,8 @@ class _OverflowMenu extends StatelessWidget {
       dimension: TopBarIconButton.dimension,
       child: PopupMenuButton<_OverflowAction>(
         padding: EdgeInsets.zero,
-        icon: Icon(Icons.more_vert, color: colors.ink),
+        // White: it sits in the hero's teal bar (F21 #14).
+        icon: Icon(Icons.more_vert, color: colors.onBrand),
         onSelected: (action) => _handle(context, action, strings),
         itemBuilder: (_) => [
           PopupMenuItem(

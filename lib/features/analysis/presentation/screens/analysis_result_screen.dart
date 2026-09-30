@@ -23,25 +23,17 @@ import '../../../../core/widgets/result_action_bar.dart';
 import '../../../../core/widgets/result_actions_card.dart';
 import '../../../../core/widgets/result_details_card.dart';
 import '../../../../core/widgets/result_extracted_text_panel.dart';
+import '../../../../core/widgets/result_hero_scroll_view.dart';
 import '../../../../core/widgets/result_list_card.dart';
-import '../../../../core/widgets/result_summary_card.dart';
 import '../../../../core/widgets/result_warnings_card.dart';
 import '../../../../core/widgets/service_state_view.dart';
-import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
 
-// From `Waraqti.dc.html` → the result page, except the top bar, which F21
-// reduced to a lone back arrow. Its 56px is measured from the physical screen
-// top and already contains the 52px status bar, which [SafeArea] applies.
-const double _topBarTop = 56 - 52;
-const double _topBarBottom = 0;
-const double _topBarSide = AppSpacing.screenHorizontal;
-const double _pageSide = 18;
-const double _pageTop = 8;
-const double _pageBottom = 24;
+// From `Waraqti.dc.html` → the result page. The top of the page is F21's
+// hero (`ResultHeroScrollView`).
 const double _explanationFontSize = 14.5;
 const double _explanationHeight = 1.9;
 
@@ -215,27 +207,24 @@ class _ResultBodyState extends State<_ResultBody> {
         },
         child: Column(
           children: [
-            _TopBar(onClose: widget.onClose),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
-                  _pageSide,
-                  _pageTop,
-                  _pageSide,
-                  _pageBottom,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final (index, section)
-                        in widget.result.sections.indexed) ...[
-                      if (index == detailsAt) ..._dataBlock(),
-                      _section(context, section, strings),
-                    ],
-                    if (detailsAt == widget.result.sections.length)
-                      ..._dataBlock(),
+              child: ResultHeroScrollView(
+                heading: strings.analysisResultTitle,
+                backTooltip: strings.analysisResultBackLabel,
+                onBack: widget.onClose,
+                summary:
+                    widget.result.sections.contains(AnalysisSection.summary)
+                    ? widget.result.analysis.summary.short
+                    : null,
+                children: [
+                  for (final (index, section)
+                      in widget.result.sections.indexed) ...[
+                    if (index == detailsAt) ..._dataBlock(),
+                    _section(context, section, strings),
                   ],
-                ),
+                  if (detailsAt == widget.result.sections.length)
+                    ..._dataBlock(),
+                ],
               ),
             ),
             _MiniPlayerSlot(onOpenAudioSheet: _openAudioSheet),
@@ -314,18 +303,17 @@ class _ResultBodyState extends State<_ResultBody> {
     final analysis = widget.result.analysis;
 
     return switch (section) {
-      AnalysisSection.summary => ResultSummaryCard(
-        summary: analysis.summary.short,
-      ),
       AnalysisSection.actionRequired => ResultActionsCard(
         actions: analysis.actions,
       ),
       AnalysisSection.warnings => ResultWarningsCard(
         warnings: analysis.warnings,
       ),
-      // The type is a row of the details card now (F21 #15), and the three
-      // data sections are drawn together by it — see `_dataBlock`.
+      // The summary is the hero (F21 #14), the type a row of the details card
+      // (F21 #15), and the three data sections are drawn together by that
+      // card — see `_dataBlock`.
       AnalysisSection.header ||
+      AnalysisSection.summary ||
       AnalysisSection.keyInformation ||
       AnalysisSection.amounts ||
       AnalysisSection.dates => const SizedBox.shrink(),
@@ -392,63 +380,6 @@ class _MiniPlayerSlot extends StatelessWidget {
           ),
         AudioReaderIdle() || AudioReaderFailed() => const SizedBox.shrink(),
       },
-    );
-  }
-}
-
-/// The page's way back: a lone arrow on the page's own surface, with no bar
-/// drawn around it (F21 locked decision #4) — the result itself gets the top
-/// of the screen.
-///
-/// The page's name is no longer printed, but a screen reader still announces
-/// it as the page's heading: it is carried by the empty rest of the row, so
-/// it has real bounds to land on rather than being a zero-size node.
-class _TopBar extends StatelessWidget {
-  const _TopBar({this.onClose});
-
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          _topBarSide,
-          _topBarTop,
-          _topBarSide,
-          _topBarBottom,
-        ),
-        child: Row(
-          children: [
-            TopBarIconButton(
-              onPressed: onClose,
-              tooltip: strings.analysisResultBackLabel,
-              icon: Transform.flip(
-                flipX: mirror,
-                child: StrokeIcon(
-                  StrokeGlyph.arrowBack,
-                  color: colors.ink,
-                  strokeWidth: 2,
-                ),
-              ),
-            ),
-            Expanded(
-              child: Semantics(
-                header: true,
-                label: strings.analysisResultTitle,
-                child: const SizedBox(height: TopBarIconButton.dimension),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

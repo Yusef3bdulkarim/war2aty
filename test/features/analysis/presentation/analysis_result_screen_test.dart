@@ -22,7 +22,7 @@ import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
 import 'package:war2aty/core/widgets/result_actions_card.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
-import 'package:war2aty/core/widgets/result_summary_card.dart';
+import 'package:war2aty/core/widgets/result_hero_scroll_view.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
@@ -213,7 +213,9 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(AnalysisProgressView), findsNothing);
-      expect(find.byType(ResultSummaryCard), findsOneWidget);
+      // The summary is the hero now (F21 #14).
+      expect(find.byType(ResultHeroScrollView), findsOneWidget);
+      expect(find.text(_strings.resultSummaryLabel), findsOneWidget);
       expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
       // No type card and no title (F21 #15): the type is the first row of
       // the details card instead.
@@ -269,9 +271,9 @@ void main() {
             .first,
       );
 
-      final summary = surface(ResultSummaryCard);
       final actions = surface(ResultActionsCard);
-      expect(actions.top - summary.bottom, moreOrLessEquals(12));
+      final details = surface(ResultDetailsCard);
+      expect(details.top - actions.bottom, moreOrLessEquals(12));
     });
 
     testWidgets('offers to listen without needing an external onListen', (
@@ -610,7 +612,9 @@ void main() {
       await cubit.analyze();
       await pumpScreen(tester);
 
-      final summary = tester.getRect(find.byType(ResultSummaryCard));
+      final summary = tester.getRect(
+        find.text(invoiceAnalysis().summary.short),
+      );
       final warning = tester.getRect(
         find.text(invoiceAnalysis().warnings.single.text),
       );
@@ -632,7 +636,7 @@ void main() {
       // A half-read paper is worth showing — the part the user came for is
       // usually in it.
       expect(find.byType(ResultDetailsCard), findsOneWidget);
-      expect(find.byType(ResultSummaryCard), findsOneWidget);
+      expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
     });
 
     testWidgets('says nothing extra about a full result', (tester) async {

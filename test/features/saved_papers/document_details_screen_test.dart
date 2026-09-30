@@ -19,7 +19,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
-import 'package:war2aty/core/widgets/result_summary_card.dart';
+import 'package:war2aty/core/widgets/result_hero_scroll_view.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
@@ -111,7 +111,7 @@ void main() {
       await pumpScreen(tester, settle: false);
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(find.text(ar.documentDetailsTitle), findsNothing);
+      expect(find.bySemanticsLabel(ar.documentDetailsTitle), findsNothing);
     });
 
     testWidgets('shows the record once the database answers', (tester) async {
@@ -120,12 +120,15 @@ void main() {
 
       await pumpScreen(tester);
 
-      expect(find.text(ar.documentDetailsTitle), findsOneWidget);
+      // The page's name is a heading for screen readers only (F21 #14).
+      expect(find.bySemanticsLabel(ar.documentDetailsTitle), findsOneWidget);
       // The type is a row of the details card; the title is shown only in
       // the saved-papers list (F21 #15).
       expect(find.byType(ResultDetailsCard), findsOneWidget);
       expect(find.text('فاتورة كهرباء'), findsNothing);
-      expect(find.byType(ResultSummaryCard), findsOneWidget);
+      // The summary is the hero, as on the result page.
+      expect(find.byType(ResultHeroScrollView), findsOneWidget);
+      expect(find.text('خلاصة سريعة.'), findsOneWidget);
     });
 
     testWidgets('flags a partial document the same way the result page does', (
@@ -142,7 +145,7 @@ void main() {
       // Right before the data, below the summary (F21 #17).
       final banner = tester.getRect(find.text(ar.resultPartialBanner));
       expect(
-        tester.getRect(find.byType(ResultSummaryCard)).bottom,
+        tester.getRect(find.text('خلاصة سريعة.')).bottom,
         lessThan(banner.top),
       );
       expect(
@@ -187,7 +190,7 @@ void main() {
 
       await pumpScreen(tester, locale: AppLocalizations.english);
 
-      expect(find.text(en.documentDetailsTitle), findsOneWidget);
+      expect(find.bySemanticsLabel(en.documentDetailsTitle), findsOneWidget);
     });
 
     testWidgets('survives large text without overflowing', (tester) async {
