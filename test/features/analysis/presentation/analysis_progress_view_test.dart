@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,13 @@ import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/wait
 import '../../../support/pump_app.dart';
 
 const _strings = ArStrings();
+
+/// What the page has sent to the screen reader since the last call — taken
+/// from the platform channel itself, so it is what TalkBack and VoiceOver
+/// would have been asked to say.
+List<String> _spoken(WidgetTester tester) => [
+  for (final announcement in tester.takeAnnouncements()) announcement.message,
+];
 
 void main() {
   late ValueNotifier<bool> finishing;
@@ -89,67 +98,76 @@ void main() {
       expect(find.byType(IconButton), findsNothing);
     });
 
-    testWidgets('is one live region that announces the wait once', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
+    testWidgets('announces the wait once, as the page appears', (tester) async {
+      // Regression: a live region speaks only when its label changes, so the
+      // first announcement never reached TalkBack.
       await pumpApp(tester, harness(), settle: false);
+      await tester.pump();
+      expect(_spoken(tester), [_strings.analysisRunningStatus]);
 
-      expect(
-        tester.getSemantics(
-          find.bySemanticsLabel(_strings.analysisRunningStatus),
-        ),
-        isSemantics(label: _strings.analysisRunningStatus, isLiveRegion: true),
-      );
-      // The captions follow a clock: they are not read out.
+      // The captions follow a clock: they are never read out.
       await tester.pump(const Duration(seconds: 7));
-      expect(
-        find.bySemanticsLabel(RegExp(_strings.analysisWaitStillSeconds)),
-        findsNothing,
-      );
-      expect(
-        find.bySemanticsLabel(_strings.analysisRunningStatus),
-        findsOneWidget,
-      );
-      semantics.dispose();
+      expect(_spoken(tester), isEmpty);
     });
 
-    testWidgets('says the wait is long from 15 s, and only then', (
+    testWidgets('waits for the page to finish sliding in before speaking', (
       tester,
     ) async {
-      final semantics = tester.ensureSemantics();
+      // The screen reader announces the new screen as it arrives; speaking
+      // over it is what made VoiceOver drop the first announcement.
+      await pumpApp(tester, const SizedBox.shrink());
+      unawaited(
+        tester
+            .state<NavigatorState>(find.byType(Navigator))
+            .push(MaterialPageRoute<void>(builder: (_) => harness())),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(_spoken(tester), isEmpty, reason: 'still sliding in');
+
+      await tester.pump(const Duration(seconds: 1));
+      expect(_spoken(tester), [_strings.analysisRunningStatus]);
+    });
+
+    testWidgets('announces a long wait once, at 15 s', (tester) async {
       await pumpApp(tester, harness(), settle: false);
+      await tester.pump();
+      _spoken(tester);
 
       await tester.pump(const Duration(milliseconds: 14900));
-      expect(
-        find.bySemanticsLabel(_strings.analysisRunningStatus),
-        findsOneWidget,
-      );
+      expect(_spoken(tester), isEmpty);
       await tester.pump(const Duration(milliseconds: 200));
-      expect(
-        find.bySemanticsLabel(_strings.analysisWaitLongAnnouncement),
-        findsOneWidget,
-      );
-      semantics.dispose();
+      expect(_spoken(tester), [_strings.analysisWaitLongAnnouncement]);
+
+      await tester.pump(const Duration(seconds: 20));
+      expect(_spoken(tester), isEmpty);
     });
 
     testWidgets('a result right at 15 s is announced as ready, not long', (
       tester,
     ) async {
-      final semantics = tester.ensureSemantics();
       await pumpApp(tester, harness(), settle: false);
+      await tester.pump();
+      _spoken(tester);
       await tester.pump(const Duration(milliseconds: 14990));
 
       finishing.value = true;
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
+      expect(_spoken(tester), [_strings.analysisWaitReadyAnnouncement]);
+    });
+
+    testWidgets('the page keeps a label for swiping onto it', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpApp(tester, harness(), settle: false);
       expect(
-        find.bySemanticsLabel(_strings.analysisWaitReadyAnnouncement),
+        find.bySemanticsLabel(_strings.analysisRunningStatus),
         findsOneWidget,
       );
+      await tester.pump(const Duration(seconds: 16));
       expect(
         find.bySemanticsLabel(_strings.analysisWaitLongAnnouncement),
-        findsNothing,
+        findsOneWidget,
       );
       semantics.dispose();
     });
@@ -176,13 +194,16 @@ void main() {
       await tester.pump();
       expect(haptics, isEmpty);
 
-      // The check springs in on the next frame, and the haptic with it.
+      // The check springs in on the next frame, the haptic and the
+      // announcement with it.
+      _spoken(tester);
       await tester.pump(const Duration(milliseconds: 16));
       expect(haptics, ['HapticFeedbackType.lightImpact']);
       expect(
         find.bySemanticsLabel(_strings.analysisWaitReadyAnnouncement),
         findsOneWidget,
       );
+      expect(_spoken(tester), [_strings.analysisWaitReadyAnnouncement]);
       expect(finished, 0);
 
       await tester.pump(const Duration(milliseconds: 600));
