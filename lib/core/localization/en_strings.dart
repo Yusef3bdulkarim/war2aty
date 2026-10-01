@@ -745,13 +745,35 @@ final class EnStrings implements AppStrings {
 
   // Analysis — while it runs
   @override
-  String get analysisRunningTitle => 'Preparing a simple explanation';
+  String get analysisRunningStatus =>
+      'Preparing your explanation, just a few seconds';
   @override
-  String get analysisRunningMessage =>
-      'A few seconds and we will show you the key information and what you '
-      'need to do.';
+  String get analysisWaitStepType => 'Checking the type of paper';
   @override
-  String get analysisRunningStatus => 'Reading your paper';
+  String get analysisWaitStepActions => 'Checking what you need to do';
+  @override
+  String get analysisWaitStepDates => 'Looking for any dates';
+  @override
+  String get analysisWaitStillSeconds =>
+      'A few more seconds, this paper has a lot of detail';
+  @override
+  String get analysisWaitReviewing => 'Checking everything carefully for you';
+  @override
+  String get analysisWaitTakingLonger =>
+      'Taking longer than usual, still working on it';
+  @override
+  String get analysisWaitReady => 'Ready!';
+  @override
+  String get analysisWaitHint => 'Stay with us, this takes a few seconds';
+  @override
+  String get analysisWaitHintLong => 'Nothing for you to do, we will carry on';
+  @override
+  String get analysisWaitHintReady => 'Opening your explanation now';
+  @override
+  String get analysisWaitLongAnnouncement =>
+      'This paper is taking longer than usual, still working on it';
+  @override
+  String get analysisWaitReadyAnnouncement => 'Your explanation is ready';
 
   // Analysis result
   @override
