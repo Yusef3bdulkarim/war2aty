@@ -31,6 +31,9 @@ import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
+import '../widgets/failure/extracted_text_entry_card.dart';
+import '../widgets/failure/failure_note_chip.dart';
+import '../widgets/failure/supported_documents_section.dart';
 
 // From `Waraqti.dc.html` → the result page. The top of the page is F21's
 // hero (`ResultHeroScrollView`).
@@ -463,11 +466,29 @@ class _FailureBodyState extends State<_FailureBody> {
         _FailureKind.consentDeclined => strings.analysisConsentDeclinedMessage,
         _FailureKind.serviceProblem => strings.analysisFailedMessage,
       },
+      note: kind == _FailureKind.unsupported
+          ? FailureNoteChip(text: strings.analysisAttemptNotCounted)
+          : null,
+      content: _content(kind),
+      // Camera and gallery: two equal ways to a paper the app can explain.
+      pairPrimaryActions: kind == _FailureKind.unsupported,
       primary: _primary(strings),
       secondary: _secondary(strings),
-      tertiary: _tertiary(strings, kind),
+      tertiary: _tertiary(strings),
     );
   }
+
+  /// The page's own blocks under its words.
+  List<Widget> _content(_FailureKind kind) => switch (kind) {
+    // Option B (F23 #5): the text one tap away, then what does work.
+    _FailureKind.unsupported => [
+      if (_hasText) ExtractedTextEntryCard(onTap: _openText),
+      const SupportedDocumentsSection(),
+    ],
+    _ => const [],
+  };
+
+  void _openText() => setState(() => _showText = true);
 
   _FailureKind get _kind => switch (widget.state.failure) {
     NoInternetFailure() => _FailureKind.offline,
@@ -490,13 +511,47 @@ class _FailureBodyState extends State<_FailureBody> {
 
   ServiceStateAction _showTextAction(AppStrings strings) => ServiceStateAction(
     label: strings.resultShowExtractedText,
-    onPressed: () => setState(() => _showText = true),
+    onPressed: _openText,
   );
+
+  ServiceStateAction _homeAction(AppStrings strings) => ServiceStateAction(
+    label: strings.analysisBackToHome,
+    onPressed: widget.onClose ?? () {},
+  );
+
+  /// The camera, when the router supplied the way there.
+  ServiceStateAction? _cameraAction(AppStrings strings) =>
+      switch (widget.onCaptureAnother) {
+        final onCaptureAnother? => ServiceStateAction(
+          label: strings.analysisCaptureAnother,
+          glyph: StrokeGlyph.camera,
+          onPressed: onCaptureAnother,
+        ),
+        null => null,
+      };
+
+  /// The gallery, when the router supplied the way there.
+  ServiceStateAction? _galleryAction(AppStrings strings) =>
+      switch (widget.onPickFromGallery) {
+        final onPickFromGallery? => ServiceStateAction(
+          label: strings.analysisPickFromGallery,
+          glyph: StrokeGlyph.gallery,
+          onPressed: onPickFromGallery,
+        ),
+        null => null,
+      };
 
   /// Retrying leads the way where it can work; a declined consent leads to
   /// Settings instead, since retrying would only fail the same way again;
   /// otherwise the text does.
   ServiceStateAction _primary(AppStrings strings) {
+    // An unsupported paper leads with a new one: the camera, else the
+    // gallery; its text is a card in the page instead (F23 #5).
+    if (_kind == _FailureKind.unsupported) {
+      return _cameraAction(strings) ??
+          _galleryAction(strings) ??
+          _homeAction(strings);
+    }
     if (_kind == _FailureKind.consentDeclined) {
       if (widget.onOpenSettings case final onOpenSettings?) {
         return ServiceStateAction(
@@ -512,23 +567,13 @@ class _FailureBodyState extends State<_FailureBody> {
       );
     }
     if (_hasText) return _showTextAction(strings);
-    return ServiceStateAction(
-      label: strings.analysisBackToHome,
-      onPressed: widget.onClose ?? () {},
-    );
+    return _homeAction(strings);
   }
 
   ServiceStateAction? _secondary(AppStrings strings) {
-    // An unsupported paper: the gallery, beside the camera below — the two
-    // ways to a paper the app can explain.
+    // An unsupported paper: the gallery, beside the camera.
     if (_kind == _FailureKind.unsupported) {
-      if (widget.onPickFromGallery case final onPickFromGallery?) {
-        return ServiceStateAction(
-          label: strings.analysisPickFromGallery,
-          onPressed: onPickFromGallery,
-        );
-      }
-      return null;
+      return _cameraAction(strings) == null ? null : _galleryAction(strings);
     }
     if (!_hasText) return null;
     // A declined consent's primary slot went to Settings above, so the text
@@ -542,20 +587,14 @@ class _FailureBodyState extends State<_FailureBody> {
     return null;
   }
 
-  /// An unsupported paper is the one dead end the user can only leave by
-  /// photographing something else; the rest are worth coming back to.
-  ServiceStateAction _tertiary(AppStrings strings, _FailureKind kind) {
-    if (kind == _FailureKind.unsupported) {
-      if (widget.onCaptureAnother case final onCaptureAnother?) {
-        return ServiceStateAction(
-          label: strings.analysisCaptureAnother,
-          onPressed: onCaptureAnother,
-        );
-      }
+  /// The quiet way home — unless the primary already is it (an unsupported
+  /// page with neither the camera nor the gallery to offer).
+  ServiceStateAction? _tertiary(AppStrings strings) {
+    if (_kind == _FailureKind.unsupported &&
+        _cameraAction(strings) == null &&
+        _galleryAction(strings) == null) {
+      return null;
     }
-    return ServiceStateAction(
-      label: strings.analysisBackToHome,
-      onPressed: widget.onClose ?? () {},
-    );
+    return _homeAction(strings);
   }
 }

@@ -23,6 +23,9 @@ import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart'
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/extracted_text_entry_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_note_chip.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
@@ -386,6 +389,143 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('an unsupported paper, Option B (F23-T08)', () {
+    const failure = UnsupportedDocumentFailure();
+
+    testWidgets('says the attempt did not count', (tester) async {
+      await pumpFailure(tester, failure);
+
+      expect(find.byType(FailureNoteChip), findsOneWidget);
+      expect(find.text(_strings.analysisAttemptNotCounted), findsOneWidget);
+    });
+
+    testWidgets('shows the text card above the papers it explains', (
+      tester,
+    ) async {
+      await pumpFailure(tester, failure);
+
+      final card = tester.getRect(find.byType(ExtractedTextEntryCard));
+      final papers = tester.getRect(find.byType(SupportedDocumentsSection));
+      expect(papers.top, greaterThan(card.bottom));
+    });
+
+    testWidgets('the text card opens what was read', (tester) async {
+      await pumpFailure(tester, failure);
+
+      await tester.tap(find.byType(ExtractedTextEntryCard));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExtractedTextOnlyView), findsOneWidget);
+      expect(find.text(_extraction.text.cleanedText), findsOneWidget);
+    });
+
+    testWidgets('puts camera and gallery side by side, home below', (
+      tester,
+    ) async {
+      var captured = 0;
+      var picked = 0;
+      await pumpFailure(
+        tester,
+        failure,
+        onCaptureAnother: () => captured++,
+        onPickFromGallery: () => picked++,
+      );
+
+      final camera = tester.getCenter(
+        find.text(_strings.analysisCaptureAnother),
+      );
+      final gallery = tester.getCenter(
+        find.text(_strings.analysisPickFromGallery),
+      );
+      final home = tester.getCenter(find.text(_strings.analysisBackToHome));
+      expect(camera.dy, moreOrLessEquals(gallery.dy));
+      // RTL: the camera leads, on the right.
+      expect(camera.dx, greaterThan(gallery.dx));
+      expect(home.dy, greaterThan(camera.dy));
+
+      await tester.tap(find.text(_strings.analysisCaptureAnother));
+      await tester.tap(find.text(_strings.analysisPickFromGallery));
+      expect((captured, picked), (1, 1));
+    });
+
+    testWidgets('no longer offers the text as a button', (tester) async {
+      await pumpFailure(
+        tester,
+        failure,
+        onCaptureAnother: () {},
+        onPickFromGallery: () {},
+      );
+
+      expect(
+        find.widgetWithText(FilledButton, _strings.resultShowExtractedText),
+        findsNothing,
+      );
+    });
+
+    testWidgets('with nowhere to capture, home leads and is not repeated', (
+      tester,
+    ) async {
+      await pumpFailure(tester, failure);
+
+      expect(
+        find.widgetWithText(FilledButton, _strings.analysisBackToHome),
+        findsOneWidget,
+      );
+      expect(find.text(_strings.analysisBackToHome), findsOneWidget);
+    });
+
+    testWidgets('leaves the text card out when nothing was read', (
+      tester,
+    ) async {
+      final emptyCubit = AnalysisResultCubit(
+        session: _session,
+        source: const OcrAnalysisSource(
+          ExtractionResult(
+            text: NormalizedOcrText(originalText: '', cleanedText: ''),
+          ),
+        ),
+        getAnalysisConsent: GetAnalysisConsent(consentStore),
+        analyzeDocument: AnalyzeDocument(repository),
+        buildResult: const BuildAnalysisResult(),
+        syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
+        getDailyUsage: GetDailyUsage(FakeUsageRepository()),
+      );
+      addTearDown(emptyCubit.close);
+      repository.answer = const Err(failure);
+      await emptyCubit.analyze();
+      await pumpApp(
+        tester,
+        BlocProvider<AnalysisResultCubit>.value(
+          value: emptyCubit,
+          child: const AnalysisResultScreen(),
+        ),
+      );
+
+      expect(find.byType(ExtractedTextEntryCard), findsNothing);
+      expect(find.byType(SupportedDocumentsSection), findsOneWidget);
+    });
+
+    testWidgets('fits a small phone at 2.0× text, in English too', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final locale in AppLocalizations.supportedLocales) {
+        await pumpFailure(
+          tester,
+          failure,
+          onCaptureAnother: () {},
+          onPickFromGallery: () {},
+          locale: locale,
+          textScaler: const TextScaler.linear(2),
+        );
+        expect(tester.takeException(), isNull, reason: '$locale');
+      }
     });
   });
 }
