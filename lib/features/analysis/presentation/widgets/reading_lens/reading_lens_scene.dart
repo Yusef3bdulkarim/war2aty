@@ -8,6 +8,7 @@ import 'lens_timeline.dart';
 import 'paper_layout.dart';
 import 'reading_lens_painter.dart';
 import 'scene_frame.dart';
+import 'stack_raster.dart';
 
 /// The magnifier reading the paper (F22 #18, the approved C+ design).
 ///
@@ -41,6 +42,9 @@ class _ReadingLensSceneState extends State<ReadingLensScene>
   /// Created only when the lens moves: under reduced motion there is none.
   Ticker? _ticker;
   final ValueNotifier<SceneFrame> _scene = ValueNotifier(SceneFrame.reading(0));
+
+  /// The sheet stack, rendered once for the scene's life (F22-T13).
+  final StackRaster _stack = StackRaster();
 
   bool _started = false;
   bool _still = false;
@@ -134,6 +138,7 @@ class _ReadingLensSceneState extends State<ReadingLensScene>
     _stillHold?.cancel();
     _ticker?.dispose();
     _scene.dispose();
+    _stack.dispose();
     super.dispose();
   }
 
@@ -148,6 +153,8 @@ class _ReadingLensSceneState extends State<ReadingLensScene>
             painter: ReadingLensPainter(
               scene: _scene,
               colors: AppColors.of(context),
+              stack: _stack,
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
             ),
           ),
         ),

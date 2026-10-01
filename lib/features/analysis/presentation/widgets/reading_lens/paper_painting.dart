@@ -21,9 +21,9 @@ abstract final class PaperPainting {
     _corner,
   );
 
-  /// The two sheets behind the paper, its shadow, and the paper. [finish]
-  /// (0 → 1) rings it in green once the result has arrived.
-  static void paintStack(Canvas canvas, AppColors colors, {double finish = 0}) {
+  /// The two sheets behind the paper, its shadow, and the paper. Never
+  /// changes, so the scene draws it once into an image ([StackRaster]).
+  static void paintStack(Canvas canvas, AppColors colors) {
     _paintSheet(
       canvas,
       colors.bgBase,
@@ -44,15 +44,19 @@ abstract final class PaperPainting {
         _shadow(colors.ink.withValues(alpha: 0.12), 50),
       )
       ..drawRRect(_paper, Paint()..color = colors.card);
-    if (finish > 0) {
-      canvas.drawRRect(
-        _paper.inflate(1.5),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3
-          ..color = colors.success.withValues(alpha: 0.35 * finish),
-      );
-    }
+  }
+
+  /// The green ring round the paper once the result has arrived; [finish]
+  /// runs 0 → 1. Kept out of [paintStack] so the stack's image never changes.
+  static void paintFinishRing(Canvas canvas, AppColors colors, double finish) {
+    if (finish <= 0) return;
+    canvas.drawRRect(
+      _paper.inflate(1.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = colors.success.withValues(alpha: 0.35 * finish),
+    );
   }
 
   /// Everything printed on the paper, as [frame] says it stands.
