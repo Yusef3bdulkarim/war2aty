@@ -424,6 +424,78 @@ void main() {
       expect(find.text(_strings.actionRetry), findsOneWidget);
       expect(find.text(_strings.resultShowExtractedText), findsOneWidget);
     });
+
+    testWidgets('shows the explanation as the step that did not finish', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const AnalysisServiceFailure());
+
+      final steps = tester.widget<AnalysisStepsCard>(
+        find.byType(AnalysisStepsCard),
+      );
+      expect(steps.explanation, ExplanationStep.failed);
+      expect(
+        find.bySemanticsLabel(
+          _strings.analysisStepsSemantics(_strings.analysisStepNotFinished),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('then what to try if it happens again (F23-T11)', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const RequestTimeoutFailure());
+
+      final tips = tester.widget<FailureTipsCard>(find.byType(FailureTipsCard));
+      expect(tips.title, _strings.analysisFailedTipsTitle);
+      expect(tips.tips.map((t) => t.text), [
+        _strings.analysisFailedTipWait,
+        _strings.analysisFailedTipConnection,
+        _strings.analysisFailedTipReadText,
+      ]);
+      expect(
+        tester.getRect(find.byType(FailureTipsCard)).top,
+        greaterThan(tester.getRect(find.byType(AnalysisStepsCard)).bottom),
+      );
+    });
+
+    testWidgets('makes no claim the attempt did not count (F23 #8)', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const RequestTimeoutFailure());
+
+      expect(find.byType(FailureNoteChip), findsNothing);
+    });
+
+    testWidgets('a retry that works replaces the whole page', (tester) async {
+      await pumpFailure(tester, const AnalysisServiceFailure());
+
+      repository.answer = null;
+      await tester.tap(find.text(_strings.actionRetry));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AnalysisStepsCard), findsNothing);
+      expect(find.byType(FailureTipsCard), findsNothing);
+    });
+
+    testWidgets('fits a small phone at 2.0× text, in English too', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final locale in AppLocalizations.supportedLocales) {
+        await pumpFailure(
+          tester,
+          const AnalysisServiceFailure(),
+          locale: locale,
+          textScaler: const TextScaler.linear(2),
+        );
+        expect(tester.takeException(), isNull, reason: '$locale');
+      }
+    });
   });
 
   group('a declined analysis consent (F11-T02)', () {

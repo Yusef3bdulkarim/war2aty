@@ -518,6 +518,30 @@ class _FailureBodyState extends State<_FailureBody> {
             ],
           ),
         ],
+        // What is done, the explanation that did not finish, then what to try
+        // if it happens again (F23 #8).
+        _FailureKind.serviceProblem => [
+          const AnalysisStepsCard(explanation: ExplanationStep.failed),
+          FailureTipsCard(
+            title: strings.analysisFailedTipsTitle,
+            tips: [
+              FailureTip(
+                glyph: StrokeGlyph.clock,
+                text: strings.analysisFailedTipWait,
+              ),
+              FailureTip(
+                glyph: StrokeGlyph.wifi,
+                text: strings.analysisFailedTipConnection,
+              ),
+              // Only when there is text to read meanwhile.
+              if (_hasText)
+                FailureTip(
+                  glyph: StrokeGlyph.documentSteps,
+                  text: strings.analysisFailedTipReadText,
+                ),
+            ],
+          ),
+        ],
         // What is already done, then what to check (F23 #6).
         _FailureKind.offline => [
           const AnalysisStepsCard(explanation: ExplanationStep.waiting),
