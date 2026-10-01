@@ -23,8 +23,10 @@ import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart'
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/analysis_steps_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/extracted_text_entry_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_note_chip.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_tips_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
@@ -195,6 +197,92 @@ void main() {
 
       expect(find.byType(ExtractedTextOnlyView), findsOneWidget);
       expect(find.text(_extraction.text.cleanedText), findsOneWidget);
+    });
+
+    testWidgets('shows what is done, the explanation waiting (F23-T09)', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const NoInternetFailure());
+
+      final steps = tester.widget<AnalysisStepsCard>(
+        find.byType(AnalysisStepsCard),
+      );
+      expect(steps.explanation, ExplanationStep.waiting);
+      expect(
+        find.bySemanticsLabel(
+          _strings.analysisStepsSemantics(
+            _strings.analysisStepWaitingForInternet,
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('then the three things to check, under the steps', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const NoInternetFailure());
+
+      final tips = tester.widget<FailureTipsCard>(find.byType(FailureTipsCard));
+      expect(tips.title, _strings.analysisNoInternetTipsTitle);
+      expect(tips.tips.map((t) => t.text), [
+        _strings.analysisNoInternetTipWifi,
+        _strings.analysisNoInternetTipAirplane,
+        _strings.analysisNoInternetTipSignal,
+      ]);
+      expect(
+        tester.getRect(find.byType(FailureTipsCard)).top,
+        greaterThan(tester.getRect(find.byType(AnalysisStepsCard)).bottom),
+      );
+    });
+
+    testWidgets('makes no claim the attempt did not count (F23 #6)', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const NoInternetFailure());
+
+      expect(find.byType(FailureNoteChip), findsNothing);
+    });
+
+    testWidgets('keeps retry, text and home, and nothing for a new paper', (
+      tester,
+    ) async {
+      await pumpFailure(
+        tester,
+        const NoInternetFailure(),
+        onCaptureAnother: () {},
+        onPickFromGallery: () {},
+      );
+
+      expect(
+        find.widgetWithText(FilledButton, _strings.actionRetry),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(FilledButton, _strings.resultShowExtractedText),
+        findsOneWidget,
+      );
+      expect(find.text(_strings.analysisBackToHome), findsOneWidget);
+      expect(find.text(_strings.analysisCaptureAnother), findsNothing);
+      expect(find.byType(SupportedDocumentsSection), findsNothing);
+    });
+
+    testWidgets('fits a small phone at 2.0× text, in English too', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final locale in AppLocalizations.supportedLocales) {
+        await pumpFailure(
+          tester,
+          const NoInternetFailure(),
+          locale: locale,
+          textScaler: const TextScaler.linear(2),
+        );
+        expect(tester.takeException(), isNull, reason: '$locale');
+      }
     });
   });
 

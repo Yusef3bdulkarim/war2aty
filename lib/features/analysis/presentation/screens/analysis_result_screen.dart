@@ -31,8 +31,10 @@ import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
+import '../widgets/failure/analysis_steps_card.dart';
 import '../widgets/failure/extracted_text_entry_card.dart';
 import '../widgets/failure/failure_note_chip.dart';
+import '../widgets/failure/failure_tips_card.dart';
 import '../widgets/failure/supported_documents_section.dart';
 
 // From `Waraqti.dc.html` → the result page. The top of the page is F21's
@@ -469,7 +471,7 @@ class _FailureBodyState extends State<_FailureBody> {
       note: kind == _FailureKind.unsupported
           ? FailureNoteChip(text: strings.analysisAttemptNotCounted)
           : null,
-      content: _content(kind),
+      content: _content(kind, strings),
       // Camera and gallery: two equal ways to a paper the app can explain.
       pairPrimaryActions: kind == _FailureKind.unsupported,
       primary: _primary(strings),
@@ -479,14 +481,36 @@ class _FailureBodyState extends State<_FailureBody> {
   }
 
   /// The page's own blocks under its words.
-  List<Widget> _content(_FailureKind kind) => switch (kind) {
-    // Option B (F23 #5): the text one tap away, then what does work.
-    _FailureKind.unsupported => [
-      if (_hasText) ExtractedTextEntryCard(onTap: _openText),
-      const SupportedDocumentsSection(),
-    ],
-    _ => const [],
-  };
+  List<Widget> _content(_FailureKind kind, AppStrings strings) =>
+      switch (kind) {
+        // Option B (F23 #5): the text one tap away, then what does work.
+        _FailureKind.unsupported => [
+          if (_hasText) ExtractedTextEntryCard(onTap: _openText),
+          const SupportedDocumentsSection(),
+        ],
+        // What is already done, then what to check (F23 #6).
+        _FailureKind.offline => [
+          const AnalysisStepsCard(explanation: ExplanationStep.waiting),
+          FailureTipsCard(
+            title: strings.analysisNoInternetTipsTitle,
+            tips: [
+              FailureTip(
+                glyph: StrokeGlyph.wifi,
+                text: strings.analysisNoInternetTipWifi,
+              ),
+              FailureTip(
+                glyph: StrokeGlyph.airplane,
+                text: strings.analysisNoInternetTipAirplane,
+              ),
+              FailureTip(
+                glyph: StrokeGlyph.signal,
+                text: strings.analysisNoInternetTipSignal,
+              ),
+            ],
+          ),
+        ],
+        _ => const [],
+      };
 
   void _openText() => setState(() => _showText = true);
 
