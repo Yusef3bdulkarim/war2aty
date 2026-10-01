@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-wait-screen`, based on `develop` · **Milestone:** post-F21
 - **Depends on:** F07 (the result screen and its `AnalysisProgressView`)
-- **Progress:** 11 / 12 DONE (T09, the owner's device pass, open)
+- **Progress:** 14 / 15 DONE (T09, the owner's device pass, open)
 - **PR:** timing to be agreed with the owner once the tasks are done; base `develop`
 
 The owner's redesign of the page shown while the analysis service works
@@ -80,11 +80,13 @@ passive: no buttons, no touch response, no cancel.
     title outline and the underline are already drawn; captions change with
     fades only. On finish the check appears without motion, the haptic fires,
     and `onFinished` follows a 500 ms still hold.
-13. **Screen reader:** one polite announcement at the start, from a
-    live-region label («بنجهّز لك شرح الورقة، استنى ثواني»). The scene and the
+13. **Screen reader:** one polite announcement at the start
+    («بنجهّز لك شرح الورقة، استنى ثواني»). The scene and the
     rotating captions are excluded from semantics. One more announcement at
     15 s («الورقة بتاخد وقت أطول من العادي...») and one at finish («الشرح
-    جاهز») — both by changing that same live region's label (T06).
+    جاهز»). **Superseded by #19:** no announcements at all. (T14 had sent
+    them explicitly, the first after the route's transition —
+    not as a live region, which TalkBack never spoke on appearance.)
 14. **Large Text and small screens:** the caption block has a minimum height,
     not a fixed one, and wraps; the scene scales down to fit. No overflow at
     text scale 2.0 on 320 × 568.
@@ -131,6 +133,13 @@ passive: no buttons, no touch response, no cancel.
       500 ms instead of snapping; the glass magnifies everything under it
       (the stamp and the footer too, which the mockup's copy omitted).
 
+19. **The wait screen announces nothing** (owner, 2026-10-01, after the
+    device pass). It stays passive for screen readers as well: no
+    announcements while waiting, at 15 s or at the finish. It keeps one
+    label saying where the wait stands, read only when someone swipes onto
+    the page, so the page is never blank to a screen reader. Supersedes the
+    announcements of #13 (T15).
+
 ## Tasks
 
 | # | ID | Title | Acceptance criteria | Status |
@@ -147,6 +156,9 @@ passive: no buttons, no touch response, no cancel.
 | 10 | F22-T10 | Rebuild to C+ | The drawing and motion match the C+ frame (#18); the view, captions, semantics, haptic and reduced motion keep their contracts. Tests follow the new geometry and timing | DONE — `PaperLayout` (C+ paper, 18 words, two key words, underline and sparkle positions), `LensTimeline` (the 8 s linear path, `lineEnds`, captions at 1.9/3.8, `bobAt`/`floatAt`/`glintAt`/`spotlightFor`, `wordReadAt` solved exactly on the path's segments; the handle swing and the entrance removed), `PaperFrame` (per-word `WordInk`, `Underline`, `Sparkle`, per-line `Check`, each on its own pass-long cycle), `PaperPainting` (logo bolt, single field, stamp, footer, `paintMarks` for sparkles and checks), `SceneFrame` (bob, float, light, `settled`; the finish keeps the lens reading while it fades), `ReadingLensPainter` (the light behind, lens radius 48, the bobbing lens with a fixed handle), `ReadingLensScene` (the check and haptic on the first finishing frame; the ticker stops after the 900 ms ring). Tests rewritten for the timeline, frames and scene frame; the widget tests follow the new timing; the removal tests now assert that a removal mid-finish never reports the finish (the check, and its haptic, have already come) |
 | 11 | F22-T11 | Quality gate after the pivot | `dart format .`, `flutter analyze` (no new issues), `flutter test`; `/flutter-code-review`; then the PR to `develop` and `@code-reviewer` | DONE — format clean (672 files); analyze 20 issues, the pre-F22 baseline, none new; `flutter test` 2094/2094 (six fewer than at T08: the C★-only tests — title outline, field glow, entrance, handle swing — went with those features). `/flutter-code-review` on the rebuild: `PaperLayout.wordLines` was dead code (only its own test read it) and is removed; the T08 performance note stands for T09 (the painter redraws the blurred sheet shadows every frame, now with the light behind them too) |
 | 12 | F22-T12 | `@code-reviewer` follow-ups | PR #22 reviewed: APPROVE WITH NITS. Fix the should-fix and the cheap nits; close the test gap it named | DONE — the lens fade's `saveLayer` is bounded to the lens's reach (104 paper units: the handle tip, ahead of the shadow and the halo) instead of the whole canvas; the tick, bolt and star paths are built once in their 24-unit icon box and placed by the canvas; the caption's dots fade through their colour instead of an `Opacity` (no layer per frame for the whole wait). New test: a result arriving right at 15 s is announced as ready, never as a long wait |
+| 13 | F22-T13 | Static paper stack | Found on the device pass (branch `fix/analysis-wait-screen-perf-a11y`): the painter redrew the sheet stack's blurred shadows on every frame. Draw it once | DONE — `StackRaster` renders the stack (two sheets, the paper, three blurred shadows) once into a `ui.Image` at the screen's resolution and draws that image every frame as the paper floats; rendered again only for a new palette or size, disposed with the scene. Not a `RepaintBoundary`: Impeller has no raster cache, so a boundary saves re-recording but the blurs would still be rendered each frame. The green finish ring moved out of the stack (`paintFinishRing`) so the image never changes. Tests: one image across 300 frames; a new image (old one freed) for a new palette or size; freed on removal; the image's border is transparent in both palettes, so the 72-unit margin clips no shadow. Both checks were proven by deliberate breaks (no cache; a 20-unit margin) |
+| 14 | F22-T14 | Screen reader announcements | Found on the device pass: TalkBack/VoiceOver said nothing. Fix the three announcements (#13) | DONE — root cause: the page relied on a live region. Android speaks a live region only when its label *changes*, so the first announcement never fired, and «ready» changed 650 ms before the result replaced the page; on iOS the live region announced on appearance but VoiceOver talked over it while announcing the arriving screen. The old tests checked the semantics tree, never that anything was sent. Now: `SemanticsService.sendAnnouncement` for each of the three, the first once the route has finished sliding in (decided a frame after the first build — a pushed route builds its first frame offstage, where its animation reads as complete), skipped if «ready» came first; the live region flag is gone (it would double-speak on Android); the page keeps the current words as its label for swiping. Tests read `tester.takeAnnouncements()` (the platform channel itself): the wait once on appearance, not while sliding in, the long wait once at 15 s, «ready» once, never both long and ready; all five failed before the fix |
+| 15 | F22-T15 | No announcements | The owner decided the page announces nothing (#19). Remove T14's announcements; keep T13 | DONE — `SemanticsService.sendAnnouncement` and the wait-for-the-route logic removed from `AnalysisProgressView`; the page keeps its `Semantics(container, label)` with the current status for swiping. Tests: no announcement reaches the platform channel through a 16 s wait and the finish, with and without reduced motion; the swipe label test stays |
 
 ## Exit DoD
 

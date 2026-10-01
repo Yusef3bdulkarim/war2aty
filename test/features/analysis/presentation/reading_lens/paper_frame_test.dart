@@ -138,7 +138,8 @@ void main() {
         ]) {
           final recorder = PictureRecorder();
           final canvas = Canvas(recorder);
-          PaperPainting.paintStack(canvas, colors, finish: 0.5);
+          PaperPainting.paintStack(canvas, colors);
+          PaperPainting.paintFinishRing(canvas, colors, 0.5);
           PaperPainting.paintContent(canvas, frame, colors);
           PaperPainting.paintMarks(canvas, frame, colors);
           recorder.endRecording().dispose();

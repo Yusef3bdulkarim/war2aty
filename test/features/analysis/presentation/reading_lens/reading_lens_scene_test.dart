@@ -1,11 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/lens_timeline.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/paper_layout.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/reading_lens_painter.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/reading_lens_scene.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/reading_lens/scene_frame.dart';
 
 import '../../../../support/pump_app.dart';
+
+ReadingLensPainter _painter(WidgetTester tester) {
+  final paint = tester.widget<CustomPaint>(
+    find.descendant(
+      of: find.byType(ReadingLensScene),
+      matching: find.byType(CustomPaint),
+    ),
+  );
+  return paint.painter! as ReadingLensPainter;
+}
+
+/// The physical pixels per paper unit the scene draws the stack at.
+double _scale(WidgetTester tester, ReadingLensPainter painter) {
+  final width = tester.getSize(find.byType(ReadingLensScene)).width;
+  return width / PaperLayout.size.width * painter.devicePixelRatio;
+}
 
 SceneFrame _frame(WidgetTester tester) {
   final paint = tester.widget<CustomPaint>(
@@ -92,6 +109,46 @@ void main() {
       final size = tester.getSize(find.byType(CustomPaint).last);
       expect(size.width, 200);
       expect(size.height, closeTo(200 * 360 / 260, 0.01));
+    });
+  });
+
+  group('ReadingLensScene stack', () {
+    testWidgets('renders the sheet stack once, not on every frame', (
+      tester,
+    ) async {
+      await pumpApp(tester, harness(), settle: false);
+      await tester.pump(const Duration(milliseconds: 16));
+      final painter = _painter(tester);
+      final image = painter.stack.imageFor(
+        painter.colors,
+        _scale(tester, painter),
+      );
+
+      // Five seconds of reading, the paper floating all the while.
+      for (var i = 0; i < 300; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(
+        _painter(
+          tester,
+        ).stack.imageFor(painter.colors, _scale(tester, painter)),
+        same(image),
+      );
+      expect(image.debugDisposed, isFalse);
+    });
+
+    testWidgets('frees the stack image when the scene goes', (tester) async {
+      await pumpApp(tester, harness(), settle: false);
+      await tester.pump(const Duration(milliseconds: 16));
+      final painter = _painter(tester);
+      final image = painter.stack.imageFor(
+        painter.colors,
+        _scale(tester, painter),
+      );
+
+      shown.value = false;
+      await tester.pump();
+      expect(image.debugDisposed, isTrue);
     });
   });
 

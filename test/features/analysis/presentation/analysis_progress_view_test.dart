@@ -12,6 +12,12 @@ import '../../../support/pump_app.dart';
 
 const _strings = ArStrings();
 
+/// What the page has sent to the screen reader — taken from the platform
+/// channel itself, so it is what TalkBack and VoiceOver would have said.
+List<String> _spoken(WidgetTester tester) => [
+  for (final announcement in tester.takeAnnouncements()) announcement.message,
+];
+
 void main() {
   late ValueNotifier<bool> finishing;
   late ValueNotifier<bool> shown;
@@ -89,67 +95,37 @@ void main() {
       expect(find.byType(IconButton), findsNothing);
     });
 
-    testWidgets('is one live region that announces the wait once', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
+    testWidgets('sends no announcements, from start to finish', (tester) async {
+      // The page stays passive for screen readers (F22 #19).
       await pumpApp(tester, harness(), settle: false);
-
-      expect(
-        tester.getSemantics(
-          find.bySemanticsLabel(_strings.analysisRunningStatus),
-        ),
-        isSemantics(label: _strings.analysisRunningStatus, isLiveRegion: true),
-      );
-      // The captions follow a clock: they are not read out.
-      await tester.pump(const Duration(seconds: 7));
-      expect(
-        find.bySemanticsLabel(RegExp(_strings.analysisWaitStillSeconds)),
-        findsNothing,
-      );
-      expect(
-        find.bySemanticsLabel(_strings.analysisRunningStatus),
-        findsOneWidget,
-      );
-      semantics.dispose();
-    });
-
-    testWidgets('says the wait is long from 15 s, and only then', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await pumpApp(tester, harness(), settle: false);
-
-      await tester.pump(const Duration(milliseconds: 14900));
-      expect(
-        find.bySemanticsLabel(_strings.analysisRunningStatus),
-        findsOneWidget,
-      );
-      await tester.pump(const Duration(milliseconds: 200));
-      expect(
-        find.bySemanticsLabel(_strings.analysisWaitLongAnnouncement),
-        findsOneWidget,
-      );
-      semantics.dispose();
-    });
-
-    testWidgets('a result right at 15 s is announced as ready, not long', (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await pumpApp(tester, harness(), settle: false);
-      await tester.pump(const Duration(milliseconds: 14990));
-
+      await tester.pump(const Duration(seconds: 16));
       finishing.value = true;
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(seconds: 1));
+      expect(_spoken(tester), isEmpty);
+      expect(finished, 1);
+    });
+
+    testWidgets('sends none under reduced motion either', (tester) async {
+      await pumpApp(tester, harness(reducedMotion: true), settle: false);
+      await tester.pump(const Duration(seconds: 16));
+      finishing.value = true;
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(_spoken(tester), isEmpty);
+    });
+
+    testWidgets('the page keeps a label for swiping onto it', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await pumpApp(tester, harness(), settle: false);
       expect(
-        find.bySemanticsLabel(_strings.analysisWaitReadyAnnouncement),
+        find.bySemanticsLabel(_strings.analysisRunningStatus),
         findsOneWidget,
       );
+      await tester.pump(const Duration(seconds: 16));
       expect(
         find.bySemanticsLabel(_strings.analysisWaitLongAnnouncement),
-        findsNothing,
+        findsOneWidget,
       );
       semantics.dispose();
     });

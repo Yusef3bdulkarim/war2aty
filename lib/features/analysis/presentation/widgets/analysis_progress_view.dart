@@ -35,9 +35,11 @@ const double _gapHeightShare = 0.06;
 /// result. Removing the page (an error, leaving the route) stops it and fires
 /// nothing.
 ///
-/// For assistive technology the page is one live region: it announces the
-/// wait once, again only if the wait runs long, and once more when the result
-/// is ready (F22 #13). The drawing and the rotating captions are not read.
+/// For assistive technology the page is passive too: it announces nothing
+/// (owner's decision, F22 #19). It carries one label saying where the wait
+/// stands, read only when someone swipes onto it, so the page is never
+/// blank to a screen reader. The drawing and the rotating captions are not
+/// read.
 class AnalysisProgressView extends StatefulWidget {
   const AnalysisProgressView({
     this.finishing = false,
@@ -52,13 +54,13 @@ class AnalysisProgressView extends StatefulWidget {
   State<AnalysisProgressView> createState() => _AnalysisProgressViewState();
 }
 
-/// What the live region currently says.
+/// Where the wait stands, for the page's label.
 enum _Status { waiting, long, ready }
 
 class _AnalysisProgressViewState extends State<AnalysisProgressView> {
   _Status _status = _Status.waiting;
 
-  /// The result has arrived: one haptic, and the region says so (F22 #11).
+  /// The result has arrived: one haptic (F22 #11).
   void _onCheckShown() {
     HapticFeedback.lightImpact();
     setState(() => _status = _Status.ready);
@@ -68,20 +70,23 @@ class _AnalysisProgressViewState extends State<AnalysisProgressView> {
     if (_status == _Status.waiting) setState(() => _status = _Status.long);
   }
 
+  String _words(_Status status) {
+    final strings = context.strings;
+    return switch (status) {
+      _Status.waiting => strings.analysisRunningStatus,
+      _Status.long => strings.analysisWaitLongAnnouncement,
+      _Status.ready => strings.analysisWaitReadyAnnouncement,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
-    final strings = context.strings;
-
     return ColoredBox(
       color: AppColors.of(context).surface,
       child: SafeArea(
         child: Semantics(
-          liveRegion: true,
-          label: switch (_status) {
-            _Status.waiting => strings.analysisRunningStatus,
-            _Status.long => strings.analysisWaitLongAnnouncement,
-            _Status.ready => strings.analysisWaitReadyAnnouncement,
-          },
+          container: true,
+          label: _words(_status),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final height = constraints.maxHeight;

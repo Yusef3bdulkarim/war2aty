@@ -8,6 +8,7 @@ import 'lens_timeline.dart';
 import 'paper_layout.dart';
 import 'paper_painting.dart';
 import 'scene_frame.dart';
+import 'stack_raster.dart';
 
 /// Paints the scene [scene] holds, repainting whenever it changes — which is
 /// every frame while the lens moves, without rebuilding a single widget
@@ -17,11 +18,21 @@ import 'scene_frame.dart';
 /// proportions). The light, the lens, its handle and the rings reach outside
 /// that box; nothing above clips them.
 class ReadingLensPainter extends CustomPainter {
-  ReadingLensPainter({required this.scene, required this.colors})
-    : super(repaint: scene);
+  ReadingLensPainter({
+    required this.scene,
+    required this.colors,
+    required this.stack,
+    required this.devicePixelRatio,
+  }) : super(repaint: scene);
 
   final ValueListenable<SceneFrame> scene;
   final AppColors colors;
+
+  /// The sheet stack, rendered once; its owner disposes it.
+  final StackRaster stack;
+
+  /// To render the stack at the screen's own resolution.
+  final double devicePixelRatio;
 
   /// The lens's radius, in paper units, and its magnification (F22 #4).
   static const double lensRadius = 48;
@@ -38,14 +49,16 @@ class ReadingLensPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final frame = scene.value;
+    final scale = size.width / PaperLayout.size.width;
     canvas
       ..save()
-      ..scale(size.width / PaperLayout.size.width)
+      ..scale(scale)
       // Everything floats together: the light, the paper, the lens.
       ..translate(0, frame.paperFloat);
 
     _paintSpotlight(canvas, frame);
-    PaperPainting.paintStack(canvas, colors, finish: frame.settled);
+    stack.paint(canvas, colors, scale * devicePixelRatio);
+    PaperPainting.paintFinishRing(canvas, colors, frame.settled);
     PaperPainting.paintContent(canvas, frame.paper, colors);
     if (frame.lensOpacity > 0) _paintLens(canvas, frame);
     PaperPainting.paintMarks(canvas, frame.paper, colors);
@@ -248,5 +261,8 @@ class ReadingLensPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(ReadingLensPainter oldDelegate) =>
-      oldDelegate.scene != scene || oldDelegate.colors != colors;
+      oldDelegate.scene != scene ||
+      oldDelegate.colors != colors ||
+      oldDelegate.stack != stack ||
+      oldDelegate.devicePixelRatio != devicePixelRatio;
 }
