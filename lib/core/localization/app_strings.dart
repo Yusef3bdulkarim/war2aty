@@ -790,10 +790,6 @@ abstract interface class AppStrings {
   /// Leads to Settings from the declined-consent state page (F11-T02).
   String get analysisConsentDeclinedOpenSettings;
 
-  /// Reads the extracted text aloud from a state screen, where there is no
-  /// surrounding text to lean on.
-  String get resultListenToExtractedText;
-
   /// Leaves a dead end by photographing a different paper.
   String get analysisCaptureAnother;
 

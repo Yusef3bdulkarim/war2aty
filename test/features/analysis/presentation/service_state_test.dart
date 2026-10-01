@@ -118,8 +118,8 @@ void main() {
     WidgetTester tester,
     AppFailure failure, {
     VoidCallback? onClose,
-    VoidCallback? onListen,
     VoidCallback? onCaptureAnother,
+    VoidCallback? onPickFromGallery,
     VoidCallback? onOpenSettings,
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
@@ -135,8 +135,8 @@ void main() {
         ],
         child: AnalysisResultScreen(
           onClose: onClose,
-          onListen: onListen,
           onCaptureAnother: onCaptureAnother,
+          onPickFromGallery: onPickFromGallery,
           onOpenSettings: onOpenSettings,
         ),
       ),
@@ -226,24 +226,11 @@ void main() {
       expect(repository.calls, 1);
     });
 
-    testWidgets('offers to read it aloud once there is a reader', (
-      tester,
-    ) async {
-      var listened = 0;
-      await pumpFailure(tester, failure, onListen: () => listened++);
-
-      await tester.tap(find.text(_strings.resultListenToExtractedText));
-      await tester.pumpAndSettle();
-
-      expect(listened, 1);
-    });
-
-    testWidgets('leaves listening out while there is no reader', (
-      tester,
-    ) async {
+    testWidgets('offers no listening (F23 #12)', (tester) async {
       await pumpFailure(tester, failure);
 
-      expect(find.text(_strings.resultListenToExtractedText), findsNothing);
+      expect(find.text(_strings.resultListenToText), findsNothing);
+      expect(find.text(_strings.resultListen), findsNothing);
     });
   });
 
@@ -360,6 +347,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(captured, 1);
+    });
+
+    testWidgets('or for one from the gallery (F23-T07)', (tester) async {
+      var picked = 0;
+      await pumpFailure(
+        tester,
+        const UnsupportedDocumentFailure(),
+        onPickFromGallery: () => picked++,
+      );
+
+      await tester.tap(find.text(_strings.analysisPickFromGallery));
+      await tester.pumpAndSettle();
+
+      expect(picked, 1);
+    });
+
+    testWidgets('offers the gallery on no other page', (tester) async {
+      await pumpFailure(
+        tester,
+        const NoInternetFailure(),
+        onPickFromGallery: () {},
+      );
+
+      expect(find.text(_strings.analysisPickFromGallery), findsNothing);
     });
 
     testWidgets('lays out under Large Text and in English', (tester) async {

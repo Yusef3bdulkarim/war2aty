@@ -975,8 +975,6 @@ final class EnStrings implements AppStrings {
   @override
   String get analysisConsentDeclinedOpenSettings => 'Open Settings';
   @override
-  String get resultListenToExtractedText => 'Listen to the text';
-  @override
   String get analysisCaptureAnother => 'Photograph another';
   @override
   String get extractedTextOnlyTitle => 'The text we read';

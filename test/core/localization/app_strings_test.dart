@@ -367,7 +367,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'analysisConsentValueDates': (s) => s.analysisConsentValueDates,
   'analysisConsentDeclinedOpenSettings': (s) =>
       s.analysisConsentDeclinedOpenSettings,
-  'resultListenToExtractedText': (s) => s.resultListenToExtractedText,
   'analysisCaptureAnother': (s) => s.analysisCaptureAnother,
   'extractedTextOnlyTitle': (s) => s.extractedTextOnlyTitle,
   'extractedTextOnlyNote': (s) => s.extractedTextOnlyNote,

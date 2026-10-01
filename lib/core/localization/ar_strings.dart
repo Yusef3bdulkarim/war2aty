@@ -985,8 +985,6 @@ final class ArStrings implements AppStrings {
   @override
   String get analysisConsentDeclinedOpenSettings => 'افتح الإعدادات';
   @override
-  String get resultListenToExtractedText => 'الاستماع للنص';
-  @override
   String get analysisCaptureAnother => 'صوّر ورقة تانية';
   @override
   String get extractedTextOnlyTitle => 'النص المستخرج';
