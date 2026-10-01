@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -36,14 +35,11 @@ const double _gapHeightShare = 0.06;
 /// result. Removing the page (an error, leaving the route) stops it and fires
 /// nothing.
 ///
-/// For assistive technology the page speaks three times (F22 #13): the wait,
-/// once the page has finished sliding in; a long wait, at 15 s; and the
-/// result, as the check appears. These are sent as announcements, not as a
-/// live region: Android speaks a live region only when its label changes, so
-/// the first announcement never reached TalkBack, and VoiceOver dropped it
-/// while it announced the arriving screen (F22-T14). The page keeps the same
-/// words as its label, for someone who swipes onto it. The drawing and the
-/// rotating captions are not read.
+/// For assistive technology the page is passive too: it announces nothing
+/// (owner's decision, F22 #19). It carries one label saying where the wait
+/// stands, read only when someone swipes onto it, so the page is never
+/// blank to a screen reader. The drawing and the rotating captions are not
+/// read.
 class AnalysisProgressView extends StatefulWidget {
   const AnalysisProgressView({
     this.finishing = false,
@@ -58,74 +54,20 @@ class AnalysisProgressView extends StatefulWidget {
   State<AnalysisProgressView> createState() => _AnalysisProgressViewState();
 }
 
-/// What the page has last told the screen reader.
+/// Where the wait stands, for the page's label.
 enum _Status { waiting, long, ready }
 
 class _AnalysisProgressViewState extends State<AnalysisProgressView> {
   _Status _status = _Status.waiting;
 
-  /// Whether the wait has been announced, or is waiting for the route.
-  bool _startScheduled = false;
-
-  /// The route sliding the page in; listened to until it has arrived.
-  Animation<double>? _arriving;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_startScheduled) return;
-    _startScheduled = true;
-    // Decided after the first frame: a pushed route builds that frame
-    // offstage, where its animation reads as already complete.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _whenArrived());
-  }
-
-  void _whenArrived() {
-    if (!mounted) return;
-    final arriving = ModalRoute.of(context)?.animation;
-    if (arriving == null || arriving.isCompleted) {
-      _announceStart();
-    } else {
-      _arriving = arriving..addStatusListener(_onArriving);
-    }
-  }
-
-  void _onArriving(AnimationStatus status) {
-    if (status != AnimationStatus.completed) return;
-    _stopListening();
-    _announceStart();
-  }
-
-  void _stopListening() {
-    _arriving?.removeStatusListener(_onArriving);
-    _arriving = null;
-  }
-
-  /// Skipped if the result arrived first: «ready» has been said instead.
-  void _announceStart() {
-    if (!mounted || _status != _Status.waiting) return;
-    _announce(_Status.waiting);
-  }
-
-  /// The result has arrived: one haptic, and it is announced (F22 #11, #13).
+  /// The result has arrived: one haptic (F22 #11).
   void _onCheckShown() {
     HapticFeedback.lightImpact();
     setState(() => _status = _Status.ready);
-    _announce(_Status.ready);
   }
 
   void _onLongWait() {
-    if (_status != _Status.waiting) return;
-    setState(() => _status = _Status.long);
-    _announce(_Status.long);
-  }
-
-  void _announce(_Status status) {
-    SemanticsService.sendAnnouncement(
-      View.of(context),
-      _words(status),
-      Directionality.of(context),
-    );
+    if (_status == _Status.waiting) setState(() => _status = _Status.long);
   }
 
   String _words(_Status status) {
@@ -135,12 +77,6 @@ class _AnalysisProgressViewState extends State<AnalysisProgressView> {
       _Status.long => strings.analysisWaitLongAnnouncement,
       _Status.ready => strings.analysisWaitReadyAnnouncement,
     };
-  }
-
-  @override
-  void dispose() {
-    _stopListening();
-    super.dispose();
   }
 
   @override
