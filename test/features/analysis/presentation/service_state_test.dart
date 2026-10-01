@@ -27,6 +27,7 @@ import 'package:war2aty/features/analysis/presentation/widgets/failure/analysis_
 import 'package:war2aty/features/analysis/presentation/widgets/failure/extracted_text_entry_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_note_chip.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_tips_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/limit_reset_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
@@ -322,6 +323,84 @@ void main() {
 
       expect(find.text(_strings.resultListenToText), findsNothing);
       expect(find.text(_strings.resultListen), findsNothing);
+    });
+
+    testWidgets('counts down to the failure\'s own reset (F23-T10)', (
+      tester,
+    ) async {
+      await pumpFailure(tester, failure);
+
+      final card = tester.widget<LimitResetCard>(find.byType(LimitResetCard));
+      expect(card.resetAt, failure.resetAtCairo);
+      // No cached usage in this suite: no number, so no pill.
+      expect(card.dailyLimit, isNull);
+    });
+
+    testWidgets('then what can be done now: read the text, come back', (
+      tester,
+    ) async {
+      await pumpFailure(tester, failure);
+
+      final tips = tester.widget<FailureTipsCard>(find.byType(FailureTipsCard));
+      expect(tips.title, _strings.analysisLimitTipsTitle);
+      expect(tips.tips.map((t) => t.text), [
+        _strings.analysisLimitTipReadText,
+        _strings.analysisLimitTipTomorrow,
+      ]);
+      expect(
+        tester.getRect(find.byType(FailureTipsCard)).top,
+        greaterThan(tester.getRect(find.byType(LimitResetCard)).bottom),
+      );
+    });
+
+    testWidgets('names the limit when the cache knows it', (tester) async {
+      final usage = FakeUsageRepository(
+        seed: usageWith(limit: 3, remaining: 0),
+      );
+      addTearDown(usage.dispose);
+      final limitCubit = AnalysisResultCubit(
+        session: _session,
+        source: const OcrAnalysisSource(_extraction),
+        getAnalysisConsent: GetAnalysisConsent(consentStore),
+        analyzeDocument: AnalyzeDocument(repository),
+        buildResult: const BuildAnalysisResult(),
+        syncDailyUsage: SyncDailyUsage(usage),
+        getDailyUsage: GetDailyUsage(usage),
+      );
+      addTearDown(limitCubit.close);
+      repository.answer = Err(failure);
+      await limitCubit.analyze();
+      await pumpApp(
+        tester,
+        BlocProvider<AnalysisResultCubit>.value(
+          value: limitCubit,
+          child: const AnalysisResultScreen(),
+        ),
+      );
+
+      expect(
+        find.text(_strings.analysisLimitReachedMessageWithLimit(3)),
+        findsOneWidget,
+      );
+      expect(find.text(_strings.analysisLimitUsedOf(3)), findsOneWidget);
+    });
+
+    testWidgets('fits a small phone at 2.0× text, in English too', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final locale in AppLocalizations.supportedLocales) {
+        await pumpFailure(
+          tester,
+          failure,
+          locale: locale,
+          textScaler: const TextScaler.linear(2),
+        );
+        expect(tester.takeException(), isNull, reason: '$locale');
+      }
     });
   });
 

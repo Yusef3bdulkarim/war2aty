@@ -35,6 +35,7 @@ import '../widgets/failure/analysis_steps_card.dart';
 import '../widgets/failure/extracted_text_entry_card.dart';
 import '../widgets/failure/failure_note_chip.dart';
 import '../widgets/failure/failure_tips_card.dart';
+import '../widgets/failure/limit_reset_card.dart';
 import '../widgets/failure/supported_documents_section.dart';
 
 // From `Waraqti.dc.html` → the result page. The top of the page is F21's
@@ -463,7 +464,10 @@ class _FailureBodyState extends State<_FailureBody> {
       },
       message: switch (kind) {
         _FailureKind.offline => strings.analysisNoInternetMessage,
-        _FailureKind.limitReached => strings.analysisLimitReachedMessage,
+        _FailureKind.limitReached => switch (widget.state.dailyLimit) {
+          final limit? => strings.analysisLimitReachedMessageWithLimit(limit),
+          null => strings.analysisLimitReachedMessage,
+        },
         _FailureKind.unsupported => strings.analysisUnsupportedMessage,
         _FailureKind.consentDeclined => strings.analysisConsentDeclinedMessage,
         _FailureKind.serviceProblem => strings.analysisFailedMessage,
@@ -487,6 +491,32 @@ class _FailureBodyState extends State<_FailureBody> {
         _FailureKind.unsupported => [
           if (_hasText) ExtractedTextEntryCard(onTap: _openText),
           const SupportedDocumentsSection(),
+        ],
+        // When the analyses renew, then what still works today (F23 #7).
+        _FailureKind.limitReached => [
+          if (widget.state.failure case DailyLimitReachedFailure(
+            :final resetAtCairo,
+          ))
+            LimitResetCard(
+              resetAt: resetAtCairo,
+              dailyLimit: widget.state.dailyLimit,
+            ),
+          FailureTipsCard(
+            title: strings.analysisLimitTipsTitle,
+            tips: [
+              // Only when there is text to read and copy.
+              if (_hasText)
+                FailureTip(
+                  glyph: StrokeGlyph.documentSteps,
+                  text: strings.analysisLimitTipReadText,
+                ),
+              FailureTip(
+                glyph: StrokeGlyph.lightbulb,
+                text: strings.analysisLimitTipTomorrow,
+                tone: FailureTipTone.amber,
+              ),
+            ],
+          ),
         ],
         // What is already done, then what to check (F23 #6).
         _FailureKind.offline => [

@@ -8,11 +8,19 @@ import 'package:war2aty/features/analysis/presentation/widgets/failure/analysis_
 import 'package:war2aty/features/analysis/presentation/widgets/failure/extracted_text_entry_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_note_chip.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_tips_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/limit_reset_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 
 import '../../../support/pump_app.dart';
 
 const _strings = ArStrings();
+
+/// The usage pill's dots, one per analysis.
+final _dots = find.byWidgetPredicate(
+  (widget) =>
+      widget.key is ValueKey<String> &&
+      (widget.key! as ValueKey<String>).value.startsWith('usage-dot-'),
+);
 
 Future<void> _pump(
   WidgetTester tester,
@@ -301,6 +309,132 @@ void main() {
         AppColors.light.brandPrimary,
         AppColors.light.warningInk,
       ]);
+    });
+  });
+
+  group('LimitResetCard', () {
+    final resetAt = DateTime.utc(2026, 10, 1, 22);
+    late DateTime now;
+
+    Future<void> pumpCard(
+      WidgetTester tester, {
+      required Duration left,
+      int? dailyLimit,
+      TextScaler? textScaler,
+    }) {
+      now = resetAt.subtract(left);
+      return _pump(
+        tester,
+        LimitResetCard(
+          resetAt: resetAt,
+          dailyLimit: dailyLimit,
+          now: () => now,
+        ),
+        textScaler: textScaler,
+      );
+    }
+
+    /// Moves the injected clock and the test's fake timers together.
+    Future<void> advance(WidgetTester tester, Duration by) async {
+      now = now.add(by);
+      await tester.pump(by);
+    }
+
+    testWidgets('says how long until the analyses renew', (tester) async {
+      await pumpCard(tester, left: const Duration(hours: 5, minutes: 12));
+
+      expect(find.text(_strings.analysisLimitResetsInLabel), findsOneWidget);
+      expect(find.text('5 ساعات و 12 دقيقة'), findsOneWidget);
+      expect(find.text(_strings.analysisLimitResetTime), findsOneWidget);
+    });
+
+    testWidgets('rounds a part-minute up, never down to zero', (tester) async {
+      await pumpCard(
+        tester,
+        left: const Duration(hours: 5, minutes: 11, seconds: 30),
+      );
+      expect(find.text('5 ساعات و 12 دقيقة'), findsOneWidget);
+
+      await pumpCard(tester, left: const Duration(seconds: 20));
+      expect(find.text('دقيقة'), findsOneWidget);
+    });
+
+    testWidgets('changes the minute exactly when it turns', (tester) async {
+      await pumpCard(tester, left: const Duration(minutes: 2, seconds: 30));
+      expect(find.text('3 دقايق'), findsOneWidget);
+
+      await advance(tester, const Duration(seconds: 29));
+      expect(find.text('3 دقايق'), findsOneWidget);
+
+      await advance(tester, const Duration(seconds: 1));
+      expect(find.text('دقيقتين'), findsOneWidget);
+
+      await advance(tester, const Duration(minutes: 1));
+      expect(find.text('دقيقة'), findsOneWidget);
+    });
+
+    testWidgets('says the analyses renewed once the time is up', (
+      tester,
+    ) async {
+      await pumpCard(tester, left: const Duration(seconds: 30));
+      expect(find.text('دقيقة'), findsOneWidget);
+
+      await advance(tester, const Duration(seconds: 30));
+      expect(find.text(_strings.analysisLimitRenewed), findsOneWidget);
+      expect(find.text(_strings.analysisLimitResetsInLabel), findsNothing);
+    });
+
+    testWidgets('starts renewed when the reset has passed', (tester) async {
+      await pumpCard(tester, left: const Duration(minutes: -5));
+
+      expect(find.text(_strings.analysisLimitRenewed), findsOneWidget);
+    });
+
+    testWidgets('names the limit with one dot per analysis', (tester) async {
+      await pumpCard(tester, left: const Duration(hours: 1), dailyLimit: 3);
+
+      expect(find.text(_strings.analysisLimitUsedOf(3)), findsOneWidget);
+      expect(_dots, findsNWidgets(3));
+    });
+
+    testWidgets('drops the dots for a large limit, keeps the words', (
+      tester,
+    ) async {
+      await pumpCard(tester, left: const Duration(hours: 1), dailyLimit: 12);
+
+      expect(find.text(_strings.analysisLimitUsedOf(12)), findsOneWidget);
+      expect(_dots, findsNothing);
+    });
+
+    testWidgets('leaves the pill out when the limit is unknown', (
+      tester,
+    ) async {
+      await pumpCard(tester, left: const Duration(hours: 1));
+
+      expect(find.textContaining('استخدمت'), findsNothing);
+      expect(_dots, findsNothing);
+    });
+
+    testWidgets('stops its timer when removed', (tester) async {
+      await pumpCard(tester, left: const Duration(hours: 1));
+
+      await tester.pumpWidget(const SizedBox());
+      // A timer left running would fail the test as pending.
+      await tester.pump(const Duration(hours: 2));
+    });
+
+    testWidgets('fits a small phone at 2.0× text', (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await pumpCard(
+        tester,
+        left: const Duration(hours: 10, minutes: 59),
+        dailyLimit: 10,
+        textScaler: const TextScaler.linear(2),
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 }
