@@ -1,20 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../icons/stroke_icon.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
-import 'top_bar_icon_button.dart';
+import 'teal_top_bar.dart';
 
 // The owner's result-screen review, mockup A (F21 locked decisions #14, #19,
-// #20). In the mockup the bar sits 56px from the physical top: a 52px status
-// bar plus 4px. Here the status bar's height comes from [SafeArea], so only
-// the 4px is a constant.
-const double _barTop = 56 - 52;
-const double _barBottom = 4;
-const double _barSide = AppSpacing.screenHorizontal;
+// #20).
 const double _heroRadius = 28;
 const double _heroPaddingH = 20;
 const double _heroPaddingTop = 4;
@@ -69,11 +63,7 @@ class ResultHeroScrollView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final barHeight =
-        MediaQuery.paddingOf(context).top +
-        _barTop +
-        TopBarIconButton.dimension +
-        _barBottom;
+    final barHeight = TealTopBar.heightOf(context);
     final summary = this.summary?.trim() ?? '';
 
     return Stack(
@@ -107,7 +97,7 @@ class ResultHeroScrollView extends StatelessWidget {
           top: 0,
           start: 0,
           end: 0,
-          child: _PinnedBar(
+          child: TealTopBar(
             heading: heading,
             backTooltip: backTooltip,
             onBack: onBack,
@@ -115,83 +105,6 @@ class ResultHeroScrollView extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The slim teal bar that never scrolls: the back arrow, the page's heading
-/// for screen readers, and [trailing].
-class _PinnedBar extends StatelessWidget {
-  const _PinnedBar({
-    required this.heading,
-    required this.backTooltip,
-    this.onBack,
-    this.trailing,
-  });
-
-  final String heading;
-  final String backTooltip;
-  final VoidCallback? onBack;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    // Light status-bar icons: they sit on the teal.
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.brandPrimary,
-          borderRadius: const BorderRadius.vertical(
-            bottom: Radius.circular(_heroRadius),
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              _barSide,
-              _barTop,
-              _barSide,
-              _barBottom,
-            ),
-            child: SizedBox(
-              height: TopBarIconButton.dimension,
-              child: Row(
-                children: [
-                  TopBarIconButton(
-                    onPressed: onBack,
-                    tooltip: backTooltip,
-                    icon: Transform.flip(
-                      flipX: mirror,
-                      child: StrokeIcon(
-                        StrokeGlyph.arrowBack,
-                        color: colors.onBrand,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ),
-                  // The rest of the row carries the page's heading, so it has
-                  // real bounds for a screen reader to land on.
-                  Expanded(
-                    child: Semantics(
-                      header: true,
-                      label: heading,
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                  ?trailing,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

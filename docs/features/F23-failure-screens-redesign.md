@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/failure-screens-redesign`, based on `develop` · **Milestone:** post-F22
 - **Depends on:** F07 (the result screen and its failure page), F21 (the teal result bar)
-- **Progress:** 1 / 14 DONE
+- **Progress:** 2 / 14 DONE
 - **PR:** timing to be agreed with the owner once the tasks are done; base `develop`
 
 The owner's redesign of the five pages the result screen shows when there is
@@ -146,7 +146,7 @@ daily limit for the limit page (#14).
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F23-T01 | Task file | This file and the README row, from the owner's decisions of 2026-10-01 | DONE |
-| 2 | F23-T02 | Shared teal bar | `TealTopBar` in `core/widgets/` (back arrow, optional screen-reader heading, optional trailing, light status-bar icons); `ResultHeroScrollView` uses it with no visual change. Tests: back tap, tooltip, heading only when given, mirrored arrow in LTR | TODO |
+| 2 | F23-T02 | Shared teal bar | `TealTopBar` in `core/widgets/` (back arrow, optional screen-reader heading, optional trailing, light status-bar icons); `ResultHeroScrollView` uses it with no visual change. Tests: back tap, tooltip, heading only when given, mirrored arrow in LTR | DONE — `lib/core/widgets/teal_top_bar.dart` (`TealTopBar`, `TealTopBar.heightOf`); `ResultHeroScrollView` draws it and its private `_PinnedBar` is deleted, with no visual change (its 16 tests and the result and saved-paper screen suites, 54, pass unchanged). 5 tests in `test/core/widgets/teal_top_bar_test.dart` |
 | 3 | F23-T03 | New stroke glyphs | `wifi`, `airplane`, `signal`, `lightbulb` in `StrokeGlyph` and `svg_path.dart`. Existing glyph test covers them | TODO |
 | 4 | F23-T04 | `ServiceStateView` rework | Teal bar; no icon panel (the owner's change finished, the three parameters removed, callers updated); title, message, optional `note`, `content` widgets; actions with optional glyphs, an optional side-by-side primary pair that stacks at text scale ≥ 1.3; the quiet action in `textSecondary`. Tests: no icon panel, content order, pair in one row vs stacked at 1.3, back calls `onBack`, no overflow at 2.0× on 320 × 568 | TODO |
 | 5 | F23-T05 | Strings | Every string of #5–#9, #14 and #15 in `AppStrings`/`ar`/`en`, with the plural functions (limit, hours, minutes) unit-tested; `app_strings_test` map updated | TODO |
