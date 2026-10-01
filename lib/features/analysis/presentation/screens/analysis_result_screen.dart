@@ -444,7 +444,6 @@ class _FailureBodyState extends State<_FailureBody> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
     final strings = context.strings;
 
     if (_showText) {
@@ -458,27 +457,6 @@ class _FailureBodyState extends State<_FailureBody> {
     final kind = _kind;
     return ServiceStateView(
       onBack: widget.onClose,
-      glyph: switch (kind) {
-        _FailureKind.offline => StrokeGlyph.wifiOff,
-        _FailureKind.limitReached => StrokeGlyph.clock,
-        _FailureKind.unsupported => StrokeGlyph.documentSteps,
-        _FailureKind.consentDeclined => StrokeGlyph.shieldCheck,
-        _FailureKind.serviceProblem => StrokeGlyph.warningTriangle,
-      },
-      tint: switch (kind) {
-        _FailureKind.offline ||
-        _FailureKind.limitReached ||
-        _FailureKind.consentDeclined => colors.surfaceTealAlt,
-        _FailureKind.unsupported => colors.surfaceAlt,
-        _FailureKind.serviceProblem => colors.warningTint,
-      },
-      iconColor: switch (kind) {
-        _FailureKind.offline ||
-        _FailureKind.limitReached ||
-        _FailureKind.consentDeclined => colors.brandPrimary,
-        _FailureKind.unsupported => colors.textMuted,
-        _FailureKind.serviceProblem => colors.warning,
-      },
       title: switch (kind) {
         _FailureKind.offline => strings.analysisNoInternetTitle,
         _FailureKind.limitReached => strings.analysisLimitReachedTitle,
