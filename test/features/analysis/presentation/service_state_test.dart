@@ -24,10 +24,12 @@ import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cub
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/analysis_steps_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/consent_value_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/extracted_text_entry_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_note_chip.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_tips_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/limit_reset_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/privacy_text_note.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
@@ -499,6 +501,37 @@ void main() {
   });
 
   group('a declined analysis consent (F11-T02)', () {
+    testWidgets('shows what turning it on would give (F23-T12)', (
+      tester,
+    ) async {
+      await pumpConsentDeclined(tester, onOpenSettings: () {});
+
+      expect(find.byType(ConsentValueCard), findsOneWidget);
+    });
+
+    testWidgets('then what happens to the text, under the tiles', (
+      tester,
+    ) async {
+      await pumpConsentDeclined(tester, onOpenSettings: () {});
+
+      expect(find.text(_strings.privacyPointTextOnly), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(PrivacyTextNote)).top,
+        greaterThan(tester.getRect(find.byType(ConsentValueCard)).bottom),
+      );
+    });
+
+    testWidgets('switches nothing itself: no toggle on the page', (
+      tester,
+    ) async {
+      await pumpConsentDeclined(tester, onOpenSettings: () {});
+
+      expect(find.byType(Switch), findsNothing);
+      expect(find.byType(Checkbox), findsNothing);
+      expect(find.byType(FailureNoteChip), findsNothing);
+      expect(find.byType(AnalysisStepsCard), findsNothing);
+    });
+
     testWidgets('says analysis is off, not a generic failure', (tester) async {
       await pumpConsentDeclined(tester);
 

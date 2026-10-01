@@ -32,10 +32,12 @@ import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
 import '../widgets/failure/analysis_steps_card.dart';
+import '../widgets/failure/consent_value_card.dart';
 import '../widgets/failure/extracted_text_entry_card.dart';
 import '../widgets/failure/failure_note_chip.dart';
 import '../widgets/failure/failure_tips_card.dart';
 import '../widgets/failure/limit_reset_card.dart';
+import '../widgets/failure/privacy_text_note.dart';
 import '../widgets/failure/supported_documents_section.dart';
 
 // From `Waraqti.dc.html` → the result page. The top of the page is F21's
@@ -563,7 +565,12 @@ class _FailureBodyState extends State<_FailureBody> {
             ],
           ),
         ],
-        _ => const [],
+        // What turning it on would give, and what happens to the text then
+        // (F23 #9). The way there is Settings; nothing is switched here.
+        _FailureKind.consentDeclined => const [
+          ConsentValueCard(),
+          PrivacyTextNote(),
+        ],
       };
 
   void _openText() => setState(() => _showText = true);

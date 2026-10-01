@@ -5,10 +5,12 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/theme/app_colors.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/analysis_steps_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/consent_value_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/extracted_text_entry_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_note_chip.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/failure_tips_card.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/limit_reset_card.dart';
+import 'package:war2aty/features/analysis/presentation/widgets/failure/privacy_text_note.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 
 import '../../../support/pump_app.dart';
@@ -435,6 +437,85 @@ void main() {
         textScaler: const TextScaler.linear(2),
       );
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('ConsentValueCard', () {
+    testWidgets('heads the four things the analysis would say', (tester) async {
+      await _pump(tester, const ConsentValueCard());
+
+      expect(
+        tester.getSemantics(find.text(_strings.analysisConsentValueTitle)),
+        isSemantics(isHeader: true),
+      );
+      for (final label in [
+        _strings.analysisConsentValueType,
+        _strings.analysisConsentValueKeyPoints,
+        _strings.analysisConsentValueRequired,
+        _strings.analysisConsentValueDates,
+      ]) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      expect(
+        tester
+            .widgetList<StrokeIcon>(find.byType(StrokeIcon))
+            .map((i) => i.glyph),
+        [
+          StrokeGlyph.documentSteps,
+          StrokeGlyph.sparkle,
+          StrokeGlyph.checkSquare,
+          StrokeGlyph.clock,
+        ],
+      );
+    });
+
+    testWidgets('lays the tiles in two pairs', (tester) async {
+      await _pump(tester, const ConsentValueCard());
+
+      final type = tester.getRect(find.text(_strings.analysisConsentValueType));
+      final keyPoints = tester.getRect(
+        find.text(_strings.analysisConsentValueKeyPoints),
+      );
+      final required = tester.getRect(
+        find.text(_strings.analysisConsentValueRequired),
+      );
+      expect(type.top, moreOrLessEquals(keyPoints.top));
+      expect(type.left, greaterThan(keyPoints.left));
+      expect(required.top, greaterThan(type.bottom));
+    });
+
+    testWidgets('fits a small phone at 2.0× text', (tester) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final locale in AppLocalizations.supportedLocales) {
+        await _pump(
+          tester,
+          const ConsentValueCard(),
+          locale: locale,
+          textScaler: const TextScaler.linear(2),
+        );
+        expect(tester.takeException(), isNull, reason: '$locale');
+      }
+    });
+  });
+
+  group('PrivacyTextNote', () {
+    testWidgets('says the approved wording, word for word', (tester) async {
+      await _pump(tester, const PrivacyTextNote());
+
+      // CLAUDE.md §7, the text's approved sentence.
+      expect(
+        find.text(
+          'بنبعت نص ورقتك مشفَّر لخدمة تحليل علشان نفهمه، ومانحفظش النص عندنا.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<StrokeIcon>(find.byType(StrokeIcon)).glyph,
+        StrokeGlyph.shieldCheck,
+      );
     });
   });
 }
