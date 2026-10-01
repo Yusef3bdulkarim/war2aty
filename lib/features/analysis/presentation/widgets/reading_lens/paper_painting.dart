@@ -133,22 +133,57 @@ abstract final class PaperPainting {
       radius,
       Paint()..color = colors.success.withValues(alpha: opacity),
     );
-    // The design's tick, from a 24-unit icon box, sized to the disc.
-    final unit = radius * 1.25 / 24;
-    final origin = centre - Offset(12 * unit, 12 * unit);
-    final tick = Path()
-      ..moveTo(origin.dx + 5 * unit, origin.dy + 12.5 * unit)
-      ..lineTo(origin.dx + 9.5 * unit, origin.dy + 17 * unit)
-      ..lineTo(origin.dx + 19 * unit, origin.dy + 7.5 * unit);
-    canvas.drawPath(
-      tick,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.2 * unit
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..color = colors.onBrand.withValues(alpha: opacity),
-    );
+    // The tick, sized to the disc.
+    canvas
+      ..save()
+      ..translate(centre.dx, centre.dy)
+      ..scale(radius * 1.25 / _iconBox)
+      ..drawPath(
+        _tick,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = colors.onBrand.withValues(alpha: opacity),
+      )
+      ..restore();
+  }
+
+  /// The design's icons are drawn in a 24-unit box; these are built once,
+  /// centred on the origin, and placed and sized by the canvas when drawn.
+  static const double _iconBox = 24;
+
+  static final Path _tick = _iconPath([(5, 12.5), (9.5, 17), (19, 7.5)]);
+
+  static final Path _bolt = _iconPath([
+    (13, 3),
+    (5, 13),
+    (11, 13),
+    (10, 21),
+    (18, 11),
+    (12, 11),
+  ], close: true);
+
+  static final Path _star = _iconPath([
+    (12, 1),
+    (14.6, 9.4),
+    (23, 12),
+    (14.6, 14.6),
+    (12, 23),
+    (9.4, 14.6),
+    (1, 12),
+    (9.4, 9.4),
+  ], close: true);
+
+  static Path _iconPath(List<(double, double)> points, {bool close = false}) {
+    const half = _iconBox / 2;
+    final path = Path()..moveTo(points.first.$1 - half, points.first.$2 - half);
+    for (final (x, y) in points.skip(1)) {
+      path.lineTo(x - half, y - half);
+    }
+    if (close) path.close();
+    return path;
   }
 
   /// Overshoots a little, then settles: the finish check's spring.
@@ -188,26 +223,20 @@ abstract final class PaperPainting {
       logo,
       Paint()..color = colors.brandPrimary.withValues(alpha: 0.12),
     );
-    // The bolt, from a 24-unit icon box drawn 16 wide.
-    const unit = 16 / 24;
-    final origin = logo.center - const Offset(8, 8);
-    Offset at(double x, double y) => origin + Offset(x * unit, y * unit);
-    final bolt = Path()
-      ..moveTo(at(13, 3).dx, at(13, 3).dy)
-      ..lineTo(at(5, 13).dx, at(5, 13).dy)
-      ..lineTo(at(11, 13).dx, at(11, 13).dy)
-      ..lineTo(at(10, 21).dx, at(10, 21).dy)
-      ..lineTo(at(18, 11).dx, at(18, 11).dy)
-      ..lineTo(at(12, 11).dx, at(12, 11).dy)
-      ..close();
-    canvas.drawPath(
-      bolt,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2 * unit
-        ..strokeJoin = StrokeJoin.round
-        ..color = colors.brandPrimary,
-    );
+    // The bolt, drawn 16 wide.
+    canvas
+      ..save()
+      ..translate(logo.center.dx, logo.center.dy)
+      ..scale(16 / _iconBox)
+      ..drawPath(
+        _bolt,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..strokeJoin = StrokeJoin.round
+          ..color = colors.brandPrimary,
+      )
+      ..restore();
   }
 
   /// A faint round stamp, tilted, with an inner ring.
@@ -261,26 +290,14 @@ abstract final class PaperPainting {
     AppColors colors,
   ) {
     if (sparkle.opacity <= 0 || sparkle.scale <= 0) return;
-    // The design's star, from a 24-unit icon box drawn 18 wide.
-    const unit = PaperLayout.sparkleSize / 24;
-    Offset at(double x, double y) => Offset((x - 12) * unit, (y - 12) * unit);
-    final star = Path()
-      ..moveTo(at(12, 1).dx, at(12, 1).dy)
-      ..lineTo(at(14.6, 9.4).dx, at(14.6, 9.4).dy)
-      ..lineTo(at(23, 12).dx, at(23, 12).dy)
-      ..lineTo(at(14.6, 14.6).dx, at(14.6, 14.6).dy)
-      ..lineTo(at(12, 23).dx, at(12, 23).dy)
-      ..lineTo(at(9.4, 14.6).dx, at(9.4, 14.6).dy)
-      ..lineTo(at(1, 12).dx, at(1, 12).dy)
-      ..lineTo(at(9.4, 9.4).dx, at(9.4, 9.4).dy)
-      ..close();
+    // The star, drawn 18 wide at full size.
     canvas
       ..save()
       ..translate(centre.dx, centre.dy)
       ..rotate(sparkle.degrees * math.pi / 180)
-      ..scale(sparkle.scale)
+      ..scale(sparkle.scale * PaperLayout.sparkleSize / _iconBox)
       ..drawPath(
-        star,
+        _star,
         Paint()..color = colors.mint.withValues(alpha: sparkle.opacity),
       )
       ..restore();

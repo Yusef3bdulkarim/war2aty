@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/analysis-wait-screen`, based on `develop` · **Milestone:** post-F21
 - **Depends on:** F07 (the result screen and its `AnalysisProgressView`)
-- **Progress:** 10 / 11 DONE (T09, the owner's device pass, open)
+- **Progress:** 11 / 12 DONE (T09, the owner's device pass, open)
 - **PR:** timing to be agreed with the owner once the tasks are done; base `develop`
 
 The owner's redesign of the page shown while the analysis service works
@@ -146,6 +146,7 @@ passive: no buttons, no touch response, no cancel.
 | 9 | F22-T09 | Device pass | The owner on the phone: smoothness (DevTools, no dropped frames), TalkBack, the haptic, 2.0× text, a 22 s run | TODO |
 | 10 | F22-T10 | Rebuild to C+ | The drawing and motion match the C+ frame (#18); the view, captions, semantics, haptic and reduced motion keep their contracts. Tests follow the new geometry and timing | DONE — `PaperLayout` (C+ paper, 18 words, two key words, underline and sparkle positions), `LensTimeline` (the 8 s linear path, `lineEnds`, captions at 1.9/3.8, `bobAt`/`floatAt`/`glintAt`/`spotlightFor`, `wordReadAt` solved exactly on the path's segments; the handle swing and the entrance removed), `PaperFrame` (per-word `WordInk`, `Underline`, `Sparkle`, per-line `Check`, each on its own pass-long cycle), `PaperPainting` (logo bolt, single field, stamp, footer, `paintMarks` for sparkles and checks), `SceneFrame` (bob, float, light, `settled`; the finish keeps the lens reading while it fades), `ReadingLensPainter` (the light behind, lens radius 48, the bobbing lens with a fixed handle), `ReadingLensScene` (the check and haptic on the first finishing frame; the ticker stops after the 900 ms ring). Tests rewritten for the timeline, frames and scene frame; the widget tests follow the new timing; the removal tests now assert that a removal mid-finish never reports the finish (the check, and its haptic, have already come) |
 | 11 | F22-T11 | Quality gate after the pivot | `dart format .`, `flutter analyze` (no new issues), `flutter test`; `/flutter-code-review`; then the PR to `develop` and `@code-reviewer` | DONE — format clean (672 files); analyze 20 issues, the pre-F22 baseline, none new; `flutter test` 2094/2094 (six fewer than at T08: the C★-only tests — title outline, field glow, entrance, handle swing — went with those features). `/flutter-code-review` on the rebuild: `PaperLayout.wordLines` was dead code (only its own test read it) and is removed; the T08 performance note stands for T09 (the painter redraws the blurred sheet shadows every frame, now with the light behind them too) |
+| 12 | F22-T12 | `@code-reviewer` follow-ups | PR #22 reviewed: APPROVE WITH NITS. Fix the should-fix and the cheap nits; close the test gap it named | DONE — the lens fade's `saveLayer` is bounded to the lens's reach (104 paper units: the handle tip, ahead of the shadow and the halo) instead of the whole canvas; the tick, bolt and star paths are built once in their 24-unit icon box and placed by the canvas; the caption's dots fade through their colour instead of an `Opacity` (no layer per frame for the whole wait). New test: a result arriving right at 15 s is announced as ready, never as a long wait |
 
 ## Exit DoD
 

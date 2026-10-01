@@ -133,6 +133,27 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('a result right at 15 s is announced as ready, not long', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await pumpApp(tester, harness(), settle: false);
+      await tester.pump(const Duration(milliseconds: 14990));
+
+      finishing.value = true;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.bySemanticsLabel(_strings.analysisWaitReadyAnnouncement),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(_strings.analysisWaitLongAnnouncement),
+        findsNothing,
+      );
+      semantics.dispose();
+    });
+
     testWidgets('never vibrates while waiting', (tester) async {
       recordHaptics(tester);
       await pumpApp(tester, harness(), settle: false);

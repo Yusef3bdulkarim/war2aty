@@ -250,13 +250,20 @@ class _PulsingDotsState extends State<_PulsingDots>
     );
   }
 
-  Widget _dot(TextStyle style, double pulse) => Transform.translate(
-    offset: Offset(0, -_lift * pulse),
-    child: Opacity(
-      opacity: 0.25 + 0.75 * pulse,
-      child: Text('.', style: style),
-    ),
-  );
+  /// The dot fades through its colour rather than an [Opacity], which would
+  /// add a layer on every frame of the wait.
+  Widget _dot(TextStyle style, double pulse) {
+    final colour = style.color!;
+    return Transform.translate(
+      offset: Offset(0, -_lift * pulse),
+      child: Text(
+        '.',
+        style: style.copyWith(
+          color: colour.withValues(alpha: colour.a * (0.25 + 0.75 * pulse)),
+        ),
+      ),
+    );
+  }
 
   /// Up to full at 40% of a dot's turn, back down by its end.
   static double _pulse(double u) => u < 0.4 ? u / 0.4 : (1 - u) / 0.6;

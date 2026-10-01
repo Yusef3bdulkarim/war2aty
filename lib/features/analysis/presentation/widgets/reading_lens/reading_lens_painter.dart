@@ -27,6 +27,11 @@ class ReadingLensPainter extends CustomPainter {
   static const double lensRadius = 48;
   static const double magnification = 1.7;
 
+  /// How far anything of the lens reaches from its centre: the handle's tip
+  /// (about 96, plus half its width) is the farthest, ahead of the shadow
+  /// (85) and the halo's blur (about 82).
+  static const double _lensReach = 104;
+
   static const double _spotlightRadius = 230;
   static const double _checkRadius = 32;
 
@@ -72,8 +77,9 @@ class ReadingLensPainter extends CustomPainter {
       ..translate(centre.dx, centre.dy);
     final fading = frame.lensOpacity < 1;
     if (fading) {
+      // Bounded to the lens, its shadow, handle and halo — not the canvas.
       canvas.saveLayer(
-        null,
+        Rect.fromCircle(center: Offset.zero, radius: _lensReach),
         Paint()..color = Color.fromRGBO(0, 0, 0, frame.lensOpacity),
       );
     }
