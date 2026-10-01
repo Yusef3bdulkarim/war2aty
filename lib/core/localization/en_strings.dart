@@ -781,21 +781,86 @@ final class EnStrings implements AppStrings {
   @override
   String get analysisResultBackLabel => 'Back';
   @override
-  String get analysisFailedTitle => 'Something went wrong';
+  String get analysisFailedTitle => 'Something went wrong while explaining';
   @override
   String get analysisFailedMessage =>
-      'We could not analyse this paper right now. Please try again shortly.';
+      'We could not finish explaining this paper right now. We still have the '
+      'text we read, so you can try again without photographing it again.';
   @override
-  String get analysisNoInternetTitle => 'An internet connection is needed';
+  String get analysisFailedTipsTitle => 'If it keeps happening';
+  @override
+  String get analysisFailedTipWait => 'Wait a minute and try again';
+  @override
+  String get analysisFailedTipConnection =>
+      'Make sure your internet is working well';
+  @override
+  String get analysisFailedTipReadText =>
+      'Meanwhile, you can read the text on the paper';
+  @override
+  String get analysisNoInternetTitle => 'You are offline right now';
   @override
   String get analysisNoInternetMessage =>
-      'We need the internet to explain this paper and sort out its details.';
+      'We need the internet to explain this paper. Its text has already been '
+      'read, so you will not need to photograph it again.';
+  @override
+  String get analysisNoInternetTipsTitle => 'Try these';
+  @override
+  String get analysisNoInternetTipWifi => 'Turn on Wi-Fi or mobile data';
+  @override
+  String get analysisNoInternetTipAirplane => 'Make sure airplane mode is off';
+  @override
+  String get analysisNoInternetTipSignal =>
+      'If the signal is weak, move closer to the router or try another spot';
+  @override
+  String get analysisStepPhoto => 'Photo';
+  @override
+  String get analysisStepReading => 'Reading';
+  @override
+  String get analysisStepExplanation => 'Explanation';
+  @override
+  String get analysisStepDone => 'Done';
+  @override
+  String get analysisStepWaitingForInternet => 'Waiting for internet';
+  @override
+  String get analysisStepNotFinished => 'Not finished';
+  @override
+  String analysisStepsSemantics(String explanation) =>
+      'Photo done, reading done, explanation: $explanation';
   @override
   String get analysisLimitReachedTitle => "You have used today's analyses";
   @override
   String get analysisLimitReachedMessage =>
-      'You can try again tomorrow, or show the text we read and listen to it '
-      'now.';
+      "You have used all of today's analyses. $_limitTextStillThere";
+  @override
+  String analysisLimitReachedMessageWithLimit(int limit) => limit == 1
+      ? 'You get 1 smart analysis a day, and you have used it. '
+            '$_limitTextStillThere'
+      : 'You get $limit smart analyses a day, and you have used them all. '
+            '$_limitTextStillThere';
+  static const _limitTextStillThere =
+      "The paper's text is still here for you to read now.";
+  @override
+  String get analysisLimitResetsInLabel => 'Your analyses renew in';
+  @override
+  String analysisLimitResetsIn(int hours, int minutes) => [
+    if (hours > 0) hours == 1 ? '1 hour' : '$hours hours',
+    if (minutes > 0) minutes == 1 ? '1 minute' : '$minutes minutes',
+  ].join(' and ');
+  @override
+  String get analysisLimitResetTime => 'At midnight, Egypt time';
+  @override
+  String get analysisLimitRenewed => 'Your analyses have renewed';
+  @override
+  String analysisLimitUsedOf(int limit) => 'Used $limit of $limit today';
+  @override
+  String get analysisLimitTipsTitle => 'What you can do now';
+  @override
+  String get analysisLimitTipReadText =>
+      "Read and copy the paper's text. It does not use an analysis";
+  @override
+  String get analysisLimitTipTomorrow =>
+      'Keep the paper and photograph it again tomorrow, once your analyses '
+      'renew';
   @override
   String get analysisBackToHome => 'Back to home';
   @override
@@ -850,24 +915,69 @@ final class EnStrings implements AppStrings {
   String get resultPartialBanner =>
       'We understood part of this paper. Some details need your review.';
   @override
-  String get analysisUnsupportedTitle => 'We cannot fully explain this paper';
+  String get analysisUnsupportedTitle => 'We could not explain this paper';
   @override
   String get analysisUnsupportedMessage =>
-      'We can show you the text we read and read it aloud, but we cannot give '
-      'a reliable explanation for this kind of document.';
+      'Its text may not be clear enough, or it may be a kind of paper we do '
+      'not explain yet. Try photographing it again in good light, or '
+      'photograph one of the kinds below.';
   @override
-  String get analysisConsentDeclinedTitle => 'Smart analysis is off';
+  String get analysisAttemptNotCounted =>
+      "This attempt did not count toward today's analyses";
+  @override
+  String get analysisExtractedTextCardSubtitle =>
+      'The text we read from the paper, ready to copy';
+  @override
+  String get analysisSupportedDocumentsTitle => 'Papers we explain';
+  @override
+  String get analysisSupportedInvoices => 'Bills and receipts';
+  @override
+  String get analysisSupportedInvoicesExamples =>
+      'Electricity, water, gas, phone';
+  @override
+  String get analysisSupportedAppointments => 'Appointments';
+  @override
+  String get analysisSupportedAppointmentsExamples =>
+      'Doctor, booking, interview';
+  @override
+  String get analysisSupportedGovernment => 'Government papers';
+  @override
+  String get analysisSupportedGovernmentExamples => 'Notices, official letters';
+  @override
+  String get analysisSupportedEducation => 'School papers';
+  @override
+  String get analysisSupportedEducationExamples =>
+      'Exam results, school letters';
+  @override
+  String get analysisSupportedOther => 'Other papers';
+  @override
+  String get analysisSupportedOtherExamples =>
+      'Medical reports, legal papers, bank letters';
+  @override
+  String get analysisPickFromGallery => 'Pick from photos';
+  @override
+  String get analysisConsentDeclinedTitle => 'Smart explanation is off';
   @override
   String get analysisConsentDeclinedMessage =>
-      'You turned off "Allow sending the text for analysis" in Settings, so '
-      'we could not explain this paper. The text we read from it is still '
-      'available below.';
+      'You turned off "Allow sending the text for analysis" in Settings, and '
+      'that is your choice. So we could not explain this paper, but its text '
+      'is here for you to read.';
+  @override
+  String get analysisConsentValueTitle => "Turn it on and we'll tell you:";
+  @override
+  String get analysisConsentValueType => 'What the paper is';
+  @override
+  String get analysisConsentValueKeyPoints => 'What matters in it';
+  @override
+  String get analysisConsentValueRequired => 'What you need to do';
+  @override
+  String get analysisConsentValueDates => 'Dates worth a reminder';
   @override
   String get analysisConsentDeclinedOpenSettings => 'Open Settings';
   @override
   String get resultListenToExtractedText => 'Listen to the text';
   @override
-  String get analysisCaptureAnother => 'Photograph another paper';
+  String get analysisCaptureAnother => 'Photograph another';
   @override
   String get extractedTextOnlyTitle => 'The text we read';
   @override
