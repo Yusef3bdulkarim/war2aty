@@ -13,6 +13,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
@@ -87,6 +88,7 @@ void main() {
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
+      getDailyUsage: GetDailyUsage(FakeUsageRepository()),
     );
     tts = FakeTextToSpeechService();
     audioReaderCubit = AudioReaderCubit(

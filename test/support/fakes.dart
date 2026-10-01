@@ -705,8 +705,15 @@ final class FakeUsageRepository implements UsageRepository {
     yield* _controller.stream;
   }
 
+  /// How many times [cachedUsage] has been read — tests assert a read did
+  /// (or deliberately did not) happen.
+  int cachedReadCount = 0;
+
   @override
-  Future<Result<DailyUsage?, AppFailure>> cachedUsage() async => _latest;
+  Future<Result<DailyUsage?, AppFailure>> cachedUsage() async {
+    cachedReadCount++;
+    return _latest;
+  }
 
   /// How many times [syncUsage] has been called — tests assert on this to
   /// confirm a sync did (or deliberately did not) happen.

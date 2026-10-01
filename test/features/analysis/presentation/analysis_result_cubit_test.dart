@@ -8,6 +8,9 @@ import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/daily_usage.dart';
+import 'package:war2aty/core/usage/usage_repository.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
@@ -83,6 +86,7 @@ void main() {
     analyzeDocument: AnalyzeDocument(repository),
     buildResult: const BuildAnalysisResult(),
     syncDailyUsage: SyncDailyUsage(usageRepository),
+    getDailyUsage: GetDailyUsage(usageRepository),
   );
 
   group('AnalysisResultCubit', () {
@@ -216,5 +220,101 @@ void main() {
         expect(cubit.state, isA<AnalysisResultReady>());
       });
     });
+
+    group('the daily limit for its page (F23-T06)', () {
+      final resetAt = DateTime.utc(2026, 10, 1, 22);
+
+      test('carries the cached limit with a daily-limit failure', () async {
+        usageRepository.emit(usageWith(limit: 3, remaining: 0));
+        repository.answer = Err(DailyLimitReachedFailure(resetAt));
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        expect(
+          cubit.state,
+          AnalysisResultFailed(
+            DailyLimitReachedFailure(resetAt),
+            _extraction.text.cleanedText,
+            dailyLimit: 3,
+          ),
+        );
+      });
+
+      test('leaves the limit out when nothing is cached', () async {
+        usageRepository.emit(null);
+        repository.answer = Err(DailyLimitReachedFailure(resetAt));
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        final state = cubit.state as AnalysisResultFailed;
+        expect(state.failure, DailyLimitReachedFailure(resetAt));
+        expect(state.dailyLimit, isNull);
+      });
+
+      test('leaves the limit out when the cache cannot be read', () async {
+        usageRepository.emitFailure();
+        repository.answer = Err(DailyLimitReachedFailure(resetAt));
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        expect((cubit.state as AnalysisResultFailed).dailyLimit, isNull);
+      });
+
+      test('does not read the usage for any other failure', () async {
+        repository.answer = const Err(NoInternetFailure());
+        final cubit = buildCubit();
+        await cubit.analyze();
+
+        expect(usageRepository.cachedReadCount, 0);
+        expect((cubit.state as AnalysisResultFailed).dailyLimit, isNull);
+      });
+
+      test('emits nothing once closed while the usage is read', () async {
+        final usage = _GatedUsageRepository();
+        repository.answer = Err(DailyLimitReachedFailure(resetAt));
+        final cubit = AnalysisResultCubit(
+          session: _session,
+          source: const OcrAnalysisSource(_extraction),
+          getAnalysisConsent: GetAnalysisConsent(consentStore),
+          analyzeDocument: AnalyzeDocument(repository),
+          buildResult: const BuildAnalysisResult(),
+          syncDailyUsage: SyncDailyUsage(usage),
+          getDailyUsage: GetDailyUsage(usage),
+        );
+        final states = <Object>[];
+        final subscription = cubit.stream.listen(states.add);
+
+        final pending = cubit.analyze();
+        await usage.requested.future;
+        await cubit.close();
+        usage.gate.complete();
+        await pending;
+        await subscription.cancel();
+
+        expect(states.whereType<AnalysisResultFailed>(), isEmpty);
+      });
+    });
   });
+}
+
+/// Holds [cachedUsage] open until [gate] completes, so a test can close the
+/// cubit while the read is in flight.
+final class _GatedUsageRepository implements UsageRepository {
+  final requested = Completer<void>();
+  final gate = Completer<void>();
+
+  @override
+  Future<Result<DailyUsage?, AppFailure>> cachedUsage() async {
+    requested.complete();
+    await gate.future;
+    return Ok(usageWith(limit: 3, remaining: 0));
+  }
+
+  @override
+  Future<Result<DailyUsage, AppFailure>> syncUsage() =>
+      throw UnimplementedError();
+
+  @override
+  Stream<Result<DailyUsage?, AppFailure>> watchUsage() =>
+      throw UnimplementedError();
 }

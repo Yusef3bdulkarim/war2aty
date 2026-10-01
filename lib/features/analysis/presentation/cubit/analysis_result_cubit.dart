@@ -5,7 +5,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/documents/usecases/build_analysis_result.dart';
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/result/result.dart';
 import '../../../../core/storage/analysis_session.dart';
+import '../../../../core/usage/usecases/get_daily_usage.dart';
 import '../../../../core/usage/usecases/sync_daily_usage.dart';
 import '../../domain/entities/analysis_request.dart';
 import '../../domain/entities/analysis_source.dart';
@@ -22,6 +24,8 @@ import 'analysis_result_state.dart';
 /// - [SyncDailyUsage] — refreshes the cached quota after a *successful*
 ///   analysis, so Home's already-live usage stream reflects the consumed
 ///   slot without polling or client-side decrementing.
+/// - [GetDailyUsage] — reads the cached daily limit, only when the limit is
+///   what stopped the analysis, so its page can name the number (F23 #14).
 ///
 /// What leaves the phone is decided by [AnalysisRequest], which has no field
 /// for the image or its path: every analysis is text, whichever route read
@@ -35,12 +39,14 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
     required AnalyzeDocument analyzeDocument,
     required BuildAnalysisResult buildResult,
     required SyncDailyUsage syncDailyUsage,
+    required GetDailyUsage getDailyUsage,
   }) : _session = session,
        _source = source,
        _getAnalysisConsent = getAnalysisConsent,
        _analyzeDocument = analyzeDocument,
        _buildResult = buildResult,
        _syncDailyUsage = syncDailyUsage,
+       _getDailyUsage = getDailyUsage,
        super(const AnalysisResultAnalyzing());
 
   final AnalysisSession _session;
@@ -49,6 +55,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
   final AnalyzeDocument _analyzeDocument;
   final BuildAnalysisResult _buildResult;
   final SyncDailyUsage _syncDailyUsage;
+  final GetDailyUsage _getDailyUsage;
 
   /// Runs the analysis. Called once when the screen mounts, and again by the
   /// retry on the failure view.
@@ -89,14 +96,22 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
 
     if (isClosed) return;
 
-    emit(
-      outcome.when(
-        ok: (analysis) => AnalysisResultReady(
-          _buildResult(analysis: analysis, extractedText: extractedText),
-        ),
-        err: (failure) => AnalysisResultFailed(failure, extractedText),
-      ),
-    );
+    switch (outcome) {
+      case Ok(:final value):
+        emit(
+          AnalysisResultReady(
+            _buildResult(analysis: value, extractedText: extractedText),
+          ),
+        );
+      case Err(failure: final DailyLimitReachedFailure failure):
+        final dailyLimit = await _cachedDailyLimit();
+        if (isClosed) return;
+        emit(
+          AnalysisResultFailed(failure, extractedText, dailyLimit: dailyLimit),
+        );
+      case Err(:final failure):
+        emit(AnalysisResultFailed(failure, extractedText));
+    }
 
     // Only a successful analysis consumed a daily slot — refresh the cached
     // usage row so Home's live stream reflects it. Fire-and-forget: never
@@ -104,4 +119,12 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
     // cached count in place until the next sync.
     if (outcome.isOk) unawaited(_syncDailyUsage());
   }
+
+  /// The daily limit from the local cache — no network. `null` when there is
+  /// nothing cached or the read fails: the page then words itself without a
+  /// number rather than guess one.
+  Future<int?> _cachedDailyLimit() async => switch (await _getDailyUsage()) {
+    Ok(:final value) => value?.dailyLimit,
+    Err() => null,
+  };
 }
