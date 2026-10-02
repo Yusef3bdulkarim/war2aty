@@ -241,6 +241,9 @@
   .screen.is-opening .opening, .screen.is-error .error { display: flex; }
   .screen.is-opening .feed, .screen.is-error .feed,
   .screen.is-opening .ctrl, .screen.is-error .ctrl { display: none; }
+  /* Close stays reachable while the camera opens, as in today's app. */
+  .screen.is-opening .top { display: flex; }
+  .screen.is-opening .flash-wrap, .screen.is-opening .status-chip { display: none; }
 
   .opening { flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
   .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid rgba(255,255,255,.2); border-top-color: rgba(255,255,255,.85); animation: spin .9s linear infinite; }
