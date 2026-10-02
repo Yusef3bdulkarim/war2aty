@@ -3,7 +3,7 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — not yet planned
+- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — 1 / 3 DONE (Flutter tasks planned after the design is chosen)
 - **PRs:** two, both into `develop` — one for Phase 1 (cleanup, [#25](https://github.com/Yusef3bdulkarim/war2aty/pull/25)), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
@@ -83,5 +83,17 @@ Run by the owner on 2026-10-03; all nine checks pass.
 
 ## Phase 2 — Camera redesign
 
-Planned after Phase 1: three HTML mockup variants → the owner's choice →
-`Waraqti.dc.html` updated → the task table for the Flutter work.
+Three HTML mockup variants → the owner's choice → `Waraqti.dc.html` updated →
+the task table for the Flutter work. No Flutter UI is written before T10.
+
+Mockups: [`docs/design/F24-camera-mockups.html`](../design/F24-camera-mockups.html)
+— open it in a browser. All three phones are interactive, and the toolbar puts
+them in the same state (ready, light on, focusing, capturing, opening, phone
+without a flash, camera error, Large Text ×1.5). A URL hash such as
+`#flash,large` preselects a state.
+
+| # | ID | Title | Acceptance criteria | Status |
+|---|---|---|---|---|
+| 8 | F24-T08 | Branch + three mockups | Branch `feature/camera-redesign` off `develop` (after #25). One local standalone HTML file holds three Waraqti variants (A native minimal, B labelled elderly-first, C floating capsule), each with the light toggle, the photos shortcut beside the shutter and tap-to-focus. The feed stays Fit. Every control is ≥ 48 × 48 and no state is shown by colour alone; states are RTL, Large Text, opening, error and no flash | DONE |
+| 9 | F24-T09 | The owner's pick | The owner chooses a variant (or a mix) and answers the open behaviour questions listed at the bottom of the mockup page | TODO |
+| 10 | F24-T10 | Waraqti design updated | The chosen variant is committed to `Waraqti.dc.html`, through a `/design-sync` session the owner starts | TODO |
