@@ -51,8 +51,18 @@ abstract interface class AppStrings {
   String get privacyTitle;
 
   /// The four promises listed on the privacy page, in display order.
+  ///
+  /// [privacyPointExtractText] says what happens to the PHOTO (F20-T24): sent
+  /// to an outside reader when online — which may keep it for a while and let
+  /// its staff review it — and read only on the phone when offline.
+  /// [privacyPointTextOnly] says what happens to the TEXT (F18-T02). Neither
+  /// may claim nobody sees what is sent, and neither may name a provider.
   String get privacyPointExtractText;
   String get privacyPointTextOnly;
+
+  /// Saving the photo ON THE PHONE needs the user's consent. Scoped to the
+  /// phone on purpose: the online reader may keep a copy for a while
+  /// ([privacyPointExtractText]), so an unscoped "not saved" would be false.
   String get privacyPointImageOptIn;
   String get privacyPointDeleteAnytime;
 
@@ -64,6 +74,9 @@ abstract interface class AppStrings {
   String get homeScanTitle;
   String get homeScanSubtitle;
   String get homePickImage;
+
+  /// Same promise as [privacyPointImageOptIn], and scoped to the phone for
+  /// the same reason.
   String get homeImagePrivacyNote;
 
   /// "You have N analyses left today."
@@ -522,8 +535,8 @@ abstract interface class AppStrings {
   String get ocrReviewSubtitle;
   String get ocrReviewDone;
 
-  // OCR online review screen (F14) — the online route's stop between Azure
-  // OCR and Groq analysis.
+  // OCR online review screen (F14) — the online route's stop between the
+  // online reading and the analysis.
   String get ocrOnlineReviewTitle;
   String get ocrOnlineReviewSubtitle;
   String get ocrOnlineLoading;
@@ -534,20 +547,49 @@ abstract interface class AppStrings {
   String get ocrOnlineAmbiguityNotice;
 
   /// Amber warning banner shown on the review screen when OCR ran offline
-  /// (Tesseract) — accuracy may be lower than the online (Azure) path.
+  /// (Tesseract) — accuracy may be lower than the online reading.
   String get ocrOfflineQualityWarning;
+
+  /// Amber warning banner shown on the review screen when the online reading
+  /// failed and the page was read on the phone instead (F20-T23). Never names
+  /// the online reader, and never blames the connection — the cause may be a
+  /// busy or unavailable service, not the user's internet.
+  String get ocrOnlineFallbackWarning;
 
   /// "الاستماع للنص" button on the review screen — reads the extracted text
   /// aloud before analysis.
   String get ocrListenToText;
 
   // Analysis — while it runs
-  String get analysisRunningTitle;
-  String get analysisRunningMessage;
-
-  /// Announced to assistive technology while the analysis runs, since the
-  /// progress bar itself carries no meaning.
+  /// Announced to assistive technology once, when the wait page appears. The
+  /// page's rotating captions are not read out — they follow a clock, not the
+  /// service (F22 #13).
   String get analysisRunningStatus;
+
+  /// The wait page's caption for each step of the magnifier's reading (F22
+  /// #7): the first three follow the lens across the paper, the rest the
+  /// clock. Drawn with pulsing dots after them, so none ends in an ellipsis.
+  String get analysisWaitStepType;
+  String get analysisWaitStepActions;
+  String get analysisWaitStepDates;
+  String get analysisWaitStillSeconds;
+  String get analysisWaitReviewing;
+  String get analysisWaitTakingLonger;
+
+  /// The caption once the result has arrived.
+  String get analysisWaitReady;
+
+  /// The line under the caption: while waiting, from 10 s on, and once the
+  /// result has arrived.
+  String get analysisWaitHint;
+  String get analysisWaitHintLong;
+  String get analysisWaitHintReady;
+
+  /// Announced once, 15 s into the wait (F22 #13).
+  String get analysisWaitLongAnnouncement;
+
+  /// Announced once the result has arrived.
+  String get analysisWaitReadyAnnouncement;
 
   // Analysis result
   /// The result page's own name, in its top bar.
@@ -562,14 +604,63 @@ abstract interface class AppStrings {
   String get analysisFailedTitle;
   String get analysisFailedMessage;
 
+  /// The service-problem page's tips (F23 #8).
+  String get analysisFailedTipsTitle;
+  String get analysisFailedTipWait;
+  String get analysisFailedTipConnection;
+  String get analysisFailedTipReadText;
+
   /// The phone is offline. The analysis needs the network; the text does not.
+  /// Never says where the text was read: the online reading may have
+  /// succeeded before the connection fell (F23 #6).
   String get analysisNoInternetTitle;
   String get analysisNoInternetMessage;
 
-  /// The three daily analyses are used up. No retry is offered — it would
-  /// only fail again.
+  /// The no-internet page's tips (F23 #6).
+  String get analysisNoInternetTipsTitle;
+  String get analysisNoInternetTipWifi;
+  String get analysisNoInternetTipAirplane;
+  String get analysisNoInternetTipSignal;
+
+  /// The step tracker on the no-internet and service-problem pages (F23
+  /// #10): the photo and the reading are done, the explanation waits or
+  /// failed.
+  String get analysisStepPhoto;
+  String get analysisStepReading;
+  String get analysisStepExplanation;
+  String get analysisStepDone;
+  String get analysisStepWaitingForInternet;
+  String get analysisStepNotFinished;
+
+  /// The tracker read as one sentence by a screen reader; [explanation] is
+  /// the last step's state.
+  String analysisStepsSemantics(String explanation);
+
+  /// The daily analyses are used up. No retry is offered — it would only
+  /// fail again. [analysisLimitReachedMessage] is for when the limit is not
+  /// known (an empty usage cache, F23 #14).
   String get analysisLimitReachedTitle;
   String get analysisLimitReachedMessage;
+
+  /// The same message, naming the daily [limit].
+  String analysisLimitReachedMessageWithLimit(int limit);
+
+  /// The daily-limit countdown card (F23 #7, #15).
+  String get analysisLimitResetsInLabel;
+
+  /// How long until the analyses renew, e.g. «5 ساعات و 12 دقيقة». Either
+  /// part may be 0, not both.
+  String analysisLimitResetsIn(int hours, int minutes);
+  String get analysisLimitResetTime;
+  String get analysisLimitRenewed;
+
+  /// «استخدمت 3 من 3 النهارده».
+  String analysisLimitUsedOf(int limit);
+
+  /// The daily-limit page's «what now» card (F23 #7).
+  String get analysisLimitTipsTitle;
+  String get analysisLimitTipReadText;
+  String get analysisLimitTipTomorrow;
 
   /// Leaves a state page for the home screen.
   String get analysisBackToHome;
@@ -579,8 +670,9 @@ abstract interface class AppStrings {
   String get resultListen;
   String get resultSavePaper;
 
-  /// Heads the one-line summary card. Deliberately not a claim about how sure
-  /// the analysis is — confidence belongs to individual values (UX rule §5.9).
+  /// Heads the one-line summary in the result's hero, «ملخص المستند» (F21).
+  /// Deliberately not a claim about how sure the analysis is — confidence
+  /// belongs to individual values (UX rule §5.9).
   String get resultSummaryLabel;
 
   /// Heads «المطلوب منك» — what the paper asks the user to do.
@@ -653,22 +745,50 @@ abstract interface class AppStrings {
   /// has to know which parts to check.
   String get resultPartialBanner;
 
-  /// The paper was read, but this kind of document cannot be explained
-  /// responsibly. The text and the reader are still offered.
+  /// The paper was read, but could not be explained: its text was too
+  /// unclear, or its kind is out of scope. The server does not say which, so
+  /// the message covers both (F23 #5).
   String get analysisUnsupportedTitle;
   String get analysisUnsupportedMessage;
+
+  /// Under the unsupported message: an `unsupported` answer never takes a
+  /// daily slot (§31 rule 6). Only true there — not on the other pages.
+  String get analysisAttemptNotCounted;
+
+  /// The second line of the unsupported page's «عرض النص المستخرج» card.
+  String get analysisExtractedTextCardSubtitle;
+
+  /// The unsupported page's «الأوراق اللي بنشرحها» grid: each kind and its
+  /// examples (F23 #5).
+  String get analysisSupportedDocumentsTitle;
+  String get analysisSupportedInvoices;
+  String get analysisSupportedInvoicesExamples;
+  String get analysisSupportedAppointments;
+  String get analysisSupportedAppointmentsExamples;
+  String get analysisSupportedGovernment;
+  String get analysisSupportedGovernmentExamples;
+  String get analysisSupportedEducation;
+  String get analysisSupportedEducationExamples;
+  String get analysisSupportedOther;
+  String get analysisSupportedOtherExamples;
+
+  /// Opens the gallery from the unsupported page, beside the camera.
+  String get analysisPickFromGallery;
 
   /// The user turned off analysis consent in Settings (F11-T02) — the state
   /// page's own words, not a generic failure.
   String get analysisConsentDeclinedTitle;
   String get analysisConsentDeclinedMessage;
 
+  /// What turning analysis on would give (F23 #9).
+  String get analysisConsentValueTitle;
+  String get analysisConsentValueType;
+  String get analysisConsentValueKeyPoints;
+  String get analysisConsentValueRequired;
+  String get analysisConsentValueDates;
+
   /// Leads to Settings from the declined-consent state page (F11-T02).
   String get analysisConsentDeclinedOpenSettings;
-
-  /// Reads the extracted text aloud from a state screen, where there is no
-  /// surrounding text to lean on.
-  String get resultListenToExtractedText;
 
   /// Leaves a dead end by photographing a different paper.
   String get analysisCaptureAnother;
@@ -677,7 +797,10 @@ abstract interface class AppStrings {
   String get extractedTextOnlyTitle;
   String get extractedTextOnlyNote;
 
-  /// What kind of paper this is — the chip above the result's title.
+  /// The label of the document-type row in «أهم المعلومات» (F21-T13).
+  String get documentTypeLabel;
+
+  /// What kind of paper this is — the value of that row.
   ///
   /// Finer-grained than the `documentCategory*` names, which label the four
   /// filters on Home and in the documents list.

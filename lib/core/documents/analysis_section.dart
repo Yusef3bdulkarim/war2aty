@@ -1,5 +1,6 @@
 /// The blocks the result screen is made of, in the order the master plan
-/// (§4, «ترتيب شاشة النتيجة») fixes them.
+/// (§4, «ترتيب شاشة النتيجة») fixes them — except the warnings, which the owner
+/// moved down to just before the explanation (F21 #21).
 ///
 /// Declaration order **is** display order: `BuildAnalysisResult` filters this
 /// list rather than assembling one of its own, so a section can never drift
@@ -17,12 +18,6 @@ enum AnalysisSection {
 
   /// «المطلوب منك» — what the user has to do about this paper.
   actionRequired,
-
-  /// Medical / legal / government disclaimers.
-  ///
-  /// Sits above the details on purpose: a caution the user must read before
-  /// acting on any figure below it.
-  warnings,
 
   /// The labelled facts read off the paper — «المعلومات المهمة».
   keyInformation,
@@ -42,6 +37,14 @@ enum AnalysisSection {
   /// §4 puts that block late: both are about the trip the user is about to
   /// make, not about reading the paper.
   instructions,
+
+  /// Medical / legal / government disclaimers.
+  ///
+  /// Just before the explanation, at the owner's decision (F21 #21): the
+  /// master plan's §4 put them above the figures, which crowded the top of
+  /// the page. The partial-result banner, which qualifies the figures
+  /// themselves, still sits right before them.
+  warnings,
 
   /// The full explanation — «الشرح التفصيلي».
   detailedExplanation,

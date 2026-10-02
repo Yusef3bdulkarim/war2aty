@@ -11,7 +11,7 @@ void main() {
       'routes online when connected and the online pipeline is live',
       () async {
         final usage = FakeUsageRepository(
-          seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+          seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
         );
         final decide = DecideAnalysisRoute(
           _FakeConnectivityService(true),
@@ -23,9 +23,9 @@ void main() {
     );
 
     test('routes offline when the OS reports no connectivity', () async {
-      // Never even asked: azureOcrEnabled is irrelevant with no connectivity.
+      // Never even asked: onlineOcrEnabled is irrelevant with no connectivity.
       final usage = FakeUsageRepository(
-        seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+        seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
       );
       final decide = DecideAnalysisRoute(
         _FakeConnectivityService(false),
@@ -37,7 +37,7 @@ void main() {
 
     test('routes offline when the connectivity check throws', () async {
       final usage = FakeUsageRepository(
-        seed: usageWith(limit: 3, remaining: 3, azureOcrEnabled: true),
+        seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
       );
       final decide = DecideAnalysisRoute(
         _FakeConnectivityService(false, fails: true),
@@ -49,7 +49,7 @@ void main() {
 
     // The critical regression this class exists to prevent: connectivity
     // alone must never be enough to route online, since the server rejects
-    // an image request outright while azureOcrEnabled is off (its default),
+    // an image request outright while onlineOcrEnabled is off (its default),
     // and locked decision #2 forbids falling back once online is chosen.
     test(
       'routes offline when connected but the online pipeline is not live',

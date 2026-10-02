@@ -146,8 +146,8 @@ final class RemoteUsageRepository implements UsageRepository {
   // Drift hands back local DateTimes; Dart's `==` treats a local and a UTC
   // DateTime as different even at the same instant, so normalise to UTC here.
   //
-  // azureOcrEnabled is deliberately left at its `false` default: the cache
-  // row does not carry it (see DailyUsage.azureOcrEnabled), so a
+  // onlineOcrEnabled is deliberately left at its `false` default: the cache
+  // row does not carry it (see DailyUsage.onlineOcrEnabled), so a
   // cached-only reconstruction can never claim the online pipeline is live.
   DailyUsage _toEntity(UsageCacheData row) => DailyUsage(
     usageDate: row.usageDate.toUtc(),

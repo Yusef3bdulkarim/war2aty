@@ -31,14 +31,16 @@ export interface RuntimeConfig {
    */
   readonly globalDailyCallCap: number | null;
   /**
-   * Whether the online Azure/Google image pipeline may run at all (F13-T03).
+   * Whether the online reading (`ocr-document`) may run at all. The
+   * `online_ocr_enabled` key; F20-T14 replaced F13's `azure_ocr_enabled`,
+   * which named the provider it no longer uses.
    *
-   * Dark-launched: `false` until an operator explicitly flips it, so every
-   * task before the pipeline is actually wired (T04–T17) ships with it
-   * inert. Once wired, `false` means the offline Tesseract path runs
-   * unconditionally, same as today.
+   * Opt-in: absent, unreadable or "off" all mean `false`, so a new provider
+   * is never called until an operator switches it on. `false` sends the app
+   * down the on-device (Tesseract) route, and an `ocr-document` call that
+   * still arrives answers OCR_UNAVAILABLE so the app reads on the device.
    */
-  readonly azureOcrEnabled: boolean;
+  readonly onlineOcrEnabled: boolean;
   readonly maxOcrCharacters: number;
   /**
    * Upper bound on a decoded `image.data` payload, in bytes (F13-T09).
@@ -46,7 +48,7 @@ export interface RuntimeConfig {
    * Only enforced on the image-intake request shape — the text shape has no
    * image field to bound. Sized around a compressed phone-camera photo after
    * the existing capture-quality gate (F04), with headroom; a base64 body
-   * this large is still cheap to reject before it is ever handed to Azure.
+   * this large is still cheap to reject before it is ever handed to the reader.
    */
   readonly maxImageBytes: number;
   /** Clients below this are refused with 400 UNSUPPORTED_APP_VERSION. */
@@ -70,8 +72,8 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   // Dark by default (F13-T03): no cap until an operator sets one, so today's
   // Groq-only pipeline behaves exactly as it did before this key existed.
   globalDailyCallCap: null,
-  // Dark by default (F13-T03): off until an operator explicitly enables it.
-  azureOcrEnabled: false,
+  // Opt-in (F13-T03, F20-T14): off until an operator explicitly enables it.
+  onlineOcrEnabled: false,
   maxOcrCharacters: 12000,
   // ~8MB decoded — comfortably above a compressed capture-quality-gated photo,
   // small enough that an oversized body is still cheap to reject on parse.
@@ -199,9 +201,9 @@ export function parseRuntimeConfig(
       DEFAULT_RUNTIME_CONFIG.dailyLimit,
     ),
     globalDailyCallCap: nullablePositiveInteger(read("global_daily_call_cap")),
-    azureOcrEnabled: optInFlag(
-      read("azure_ocr_enabled"),
-      has("azure_ocr_enabled"),
+    onlineOcrEnabled: optInFlag(
+      read("online_ocr_enabled"),
+      has("online_ocr_enabled"),
     ),
     maxOcrCharacters: positiveInteger(
       read("max_ocr_characters"),

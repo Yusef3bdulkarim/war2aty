@@ -12,9 +12,9 @@ When this file and the master plan disagree, the master plan wins.
 - **Market / Users:** مصر — المستخدم المصري العادي (مع مراعاة كبار السن وضعاف القراءة/البصر). اللهجة المصرية البسيطة.
 - **Platforms:** Android + iOS فقط. Portrait فقط. لا Tablet/Web في الـMVP.
 - **Language / Direction:** واجهة عربية بالكامل، **RTL** بالكامل. المستند نفسه قد يكون عربي/إنجليزي/مختلط.
-- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** OCR: Azure AI Document Intelligence (أساسي، أونلاين فقط) + Google Document AI (رأي ثانٍ شرطي) خلف الـEdge Function؛ Tesseract محلي كـfallback offline فقط (F13). التصنيف والشرح النهائي: Groq Structured Output خلف الـEdge Function — Groq لا يرى الصورة أبدًا.
+- **Backend:** Supabase Edge Functions (TypeScript/Deno) + Supabase Postgres (عداد الاستخدام فقط). **لا يوجد Firebase.** OCR أونلاين: Gemini (Flash-Lite) خلف الـEdge Function `ocr-document` (بـflag `online_ocr_enabled`)، ومعاه **fallback صريح** لـTesseract على الجهاز لفشل معيّن بس (rate limit / timeout / `OCR_UNAVAILABLE` / مفيش نت) وبانر تحذير — أي فشل تاني بيظهر زي ما هو (F20 §1)؛ Tesseract برضه هو مسار الـoffline. التصنيف والشرح النهائي: **Structured Output خلف `analyze-document`، نص بس** — Mistral (Ministral) وبعده Groq كـfallback في نفس الطلب (F20)؛ مزوّد التحليل ما بيشوفش الصورة أبدًا (نص الـOCR + candidates بس). كل المزوّدين على free tier — راجع §7. Azure و Google Document AI اتشالوا (F20-T16).
 - **Auth:** Supabase **Anonymous Auth** — لا توجد شاشة تسجيل دخول ظاهرة. هوية تقنية فقط لحماية الخدمة + `installationId` في `flutter_secure_storage`.
-- **Privacy (non-negotiable):** بنقرا نص الورقة بمعالجة آمنة، لكن **صورتها نفسها متتحفظش خالص ومحدش بيشوفها** — لا تُخزَّن على أي سيرفر، وتتمسح فورًا بعد قراءتها. الحفظ الافتراضي على الجهاز = «النتيجة فقط». لا تذكير تلقائي بدون مراجعة المستخدم. لا تُسجَّل محتويات المستند في أي Log. النصوص اللي بتظهر للمستخدم متسميش أي مزوّد خدمة (Azure/Google/Groq) — راجع `docs/features/F13-ocr-provider-migration.md`.
+- **Privacy (non-negotiable):** **الصورة** (أونلاين بس) بتتبعت لخدمة قراءة بره تقرا النص منها؛ إحنا مابنحفظهاش على أي سيرفر عندنا، بس الخدمة دي شغّالة على free tier ممكن تحتفظ بيها فترة ويراجعها موظفين عندها — فـ**ممنوع ندّعي إن محدش بيشوف الصورة** (F20-T24، §7). من غير إنترنت الصورة بتتقري على الموبايل بس. **النص** المستخرج بيتبعت مشفَّر لخدمة تحليل بره، وإحنا مانحفظوهوش ومانسجّلوهوش — بس **ممنوع ندّعي إن محدش بيقراه**، لأن التطبيق شغّال على free tier بيسمح للمزوّد بمراجعة المحتوى (F18-T02، §7). الحفظ الافتراضي على الجهاز = «النتيجة فقط». لا تذكير تلقائي بدون مراجعة المستخدم. لا تُسجَّل محتويات المستند في أي Log. النصوص اللي بتظهر للمستخدم متسميش أي مزوّد خدمة (Azure/Google/Gemini/Mistral/Groq) — راجع `docs/features/F20-ocr-analysis-provider-refactor.md` (وقبله F13 و F18).
 - **Local data:** Drift + SQLite (مصدر الحقيقة المحلي)، صور اختيارية مشفّرة (AES-256-GCM) داخل Application Private Directory، Local Notifications، Local TTS.
 - **Usage limit:** 3 تحليلات ذكية ناجحة يوميًا (قابلة للتعديل من Backend runtime config)، بحساب يوم `Africa/Cairo`.
 - **Status:** MVP جديد من الصفر. التنفيذ **Vertical-Slice-first** (مسار فاتورة كهرباء كامل)، ثم توسعة الميزات. لا تُبنى كل الشاشات دفعة واحدة.
@@ -78,8 +78,13 @@ features/{feature_name}/
 
 ## 7) Privacy & Security (hard rules)
 - **Offline pipeline** (لا اتصال — الوضع الافتراضي القديم): لا تُرسِل غير **نص OCR + candidates** للـBackend — لا صورة، لا Thumbnail، لا EXIF/GPS.
-- **Online pipeline** (خلف `azureOcrEnabled`، F13): الصورة نفسها فقط (بدون Thumbnail/EXIF/GPS) تُرسَل للـEdge Function لمعالجة آمنة تقرأ النص منها، وتُحذف فورًا بعد القراءة — لا تُخزَّن على أي سيرفر لأكثر من مدة القراءة نفسها. فشل أونلاين لا يرجع صامت لـTesseract أبدًا — المستخدم يعيد المحاولة.
-- أي نص يظهر للمستخدم (شاشات الخصوصية، رسائل الخطأ...) متسميش مزوّد خدمة (Azure/Google/Groq) ومتدّعيش إن الصورة "متطلعش من الموبايل خالص" — الصياغة المعتمدة: «بنقرا النص بمعالجة آمنة، لكن مانحفظش الصورة، ومحدش بيشوفها».
+- **Online pipeline** (خلف `onlineOcrEnabled`، F13 → F20): الصورة نفسها فقط (بدون Thumbnail/EXIF/GPS) تُرسَل للـEdge Function `ocr-document`، اللي بتبعتها لخدمة القراءة (Gemini free tier) — إحنا مابنخزّنهاش على أي سيرفر عندنا. الفشل الأونلاين **مايرجعش صامت** لـTesseract أبدًا: الـfallback للجهاز **صريح**، لأربع حالات بس (`shouldFallBackToOnDeviceOcr`: rate limit، timeout، `OCR_UNAVAILABLE`، مفيش نت)، ومعاه بانر تحذير (`ocrOnlineFallbackWarning`)؛ أي فشل تاني بيظهر للمستخدم يعيد المحاولة (F20 §1).
+- أي نص يظهر للمستخدم (شاشات الخصوصية، رسائل الخطأ...) متسميش مزوّد خدمة (Azure/Google/Gemini/Mistral/Groq) ومتدّعيش إن الصورة "متطلعش من الموبايل خالص".
+- **لا الصورة ولا النص فيهم «محدش بيشوفه/بيشوفها» (F18-T02 للنص، F20-T24 للصورة):** الصورة بتروح لـGemini free tier، وشروطه بتسمح بالاحتفاظ بالمحتوى ومراجعته بشريًا ([Gemini API terms](https://ai.google.dev/gemini-api/terms) — Unpaid Services)؛ والنص بيروح لـMistral (وGroq كـfallback) على free tier، ومانقدرش نضمن عنهم إن محدش بيشوفه (Mistral ممكن يستخدمه للتدريب لو الـopt-out مش متفعّل — قرار D2). فممنوع أي نص للمستخدم يدّعي إن الصورة أو النص محدش بيشوفهم، أو إن الصورة "مش بتتحفظ" من غير ما يحدّد إن ده عندنا/على الموبايل. اختبار `app_strings_test` بيفرض ده على كل نصوص `AppStrings`.
+  - الصياغة المعتمدة للصورة (نقطة الخصوصية الأولى): «لما تكون متصل بالإنترنت، بنبعت صورة الورقة لخدمة خارجية تقرا النص منها. إحنا مابنحفظش الصورة، لكن الخدمة دي ممكن تحتفظ بيها فترة، وممكن يراجعها موظفين عندها لتحسين خدمتها. من غير إنترنت، الصورة بتتقري على موبايلك بس.»
+  - الصياغة المعتمدة للنص (النقطة التانية): «بنبعت نص ورقتك مشفَّر لخدمة تحليل علشان نفهمه، ومانحفظش النص عندنا.»
+  - اللي إحنا فعلًا بنضمنه: مانحفظش الصورة ولا النص على سيرفراتنا، ومانسجّلهمش في أي Log، وبنبعت النص مشفَّر؛ والصورة مش بتتحفظ **على الموبايل** إلا بموافقة المستخدم. مش «محدش بيشوفهم».
+  - لو التطبيق اتحوّل لـpaid tier عند كل المزوّدين (مثلًا Gemini Tier 1 بيلغي حق الاستخدام والمراجعة البشرية) يجوز ساعتها بس مراجعة الصياغة — والقرار للمالك.
 - لا Secrets داخل Flutter/Git (كل الـAPI keys داخل Supabase Secrets فقط؛ الـPublishable key فقط هو المسموح في التطبيق).
 - لا تُسجِّل OCR text أو Prompt أو AI response أو أرقام/مبالغ/أسماء في الـLogs.
 - الصور المحفوظة محليًا (باختيار المستخدم بعد التحليل) مشفّرة؛ تُحذف النسخة غير المشفّرة والملفات المؤقتة بعد الانتهاء.
@@ -92,9 +97,10 @@ features/{feature_name}/
 - `BlocBuilder`/`BlocSelector` on the smallest Widget that needs the state, not higher up the tree.
 
 ## 9) OCR & Analysis boundaries
-- OCR sits behind an `OcrEngine` interface (Tesseract first, PaddleOCR as alternative) — the engine is never called directly from a Cubit/Widget.
-- Contract before Integration, Mock before the real service: the result screen is built against a Mock analyze-document before wiring up Groq.
-- Real analysis flows exclusively through the Supabase Edge Function — the app never knows or calls Groq directly.
+- On-device OCR sits behind an `OcrEngine` interface (Tesseract first, PaddleOCR as alternative) — the engine is never called directly from a Cubit/Widget; cubits reach it through the `ExtractDocumentText` use case.
+- Online OCR flows exclusively through the `ocr-document` Edge Function (`OcrImage` use case). Falling back to on-device OCR is decided only on the client, only from the online reading's own failure, and only by the closed allowlist in `shouldFallBackToOnDeviceOcr` (F20 §1) — never silently, never from an analysis failure. `OcrReviewCubit` discards answers to requests the user left behind (F20 §4).
+- Contract before Integration, Mock before the real service: the result screen is built against a Mock analyze-document before wiring up any real AI provider.
+- Real analysis flows exclusively through the `analyze-document` Edge Function, text only — the app never knows or calls an AI provider directly, and never learns which provider (Mistral or its Groq fallback, F20) served it.
 
 ## 10) Testing & Quality Gate (before any task is "done")
 ```

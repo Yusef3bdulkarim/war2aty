@@ -4,13 +4,14 @@ import '../icons/stroke_icon.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
+import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'result_section_heading.dart';
 
 // From `Waraqti.dc.html` → the result page's «المستندات المطلوبة» list.
 const double _cardPaddingH = 18;
 const double _cardPaddingV = 8;
-const double _cardGapBelow = 14;
+const double _cardGapBelow = AppSpacing.resultCardGap;
 const double _rowPaddingV = 12;
 const double _rowGap = 11;
 const double _markerSize = 8;

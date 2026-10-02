@@ -1,23 +1,29 @@
 /**
- * F14 · Tests for the ocr-document endpoint, end to end with fakes.
+ * F14, rewired in F20-T13 · Tests for the ocr-document endpoint, end to end
+ * with fakes.
  *
  * Same discipline as `analyze-handler.test.ts`: every dependency is injected
- * so these run the real sequence — auth, config, kill switch, dark-launch
- * gate, parsing, the image pipeline — without Docker, a network, or an Azure
- * bill. The questions that matter here are the ones specific to this split:
- * does this endpoint ever reserve a quota slot, does it ever call Groq, and
- * does the response carry OCR text/candidates rather than an analysis.
+ * so these run the real sequence — auth, config, kill switch, the online
+ * reading gate, parsing, the OCR pipeline — without Docker or a network. The
+ * questions that matter here are the ones specific to this endpoint: does the
+ * response carry OCR text and candidates rather than an analysis, and does
+ * every reader failure answer the code that tells the app whether it may read
+ * the page on the device instead (F20 matrix §1, O2–O10).
  */
 
-import { assertEquals } from "jsr:@std/assert@1";
+import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { createOcrHandler } from "../../functions/_shared/analyze/ocr-handler.ts";
-import type { ImageAnalysisPipeline } from "../../functions/_shared/analyze/image-analysis-pipeline.ts";
+import type { ImageOcrPipeline } from "../../functions/_shared/analyze/image-ocr-pipeline.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
 import type { AuthenticatedUser } from "../../functions/_shared/auth/require-user.ts";
 import type { RuntimeConfig } from "../../functions/_shared/config/runtime-config.ts";
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import { createEndpoint } from "../../functions/_shared/http/endpoint.ts";
+import {
+  ProviderFailure,
+  type ProviderFailureKind,
+} from "../../functions/_shared/ai/provider-failure.ts";
 import {
   OCR_TEXT,
   REQUEST_ID,
@@ -43,38 +49,29 @@ interface Harness {
     headers?: Record<string, string>,
   ) => Promise<Response>;
   readonly pipelineCalls: { data: Uint8Array; mimeType: string }[];
-  readonly pipelineTimeouts: number[];
+  /** How many times the pipeline, and so the Gemini client, was built. */
+  readonly pipelineBuilds: number[];
+  /** The deadline each read was given, in milliseconds. */
+  readonly deadlines: number[];
 }
 
 interface HarnessOptions {
   readonly config?: Partial<RuntimeConfig>;
   readonly loadConfig?: () => Promise<RuntimeConfig>;
-  readonly pipeline?: ImageAnalysisPipeline;
+  readonly pipeline?: ImageOcrPipeline;
+  readonly createPipeline?: () => ImageOcrPipeline;
 }
 
-function successfulPipeline(): ImageAnalysisPipeline {
-  return () =>
-    Promise.resolve({
-      ocrText: OCR_TEXT,
-      candidates: CANDIDATES,
-      // The OCR-only endpoint never consults verification — it has nothing to
-      // decide with it, since it never builds phones/references on the wire.
-      verification: {
-        dates: [],
-        times: [],
-        amounts: [],
-        phones: [],
-        references: [],
-        needsUserReview: false,
-      },
-    });
+function successfulPipeline(): ImageOcrPipeline {
+  return () => Promise.resolve({ ocrText: OCR_TEXT, candidates: CANDIDATES });
 }
 
 function harness(options: HarnessOptions = {}): Harness {
   const pipelineCalls: { data: Uint8Array; mimeType: string }[] = [];
-  const pipelineTimeouts: number[] = [];
+  const pipelineBuilds: number[] = [];
+  const deadlines: number[] = [];
 
-  const config = testConfig({ azureOcrEnabled: true, ...options.config });
+  const config = testConfig({ onlineOcrEnabled: true, ...options.config });
   const pipeline = options.pipeline ?? successfulPipeline();
 
   const handler = createEndpoint({
@@ -86,12 +83,16 @@ function harness(options: HarnessOptions = {}): Harness {
           token === VALID_TOKEN ? { id: USER_ID, isAnonymous: true } : null,
         ),
       loadConfig: options.loadConfig ?? (() => Promise.resolve(config)),
-      createImagePipeline: (timeoutSeconds) => {
-        pipelineTimeouts.push(timeoutSeconds);
-        return (input) => {
+      createPipeline: options.createPipeline ?? (() => {
+        pipelineBuilds.push(1);
+        return (input, signal) => {
           pipelineCalls.push(input);
-          return pipeline(input);
+          return pipeline(input, signal);
         };
+      }),
+      timeoutSignal: (ms) => {
+        deadlines.push(ms);
+        return new AbortController().signal;
       },
     }),
   });
@@ -111,12 +112,32 @@ function harness(options: HarnessOptions = {}): Harness {
         }),
       ),
     pipelineCalls,
-    pipelineTimeouts,
+    pipelineBuilds,
+    deadlines,
   };
 }
 
 async function errorCode(response: Response): Promise<string> {
   return (await response.json()).error.code;
+}
+
+/** Runs `fn` with `console.log` captured, returning every structured line. */
+async function capturingLogs(fn: () => Promise<unknown>): Promise<Record<string, unknown>[]> {
+  const original = console.log;
+  const lines: string[] = [];
+  console.log = (line: unknown) => lines.push(String(line));
+  try {
+    await fn();
+  } finally {
+    console.log = original;
+  }
+  return lines.flatMap((line) => {
+    try {
+      return [JSON.parse(line)];
+    } catch {
+      return [];
+    }
+  });
 }
 
 // ── the happy path ────────────────────────────────────────────────────────
@@ -145,6 +166,15 @@ Deno.test("the pipeline is called once with the decoded image bytes", async () =
   assertEquals(test.pipelineCalls.length, 1);
   assertEquals(test.pipelineCalls[0].mimeType, "image/jpeg");
   assertEquals(test.pipelineCalls[0].data.length > 0, true);
+});
+
+Deno.test("an empty reading is a 200 with empty text, for the app to call poor quality (O2)", async () => {
+  const empty = { dates: [], times: [], amounts: [], phones: [], references: [] };
+  const test = harness({ pipeline: () => Promise.resolve({ ocrText: "", candidates: empty }) });
+  const response = await test.call();
+
+  assertEquals(response.status, 200);
+  assertEquals((await response.json()).ocr_text, "");
 });
 
 // ── refusals that must happen before the pipeline is called ───────────────
@@ -177,13 +207,16 @@ Deno.test("the kill switch stops OCR with 503 before anything is parsed", async 
   assertEquals(test.pipelineCalls.length, 0);
 });
 
-Deno.test("azureOcrEnabled dark refuses the request as INVALID_REQUEST, same as analyze-document", async () => {
-  const test = harness({ config: { azureOcrEnabled: false } });
+Deno.test("online reading switched off answers OCR_UNAVAILABLE, so the app reads on the device (O10)", async () => {
+  // The app only calls this endpoint after choosing the online route; the
+  // flag went off since. F14 refused this as INVALID_REQUEST, which left the
+  // user an error page for a page the phone can still read.
+  const test = harness({ config: { onlineOcrEnabled: false } });
   const response = await test.call();
 
-  assertEquals(response.status, 400);
-  assertEquals(await errorCode(response), "INVALID_REQUEST");
-  assertEquals(test.pipelineCalls.length, 0);
+  assertEquals(response.status, 502);
+  assertEquals(await errorCode(response), "OCR_UNAVAILABLE");
+  assertEquals(test.pipelineBuilds.length, 0, "Gemini must not be built, let alone called");
 });
 
 Deno.test("malformed JSON is INVALID_REQUEST and never reaches the pipeline", async () => {
@@ -222,14 +255,41 @@ Deno.test("a config read failure is 500, not a silent fallback to enabled", asyn
   assertEquals(test.pipelineCalls.length, 0);
 });
 
-// ── failures propagate; nothing here silently falls back to offline ───────
+// ── reader failures (F20 matrix §1, O3–O6) ────────────────────────────────
 
-Deno.test("a failed read propagates its status rather than falling back to a text analysis", async () => {
-  const test = harness({ pipeline: () => Promise.reject(ApiError.timeout()) });
+const OCR_WIRE: Record<ProviderFailureKind, { status: number; code: string }> = {
+  rate_limited: { status: 429, code: "AI_RATE_LIMITED" }, // O3
+  timeout: { status: 408, code: "TIMEOUT" }, // O4
+  upstream_unavailable: { status: 502, code: "OCR_UNAVAILABLE" }, // O5
+  network: { status: 502, code: "OCR_UNAVAILABLE" }, // O5
+  invalid_output: { status: 502, code: "OCR_UNAVAILABLE" }, // O5
+  auth: { status: 500, code: "INTERNAL_ERROR" }, // O6
+  bad_request: { status: 500, code: "INTERNAL_ERROR" }, // O6
+};
+
+for (const [kind, wire] of Object.entries(OCR_WIRE)) {
+  Deno.test(`a reader ${kind} answers ${wire.status} ${wire.code}`, async () => {
+    const test = harness({
+      pipeline: () => Promise.reject(new ProviderFailure(kind as ProviderFailureKind)),
+    });
+    const response = await test.call();
+
+    assertEquals(response.status, wire.status);
+    assertEquals(await errorCode(response), wire.code);
+  });
+}
+
+Deno.test("a missing GEMINI_* credential is INTERNAL_ERROR, never OCR_UNAVAILABLE (O6)", async () => {
+  // A deploy fault must not quietly send every user down the device path.
+  const test = harness({
+    createPipeline: () => {
+      throw new Error("GEMINI_API_KEY is not set.");
+    },
+  });
   const response = await test.call();
 
-  assertEquals(response.status, 408);
-  assertEquals(await errorCode(response), "TIMEOUT");
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "INTERNAL_ERROR");
 });
 
 Deno.test("an unexpected crash mid-read is INTERNAL_ERROR, never the raw message", async () => {
@@ -239,12 +299,35 @@ Deno.test("an unexpected crash mid-read is INTERNAL_ERROR, never the raw message
   const response = await test.call();
 
   assertEquals(response.status, 500);
-  assertEquals(await errorCode(response), "INTERNAL_ERROR");
+  const body = await response.json();
+  assertEquals(body.error.code, "INTERNAL_ERROR");
+  assertEquals(JSON.stringify(body).includes("undefined is not"), false);
 });
 
-Deno.test("the configured timeout reaches the pipeline builder", async () => {
+// ── the deadline (§2) ─────────────────────────────────────────────────────
+
+Deno.test("the single Gemini attempt gets the whole configured deadline", async () => {
   const test = harness({ config: { aiTimeoutSeconds: 25 } });
   await test.call();
 
-  assertEquals(test.pipelineTimeouts, [25]);
+  assertEquals(test.deadlines, [25_000]);
+  assertEquals(test.pipelineCalls.length, 1, "one attempt, no retry");
+});
+
+// ── logs (§51) ────────────────────────────────────────────────────────────
+
+Deno.test("a failed read is logged with its kind and code, never the document", async () => {
+  const test = harness({
+    pipeline: () => Promise.reject(new ProviderFailure("upstream_unavailable")),
+  });
+
+  const lines = await capturingLogs(() => test.call());
+  const failed = lines.find((line) => line.event === "ocr.failed");
+
+  assert(failed !== undefined, "no ocr.failed line");
+  assertEquals(failed.failure, "upstream_unavailable");
+  assertEquals(failed.error_code, "OCR_UNAVAILABLE");
+  const serialised = JSON.stringify(lines);
+  assertEquals(serialised.includes(OCR_TEXT), false);
+  assertEquals(serialised.includes("850"), false);
 });

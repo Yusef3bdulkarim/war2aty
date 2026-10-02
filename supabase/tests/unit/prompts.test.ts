@@ -15,7 +15,6 @@ import {
   buildAnalysisMessages,
   type ExtractedCandidates,
 } from "../../functions/_shared/prompts/analysis-prompt.ts";
-import type { CrossProviderVerification } from "../../functions/_shared/verification/cross-provider-validator.ts";
 
 const NO_CANDIDATES: ExtractedCandidates = {
   dates: [],
@@ -244,86 +243,20 @@ Deno.test("an implausible number is treated as OCR error, not fact", () => {
   assertStringIncludes(SYSTEM_PROMPT, "more likely an OCR error than a fact");
 });
 
-// ── verification hints (F13-T10, locked decision #5) ─────────────────────
+// ── no verification section (F20-T15) ─────────────────────────────────────
 
-Deno.test("the system prompt tells the model verification never justifies a corrected value", () => {
-  assertStringIncludes(SYSTEM_PROMPT, "## Verification");
-  assertStringIncludes(SYSTEM_PROMPT, "never a reason to invent a corrected value");
-});
+Deno.test("neither prompt mentions a verification section any more", () => {
+  // The Azure/Google cross-check that produced it is gone. A rule about a
+  // section no request carries would only spend tokens and invite the model
+  // to look for one.
+  const message = userMessage(input());
 
-const NO_VERIFICATION_CANDIDATES: ExtractedCandidates = {
-  ...NO_CANDIDATES,
-  dates: [{ raw_text: "2026/04/15", normalized_date: "2026-04-15", is_ambiguous: false }],
-  amounts: [{ raw_text: "850.50 جنيه", value: 850.5, currency: "EGP", is_ambiguous: false }],
-};
-
-function verification(
-  overrides: Partial<CrossProviderVerification> = {},
-): CrossProviderVerification {
-  return {
-    dates: [{ status: "verified", needsUserReview: false }],
-    times: [],
-    amounts: [{ status: "verified", needsUserReview: false }],
-    phones: [],
-    references: [],
-    needsUserReview: false,
-    ...overrides,
-  };
-}
-
-Deno.test("no verification input means no verification section", () => {
-  const message = userMessage(input({ candidates: NO_VERIFICATION_CANDIDATES }));
+  assert(!SYSTEM_PROMPT.includes("## Verification"));
   assert(!message.includes("## Verification"));
 });
 
-Deno.test("a fully-confirmed verification produces no verification section", () => {
-  const message = userMessage(
-    input({ candidates: NO_VERIFICATION_CANDIDATES, verification: verification() }),
-  );
-  assert(!message.includes("## Verification"));
-});
+Deno.test("the system prompt's rules are numbered without a gap", () => {
+  const numbers = [...SYSTEM_PROMPT.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
 
-Deno.test("a flagged candidate is named in the verification section", () => {
-  const message = userMessage(
-    input({
-      candidates: NO_VERIFICATION_CANDIDATES,
-      verification: verification({
-        dates: [{ status: "unverified", needsUserReview: true }],
-      }),
-    }),
-  );
-
-  assertStringIncludes(message, "## Verification");
-  const verificationSection = message.slice(message.indexOf("## Verification"));
-  assertStringIncludes(verificationSection, '"2026/04/15"');
-  // The amount was confirmed — it must not appear as a flagged candidate,
-  // even though it still appears earlier in the raw candidate list.
-  assert(!verificationSection.includes('"850.50 جنيه"'));
-});
-
-Deno.test("the verification section instructs the model not to raise confidence or invent a fix", () => {
-  const message = userMessage(
-    input({
-      candidates: NO_VERIFICATION_CANDIDATES,
-      verification: verification({
-        amounts: [{ status: "conflicting", needsUserReview: true }],
-      }),
-    }),
-  );
-
-  assertStringIncludes(message, "Do not raise your confidence");
-  assertStringIncludes(message, 'Do not invent a different value to "fix" one');
-});
-
-Deno.test("the verification section appears before the document fence", () => {
-  const message = userMessage(
-    input({
-      candidates: NO_VERIFICATION_CANDIDATES,
-      verification: verification({
-        dates: [{ status: "unverified", needsUserReview: true }],
-      }),
-    }),
-  );
-
-  assert(message.indexOf("## Verification") < message.indexOf("<document_text>"));
+  assertEquals(numbers, numbers.map((_, i) => i + 1));
 });

@@ -6,8 +6,9 @@ import '../../../capture/domain/entities/captured_photo.dart';
 /// Unlike [AnalysisRequest], this carries the photo itself: the online path's
 /// entire reason to exist is sending it (F13 locked decisions — a privacy-model
 /// change, the image now legitimately transits the Edge Function). [photo] is
-/// expected to already be perspective-corrected (F13-T12), never the raw
-/// sensor frame. Only the file path travels through the domain layer; bytes
+/// the image the user confirmed on the preview screen (rotated and cropped as
+/// they chose), never a thumbnail. Only the file path travels through the
+/// domain layer; bytes
 /// are read at the data boundary (§29b).
 ///
 /// `installation_id` and `app_version` are deliberately absent, same as

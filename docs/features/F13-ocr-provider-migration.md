@@ -1,5 +1,15 @@
 # F13 · OCR Provider Migration (Azure + Google)
 
+> **Superseded by F20** (`docs/features/F20-ocr-analysis-provider-refactor.md`).
+> Kept as the record of what F13 built. F20 replaced the online reader with
+> Gemini (`ocr-document`), deleted Azure, Google Document AI, the image-analysis
+> path and the cross-provider verification layer (T15/T16), renamed
+> `azure_ocr_enabled` to `online_ocr_enabled` (T14/T17), and reversed locked
+> decision #2: a failed online reading now falls back to on-device Tesseract —
+> explicitly, for four failures only, with a warning (F20 §1, T20–T23). The
+> image privacy copy changed too (T24). Where this doc and F20 disagree, F20 is
+> current.
+
 - **Branch:** `feature/ocr-provider-migration` · **Milestone:** post-M6
 - **Depends on:** F04 (local OCR — Tesseract/extractors kept as offline fallback), F06 (backend + Groq — extended, not replaced) · **Feeds:** all future analysis quality
 - **Progress:** 19 / 19 DONE

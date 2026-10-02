@@ -13,15 +13,15 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 import { createAnalyzeHandler } from "../../functions/_shared/analyze/analyze-handler.ts";
-import type { ImageAnalysisPipeline } from "../../functions/_shared/analyze/image-analysis-pipeline.ts";
-import type { AiAnalysisProvider } from "../../functions/_shared/groq/groq-provider.ts";
 import type {
-  AnalysisPromptInput,
-  ExtractedCandidates,
-} from "../../functions/_shared/prompts/analysis-prompt.ts";
+  AiAnalysisProvider,
+  AnalysisLeg,
+} from "../../functions/_shared/ai/analysis-provider.ts";
+import { createFallbackAnalysisProvider } from "../../functions/_shared/ai/fallback-provider.ts";
+import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
+import type { AnalysisPromptInput } from "../../functions/_shared/prompts/analysis-prompt.ts";
 import type { AuthenticatedUser } from "../../functions/_shared/auth/require-user.ts";
 import type { RuntimeConfig } from "../../functions/_shared/config/runtime-config.ts";
-import type { CrossProviderVerification } from "../../functions/_shared/verification/cross-provider-validator.ts";
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
 import { createEndpoint } from "../../functions/_shared/http/endpoint.ts";
 import type {
@@ -31,7 +31,7 @@ import type {
   ReserveOutcome,
   SlotStore,
 } from "../../functions/_shared/usage/slot-reservation.ts";
-import type { ModelAnalysis } from "../../functions/_shared/schemas/groq-output.schema.ts";
+import type { ModelAnalysis } from "../../functions/_shared/schemas/analysis-output.schema.ts";
 import {
   modelAnalysis,
   NOW,
@@ -55,8 +55,7 @@ interface Harness {
   readonly finalizes: { requestId: string; success: boolean; errorCode?: string }[];
   readonly prompts: AnalysisPromptInput[];
   readonly analyserTimeouts: number[];
-  readonly imagePipelineCalls: { data: Uint8Array; mimeType: string }[];
-  readonly imagePipelineTimeouts: number[];
+  readonly analyserRequestIds: string[];
 }
 
 interface HarnessOptions {
@@ -64,7 +63,8 @@ interface HarnessOptions {
   readonly reserveOutcome?: ReserveOutcome;
   readonly analyse?: (input: AnalysisPromptInput) => Promise<ModelAnalysis>;
   readonly loadConfig?: () => Promise<RuntimeConfig>;
-  readonly imagePipeline?: ImageAnalysisPipeline;
+  /** Replaces the whole analyser factory, e.g. with the real fallback chain. */
+  readonly createAnalyser?: (timeoutSeconds: number, requestId: string) => AiAnalysisProvider;
 }
 
 function harness(options: HarnessOptions = {}): Harness {
@@ -72,8 +72,7 @@ function harness(options: HarnessOptions = {}): Harness {
   const finalizes: { requestId: string; success: boolean; errorCode?: string }[] = [];
   const prompts: AnalysisPromptInput[] = [];
   const analyserTimeouts: number[] = [];
-  const imagePipelineCalls: { data: Uint8Array; mimeType: string }[] = [];
-  const imagePipelineTimeouts: number[] = [];
+  const analyserRequestIds: string[] = [];
 
   const config = testConfig(options.config);
 
@@ -101,13 +100,6 @@ function harness(options: HarnessOptions = {}): Harness {
     return options.analyse ? options.analyse(input) : Promise.resolve(modelAnalysis());
   };
 
-  // Never called for a text-shaped request — see "the text-only branch never
-  // touches the image pipeline" below, which is exactly what this default
-  // proves by throwing if that assumption is ever violated.
-  const defaultImagePipeline: ImageAnalysisPipeline = () =>
-    Promise.reject(new Error("no image pipeline configured for this test"));
-  const imagePipeline = options.imagePipeline ?? defaultImagePipeline;
-
   const handler = createEndpoint({
     name: "analyze-document",
     method: "POST",
@@ -118,16 +110,10 @@ function harness(options: HarnessOptions = {}): Harness {
         ),
       loadConfig: options.loadConfig ?? (() => Promise.resolve(config)),
       slots,
-      createAnalyser: (timeoutSeconds) => {
+      createAnalyser: (timeoutSeconds, analyserRequestId) => {
         analyserTimeouts.push(timeoutSeconds);
-        return analyse;
-      },
-      createImagePipeline: (timeoutSeconds) => {
-        imagePipelineTimeouts.push(timeoutSeconds);
-        return (input) => {
-          imagePipelineCalls.push(input);
-          return imagePipeline(input);
-        };
+        analyserRequestIds.push(analyserRequestId);
+        return options.createAnalyser?.(timeoutSeconds, analyserRequestId) ?? analyse;
       },
       hashInstallation: (id) => Promise.resolve(`hashed:${id.slice(0, 4)}`),
       now: () => NOW,
@@ -152,8 +138,7 @@ function harness(options: HarnessOptions = {}): Harness {
     finalizes,
     prompts,
     analyserTimeouts,
-    imagePipelineCalls,
-    imagePipelineTimeouts,
+    analyserRequestIds,
   };
 }
 
@@ -484,118 +469,177 @@ Deno.test("a date already in the past never drives a reminder", async () => {
   assertEquals(body.dates[0].is_reminder_worthy, false);
 });
 
-// ── the image shape (F13-T11) ─────────────────────────────────────────────
+// ── text only (F20-T15) ───────────────────────────────────────────────────
+// The image shape F13-T11 added was removed with its Azure/Google pipeline:
+// photos are read by `ocr-document`, and only their reviewed text arrives here.
 
-const IMAGE_CANDIDATES: ExtractedCandidates = {
-  dates: [{ raw_text: "2026-08-15", normalized_date: "2026-08-15", is_ambiguous: false }],
-  times: [],
-  amounts: [{ raw_text: "850.50 جنيه", value: 850.5, currency: "EGP", is_ambiguous: false }],
-  phones: [{ raw_text: "01012345678", normalized_number: "+201012345678", is_ambiguous: false }],
-  references: [{ raw_text: "رقم الحساب 12345678", value: "12345678", is_ambiguous: true }],
-};
-
-const IMAGE_VERIFICATION: CrossProviderVerification = {
-  dates: [{ status: "verified", needsUserReview: false }],
-  times: [],
-  amounts: [{ status: "verified", needsUserReview: false }],
-  // Left unconfirmed on purpose, so the response-building test below has a
-  // real needsUserReview: true to assert against.
-  phones: [{ status: "unverified", needsUserReview: true }],
-  references: [{ status: "verified", needsUserReview: false }],
-  needsUserReview: true,
-};
-
-function successfulImagePipeline(): ImageAnalysisPipeline {
-  return () =>
-    Promise.resolve({
-      ocrText: OCR_TEXT,
-      candidates: IMAGE_CANDIDATES,
-      verification: IMAGE_VERIFICATION,
-    });
-}
-
-Deno.test("an image request is refused as INVALID_REQUEST while azureOcrEnabled is dark, and never reaches the pipeline", async () => {
-  const test = harness({ config: { azureOcrEnabled: false } });
+Deno.test("an image-shaped body is INVALID_REQUEST even with online reading on, and takes no slot", async () => {
+  const test = harness({ config: { onlineOcrEnabled: true } });
   const response = await test.call(validImageRequestBody());
 
   assertEquals(response.status, 400);
   assertEquals(await errorCode(response), "INVALID_REQUEST");
-  assertEquals(test.imagePipelineCalls.length, 0);
-  // No slot taken either — a dark route must cost the refused caller nothing.
   assertEquals(test.reserves.length, 0);
-});
-
-Deno.test("the kill switch blocks an image request the same way it blocks a text one", async () => {
-  const test = harness({ config: { analysisEnabled: false, azureOcrEnabled: true } });
-  const response = await test.call(validImageRequestBody());
-
-  assertEquals(response.status, 503);
-  assertEquals(await errorCode(response), "ANALYSIS_DISABLED");
-  assertEquals(test.imagePipelineCalls.length, 0);
-});
-
-Deno.test("azureOcrEnabled on routes an image request through the pipeline into the Groq prompt", async () => {
-  const test = harness({
-    config: { azureOcrEnabled: true },
-    imagePipeline: successfulImagePipeline(),
-  });
-  const response = await test.call(validImageRequestBody());
-
-  assertEquals(response.status, 200);
-  assertEquals(test.imagePipelineCalls.length, 1);
-  assertEquals(test.prompts[0].ocrText, OCR_TEXT);
-  assertEquals(test.prompts[0].detectedLanguages, []);
-  assertEquals(test.prompts[0].candidates.dates.length, 1);
-  assertEquals(test.prompts[0].verification, IMAGE_VERIFICATION);
-});
-
-Deno.test("the text-only branch never touches the image pipeline", async () => {
-  // The harness's default image pipeline rejects — if a text request ever
-  // reached it, this test would fail on that rejection instead of passing.
-  const test = harness();
-  const response = await test.call();
-
-  assertEquals(response.status, 200);
-  assertEquals(test.imagePipelineCalls.length, 0);
-  assertEquals(test.imagePipelineTimeouts.length, 0);
-});
-
-Deno.test("an exhausted quota on an image request never calls the pipeline", async () => {
-  const test = harness({
-    config: { azureOcrEnabled: true },
-    reserveOutcome: "limit_reached",
-    imagePipeline: successfulImagePipeline(),
-  });
-  const response = await test.call(validImageRequestBody());
-
-  assertEquals(response.status, 429);
-  assertEquals(test.imagePipelineCalls.length, 0);
-});
-
-Deno.test("a failed online read releases the slot and never falls back to a text analysis", async () => {
-  // Locked decision #2: a failed-while-online call fails outright — it must
-  // not be retried as if it were the offline/Tesseract path.
-  const test = harness({
-    config: { azureOcrEnabled: true },
-    imagePipeline: () => Promise.reject(ApiError.timeout()),
-  });
-  const response = await test.call(validImageRequestBody());
-
-  assertEquals(response.status, 408);
-  assertEquals(await errorCode(response), "TIMEOUT");
-  assertEquals(test.finalizes[0].success, false);
-  // Groq is never reached once the online read itself fails.
   assertEquals(test.prompts.length, 0);
 });
 
-Deno.test("the response carries phones/references once the pipeline supplies verification", async () => {
-  const test = harness({
-    config: { azureOcrEnabled: true },
-    imagePipeline: successfulImagePipeline(),
-  });
-  const body = await (await test.call(validImageRequestBody())).json();
+Deno.test("phones and references stay empty on the wire, whatever the candidates carry", async () => {
+  // Nothing confirms a phone or reference candidate any more, and a raw regex
+  // hit must not reach the user as a finding.
+  const test = harness();
+  const body = await (await test.call(validRequestBody({
+    candidates: {
+      dates: [],
+      times: [],
+      amounts: [],
+      phones: [{
+        raw_text: "01012345678",
+        normalized_number: "+201012345678",
+        is_ambiguous: false,
+      }],
+      references: [{ raw_text: "رقم الحساب 12345678", value: "12345678", is_ambiguous: true }],
+    },
+  }))).json();
 
-  assertEquals(body.phones.length, 1);
-  assertEquals(body.phones[0].needsUserReview, true);
-  assertEquals(body.references.length, 1);
+  assertEquals(body.phones, []);
+  assertEquals(body.references, []);
+});
+
+// ── the analyser is built per request ─────────────────────────────────────
+// The handler must not cache the chain: its time budget comes from runtime
+// config, and an operator change must take effect on the very next request with
+// no redeploy and no worker restart. (F18's provider-order flag, which this
+// section used to test, was removed in F20-T04.)
+
+Deno.test("a budget change takes effect on the next request", async () => {
+  let aiTimeoutSeconds = 25;
+  const test = harness({
+    loadConfig: () => Promise.resolve(testConfig({ aiTimeoutSeconds })),
+  });
+
+  await test.call();
+  aiTimeoutSeconds = 20;
+  await test.call();
+
+  assertEquals(test.analyserTimeouts, [25, 20]);
+});
+
+Deno.test("the request id reaches the analyser so its provider log correlates", async () => {
+  // Without it the `analyze.provider` line could not be tied to the
+  // `analyze.completed` line for the same request (F18-T07).
+  const test = harness();
+
+  await test.call();
+
+  assertEquals(test.analyserRequestIds, [REQUEST_ID]);
+});
+
+// ── the Mistral → Groq chain behind the handler (F20-T11) ─────────────────
+// The chain's own rules are pinned in fallback-provider.test.ts. These prove
+// what it means for the user's quota: one slot per analysis however many
+// providers were asked, and nothing charged when every one of them failed.
+
+/** A leg that answers, or throws, and counts its calls. */
+function fakeLeg(outcome: ModelAnalysis | Error) {
+  let calls = 0;
+  const fn: AnalysisLeg = () => {
+    calls += 1;
+    return outcome instanceof Error ? Promise.reject(outcome) : Promise.resolve(outcome);
+  };
+  return {
+    fn,
+    get calls() {
+      return calls;
+    },
+  };
+}
+
+/** The production chain shape, Mistral then Groq, over the given legs. */
+function chainOver(mistral: AnalysisLeg, groq: AnalysisLeg) {
+  return (timeoutSeconds: number, requestId: string): AiAnalysisProvider =>
+    createFallbackAnalysisProvider({
+      primary: mistral,
+      primaryName: "mistral",
+      fallback: groq,
+      fallbackName: "groq",
+      totalSeconds: timeoutSeconds,
+      requestId,
+      timeoutSignal: () => new AbortController().signal,
+      log: () => {},
+    });
+}
+
+Deno.test("an analysis Mistral serves takes one slot and never asks Groq", async () => {
+  const mistral = fakeLeg(modelAnalysis());
+  const groq = fakeLeg(modelAnalysis());
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 200);
+  assertEquals(test.reserves.length, 1);
+  assertEquals(test.finalizes, [{ requestId: REQUEST_ID, success: true, errorCode: undefined }]);
+  assertEquals(groq.calls, 0);
+});
+
+Deno.test("an analysis Groq serves after Mistral fails still takes exactly one slot", async () => {
+  // The fallback is a second provider call, not a second analysis: the user
+  // asked once and is charged once.
+  const mistral = fakeLeg(new ProviderFailure("rate_limited"));
+  const groq = fakeLeg(modelAnalysis());
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 200);
+  assertEquals(mistral.calls, 1);
+  assertEquals(groq.calls, 1);
+  assertEquals(test.reserves.length, 1);
+  assertEquals(test.finalizes.length, 1);
+  assertEquals(test.finalizes[0].success, true);
+});
+
+Deno.test("when both providers fail the slot is released and the last failure answers", async () => {
+  const mistral = fakeLeg(new ProviderFailure("rate_limited"));
+  const groq = fakeLeg(new ProviderFailure("upstream_unavailable"));
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "ANALYSIS_FAILED");
+  assertEquals(test.reserves.length, 1);
+  assertEquals(test.finalizes.length, 1);
+  assertEquals(test.finalizes[0].success, false);
+  assertEquals(test.finalizes[0].errorCode, "ANALYSIS_FAILED");
+});
+
+Deno.test("a bad Mistral key releases the slot without ever asking Groq", async () => {
+  const mistral = fakeLeg(new ProviderFailure("auth"));
+  const groq = fakeLeg(modelAnalysis());
+  const test = harness({ createAnalyser: chainOver(mistral.fn, groq.fn) });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "INTERNAL_ERROR");
+  assertEquals(groq.calls, 0);
+  assertEquals(test.finalizes[0].success, false);
+});
+
+Deno.test("a missing provider credential fails before any slot is reserved (A8)", async () => {
+  // What `analyze-document` does when MISTRAL_* or GROQ_* is unset: building
+  // the chain throws, and the user's quota is never touched.
+  const test = harness({
+    createAnalyser: () => {
+      throw new Error("MISTRAL_API_KEY is not set.");
+    },
+  });
+
+  const response = await test.call();
+
+  assertEquals(response.status, 500);
+  assertEquals(await errorCode(response), "INTERNAL_ERROR");
+  assertEquals(test.reserves.length, 0);
+  assertEquals(test.finalizes.length, 0);
 });

@@ -47,10 +47,10 @@ void main() {
       );
     });
 
-    test('refuses the image route the same way (F13-T14)', () async {
+    test('refuses the online reading the same way (F14)', () async {
       const source = DisabledAnalysisRemoteDataSource();
 
-      final response = await source.analyzeImage(_imageRequest);
+      final response = await source.ocrImage(_imageRequest);
 
       expect(response.isSuccess, isFalse);
       expect(response.statusCode, 503);

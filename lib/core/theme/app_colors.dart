@@ -110,8 +110,8 @@ final class AppColors {
   final Color mint;
 
   /// The pale mint the design writes on top of a brand-teal surface — the
-  /// summary card's label and the audio bar's controls. [mint] itself is too
-  /// close to the teal behind it to read there.
+  /// audio bar's controls. [mint] itself is too close to the teal behind it
+  /// to read there. (The result hero's label is white instead: F21 #18.)
   final Color mintSoft;
 
   final Color warning;

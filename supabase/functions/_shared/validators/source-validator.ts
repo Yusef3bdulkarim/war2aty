@@ -10,7 +10,7 @@
  * was reasoning, and the client shows it as such, so it needs no proof.
  */
 
-import type { ModelKeyInformation } from "../schemas/groq-output.schema.ts";
+import type { ModelKeyInformation } from "../schemas/analysis-output.schema.ts";
 import {
   isIdentifierVerified,
   looksNumeric,

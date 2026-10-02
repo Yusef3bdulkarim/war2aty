@@ -11,7 +11,7 @@
 
 import type { RuntimeConfig } from "../../functions/_shared/config/runtime-config.ts";
 import { DEFAULT_RUNTIME_CONFIG } from "../../functions/_shared/config/runtime-config.ts";
-import type { ModelAnalysis } from "../../functions/_shared/schemas/groq-output.schema.ts";
+import type { ModelAnalysis } from "../../functions/_shared/schemas/analysis-output.schema.ts";
 
 export const SESSION_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
 export const INSTALLATION_ID = "9c858901-8a57-4791-81fe-4c455b099bc9";

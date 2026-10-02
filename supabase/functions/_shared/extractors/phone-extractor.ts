@@ -1,5 +1,5 @@
 /**
- * F13-T05 · Phone candidate extraction (Azure text path).
+ * F13-T05 · Phone candidate extraction (server side, over the online reading).
  *
  * TypeScript port of `lib/features/ocr/domain/services/phone_extractor.dart`,
  * field-for-field.

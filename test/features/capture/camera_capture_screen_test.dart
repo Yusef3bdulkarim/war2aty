@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
@@ -80,6 +80,19 @@ void main() {
 
       expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
       expect(find.text(_strings.cameraViewfinderHint), findsOneWidget);
+    });
+
+    testWidgets('asks for light status-bar icons', (tester) async {
+      await _pumpViewfinder(tester, FakeCameraService());
+
+      // Light status-bar icons over the dark backdrop (F21).
+      final regions = tester.widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+      );
+      expect(
+        regions.map((region) => region.value),
+        contains(SystemUiOverlayStyle.light),
+      );
     });
 
     testWidgets('the shutter hands back a captured photo', (tester) async {
@@ -294,8 +307,7 @@ void main() {
     ) async {
       final cropper = await pumpAndCapture(tester, detected: quad);
 
-      // The guide is drawn on the page, but the file keeps the whole frame —
-      // `doclens` does the real edge-detect/dewarp on it afterwards.
+      // The guide is drawn on the page, but the file keeps the whole frame.
       expect(cropper.lastRegion, UnitRect.full);
     });
 

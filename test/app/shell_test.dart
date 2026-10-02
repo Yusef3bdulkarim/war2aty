@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
@@ -222,6 +223,23 @@ void main() {
     expect(find.text(ar.navReminders), findsWidgets);
     expect(find.text(ar.navSettings), findsWidgets);
     expect(navDirection(tester), TextDirection.rtl);
+  });
+
+  testWidgets('asks for dark status-bar icons on the light screens', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+
+    // The app-wide default (F21). Without it, white icons asked for by the
+    // result hero or the camera would stay on over Home's light surface.
+    final regions = tester.widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+    );
+    expect(regions, isNotEmpty);
+    expect(
+      regions.map((region) => region.value),
+      everyElement(SystemUiOverlayStyle.dark),
+    );
   });
 
   testWidgets('boots in English (LTR) when that language is persisted', (

@@ -12,9 +12,14 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-import { ApiError } from "../../functions/_shared/errors/api-error.ts";
-import { createGroqClient, DEFAULT_GROQ_MODEL } from "../../functions/_shared/groq/groq-client.ts";
-import { createGroqAnalysisProvider } from "../../functions/_shared/groq/groq-provider.ts";
+import { ProviderFailure } from "../../functions/_shared/ai/provider-failure.ts";
+import { createChatClient } from "../../functions/_shared/ai/openai-compatible-client.ts";
+import {
+  DEFAULT_GROQ_MODEL,
+  GROQ_BASE_URL,
+  GROQ_REASONING_EFFORT,
+} from "../../functions/_shared/ai/groq-config.ts";
+import { createAnalysisProvider } from "../../functions/_shared/ai/analysis-provider.ts";
 import type { ExtractedCandidates } from "../../functions/_shared/prompts/analysis-prompt.ts";
 import { validateAnalysis } from "../../functions/_shared/validators/validation-pipeline.ts";
 
@@ -44,19 +49,27 @@ Deno.test({
   name: "[integration] a genuine analysis passes validation intact",
   ignore: skip,
   fn: async () => {
-    const provider = createGroqAnalysisProvider({
-      client: createGroqClient({ apiKey: apiKey!, model, timeoutSeconds: 25 }),
+    const provider = createAnalysisProvider({
+      client: createChatClient({
+        baseUrl: GROQ_BASE_URL,
+        apiKey: apiKey!,
+        model,
+      }),
+      reasoningEffort: GROQ_REASONING_EFFORT,
     });
 
     let raw;
     try {
-      raw = await provider({
-        ocrText: BILL,
-        detectedLanguages: ["ar"],
-        candidates: NO_CANDIDATES,
-      });
+      raw = await provider(
+        {
+          ocrText: BILL,
+          detectedLanguages: ["ar"],
+          candidates: NO_CANDIDATES,
+        },
+        AbortSignal.timeout(25_000),
+      );
     } catch (thrown) {
-      if (thrown instanceof ApiError && thrown.code === "AI_RATE_LIMITED") {
+      if (thrown instanceof ProviderFailure && thrown.kind === "rate_limited") {
         console.warn("  SKIPPED (rate-limited)");
         return;
       }

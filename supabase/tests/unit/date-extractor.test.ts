@@ -2,7 +2,7 @@
  * F13-T05 · Tests for the date extractor.
  *
  * Mirrors `test/features/ocr/date_extractor_test.dart` case-for-case so the
- * two pipelines (offline Dart, online Azure-text) stay provably in sync.
+ * two pipelines (offline Dart, online server-side) stay provably in sync.
  */
 
 import { assert, assertEquals } from "jsr:@std/assert@1";

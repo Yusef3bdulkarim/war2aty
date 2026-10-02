@@ -108,6 +108,20 @@ enum StrokeGlyph {
   /// page's tint. The struck-through shape still reads as "no signal".
   wifiOff,
 
+  /// [wifiOff] without the stroke — «شغّل الواي فاي» on the no-internet page
+  /// (F23).
+  wifi,
+
+  /// An airplane seen from above — «وضع الطيران» on the no-internet page
+  /// (F23).
+  airplane,
+
+  /// Four rising signal bars — a weak network, on the no-internet page (F23).
+  signal,
+
+  /// A light bulb — a tip on the daily-limit page (F23).
+  lightbulb,
+
   /// A simple plus sign — the add action on the note card (F08-T09).
   plus,
 
@@ -232,6 +246,17 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   StrokeGlyph.wifiOff:
       'M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 '
       'M2 8.8a15 15 0 0 1 20 0 M2 2l20 20',
+  // The F23 mockups' own icons, drawn in the same 24×24 stroke style.
+  StrokeGlyph.wifi:
+      'M5 12.5a10 10 0 0 1 14 0 M8.5 16a5 5 0 0 1 7 0 M12 19.5h.01 '
+      'M2 8.8a15 15 0 0 1 20 0',
+  StrokeGlyph.airplane:
+      'M12 21l1.5-1.5V15l7 2v-2l-7-4.5V5a1.5 1.5 0 0 0-3 0v5.5l-7 4.5v2l7-2'
+      'v4.5z',
+  StrokeGlyph.signal: 'M4 20v-3 M9 20v-7 M14 20v-11 M19 20V4',
+  StrokeGlyph.lightbulb:
+      'M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 '
+      '1-2.5A6 6 0 0 0 12 3z',
   StrokeGlyph.arrowBack: 'M15 6l6 6-6 6 M3 12h18',
   // `<circle cx=11 cy=11 r=7/>` plus the handle.
   StrokeGlyph.plus: 'M12 5v14M5 12h14',

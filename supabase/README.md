@@ -23,7 +23,7 @@ container. `supabase start` fails immediately if the daemon is down.
 ## First run
 
 ```bash
-cp supabase/.env.example supabase/.env   # then fill in GROQ_API_KEY + salt
+cp supabase/.env.example supabase/.env   # then fill in GEMINI_*, MISTRAL_*, GROQ_* + salt
 supabase start
 supabase functions serve --env-file supabase/.env   # required — see below
 ```
@@ -32,7 +32,7 @@ supabase functions serve --env-file supabase/.env   # required — see below
 
 `supabase start` injects only the platform variables into `edge_runtime`
 (`SUPABASE_URL`, the two keys, `SUPABASE_DB_URL`). It does **not** read
-`supabase/.env`, so `GROQ_API_KEY` and `INSTALLATION_HASH_SALT` are absent and
+`supabase/.env`, so the provider keys and `INSTALLATION_HASH_SALT` are absent and
 `analyze-document` fails at startup with a bare `500` and no body:
 
 ```
@@ -98,7 +98,7 @@ well-known local anon key itself. Two overrides exist:
 # A physical device on the same LAN as the dev machine:
 --dart-define=SUPABASE_URL=http://192.168.1.5:54321
 
-# UI work with no Docker and no Groq key — serves the bundled fixtures:
+# UI work with no Docker and no provider keys — serves the bundled fixtures:
 --dart-define=USE_MOCK_ANALYSIS=true
 ```
 
@@ -150,9 +150,9 @@ without it. All three values come from `supabase status`; none is committed.
 The endpoint tests need `functions serve` running as well — see the gotcha
 above, or `analyze-document` answers 500 for everything.
 
-**No test calls Groq by default.** One integration test performs a real
-analysis and is gated behind an explicit opt-in, because a live call is billed,
-non-deterministic and reserved against the 8000-token minute:
+**No test calls an AI provider by default.** One integration test performs a
+real analysis and is gated behind an explicit opt-in, because a live call spends
+quota, is non-deterministic, and is reserved against the 8000-token minute:
 
 ```bash
 RUN_LIVE_ANALYSIS=1 SUPABASE_URL=... SUPABASE_ANON_KEY=... \
@@ -179,7 +179,8 @@ fakes, offline.
 
 ### Why the response is rebuilt, not forwarded
 
-`analyze-response.ts` is not defensive decoration. Groq's schema subset cannot
+`analyze-response.ts` is not defensive decoration. The strict `json_schema`
+subset the analysis providers accept (Mistral's and Groq's alike) cannot
 express `format: date`, `minLength` or the `HH:mm` pattern, and the Flutter
 mapper **throws** on a date it cannot parse or a role it does not know — for the
 *whole* body. So one date the model wrote as "next Tuesday" would destroy an
@@ -308,11 +309,78 @@ through the signup path, so setting it to `false` makes anonymous sign-in fail
 with `signup_disabled`. Email/SMS signup is closed separately under
 `[auth.email]` / `[auth.sms]`, which is what actually keeps registration shut.
 
-## Groq model — must support `json_schema`
+## Providers (F20) — online reading, then analysis
 
-`GROQ_MODEL` is **not** free choice. Structured output (F06-T11) requires
-`response_format: json_schema`, and most models answer HTTP 400 for it.
-Verified against this account on 2026-07-26:
+Two Edge Functions, two jobs, and the app never learns which provider served
+either one. Full design: `docs/features/F20-ocr-analysis-provider-refactor.md`.
+
+| Function | Provider | Receives | Config |
+|---|---|---|---|
+| `ocr-document` | **Gemini** `gemini-3.5-flash-lite`, native `generateContent` | the **photo** | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| `analyze-document` | **Mistral** `ministral-14b-latest`, then **Groq** `openai/gpt-oss-120b` as fallback | OCR **text** + candidates only | `MISTRAL_*`, `GROQ_*` |
+
+All keys and models are required, trimmed and never defaulted in code: a
+missing one is a `500 INTERNAL_ERROR` before any quota slot is reserved.
+Azure and Google Document AI were removed in F20-T16.
+
+### Online reading (`ocr-document`)
+
+One Gemini attempt with the whole `AI_TIMEOUT_SECONDS`, then the on-server
+digit fold and extractors (`_shared/analyze/image-ocr-pipeline.ts`). It never
+consumes a quota slot. Failures map to the §31 envelope by kind:
+rate limit → `429 AI_RATE_LIMITED`, timeout → `408 TIMEOUT`, outage / network /
+unusable or blocked answer / `online_ocr_enabled` off → `502 OCR_UNAVAILABLE`,
+bad key or model → `500 INTERNAL_ERROR`. The app reads the page on the device
+for exactly the first three plus its own "no internet", and shows a warning;
+a `500` is a deploy fault and is shown as an error (F20 §1).
+
+### Analysis chain (`analyze-document`)
+
+`ai/fallback-provider.ts` runs Mistral, then Groq, under **one** deadline
+(`AI_TIMEOUT_SECONDS`) with a per-attempt cap (`AI_ATTEMPT_TIMEOUT_SECONDS`,
+default 18 s) and a floor for starting the fallback (`MIN_FALLBACK_MS`, default
+5000). Both legs share one OpenAI-compatible transport
+(`ai/openai-compatible-client.ts`); Mistral sends no `reasoning_effort`, Groq
+sends `low`. The chain decides from the failure's `kind` alone:
+
+- **Falls back to Groq:** `rate_limited`, `upstream_unavailable`, `timeout`
+  (if enough time remains), `network`, and `invalid_output` — which since F20
+  includes a well-formed answer that fails semantic validation (§3 of the F20
+  doc).
+- **Does not:** `auth`, `bad_request` (config faults a second provider would not
+  fix) and anything that is not a `ProviderFailure`.
+
+An analysis takes exactly one quota slot however many providers it tries, and
+the slot is released when both fail. Watch `analyze.provider` in the logs to see
+which leg served and why the fallback fired.
+
+### Capacity: free tiers only
+
+Every provider runs on its free tier, by the owner's decision — capacity is
+whatever those tiers allow. Measured facts: Mistral's free plan serves only the
+Ministral family (`mistral-small-*`, `mistral-medium-*`, `magistral-*` answer
+0 requests/min); `ministral-14b-latest` allows 30 RPM. For Groq's
+`openai/gpt-oss-120b` the free tier is 30 RPM / 1,000 RPD / 8K TPM / **200K
+TPD** (do not re-derive the 14,400 figure — it belongs to other Groq models);
+at roughly 3,000 tokens per analysis that is about 66 analyses/day on the
+fallback leg alone.
+
+### Data handling
+
+- **The photo** goes to Gemini's free tier, whose terms let Google keep API
+  input and have human reviewers read it. The app's privacy page says so
+  (F20-T24): it never claims nobody sees the image.
+- **The text** goes to Mistral (training on it unless the console opt-out is
+  set — decision D2) and, on fallback, to Groq. No user-facing string claims
+  nobody reads the text (F18-T02).
+- Our own functions never store or log the photo or the text (`CLAUDE.md` §7).
+
+### Every analysis model must support `json_schema`
+
+`MISTRAL_MODEL` and `GROQ_MODEL` are **not** free choice — a model that cannot
+serve `json_schema` fails *every* analysis with a 400 the user only ever sees
+as ANALYSIS_FAILED. `ministral-14b-latest` was proven under strict mode in
+F20-T09. For Groq, verified against this account on 2026-07-26:
 
 | Model | `json_schema` |
 |---|---|
@@ -333,6 +401,18 @@ The tier allows **8000 tokens/minute** (`x-ratelimit-limit-tokens`), and
 back-to-back calls were rate-limited. It is now 2000 — about 4x the 468 tokens
 a real electricity bill produced. Raising it directly reduces how many users
 can be served per minute.
+
+This ceiling is easy to hit in testing, not just in production: running the live
+Groq analysis tests back-to-back rate-limits after about four calls in a minute.
+That is the environment, not a defect — pace them.
+
+One trap worth knowing, since it cost a debugging session (F18-T08):
+`openai/gpt-oss-*` charges its internal reasoning trace against `max_tokens`
+*before* writing any answer. A call with `max_tokens: 10` returns an EMPTY
+completion (`finish_reason: "length"`), and under `json_object` mode an empty
+generation comes back as an outright HTTP 400 `json_validate_failed`. Always
+pair a small budget with `reasoning_effort: "low"`, as the analysis provider
+does.
 
 ## Error contract — §31 wins over §48
 
@@ -373,7 +453,7 @@ supabase/
 ├── .env.example         # secret template — copy to .env
 ├── functions/
 │   ├── deno.json        # Deno fmt/lint/tasks for the functions workspace
-│   ├── _shared/         # auth, http, errors, groq, prompts, usage, validators
+│   ├── _shared/         # ai, auth, http, errors, prompts, usage, validators
 │   ├── analyze-document/
 │   ├── get-usage/
 │   └── health/

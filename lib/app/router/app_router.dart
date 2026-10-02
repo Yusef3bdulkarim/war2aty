@@ -156,7 +156,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
               // locked decision #1) — but unlike before F14, the online
               // route still stops at an OCR review before analysis: the
               // review screen reads the corrected photo back out of
-              // `ImageAnalysisSessionHolder` and runs Azure OCR itself.
+              // `ImageAnalysisSessionHolder` and runs the online reading itself.
               onOnlineReady: (_) =>
                   context.pushReplacement(AppRoutes.ocrReview),
               onRetake: context.pop,
@@ -205,8 +205,8 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
           );
         },
       ),
-      // The unified OCR review screen — serves both the online route (Azure
-      // OCR runs here) and the offline route (Tesseract already finished on
+      // The unified OCR review screen — serves both the online route (the
+      // online reading runs here) and the offline route (Tesseract already finished on
       // `/ocr`, result handed off via `OcrSessionHolder`). Also outside the
       // shell, like the routes either side of it.
       GoRoute(
@@ -231,7 +231,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             )..loadOffline(ocrHandoff.result!);
           } else if (onlineHandoff.session != null &&
               onlineHandoff.photo != null) {
-            // Online path: Azure OCR runs inside the cubit.
+            // Online path: the online reading runs inside the cubit.
             session = onlineHandoff.session;
             cubit = getIt<OcrReviewCubit>(
               param1: session,
@@ -291,34 +291,17 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
         path: AppRoutes.result,
         builder: (context, state) {
           // Picked up from a hand-off holder rather than from `extra`, which
-          // the OS drops when it kills and restores the app — and redoing
-          // either OCR or a full Azure/Google/Groq round trip silently would
-          // be expensive. `ImagePreviewCubit.proceed` clears both holders
-          // before populating the one for the route it actually took, so at
-          // most one of these is ever non-empty; the offline check runs
-          // first purely because it has to run first, not to break a tie.
+          // the OS drops when it kills and restores the app — and redoing OCR
+          // silently would be expensive. Both routes arrive here through the
+          // OCR review, which leaves the reviewed text in `OcrSessionHolder`:
+          // every analysis is text (F20-T19).
           final ocrHandoff = getIt<OcrSessionHolder>();
-          final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
-
-          final AnalysisSession? session;
-          final AnalysisSource? source;
+          final session = ocrHandoff.session;
           final ocrExtraction = ocrHandoff.result;
-          if (ocrHandoff.session != null && ocrExtraction != null) {
-            session = ocrHandoff.session;
-            source = OcrAnalysisSource(ocrExtraction);
-          } else {
-            final onlinePhoto = onlineHandoff.photo;
-            if (onlineHandoff.session != null && onlinePhoto != null) {
-              session = onlineHandoff.session;
-              source = ImageAnalysisSource(onlinePhoto);
-            } else {
-              session = null;
-              source = null;
-            }
-          }
-          if (session == null || source == null) {
+          if (session == null || ocrExtraction == null) {
             return const _BackToHome();
           }
+          final AnalysisSource source = OcrAnalysisSource(ocrExtraction);
           return MultiBlocProvider(
             providers: [
               BlocProvider<AnalysisResultCubit>(
@@ -348,7 +331,13 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                     context.go(AppRoutes.home);
                     context.push(AppRoutes.captureWith(CaptureSource.camera));
                   },
-                  onSave: () => unawaited(_saveResult(context, session!)),
+                  // Same shape as `onCaptureAnother`, into the gallery
+                  // (F23 #5).
+                  onPickFromGallery: () {
+                    context.go(AppRoutes.home);
+                    context.push(AppRoutes.captureWith(CaptureSource.gallery));
+                  },
+                  onSave: () => unawaited(_saveResult(context, session)),
                   onCreateReminder: (date) =>
                       _startReminderFromDate(context, date),
                   // The way out of a declined analysis consent (F11-T02).

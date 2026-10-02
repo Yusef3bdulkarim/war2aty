@@ -176,10 +176,11 @@ final class ImagePreviewSessionCreated extends ImagePreviewState {
   int get hashCode => session.hashCode;
 }
 
-/// Terminal, online route (F13): the image is perspective-corrected and
-/// handed to the analysis feature — OCR is skipped entirely. The corrected
-/// photo itself does not travel in this state; it is already in the
-/// `ImageAnalysisSessionHolder` the result route reads from.
+/// Terminal, online route (F13): the confirmed image is handed to the
+/// analysis feature, where the OCR review reads it online (F14). The photo
+/// itself does not travel in this state; it is
+/// already in the `ImageAnalysisSessionHolder` the OCR review route reads
+/// from.
 final class ImagePreviewOnlineReady extends ImagePreviewState {
   const ImagePreviewOnlineReady(
     this.session, {

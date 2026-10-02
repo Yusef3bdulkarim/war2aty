@@ -1,159 +1,138 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
+import 'reading_lens/reading_lens_scene.dart';
+import 'reading_lens/wait_caption.dart';
 
-// From `Waraqti.dc.html` → the analysis page.
-const double _pagePadding = 40;
-const double _iconBox = 90;
-const double _iconBoxRadius = 26;
-const double _iconSize = 46;
-const double _iconGap = 30;
-const double _titleGap = 10;
-const double _messageGap = 30;
-const double _barWidth = 220;
-const double _barHeight = 8;
-const double _barRadius = 6;
+// From the approved C+ mockup (F22 #18).
+const double _pagePadding = 24;
 
-/// Endpoints of the design's 160° gradient, as unit offsets from the centre.
-const Alignment _gradientBegin = Alignment(-0.342, -0.940);
-const Alignment _gradientEnd = Alignment(0.342, 0.940);
+/// Room either side of the paper for the lens and its handle, which reach
+/// past its edges as it reads.
+const double _sceneInset = 32;
+const double _sceneToCaption = 48;
 
-/// The design's `wqbar`: the fill runs from 6% to 96% and stops there.
-const double _barFrom = 0.06;
-const double _barTo = 0.96;
-const Duration _barDuration = Duration(milliseconds: 2400);
+/// At most this share of the page's height goes to the drawing, so a short
+/// screen under Large Text keeps room for the words (F22 #14).
+const double _sceneHeightShare = 0.55;
 
-/// The full-bleed page shown while the analysis service is working.
+/// The gap under the drawing, as a share of the page's height, up to
+/// [_sceneToCaption].
+const double _gapHeightShare = 0.06;
+
+/// The full-bleed page shown while the analysis service is working: a
+/// magnifying glass reads a drawn paper while the caption says what is being
+/// looked for (F22 #18, the approved C+ design).
 ///
-/// It says what is being prepared rather than naming a step: the user is
-/// waiting on their paper being understood, not on a pipeline (UX rule §5.13 —
-/// no technical terms). The bar is deliberately not a completion percentage —
-/// it eases towards, and stops short of, full while the wait lasts.
-class AnalysisProgressView extends StatelessWidget {
-  const AnalysisProgressView({super.key});
+/// Fully passive — nothing to tap, nothing to cancel. The captions follow the
+/// clock (the service reports no stages) and never claim something was
+/// found. Nothing on the page is a completion figure.
+///
+/// Set [finishing] once the analysis has answered: the check springs in with
+/// one light haptic, then [onFinished] fires so the caller can swap in the
+/// result. Removing the page (an error, leaving the route) stops it and fires
+/// nothing.
+///
+/// For assistive technology the page is passive too: it announces nothing
+/// (owner's decision, F22 #19). It carries one label saying where the wait
+/// stands, read only when someone swipes onto it, so the page is never
+/// blank to a screen reader. The drawing and the rotating captions are not
+/// read.
+class AnalysisProgressView extends StatefulWidget {
+  const AnalysisProgressView({
+    this.finishing = false,
+    this.onFinished,
+    super.key,
+  });
+
+  final bool finishing;
+  final VoidCallback? onFinished;
+
+  @override
+  State<AnalysisProgressView> createState() => _AnalysisProgressViewState();
+}
+
+/// Where the wait stands, for the page's label.
+enum _Status { waiting, long, ready }
+
+class _AnalysisProgressViewState extends State<AnalysisProgressView> {
+  _Status _status = _Status.waiting;
+
+  /// The result has arrived: one haptic (F22 #11).
+  void _onCheckShown() {
+    HapticFeedback.lightImpact();
+    setState(() => _status = _Status.ready);
+  }
+
+  void _onLongWait() {
+    if (_status == _Status.waiting) setState(() => _status = _Status.long);
+  }
+
+  String _words(_Status status) {
+    final strings = context.strings;
+    return switch (status) {
+      _Status.waiting => strings.analysisRunningStatus,
+      _Status.long => strings.analysisWaitLongAnnouncement,
+      _Status.ready => strings.analysisWaitReadyAnnouncement,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        // Plain [Alignment], not the directional variant: a CSS gradient angle
-        // does not flip in an RTL container.
-        gradient: LinearGradient(
-          begin: _gradientBegin,
-          end: _gradientEnd,
-          colors: [colors.brandPrimary, colors.brandDeep],
-        ),
-      ),
-      child: Semantics(
-        liveRegion: true,
-        label: strings.analysisRunningStatus,
-        child: Padding(
-          padding: const EdgeInsets.all(_pagePadding),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: _iconBox,
-                height: _iconBox,
-                decoration: BoxDecoration(
-                  color: colors.onBrand.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(_iconBoxRadius),
-                ),
-                child: Center(
-                  child: StrokeIcon(
-                    StrokeGlyph.sparkle,
-                    color: colors.onBrand,
-                    size: _iconSize,
-                    strokeWidth: 1.6,
+    return ColoredBox(
+      color: AppColors.of(context).surface,
+      child: SafeArea(
+        child: Semantics(
+          container: true,
+          label: _words(_status),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final height = constraints.maxHeight;
+              // Scrolls only when the words alone outgrow a short screen at
+              // the largest text — never at ordinary sizes.
+              return SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: height),
+                  child: Padding(
+                    padding: const EdgeInsets.all(_pagePadding),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          height: height * _sceneHeightShare,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: _sceneInset,
+                            ),
+                            child: Center(
+                              child: ExcludeSemantics(
+                                child: ReadingLensScene(
+                                  finishing: widget.finishing,
+                                  onCheckShown: _onCheckShown,
+                                  onFinished: widget.onFinished,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: (height * _gapHeightShare).clamp(
+                            0,
+                            _sceneToCaption,
+                          ),
+                        ),
+                        WaitCaption(
+                          finished: widget.finishing,
+                          onLongWait: _onLongWait,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: _iconGap),
-              Text(
-                strings.analysisRunningTitle,
-                textAlign: TextAlign.center,
-                style: AppTypography.titleAction.copyWith(
-                  color: colors.onBrand,
-                ),
-              ),
-              const SizedBox(height: _titleGap),
-              Text(
-                strings.analysisRunningMessage,
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMedium.copyWith(
-                  fontWeight: AppTypography.medium,
-                  color: colors.onBrand.withValues(alpha: 0.8),
-                ),
-              ),
-              const SizedBox(height: _messageGap),
-              const _ProgressBar(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The waiting bar. Its own [StatefulWidget] so the controller is created and
-/// disposed outside anyone's `build`.
-class _ProgressBar extends StatefulWidget {
-  const _ProgressBar();
-
-  @override
-  State<_ProgressBar> createState() => _ProgressBarState();
-}
-
-class _ProgressBarState extends State<_ProgressBar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: _barDuration,
-  )..forward();
-
-  late final Animation<double> _fill = Tween<double>(
-    begin: _barFrom,
-    end: _barTo,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-
-    // Excluded from semantics: the page's own live region announces the wait,
-    // and a bar that is not a real completion figure must not be read as one.
-    return ExcludeSemantics(
-      child: Container(
-        width: _barWidth,
-        height: _barHeight,
-        decoration: BoxDecoration(
-          color: colors.onBrand.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(_barRadius),
-        ),
-        clipBehavior: Clip.antiAlias,
-        alignment: AlignmentDirectional.centerStart,
-        child: AnimatedBuilder(
-          animation: _fill,
-          builder: (context, _) => FractionallySizedBox(
-            widthFactor: _fill.value,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.mint,
-                borderRadius: BorderRadius.circular(_barRadius),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),

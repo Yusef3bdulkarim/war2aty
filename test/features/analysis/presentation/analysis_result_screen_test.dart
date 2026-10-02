@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
@@ -16,18 +17,19 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
 import 'package:war2aty/core/widgets/partial_result_banner.dart';
-import 'package:war2aty/core/widgets/result_header_card.dart';
-import 'package:war2aty/core/widgets/result_summary_card.dart';
+import 'package:war2aty/core/widgets/result_actions_card.dart';
+import 'package:war2aty/core/widgets/result_details_card.dart';
+import 'package:war2aty/core/widgets/result_hero_scroll_view.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
 import 'package:war2aty/features/analysis/domain/repositories/analysis_repository.dart';
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
-import 'package:war2aty/features/analysis/domain/usecases/analyze_image.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress_view.dart';
@@ -74,15 +76,6 @@ final class _FakeRepository implements AnalysisRepository {
   }
 
   @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) async {
-    calls++;
-    await gate?.future;
-    return answer ?? Ok(invoiceAnalysis());
-  }
-
-  @override
   Future<Result<ExtractionResult, AppFailure>> ocrImage(
     AnalysisImageRequest request,
   ) async {
@@ -104,9 +97,9 @@ void main() {
       source: const OcrAnalysisSource(_extraction),
       getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
       analyzeDocument: AnalyzeDocument(repository),
-      analyzeImage: AnalyzeImage(repository),
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
+      getDailyUsage: GetDailyUsage(FakeUsageRepository()),
     );
     tts = FakeTextToSpeechService();
     speedStore = FakeDefaultReadingSpeedStore();
@@ -159,15 +152,115 @@ void main() {
     ) async {
       repository.gate = Completer<void>();
       unawaited(cubit.analyze());
-      await pumpScreen(tester);
+      // The lens reads for as long as the wait lasts: nothing settles.
+      await pumpScreen(tester, settle: false);
 
       expect(find.byType(AnalysisProgressView), findsOneWidget);
-      expect(find.text(_strings.analysisRunningTitle), findsOneWidget);
+      expect(
+        find.textContaining(_strings.analysisWaitStepType, findRichText: true),
+        findsOneWidget,
+      );
       // No way out mid-analysis: the page is full-bleed, without the top bar.
-      expect(find.text(_strings.analysisResultTitle), findsNothing);
+      expect(find.bySemanticsLabel(_strings.analysisResultTitle), findsNothing);
 
       repository.gate!.complete();
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('gives the finish its beat before showing the result', (
+      tester,
+    ) async {
+      repository.gate = Completer<void>();
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 6));
+
+      repository.gate!.complete();
+      await tester.pump();
+
+      // The answer is in, but the check gets its moment first (F22 #10).
+      expect(find.byType(AnalysisProgressView), findsOneWidget);
+      expect(find.bySemanticsLabel(_strings.analysisResultTitle), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.byType(AnalysisProgressView), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+
+      expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('one haptic when the result arrives, none on a failure', (
+      tester,
+    ) async {
+      final haptics = <Object?>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            haptics.add(call.arguments);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      // A failure first: no haptic (F22 #11).
+      repository
+        ..gate = Completer<void>()
+        ..answer = const Err(AnalysisServiceFailure());
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 2));
+      repository.gate!.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(haptics, isEmpty);
+
+      // Then a retry that succeeds: exactly one.
+      repository
+        ..gate = Completer<void>()
+        ..answer = Ok(invoiceAnalysis());
+      unawaited(cubit.analyze());
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      repository.gate!.complete();
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+
+      expect(haptics, ['HapticFeedbackType.lightImpact']);
+      expect(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a failure replaces the progress page at once, lens halted', (
+      tester,
+    ) async {
+      repository
+        ..gate = Completer<void>()
+        ..answer = const Err(AnalysisServiceFailure());
+      unawaited(cubit.analyze());
+      await pumpScreen(tester, settle: false);
+      await tester.pump(const Duration(seconds: 4));
+
+      repository.gate!.complete();
+      await tester.pump();
+
+      expect(find.byType(AnalysisProgressView), findsNothing);
+      expect(find.text(_strings.analysisFailedTitle), findsOneWidget);
     });
 
     testWidgets('shows the result page once the paper is understood', (
@@ -176,14 +269,72 @@ void main() {
       await cubit.analyze();
       await pumpScreen(tester);
 
-      expect(find.text(_strings.analysisResultTitle), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+        findsOneWidget,
+      );
       expect(find.byType(AnalysisProgressView), findsNothing);
-      // The first section §4 asks for, drawn from the analysis (F07-T02).
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
-      expect(find.text(invoiceAnalysis().title), findsOneWidget);
-      // …followed by the second (F07-T03).
-      expect(find.byType(ResultSummaryCard), findsOneWidget);
+      // The summary is the hero now (F21 #14).
+      expect(find.byType(ResultHeroScrollView), findsOneWidget);
+      expect(find.text(_strings.resultSummaryLabel), findsOneWidget);
       expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
+      // No type card and no title (F21 #15): the type is the first row of
+      // the details card instead.
+      expect(find.text(invoiceAnalysis().title), findsNothing);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      expect(find.text(_strings.documentKindInvoice), findsOneWidget);
+    });
+
+    testWidgets('draws information, amounts and dates as one card, once', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      // Three §4 sections, one card — not one per section.
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      expect(find.text(_strings.resultKeyInformationTitle), findsOneWidget);
+      expect(find.text(_strings.resultAmountsTitle), findsOneWidget);
+      expect(find.text(_strings.resultDatesTitle), findsOneWidget);
+    });
+
+    testWidgets('puts the warnings right before the explanation', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      final warning = tester.getRect(
+        find.text(invoiceAnalysis().warnings.single.text),
+      );
+      // The fixture's last cards before the explanation are its instructions.
+      final instructions = tester.getRect(
+        find.text(invoiceAnalysis().instructions.single, findRichText: true),
+      );
+      final explanation = tester.getRect(
+        find.text(_strings.resultShowExplanation),
+      );
+      expect(instructions.bottom, lessThan(warning.top));
+      expect(warning.bottom, lessThan(explanation.top));
+    });
+
+    testWidgets('keeps the cards 12 px apart', (tester) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      // The drawn surfaces, not the widgets: each card carries its own gap.
+      Rect surface(Type card) => tester.getRect(
+        find
+            .descendant(
+              of: find.byType(card),
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+
+      final actions = surface(ResultActionsCard);
+      final details = surface(ResultDetailsCard);
+      expect(details.top - actions.bottom, moreOrLessEquals(12));
     });
 
     testWidgets('offers to listen without needing an external onListen', (
@@ -208,6 +359,37 @@ void main() {
       expect(closed, 1);
     });
 
+    testWidgets('the system back gesture leaves the same way as the arrow', (
+      tester,
+    ) async {
+      var closed = 0;
+      await cubit.analyze();
+      await pumpScreen(tester, onClose: () => closed++);
+
+      // Android's back button / gesture, and iOS's edge swipe via the router.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(closed, 1);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+    });
+
+    testWidgets('the bar is a lone arrow, but the page still has a heading', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      // No printed title (F21 locked decision #4)…
+      expect(find.text(_strings.analysisResultTitle), findsNothing);
+      // …but a screen reader still lands on the page's name as a heading.
+      final heading = tester.getSemantics(
+        find.bySemanticsLabel(_strings.analysisResultTitle),
+      );
+      expect(heading.flagsCollection.isHeader, isTrue);
+      expect(heading.rect.height, greaterThan(0));
+    });
+
     testWidgets('lays out under Large Text and in English', (tester) async {
       await cubit.analyze();
       await pumpScreen(
@@ -229,14 +411,14 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.text(_strings.analysisFailedTitle), findsOneWidget);
-      expect(find.byType(ResultHeaderCard), findsNothing);
+      expect(find.byType(ResultDetailsCard), findsNothing);
 
       repository.answer = null;
       await tester.tap(find.text(_strings.actionRetry));
       await tester.pumpAndSettle();
 
       expect(repository.calls, 2);
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
     });
   });
 
@@ -477,13 +659,34 @@ void main() {
   });
 
   group('a partially understood paper', () {
-    testWidgets('is topped with a banner saying so', (tester) async {
+    testWidgets('is flagged with a banner saying so', (tester) async {
       repository.answer = Ok(invoiceAnalysis(status: AnalysisStatus.partial));
       await cubit.analyze();
       await pumpScreen(tester);
 
       expect(find.byType(PartialResultBanner), findsOneWidget);
       expect(find.text(_strings.resultPartialBanner), findsOneWidget);
+    });
+
+    testWidgets('puts that banner right before the data', (tester) async {
+      repository.answer = Ok(invoiceAnalysis(status: AnalysisStatus.partial));
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      final summary = tester.getRect(
+        find.text(invoiceAnalysis().summary.short),
+      );
+      final warning = tester.getRect(
+        find.text(invoiceAnalysis().warnings.single.text),
+      );
+      final banner = tester.getRect(find.byType(PartialResultBanner));
+      final data = tester.getRect(find.byType(ResultDetailsCard));
+
+      // Not at the top any more (F21 #17): the summary comes first. The
+      // warnings now come after the data (F21 #21).
+      expect(summary.bottom, lessThan(banner.top));
+      expect(banner.bottom, lessThanOrEqualTo(data.top));
+      expect(warning.top, greaterThan(data.bottom));
     });
 
     testWidgets('still shows everything it did understand', (tester) async {
@@ -493,8 +696,8 @@ void main() {
 
       // A half-read paper is worth showing — the part the user came for is
       // usually in it.
-      expect(find.byType(ResultHeaderCard), findsOneWidget);
-      expect(find.byType(ResultSummaryCard), findsOneWidget);
+      expect(find.byType(ResultDetailsCard), findsOneWidget);
+      expect(find.text(invoiceAnalysis().summary.short), findsOneWidget);
     });
 
     testWidgets('says nothing extra about a full result', (tester) async {

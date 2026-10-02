@@ -92,7 +92,7 @@ final class StubUsageRepository implements UsageRepository {
   // Drift hands back local DateTimes; Dart's `==` treats a local and a UTC
   // DateTime as different even at the same instant, so normalise to UTC here.
   //
-  // azureOcrEnabled stays at its `false` default: this repository only ever
+  // onlineOcrEnabled stays at its `false` default: this repository only ever
   // exists for an unconfigured build with no backend to ask (see its DI
   // registration), so the online pipeline can never legitimately be live.
   DailyUsage _toEntity(UsageCacheData row) => DailyUsage(

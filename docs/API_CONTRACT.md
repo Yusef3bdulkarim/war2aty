@@ -7,15 +7,23 @@ Defines the JSON contract between the Flutter app and the Supabase Edge Function
 only and the image never left the device. From v2, a request's `input_type`
 picks one of two shapes: `"text"` (unchanged — OCR text + on-device
 candidates, image never leaves the device) or `"image"` (new — the photo
-itself is sent, gated behind the `azureOcrEnabled` operator flag, so it can be
-read by Azure/Google Document AI). Every request, either shape, still declares
+itself is sent, gated behind an operator flag, so it can be read online —
+historical: F13 read it with Azure/Google Document AI; F20 replaced both with
+Gemini, see below). Every request, either shape, still declares
 `schema_version: "2.0"`; a v1 body (no `input_type`) is rejected with
 `UNSUPPORTED_SCHEMA`. See `docs/features/F13-ocr-provider-migration.md`
 locked decisions #1 and #7.
 
-The image-intake shape is routed (F13-T11), gated behind `azureOcrEnabled`
-(dark by default — see `docs/features/F13-ocr-provider-migration.md`
-task T19 for when it is flipped on).
+**F20 update.** Since F20-T15 each endpoint takes one shape. `analyze-document`
+accepts the text shape only; an image-shaped body is `400 INVALID_REQUEST`.
+The image shape (§29b) is the request body of `ocr-document`, which reads the
+photo with Gemini and returns the text and candidates for review, behind the
+`online_ocr_enabled` operator flag (F20-T14; was `azure_ocr_enabled`). The text
+is analysed by Mistral, falling back to Groq inside the same request (one
+quota slot either way). When `ocr-document` fails with one of the four
+failures in §31 client rule 7, the app reads the page on the device instead
+and shows a warning; any other failure is shown as it is. See
+`docs/features/F20-ocr-analysis-provider-refactor.md`.
 
 ---
 
@@ -278,8 +286,8 @@ task T19 for when it is flipped on).
 
 - **No image data on this shape.** A text-shape request contains text only — no bytes,
   thumbnails, EXIF, or GPS. `additionalProperties: false` means an `image` key here is rejected
-  outright, never silently ignored (§29b is the only shape that may carry image bytes, and only
-  once `azureOcrEnabled` is on).
+  outright, never silently ignored (§29b is the only shape that may carry image bytes, sent
+  only to `ocr-document`, and only once `online_ocr_enabled` is on).
 - **No logging of content.** The Edge Function MUST NOT log `ocr_text`, candidate values, image
   bytes, or any derived analysis content. Only envelope fields (`session_id`, `installation_id`,
   `schema_version`, `input_type`) and status codes may be logged.
@@ -287,9 +295,10 @@ task T19 for when it is flipped on).
 
 ---
 
-## §29b · Analysis Request — Image-intake shape (JSON Schema v2, F13-T09/T11)
+## §29b · Image-intake shape (JSON Schema v2, F13-T09; `ocr-document` since F20)
 
-Routed behind `RuntimeConfig.azureOcrEnabled` (dark by default).
+The request body of `POST /functions/v1/ocr-document`, behind `RuntimeConfig.onlineOcrEnabled`
+(`online_ocr_enabled`, off by default). `analyze-document` no longer accepts it (F20-T15).
 
 ### Request body
 
@@ -304,7 +313,7 @@ Routed behind `RuntimeConfig.azureOcrEnabled` (dark by default).
 
   // ── the photo ───────────────────────────────────────────────────────
   "image": {
-    "data":      "<base64>",       // the perspective-corrected capture (F13-T12), never a thumbnail or the raw sensor frame
+    "data":      "<base64>",       // the capture as the user confirmed it (rotated/cropped), never a thumbnail
     "mime_type": "image/jpeg"      // "image/jpeg" | "image/png" only
   }
 }
@@ -357,17 +366,18 @@ Routed behind `RuntimeConfig.azureOcrEnabled` (dark by default).
 2. **App version** — same as §29 rule 2.
 3. **`image.mime_type`** — must be `image/jpeg` or `image/png`; anything else is `400 INVALID_REQUEST`.
 4. **`image.data`** — must be well-formed base64; a decoded size over `RuntimeConfig.maxImageBytes`
-   is `400 INVALID_REQUEST`, rejected before the bytes are ever handed to Azure.
-5. **Gate** — `RuntimeConfig.azureOcrEnabled`. Off (the default), a request carrying
-   `input_type: "image"` is refused `400 INVALID_REQUEST` before it is parsed at all —
-   indistinguishable from a shape this deployment does not accept.
+   is `400 INVALID_REQUEST`, rejected before the bytes are ever handed to the reader.
+5. **Gate** — `RuntimeConfig.onlineOcrEnabled`. Off (the default), `ocr-document` answers
+   `502 OCR_UNAVAILABLE` before the body is parsed, so the app reads the page on the device
+   instead (F20 matrix O10).
 
 ### Privacy guarantees
 
-- **The image now legitimately reaches this Edge Function** — this shape exists specifically to
-  send it. It is forwarded to Azure/Google, never logged, never persisted beyond the analysis
-  (Azure's own analyze result is explicitly deleted after being read — F13-T04). No person ever
-  views it; no thumbnail, EXIF, or GPS field exists on this shape to accidentally include.
+- **The image legitimately reaches `ocr-document`** — this shape exists specifically to send it.
+  It is forwarded to Gemini for reading, and never logged or persisted on our side. Gemini's free
+  tier may retain it and let people review it (F20 context §3, accepted by the owner); user-facing
+  copy says so without naming the provider (F20-T24). No thumbnail, EXIF, or GPS field exists on
+  this shape to accidentally include.
 - **No logging of the image or its derived text.** Same rule as §29.
 
 ---
@@ -431,9 +441,9 @@ Routed behind `RuntimeConfig.azureOcrEnabled` (dark by default).
   ],
 
   // ── phones & references (v2, F13-T09) ──────────────────────────────
-  // Populated only once cross-provider verification (F13-T08) ran over this
-  // analysis — the online path, once F13-T11 wires it. Empty on the
-  // offline/Tesseract path and on every caller before then; never a raw,
+  // Always empty since F20-T15: they were filled only by the cross-provider
+  // verification layer (F13-T08), which F20 deleted with the image-analysis
+  // path. Kept on the v2 wire so clients need no change; never a raw,
   // unconfirmed regex hit.
   "phones": [
     {
@@ -623,13 +633,13 @@ regardless of confidence.
       "type": "array",
       "items": { "$ref": "#/definitions/phone_item" },
       "default": [],
-      "description": "v2 (F13-T09). Empty unless cross-provider verification (F13-T08) ran over this analysis."
+      "description": "v2 (F13-T09). Always empty since F20-T15 deleted the cross-provider verification (F13-T08) that filled it."
     },
     "references": {
       "type": "array",
       "items": { "$ref": "#/definitions/reference_item" },
       "default": [],
-      "description": "v2 (F13-T09). Empty unless cross-provider verification (F13-T08) ran over this analysis."
+      "description": "v2 (F13-T09). Always empty since F20-T15 deleted the cross-provider verification (F13-T08) that filled it."
     }
   },
   "definitions": {
@@ -779,6 +789,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
 | 429 | `GLOBAL_CAPACITY_REACHED` | `GlobalCapacityReachedFailure` | — | Service-wide daily call cap (`globalDailyCallCap`) exhausted across **all** users — not this caller's own quota (F13-T02) |
 | 500 | `ANALYSIS_FAILED` | `AnalysisServiceFailure` | — | AI returned unusable output or internal error |
 | 500 | `INTERNAL_ERROR` | `AnalysisServiceFailure` | — | Unexpected server error |
+| 502 | `OCR_UNAVAILABLE` | `OnlineOcrUnavailableFailure` (F20-T18) | — | `ocr-document` only (F20-T12). The online reader gave no usable reading: an upstream outage, a network failure, an unusable or blocked answer, or online reading switched off after the app chose the online route (F20 matrix O5, O10). A deploy fault (bad key or model) is `INTERNAL_ERROR` instead |
 | 503 | `ANALYSIS_DISABLED` | `AnalysisDisabledFailure` | — | `analysisEnabled == false` (maintenance) |
 
 ### Error JSON Schema (draft-07)
@@ -788,7 +799,7 @@ client maps to `AppFailure` subtypes and Arabic copy.
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://war2aty.app/schemas/analyze-error-v1.json",
   "title": "AnalyzeDocumentError",
-  "description": "Error response from the analyze-document Edge Function.",
+  "description": "Error response from the analyze-document and ocr-document Edge Functions.",
   "type": "object",
   "required": ["error"],
   "additionalProperties": false,
@@ -811,7 +822,8 @@ client maps to `AppFailure` subtypes and Arabic copy.
             "GLOBAL_CAPACITY_REACHED",
             "ANALYSIS_FAILED",
             "INTERNAL_ERROR",
-            "ANALYSIS_DISABLED"
+            "ANALYSIS_DISABLED",
+            "OCR_UNAVAILABLE"
           ]
         },
         "message": {
@@ -850,6 +862,11 @@ client maps to `AppFailure` subtypes and Arabic copy.
 6. **`status: "unsupported"`** in a 200 response — this is NOT an error. Map to
    `UnsupportedDocumentFailure` in the domain layer; the result screen shows the
    OCR-only fallback (F07-T12/T13). This analysis is **not counted** against the daily limit.
+7. **`OCR_UNAVAILABLE`** (from `ocr-document`) — the online reading failed for a reason the
+   device can work around. The app reads the page on the device instead and shows a warning
+   that the result may be less accurate (F20-T22/T23). It is one of the four failures that
+   fall back this way, with `AI_RATE_LIMITED`, `TIMEOUT` and a network failure; any other
+   code does not. An app released before F20-T18 treats it as an unknown code (rule 3).
 
 ---
 
@@ -870,7 +887,8 @@ token**, never from a parameter — a caller cannot read another install's quota
   "used_today":      1,                          // analyses actually consumed
   "remaining_today": 2,                          // how many may be STARTED now
   "resets_at":       "2026-07-27T00:00:00+03:00",// real Cairo offset, not fixed +02
-  "analysis_enabled": true                       // the backend kill switch
+  "analysis_enabled": true,                      // the backend kill switch
+  "online_ocr_enabled": false                    // online reading live? (F20-T14)
 }
 ```
 
@@ -881,6 +899,7 @@ token**, never from a parameter — a caller cannot read another install's quota
 | `used_today` | `usedCount` |
 | `remaining_today` | `remainingCount` |
 | `resets_at` | `resetsAt` |
+| `online_ocr_enabled` | `onlineOcrEnabled` (F20-T17; was `azure_ocr_enabled` / `azureOcrEnabled`). Absent reads as `false`, so an older app stays on the on-device route |
 
 `remaining_today` also subtracts **in-flight reservations**, so for the few
 seconds an analysis is running it can be lower than `daily_limit - used_today`.

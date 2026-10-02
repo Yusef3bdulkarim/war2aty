@@ -13,7 +13,7 @@ void main() {
   const useCase = BuildAnalysisResult();
 
   group('BuildAnalysisResult', () {
-    test('orders every section the way master plan §4 fixes them', () {
+    test('orders every section the §4 way, warnings moved down (F21)', () {
       final result = useCase(
         analysis: invoiceAnalysis(),
         extractedText: _ocrText,
@@ -23,12 +23,12 @@ void main() {
         AnalysisSection.header,
         AnalysisSection.summary,
         AnalysisSection.actionRequired,
-        AnalysisSection.warnings,
         AnalysisSection.keyInformation,
         AnalysisSection.amounts,
         AnalysisSection.dates,
         AnalysisSection.requiredDocuments,
         AnalysisSection.instructions,
+        AnalysisSection.warnings,
         AnalysisSection.detailedExplanation,
         AnalysisSection.extractedText,
       ]);
@@ -53,8 +53,8 @@ void main() {
       expect(result.sections, [
         AnalysisSection.header,
         AnalysisSection.summary,
-        AnalysisSection.warnings,
         AnalysisSection.dates,
+        AnalysisSection.warnings,
         AnalysisSection.detailedExplanation,
         AnalysisSection.extractedText,
       ]);

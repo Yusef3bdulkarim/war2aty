@@ -34,6 +34,7 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   AnalysisServiceFailure() => 'ANALYSIS_SERVICE',
   InvalidAnalysisResponseFailure() => 'INVALID_ANALYSIS_RESPONSE',
   AiProviderRateLimitFailure() => 'AI_PROVIDER_RATE_LIMIT',
+  OnlineOcrUnavailableFailure() => 'ONLINE_OCR_UNAVAILABLE',
   // Business
   UnsupportedDocumentFailure() => 'UNSUPPORTED_DOCUMENT',
   PartialAnalysisFailure() => 'PARTIAL_ANALYSIS',

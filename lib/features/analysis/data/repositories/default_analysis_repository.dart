@@ -165,59 +165,7 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
     );
   }
 
-  @override
-  Future<Result<DocumentAnalysis, AppFailure>> analyzeImage(
-    AnalysisImageRequest request,
-  ) async {
-    final result = await _analyzeImage(request);
-
-    if (result case Err(:final failure)) {
-      _logger.failure(
-        failure,
-        stage: LogStage.analyze,
-        sessionId: request.sessionId,
-      );
-    }
-    return result;
-  }
-
-  Future<Result<DocumentAnalysis, AppFailure>> _analyzeImage(
-    AnalysisImageRequest request,
-  ) async {
-    final identity = await _installationId.getOrCreate();
-    if (identity case Err(:final failure)) return Err(failure);
-
-    final AnalysisImageRequestDto dto;
-    try {
-      dto = await _buildImageRequest(request, identity.valueOrNull!);
-    } on Object {
-      // The perspective-corrected file is gone or unreadable before the
-      // request ever reaches the wire — an on-device problem, not a
-      // transport one.
-      return const Err(ImageProcessingFailure());
-    }
-
-    final AnalysisApiResponse response;
-    try {
-      response = await _dataSource.analyzeImage(dto);
-    } on DioException catch (exception) {
-      return Err(failureFromDioException(exception));
-    } on TimeoutException {
-      return const Err(RequestTimeoutFailure());
-    } on Object {
-      return const Err(AnalysisServiceFailure());
-    }
-
-    if (!response.isSuccess) {
-      return Err(
-        failureFromErrorBody(response.body, statusCode: response.statusCode),
-      );
-    }
-
-    return _validator.validate(response.body).flatMap(_rejectUnsupported);
-  }
-
-  /// Assembles the §29b wire request: reads the perspective-corrected file
+  /// Assembles the §29b wire request: reads the confirmed photo's file
   /// and base64-encodes it. This is the one place in the app that turns image
   /// bytes into something that leaves the device (F13 locked decisions).
   Future<AnalysisImageRequestDto> _buildImageRequest(
@@ -267,10 +215,11 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
 
     final AnalysisImageRequestDto dto;
     try {
-      // Same wire shape [analyzeImage] sends — this endpoint differs only in
-      // where the server stops, not in what the client uploads.
       dto = await _buildImageRequest(request, identity.valueOrNull!);
     } on Object {
+      // The photo's file is gone or unreadable before the
+      // request ever reaches the wire — an on-device problem, not a
+      // transport one.
       return const Err(ImageProcessingFailure());
     }
 

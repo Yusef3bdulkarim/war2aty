@@ -10,7 +10,7 @@ final class DailyUsage {
     required this.remainingCount,
     required this.resetsAt,
     this.lastSyncedAt,
-    this.azureOcrEnabled = false,
+    this.onlineOcrEnabled = false,
   });
 
   /// Cairo calendar day this quota belongs to (date-only, UTC midnight).
@@ -26,13 +26,11 @@ final class DailyUsage {
   /// Last successful sync with the backend; `null` before the first one.
   final DateTime? lastSyncedAt;
 
-  /// Whether the backend's online Azure/Google image pipeline is live right
-  /// now (F13). Read by [DecideAnalysisRoute] before routing a capture
-  /// online — connectivity alone is not enough, since the pipeline is
-  /// dark-launched behind this same flag server-side (`RuntimeConfig`
-  /// §`azureOcrEnabled`), and a mismatch there is a dead-end retry loop, not
-  /// a harmless no-op (locked decision #2 forbids falling back once online
-  /// is chosen).
+  /// Whether the backend's online reading (`ocr-document`) is live right now:
+  /// `get-usage`'s `online_ocr_enabled` (F20-T17; was `azure_ocr_enabled`).
+  /// Read by [DecideAnalysisRoute] before routing a capture online —
+  /// connectivity alone is not enough, since the server switches the online
+  /// reading on and off with this same flag (`RuntimeConfig.onlineOcrEnabled`).
   ///
   /// Only a *fresh* sync (`UsageRepository.syncUsage`) carries the real
   /// value — a reading reconstructed from the local cache always defaults
@@ -41,7 +39,7 @@ final class DailyUsage {
   /// philosophy for this flag), not an oversight: a stale "yes" is the
   /// dangerous direction to be wrong in, a stale "no" only costs one
   /// avoidable offline-route capture.
-  final bool azureOcrEnabled;
+  final bool onlineOcrEnabled;
 
   /// Whether the user can still run an analysis today.
   bool get hasQuotaLeft => remainingCount > 0;
@@ -55,7 +53,7 @@ final class DailyUsage {
       other.remainingCount == remainingCount &&
       other.resetsAt == resetsAt &&
       other.lastSyncedAt == lastSyncedAt &&
-      other.azureOcrEnabled == azureOcrEnabled;
+      other.onlineOcrEnabled == onlineOcrEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -65,6 +63,6 @@ final class DailyUsage {
     remainingCount,
     resetsAt,
     lastSyncedAt,
-    azureOcrEnabled,
+    onlineOcrEnabled,
   );
 }

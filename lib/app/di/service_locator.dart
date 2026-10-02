@@ -119,7 +119,6 @@ import '../../features/analysis/data/repositories/default_analysis_repository.da
 import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
-import '../../features/analysis/domain/usecases/analyze_image.dart';
 import '../../features/analysis/domain/usecases/ocr_image.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
@@ -146,7 +145,6 @@ import '../../features/bootstrap/presentation/splash_timing.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/dart_document_edge_detector.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
-import '../../features/capture/data/services/doclens_perspective_corrector.dart';
 import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
@@ -160,11 +158,9 @@ import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
-import '../../features/capture/domain/services/perspective_corrector.dart';
 import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
-import '../../features/capture/domain/usecases/correct_perspective.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
 import '../../features/capture/domain/usecases/crop_image.dart';
 import '../../features/capture/domain/usecases/crop_to_guide_box.dart';
@@ -525,12 +521,6 @@ void _registerCapture() {
     ..registerFactory<DecideAnalysisRoute>(
       () => DecideAnalysisRoute(getIt(), getIt()),
     )
-    // `doclens`'s pure file operations only — never its camera UI (F13
-    // locked decision #10).
-    ..registerLazySingleton<PerspectiveCorrector>(
-      DoclensPerspectiveCorrector.new,
-    )
-    ..registerFactory<CorrectPerspective>(() => CorrectPerspective(getIt()))
     // Parameterised by the acquired image's path — the cubit rotates,
     // assesses quality, and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
@@ -540,7 +530,6 @@ void _registerCapture() {
         cropImage: getIt(),
         assessQuality: getIt(),
         decideRoute: getIt(),
-        correctPerspective: getIt(),
         createSession: getIt(),
         onlineHandoff: getIt(),
         ocrHandoff: getIt(),
@@ -627,9 +616,6 @@ void _registerAnalysis(AppEnvironment env) {
       ),
     )
     ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
-    // Online-route counterpart (F13-T14), wired into the capture flow by
-    // F13-T15's `ImageAnalysisSource`.
-    ..registerFactory<AnalyzeImage>(() => AnalyzeImage(getIt()))
     // OCR-only half of the online route's two-call split (F14) — stops
     // before Groq so the user can review the text first.
     ..registerFactory<OcrImage>(() => OcrImage(getIt()))
@@ -649,21 +635,15 @@ void _registerAnalysis(AppEnvironment env) {
         source: source,
         getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
-        analyzeImage: getIt(),
         buildResult: getIt(),
         syncDailyUsage: getIt(),
-        // On the online route the perspective-corrected file must survive
-        // until the repository has read its bytes — the preview cubit's
-        // close() skips it, so *this* callback takes ownership of deleting
-        // it after the analysis reads (or fails to read) the file.
-        onImageConsumed: source is ImageAnalysisSource
-            ? getIt<ImageAnalysisSessionHolder>().clear
-            : null,
+        getDailyUsage: getIt(),
       ),
     )
     // The OCR review screen (F14) — reuses `ExtractCandidates`, already
     // registered by `_registerOcr`, to re-extract candidates from the user's
-    // approved text before it reaches Groq.
+    // approved text before it reaches Groq, and `ExtractDocumentText` for the
+    // explicit on-device fallback (F20-T22).
     ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
       (session, photo) => OcrReviewCubit(
         session: session,
@@ -672,6 +652,7 @@ void _registerAnalysis(AppEnvironment env) {
         extractCandidates: getIt(),
         getAnalysisConsent: getIt(),
         imageHolder: getIt<ImageAnalysisSessionHolder>(),
+        extractDocumentText: getIt(),
       ),
     )
     // Offline variant: Tesseract already ran on `/ocr`, result handed off.

@@ -1,13 +1,17 @@
-import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../ocr/domain/entities/extraction_result.dart';
 
-/// What one analysis run is built from — the offline/online split of F13
-/// locked decision #1, carried into [AnalysisResultCubit].
+/// What one analysis run is built from, carried into [AnalysisResultCubit].
+///
+/// Every analysis is text (F20-T19): both routes reach `/result` only after
+/// the OCR review, whether the page was read online or on the device. The
+/// image variant F13 added went with the dead image path; the sealed type is
+/// kept so a new source is a compile-checked addition, not a signature change.
 sealed class AnalysisSource {
   const AnalysisSource();
 }
 
-/// Offline route: local OCR already ran (F04/F05, unchanged by F13).
+/// The reviewed OCR result — read on the device or online, then approved by
+/// the user on the OCR review screen.
 final class OcrAnalysisSource extends AnalysisSource {
   const OcrAnalysisSource(this.extraction);
 
@@ -20,21 +24,4 @@ final class OcrAnalysisSource extends AnalysisSource {
 
   @override
   int get hashCode => extraction.hashCode;
-}
-
-/// Online route: OCR is skipped entirely — [photo] is read server-side
-/// instead (F13 locked decision #1). Expected to already be
-/// perspective-corrected (F13-T12), never the raw sensor frame.
-final class ImageAnalysisSource extends AnalysisSource {
-  const ImageAnalysisSource(this.photo);
-
-  final CapturedPhoto photo;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ImageAnalysisSource && other.photo == photo;
-
-  @override
-  int get hashCode => photo.hashCode;
 }

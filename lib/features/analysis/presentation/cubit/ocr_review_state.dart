@@ -2,12 +2,25 @@ import '../../../../core/error/app_failure.dart';
 import '../../../ocr/domain/entities/extraction_result.dart';
 
 /// States for the OCR review screen (F14) — the online route's stop between
-/// Azure OCR and Groq analysis.
+/// the online reading and the analysis.
 sealed class OcrReviewState {
   const OcrReviewState();
 }
 
-/// Azure OCR is running on the server.
+/// Where the text under review was read (F20-T22).
+enum OcrReadMode {
+  /// Read online, as the online route intends.
+  online,
+
+  /// Read on the device by the offline route — no online reading was tried.
+  offline,
+
+  /// The online reading failed with an allowlisted failure (F20 §1), so the
+  /// page was read on the device instead. Likely less accurate than [online].
+  onlineFallback,
+}
+
+/// The online reading is running on the server.
 final class OcrReviewLoading extends OcrReviewState {
   const OcrReviewLoading();
 }
@@ -21,10 +34,10 @@ final class OcrReviewReady extends OcrReviewState {
     required this.serverCandidates,
     required this.detectedLanguages,
     required this.imagePath,
-    this.isOffline = false,
+    this.readMode = OcrReadMode.online,
   });
 
-  /// The text Azure returned, untouched. Kept so [isEdited] can tell whether
+  /// The text the online reading returned, untouched. Kept so [isEdited] can tell whether
   /// the user changed anything — never shown or logged on its own (§7).
   final String originalOcrText;
 
@@ -32,26 +45,26 @@ final class OcrReviewReady extends OcrReviewState {
   /// via `OcrReviewCubit.updateOcrText`. This is what Groq ultimately sees.
   final String reviewedOcrText;
 
-  /// Candidates extracted server-side (Azure + extractors). Shown as review
-  /// hints only — when the user taps analyze, fresh candidates are
-  /// re-extracted from [reviewedOcrText] client-side (`buildReviewedResult`),
-  /// so Groq never receives a candidate that does not match the approved
-  /// text.
+  /// Candidates extracted alongside the reading — server-side for an online
+  /// reading, on the device otherwise. Shown as review hints only — when the
+  /// user taps analyze, fresh candidates are re-extracted from
+  /// [reviewedOcrText] client-side (`buildReviewedResult`), so Groq never
+  /// receives a candidate that does not match the approved text.
   final ExtractionResult serverCandidates;
 
-  /// Languages Azure detected, carried through to the analysis request once
+  /// Languages the reading reported, carried through to the analysis request once
   /// the user approves.
   final List<String> detectedLanguages;
 
-  /// Path to the perspective-corrected temp image, so the user can view it
+  /// Path to the temp image that was read, so the user can view it
   /// alongside the text. Stays on disk for the whole review (F14 image
   /// lifecycle) — `null` only if it was already cleaned up.
   final String? imagePath;
 
-  /// `true` when this review came from the offline (Tesseract) OCR path —
-  /// the screen shows an amber quality-warning banner and uses "متابعة"
-  /// instead of "تحليل الورقة".
-  final bool isOffline;
+  /// Where [originalOcrText] was read. The offline route's review shows an
+  /// amber quality-warning banner and uses "متابعة" instead of
+  /// "تحليل الورقة".
+  final OcrReadMode readMode;
 
   /// Whether the user has changed the text since OCR completed.
   bool get isEdited => originalOcrText != reviewedOcrText;
@@ -65,7 +78,7 @@ final class OcrReviewReady extends OcrReviewState {
           other.serverCandidates == serverCandidates &&
           _listEquals(other.detectedLanguages, detectedLanguages) &&
           other.imagePath == imagePath &&
-          other.isOffline == isOffline;
+          other.readMode == readMode;
 
   @override
   int get hashCode => Object.hash(
@@ -74,7 +87,7 @@ final class OcrReviewReady extends OcrReviewState {
     serverCandidates,
     Object.hashAll(detectedLanguages),
     imagePath,
-    isOffline,
+    readMode,
   );
 }
 

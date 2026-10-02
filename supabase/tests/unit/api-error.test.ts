@@ -33,6 +33,7 @@ Deno.test("the code vocabulary matches API_CONTRACT §31 exactly", () => {
     "GLOBAL_CAPACITY_REACHED",
     "INTERNAL_ERROR",
     "INVALID_REQUEST",
+    "OCR_UNAVAILABLE",
     "TIMEOUT",
     "UNAUTHORIZED",
     "UNSUPPORTED_APP_VERSION",
@@ -53,6 +54,7 @@ Deno.test("every code maps to the status in the §31 table", () => {
     ANALYSIS_FAILED: 500,
     INTERNAL_ERROR: 500,
     ANALYSIS_DISABLED: 503,
+    OCR_UNAVAILABLE: 502,
   };
 
   for (const code of ERROR_CODES) {
@@ -126,6 +128,17 @@ Deno.test("toResponse uses the code's status", () => {
   assertEquals(ApiError.dailyLimitReached("2026-07-27T00:00:00+03:00").toResponse().status, 429);
   assertEquals(ApiError.analysisDisabled().toResponse().status, 503);
   assertEquals(ApiError.unauthorized().toResponse().status, 401);
+});
+
+Deno.test("OCR_UNAVAILABLE is a 502 whose message names no provider (F20-T12)", async () => {
+  const response = ApiError.ocrUnavailable().toResponse();
+  const body = await response.json();
+
+  assertEquals(response.status, 502);
+  assertEquals(body.error.code, "OCR_UNAVAILABLE");
+  for (const provider of ["gemini", "google", "azure", "mistral", "groq"]) {
+    assertEquals(body.error.message.toLowerCase().includes(provider), false, provider);
+  }
 });
 
 Deno.test("toResponse echoes the request id and stays uncacheable", () => {
