@@ -105,9 +105,6 @@ abstract interface class AppStrings {
   /// Announced while the camera is opening.
   String get cameraOpening;
 
-  /// The guidance under the frame: fit the whole paper inside it.
-  String get cameraViewfinderHint;
-
   /// Accessibility label for the shutter button.
   String get cameraShutterLabel;
 

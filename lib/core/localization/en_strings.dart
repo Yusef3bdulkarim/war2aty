@@ -182,9 +182,6 @@ final class EnStrings implements AppStrings {
   String get cameraOpening => 'Opening the camera…';
 
   @override
-  String get cameraViewfinderHint => 'Keep the whole paper inside the frame.';
-
-  @override
   String get cameraShutterLabel => 'Take photo';
 
   @override

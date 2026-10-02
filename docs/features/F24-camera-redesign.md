@@ -3,7 +3,7 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 1 / 7 DONE · Phase 2 — not yet planned
+- **Progress:** Phase 1 — 2 / 7 DONE · Phase 2 — not yet planned
 - **PRs:** two, both into `develop` — one for Phase 1 (cleanup), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
@@ -57,7 +57,7 @@ deleted file.
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 1 | F24-T01 | Branch + docs | Branch `refactor/remove-live-edge-detection` off `develop`; this doc; F16 and `F16-plans/README.md` marked superseded by F24; `README.md` row and dependency note | DONE |
-| 2 | F24-T02 | Screen: no overlay, no hint | `CameraCaptureScreen` draws the preview, the close control and the shutter only — no `ViewfinderFrame`, no preview measurement, no hint pill. `viewfinder_frame.dart`, `frame_preview_mapper.dart` and their tests deleted; `cameraViewfinderHint` removed from the strings and `app_strings_test`. Screen tests assert the bare viewfinder | TODO |
+| 2 | F24-T02 | Screen: no overlay, no hint | `CameraCaptureScreen` draws the preview, the close control and the shutter only — no `ViewfinderFrame`, no preview measurement, no hint pill. `viewfinder_frame.dart`, `frame_preview_mapper.dart` and their tests deleted; `cameraViewfinderHint` removed from the strings and `app_strings_test`. Screen tests assert the bare viewfinder | DONE |
 | 3 | F24-T03 | Cubit/state: no detection, no guide crop | `CameraReady` carries no document; the cubit no longer starts/stops a frame stream, detects, budgets or crops; `capture()` takes no `guideBox` and hands the photo on unchanged, still cleaning up a stale run's file. `detection_budget.dart`, `detected_document.dart` and the budget test deleted; cubit tests updated | TODO |
 | 4 | F24-T04 | Domain/data/DI: no frame stream, no detector | `CameraService` and `PlatformCameraService` lose the frame stream (and the throttle, and the explicit `imageFormatGroup`); the detector, algorithm, tuning, `CameraFrame`, `DocumentQuad`, `UnitPoint` and the `DetectDocumentEdges` / `StartFrameStream` / `StopFrameStream` / `CropToGuideBox` use cases deleted with their tests and DI registrations; the test fake updated | TODO |
 | 5 | F24-T05 | Quality gate | `dart format .`, `flutter analyze`, `flutter test` clean; no leftover references to the removed code anywhere in `lib/` or `test/`; `/flutter-code-review` passes | TODO |

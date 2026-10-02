@@ -183,9 +183,6 @@ final class ArStrings implements AppStrings {
   String get cameraOpening => 'بنفتح الكاميرا…';
 
   @override
-  String get cameraViewfinderHint => 'خلي الورقة كاملة داخل الإطار.';
-
-  @override
   String get cameraShutterLabel => 'التقاط الصورة';
 
   @override

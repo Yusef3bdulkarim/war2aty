@@ -73,13 +73,26 @@ Future<_Result> _pumpViewfinder(
 
 void main() {
   group('CameraCaptureScreen', () {
-    testWidgets('shows the live preview and framing hint once ready', (
-      tester,
-    ) async {
+    testWidgets('once ready, shows the bare live preview with its close and '
+        'shutter controls — no guide, no hint (F24)', (tester) async {
       await _pumpViewfinder(tester, FakeCameraService());
 
       expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
-      expect(find.text(_strings.cameraViewfinderHint), findsOneWidget);
+      expect(find.bySemanticsLabel(_strings.cameraCloseLabel), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(_strings.cameraShutterLabel),
+        findsOneWidget,
+      );
+      // The hint pill was the viewfinder's only text; nothing is drawn over
+      // the feed any more.
+      expect(find.byType(Text), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(Center),
+          matching: find.byType(CustomPaint),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('asks for light status-bar icons', (tester) async {
@@ -206,7 +219,7 @@ void main() {
 
       expect(
         Directionality.of(
-          tester.element(find.text(_strings.cameraViewfinderHint)),
+          tester.element(find.bySemanticsLabel(_strings.cameraCloseLabel)),
         ),
         TextDirection.rtl,
       );

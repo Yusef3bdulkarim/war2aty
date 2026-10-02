@@ -8,22 +8,18 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/captured_photo.dart';
-import '../../domain/entities/document_quad.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/camera_capture_cubit.dart';
 import '../cubit/camera_capture_state.dart';
-import '../frame_preview_mapper.dart';
-import '../widgets/viewfinder_frame.dart';
 
 // From `Waraqti.dc.html` → `camera`.
 const double _controlBox = 42;
 const double _shutterOuter = 80;
 const double _shutterInner = 64;
-const double _hintRadius = 20;
 
-/// The viewfinder: a live camera feed, a framing guide, and one shutter button
-/// that produces a single portrait photo.
+/// The viewfinder: a plain live camera feed and one shutter button that
+/// produces a single portrait photo. No guide is drawn over the feed (F24).
 ///
 /// The screen owns the app-lifecycle wiring — the camera is released when the
 /// app goes to the background and re-opened on return, so it is never held
@@ -47,10 +43,6 @@ class CameraCaptureScreen extends StatefulWidget {
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with WidgetsBindingObserver, RouteAware {
-  /// Wraps the live preview widget itself, so its real rendered rect (after
-  /// `CameraPreview`'s internal aspect-ratio fit) can be measured.
-  final GlobalKey _previewKey = GlobalKey();
-
   @override
   void initState() {
     super.initState();
@@ -102,51 +94,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   /// Fires the shutter.
   ///
-  /// The whole frame is kept: there is no static guide box to crop to any
-  /// more, and the detected quad is not reliable enough to crop to — the T10
-  /// device pass had it collapse to a sliver and discard most of a page.
-  /// The user's own crop on the preview screen is the only crop.
+  /// The whole frame is kept: the user's own crop on the preview screen is
+  /// the only crop.
   void _capture() {
     context.read<CameraCaptureCubit>().capture(guideBox: UnitRect.full);
-  }
-
-  /// The live preview's real rendered rect in global coordinates, or `null`
-  /// when it has not been laid out (or came out degenerate).
-  ///
-  /// The detected-quad overlay needs it to map out of sensor space (F16-T05).
-  Rect? _measurePreview() {
-    final previewObject = _previewKey.currentContext?.findRenderObject();
-    if (previewObject is! RenderBox || !previewObject.hasSize) return null;
-
-    final rect = previewObject.localToGlobal(Offset.zero) & previewObject.size;
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    return rect;
-  }
-
-  /// The detected document in the preview's own coordinates, ready for
-  /// [ViewfinderFrame] to draw — or `null` when there is nothing to draw.
-  ///
-  /// The cubit carries the quad in sensor space, since it cannot see layout;
-  /// the mapping needs the preview's aspect, which only the render tree knows
-  /// (F16-T05). Reading the render box during build gives the previous
-  /// frame's layout, which is exactly right here: the preview's rect is
-  /// settled long before the first detection arrives, and a missing
-  /// measurement simply means no overlay this frame.
-  DocumentQuad? _quadForPreview(CameraCaptureState state) {
-    if (state is! CameraReady) return null;
-    final document = state.document;
-    if (document == null) return null;
-
-    final previewRect = _measurePreview();
-    if (previewRect == null) return null;
-
-    return FramePreviewMapper.mapToPreview(
-      document.quad,
-      sensorOrientation: document.sensorOrientation,
-      isMirrored: document.isMirrored,
-      frameAspect: document.frameAspect,
-      previewAspect: previewRect.width / previewRect.height,
-    );
   }
 
   @override
@@ -181,10 +132,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                 ),
                 _ => _Viewfinder(
                   state: state,
-                  quad: _quadForPreview(state),
                   onClose: widget.onClose,
                   onShutter: _capture,
-                  previewKey: _previewKey,
                 ),
               },
             ),
@@ -195,27 +144,17 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 }
 
-/// The live view with its framing guide and shutter.
+/// The live view with its close control and shutter.
 class _Viewfinder extends StatelessWidget {
   const _Viewfinder({
     required this.state,
-    required this.quad,
     required this.onClose,
     required this.onShutter,
-    required this.previewKey,
   });
 
   final CameraCaptureState state;
-
-  /// The detected document in the preview's own coordinates, or `null` to
-  /// draw no guide at all (F16 locked decision #4).
-  final DocumentQuad? quad;
   final VoidCallback onClose;
   final VoidCallback onShutter;
-
-  /// See `_CameraCaptureScreenState`'s field of the same name — wraps the
-  /// live preview so the detected quad can be drawn in its coordinates.
-  final GlobalKey previewKey;
 
   @override
   Widget build(BuildContext context) {
@@ -225,21 +164,10 @@ class _Viewfinder extends StatelessWidget {
       children: [
         if (isReady)
           Positioned.fill(
+            // Fit, not cover: the feed keeps its own aspect on the backdrop,
+            // so what is seen is exactly what is captured.
             child: Center(
-              // The guide sits *inside* the measured preview rather than over
-              // the whole screen, so the quad the detector found and the quad
-              // that gets drawn speak one coordinate space (F16-T05). The
-              // Stack takes its size from the preview, its only unpositioned
-              // child, so the overlay covers exactly the live feed.
-              child: KeyedSubtree(
-                key: previewKey,
-                child: Stack(
-                  children: [
-                    context.read<CameraCaptureCubit>().preview.build(context),
-                    Positioned.fill(child: ViewfinderFrame(quad: quad)),
-                  ],
-                ),
-              ),
+              child: context.read<CameraCaptureCubit>().preview.build(context),
             ),
           )
         else
@@ -258,13 +186,8 @@ class _Viewfinder extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 40,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const _Hint(),
-                const SizedBox(height: AppSpacing.lg),
-                _Shutter(enabled: state is CameraReady, onTap: onShutter),
-              ],
+            child: Center(
+              child: _Shutter(enabled: state is CameraReady, onTap: onShutter),
             ),
           ),
       ],
@@ -329,78 +252,6 @@ class _CloseButton extends StatelessWidget {
               size: 22,
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The hint pill above the shutter, with its pulsing mint dot.
-class _Hint extends StatelessWidget {
-  const _Hint();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.strings;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(_hintRadius),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const _PulsingDot(),
-          const SizedBox(width: AppSpacing.sm),
-          Flexible(
-            child: Text(
-              s.cameraViewfinderHint,
-              style: AppTypography.caption.copyWith(
-                color: AppColors.of(context).onBrand,
-                fontWeight: AppTypography.semiBold,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// The mint dot that pulses beside the hint.
-class _PulsingDot extends StatefulWidget {
-  const _PulsingDot();
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1400),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.4, end: 1).animate(_controller),
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: AppColors.of(context).mint,
-          shape: BoxShape.circle,
         ),
       ),
     );
