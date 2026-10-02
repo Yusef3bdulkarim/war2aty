@@ -3,7 +3,7 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — 1 / 3 DONE (Flutter tasks planned after the design is chosen)
+- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — 2 / 12 DONE · T10 blocked on the owner (see below)
 - **PRs:** two, both into `develop` — one for Phase 1 (cleanup, [#25](https://github.com/Yusef3bdulkarim/war2aty/pull/25)), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
@@ -95,8 +95,17 @@ without a flash, camera error, Large Text ×1.5). A URL hash such as
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 8 | F24-T08 | Branch + three mockups | Branch `feature/camera-redesign` off `develop` (after #25). One local standalone HTML file holds three Waraqti variants (A native minimal, B labelled elderly-first, C floating capsule), each with the light toggle, the photos shortcut beside the shutter and tap-to-focus. The feed stays Fit. Every control is ≥ 48 × 48 and no state is shown by colour alone; states are RTL, Large Text, opening, error and no flash | DONE |
-| 9 | F24-T09 | The owner's pick | The owner chooses a variant (or a mix) and answers the open behaviour questions listed at the bottom of the mockup page | WIP — see [T09 decisions](#t09-decisions-2026-10-03); layout, bar colour, bottom style and hint timing still to pick on the refined page |
-| 10 | F24-T10 | Waraqti design updated | The chosen variant is committed to `Waraqti.dc.html`, through a `/design-sync` session the owner starts | TODO |
+| 9 | F24-T09 | The owner's pick | The owner chooses a variant (or a mix) and answers the open behaviour questions listed at the bottom of the mockup page | DONE — see [T09 decisions](#t09-decisions-2026-10-03) |
+| 10 | F24-T10 | Waraqti design updated | The final design is committed to `Waraqti.dc.html` | **BLOCKED** — the tool that writes to Claude Design is reserved for an owner-started `/design-sync` session, which is not available here, and Waraqti is a regular project rather than a design-system one. The owner chooses: import the final page into Claude Design themselves, or make the committed page the camera's design source (as F23 did) |
+| 11 | F24-T11 | Domain: flash, focus, capabilities | `CameraFlashMode` (off / auto / on), `CameraCapabilities` (has a flash, can focus) and a normalised `FocusPoint` (0..1, validated). `CameraService.initialize` returns the capabilities and gains `setFlashMode` and `focusAt`. New `SetCameraFlash` and `FocusCamera` use cases; `InitializeCamera` passes the capabilities through. Pure Dart; tests for `FocusPoint` and the use cases; the test fake updated | TODO |
+| 12 | F24-T12 | Cubit/state | `CameraReady` carries the flash mode, whether there is a flash, and whether focus is supported. `start()` always lands on flash off, so a retake resets it. `cycleFlash()` moves off → auto → on (a no-op without a flash; a failure keeps the old mode). `focusAt()` is ignored unless ready and supported, and its failure is silent (guidance only). Both keep the generation guard. Cubit tests | TODO |
+| 13 | F24-T13 | Data: `PlatformCameraService` | After every open, the controller is set to `FlashMode.off`: the plugin starts in auto. Flash support: iOS detects it from a failing `setFlashMode`; Android per the owner's answer to Q2. Focus support comes from `focusPointSupported`; `focusAt` sets the focus point, and the exposure point where supported. `CameraException` maps to a typed failure, never thrown. The plugin-free mapping is unit-tested | TODO |
+| 14 | F24-T14 | Shared icons + strings | `StrokeGlyph.flash`, `flashOff` and `flashAuto` join the shared icon set. New strings: «الفلاش: مطفي / تلقائي / شغال», the focus hint «المس الورقة علشان تبقى واضحة», and «اختار صورة من الموبايل» on the camera. `actionBack` and `StrokeGlyph.gallery` are reused. `app_strings_test` updated | TODO |
+| 15 | F24-T15 | Screen (after T10) | `CameraCaptureScreen` rebuilt to the final design: `TealTopBar`, the full-width Fit feed, and the dock (status line + capsule). The feed shrinks, still Fit, when the screen is too short for the dock. Also: the focus brackets at the tapped point; the hint once per visit (screen state, so a retake or retry does not bring it back); the flash chip for 2 s; no flash button without a flash, with the shutter kept centred; the error page with «اختار صورة من الموبايل»; the bar on the opening and error states. Widget tests: RTL, Large Text, no flash, flash cycle, the tap → normalised point, hint once per visit across `didPopNext`, the error buttons | TODO |
+| 16 | F24-T16 | Router | The photos shortcut and the error page's button replace the camera route with the gallery route (`pushReplacement`, as the permission sheet already does), so Back returns Home | TODO |
+| 17 | F24-T17 | Quality gate | `dart format .`, `flutter analyze`, `flutter test`; `/flutter-code-review`; `@code-reviewer` | TODO |
+| 18 | F24-T18 | Device check | Real phone: flash off / auto / on actually fires (or doesn't); reset to off after a retake; tap-to-focus sharpens the tapped area; hint once per visit; the photos shortcut; no-flash handling; error page; RTL, Large Text | TODO |
+| 19 | F24-T19 | PR #2 | Phase 2 PR into `develop` | TODO |
 
 ### T09 decisions (2026-10-03)
 
@@ -115,4 +124,10 @@ Answers to the six behaviour questions:
 5. **Phone without a flash:** the flash button is hidden completely.
 6. **After a shot:** the flash resets to off on returning to the camera.
 
-The refined page (same file) shows two layout proposals, C1 framed window and C2 edge-to-edge, with switchable bar colour (brand / deep teal) and bottom style (glass capsule / mirrored dock / teal glow). Still to pick: the layout, the bar colour, the bottom style, and whether the hint shows on every camera open or once per visit.
+Final picks on the refined page:
+- **Layout:** C2, edge-to-edge.
+- **Top bar:** brand teal, exactly as `TealTopBar`.
+- **Bottom:** glass capsule.
+- **Hint:** **once per camera visit**, not again after a retake.
+
+`docs/design/F24-camera-mockups.html` now shows only this final design, with its spec. The earlier A / B / C and option pages are in git history (`64026cd`, `c7a0ab0`).

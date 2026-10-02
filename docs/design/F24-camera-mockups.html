@@ -30,7 +30,7 @@
     --action-bar: #22272B;   /* previewActionBar */
 
     /* Options the toolbar flips. */
-    --bar-color: var(--brand);
+    --bar-color: var(--brand);   /* brand teal, as in the app (T09) */
     --ts: 1;
   }
 
@@ -64,7 +64,13 @@
   .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
   .check input { width: 18px; height: 18px; accent-color: var(--brand); }
 
-  .phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(372px, 1fr)); gap: 32px 24px; justify-items: center; }
+  .phones { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 860px) { .phones { grid-template-columns: 1fr; justify-items: center; } }
+  .specs { font-size: 14.5px; color: var(--text-2); }
+  .specs h3 { color: var(--ink); font-size: 15.5px; font-weight: 800; margin: 0 0 6px; }
+  .specs table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  .specs td { padding: 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .specs td:first-child { color: var(--ink); font-weight: 700; width: 30%; padding-inline-end: 12px; }
   .variant { display: flex; flex-direction: column; align-items: center; gap: 14px; }
   .variant header { width: 100%; max-width: 372px; }
   .variant .tag { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 10px; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 800; font-size: 14px; margin-inline-end: 10px; vertical-align: middle; }
@@ -87,12 +93,6 @@
     background: radial-gradient(110% 110% at 50% 40%, var(--lift), var(--backdrop));
     color: #fff; user-select: none;
   }
-  /* Dock option: a soft teal glow rising from the bottom. */
-  .dock-glow .screen {
-    background:
-      radial-gradient(95% 34% at 50% 100%, rgba(14,124,134,.42), rgba(14,124,134,0) 72%),
-      radial-gradient(110% 110% at 50% 40%, var(--lift), var(--backdrop));
-  }
   .statusbar { position: absolute; inset: 0 0 auto 0; height: 30px; z-index: 6; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 13px; font-weight: 700; }
   .statusbar .icons { display: flex; gap: 6px; align-items: center; }
   .statusbar .icons i { display: block; background: #fff; border-radius: 2px; }
@@ -113,7 +113,6 @@
 
   /* ───────────── The live feed (Fit, 3:4) — two layout proposals ───────────── */
   .feed { position: absolute; overflow: hidden; cursor: crosshair; }
-  .c1 .feed { top: 98px; left: 14px; right: 14px; height: 443px; border-radius: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,.07); }
   .c2 .feed { top: 94px; left: 0; right: 0; height: 480px; }
 
   .scene {
@@ -123,12 +122,11 @@
       radial-gradient(120% 90% at 40% 35%, #6B5A4B 0%, #4A3E35 55%, #2F2823 100%);
   }
   .paper {
-    position: absolute; left: 50%; top: 50%; width: 214px; height: 302px;
+    position: absolute; left: 50%; top: 50%; width: 232px; height: 328px;
     transform: translate(-50%, -50%) rotate(-4deg);
     background: #F7F6F1; border-radius: 3px; box-shadow: 0 18px 30px -12px rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.25);
-    padding: 16px 14px; direction: rtl;
+    padding: 18px 16px; direction: rtl;
   }
-  .c2 .paper { width: 232px; height: 328px; padding: 18px 16px; }
   .paper .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .paper .logo { width: 32px; height: 32px; border-radius: 50%; background: #1F5C9E; opacity: .85; }
   .paper .ttl { width: 98px; height: 10px; border-radius: 3px; background: #3D4A50; opacity: .75; }
@@ -157,12 +155,7 @@
 
   /* ───────────── The dock: everything below the feed ───────────── */
   .dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding-bottom: 22px; transition: background .25s; }
-  .c1 .dock { top: 541px; }
   .c2 .dock { top: 574px; }
-  /* Dock option: a panel whose rounded top mirrors the teal bar's rounded bottom. */
-  .dock-mirror .dock { top: auto; border-radius: 28px 28px 0 0; background: var(--preview-bg); box-shadow: 0 -1px 0 rgba(255,255,255,.06); padding-top: 14px; }
-  .dock-mirror .c1 .dock { height: 228px; }
-  .dock-mirror .c2 .dock { height: 196px; }
 
   /* The status line above the capsule: the focus hint, or the flash mode after a change. */
   .status { min-height: 34px; display: grid; place-items: center; }
@@ -180,12 +173,12 @@
 
   .capsule {
     position: relative; display: flex; align-items: center; gap: 18px; padding: 8px 12px; border-radius: 999px;
-    background: rgba(17,20,23,.55); border: 1px solid rgba(255,255,255,.13);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-    transition: transform .25s, background .25s, border-color .25s;
+    /* Glass capsule. In C2 it sits on the plain backdrop below the feed, so
+       there is nothing behind it to blur: a translucent fill and a hairline
+       border give the glass look without a BackdropFilter. */
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.13);
+    transition: transform .25s;
   }
-  .dock-mirror .capsule { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.08); backdrop-filter: none; }
-  .dock-glow .capsule { background: rgba(10,92,100,.42); border-color: rgba(52,208,180,.28); }
 
   /* 44px discs inside 48px tap targets: sleeker, never under the app's 48dp floor. */
   .cbtn { width: 48px; height: 48px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; place-items: center; color: #fff; }
@@ -229,7 +222,7 @@
   .error .secondary { border: 1.5px solid rgba(255,255,255,.4); background: transparent; color: #fff; margin-top: 4px; }
 </style>
 </head>
-<body class="dock-glass">
+<body>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
@@ -238,7 +231,8 @@
     <symbol id="i-flash" viewBox="0 0 24 24"><path class="ico" d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></symbol>
     <symbol id="i-flash-off" viewBox="0 0 24 24"><path class="ico" d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/><path class="ico" d="M3 3l18 18"/></symbol>
     <symbol id="i-flash-auto" viewBox="0 0 24 24"><path class="ico" d="M11 2 3.5 12.5h6l-1 7.5 7.5-10.5h-6l1-7.5z"/><path class="ico" d="M16.5 23l2.6-7 2.6 7M17.4 20.8h3.4" stroke-width="1.7"/></symbol>
-    <symbol id="i-photos" viewBox="0 0 24 24"><rect class="ico" x="3" y="3" width="18" height="18" rx="3"/><circle class="ico" cx="9" cy="9" r="2"/><path class="ico" d="m21 15-4.5-4.5L5 21"/></symbol>
+    <!-- StrokeGlyph.gallery, as the app draws it. -->
+    <symbol id="i-photos" viewBox="0 0 24 24"><rect class="ico" x="3" y="4" width="18" height="16" rx="3"/><circle class="ico" cx="8.5" cy="9.5" r="1.5"/><path class="ico" d="M21 16l-5-5-9 9"/></symbol>
     <symbol id="i-cam-off" viewBox="0 0 24 24"><path class="ico" d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle class="ico" cx="12" cy="13" r="3.5"/><path class="ico" d="M3 3l18 18"/></symbol>
   </defs>
 </svg>
@@ -295,24 +289,18 @@
 </template>
 
 <main class="page">
-  <h1>F24 · Camera redesign — variant C, refined</h1>
+  <h1>F24 · Camera — final design</h1>
   <div class="lede">
-    Variant C with your T09 answers applied:
-    <ul style="margin:6px 0 0; padding-inline-start:20px; color:var(--text-2); font-size:15px;">
-      <li>the app's teal top bar</li>
-      <li>smaller controls: shutter 78 → 68, photos and flash 52 → 44 (the tap areas stay 48 × 48)</li>
-      <li>an off / auto / on flash that fires with the shutter</li>
-      <li>an auto-hiding focus hint</li>
-    </ul>
-    <span style="color:var(--text-2); font-size:15px;">The two phones are the layout proposals for the space around the feed. The toolbar's Top bar and Bottom options change both phones at once.
-    (The earlier A / B / C page is in git history at <code>64026cd</code>.)</span>
+    Approved by the owner on 2026-10-03 (F24-T09): variant C, refined, in the <b>C2 edge-to-edge</b> layout,
+    with the <b>brand teal</b> top bar and the <b>glass capsule</b>. The phone is live: tap the paper to focus,
+    tap ⚡ to change the flash, and tap the shutter. The earlier pages (A / B / C, and the refinement options) are in git history.
   </div>
 
   <div class="toolbar">
     <div class="tb-row">
       <span class="label">State</span>
       <div class="seg" id="states">
-        <button type="button" data-state="ready" aria-pressed="true">Ready (hint)</button>
+        <button type="button" data-state="ready" aria-pressed="true">Ready (first open, hint)</button>
         <button type="button" data-state="auto">Flash auto</button>
         <button type="button" data-state="on">Flash on</button>
         <button type="button" data-state="focus">Focusing</button>
@@ -323,69 +311,30 @@
       </div>
       <label class="check"><input type="checkbox" id="largeText"> Large Text (×1.5)</label>
     </div>
-    <div class="tb-row">
-      <span class="label">Top bar</span>
-      <div class="seg" data-option="bar">
-        <button type="button" data-value="brand" aria-pressed="true"><span class="sw" style="background:#0E7C86"></span>Brand teal — as in the app</button>
-        <button type="button" data-value="deep"><span class="sw" style="background:#0A5C64"></span>Deep teal</button>
-      </div>
-    </div>
-    <div class="tb-row">
-      <span class="label">Bottom</span>
-      <div class="seg" data-option="dock">
-        <button type="button" data-value="glass" aria-pressed="true">Glass capsule</button>
-        <button type="button" data-value="mirror">Mirrored dock</button>
-        <button type="button" data-value="glow">Teal glow</button>
-      </div>
-    </div>
   </div>
 
   <section class="phones">
-    <article class="variant">
-      <header>
-        <span class="tag">C1</span><h2>Framed window</h2>
-        <p class="sub">The feed becomes a rounded window, inset 14px, with the bar above and the dock below. The dark space reads as a frame, not leftovers.</p>
-      </header>
-      <div class="phone"><div class="screen c1" dir="rtl" lang="ar"></div></div>
-    </article>
-    <article class="variant">
-      <header>
-        <span class="tag">C2</span><h2>Edge-to-edge</h2>
-        <p class="sub">The feed keeps the full width (the biggest preview). The space below it becomes a dock that holds the hint and the flash status off the paper.</p>
-      </header>
-      <div class="phone"><div class="screen c2" dir="rtl" lang="ar"></div></div>
-    </article>
-  </section>
+    <div class="phone"><div class="screen c2" dir="rtl" lang="ar"></div></div>
 
-  <section class="panel">
-    <h2>What changed from variant C</h2>
-    <div class="cols">
-      <ul>
-        <li><b>Top bar:</b> C's floating ✕ is replaced with <code>TealTopBar</code> as-is: the back arrow at the start, no title, bottom corners rounded 28, the status bar inside the teal. It stays on the opening and error states, the same way it does on the analysis failure pages.</li>
-        <li><b>Smaller controls:</b> the shutter is 68 (from 78) with a 3px teal ring. Photos and flash are 44 discs (from 52) inside 48 × 48 tap areas.</li>
-        <li><b>Controls never cover the paper:</b> the capsule, the hint and the flash status all sit in the dock below the feed.</li>
-      </ul>
-      <ul>
-        <li><b>Flash:</b> each tap moves off → auto → on. The icon changes shape for each mode (slashed bolt, bolt with «A», plain bolt) and a status chip spells it out for 2 s. When the shot is taken with the flash on, or on auto in low light, the flash fires. Coming back to the camera resets it to off.</li>
-        <li><b>Hint:</b> «المس الورقة علشان تبقى واضحة» fades in when the camera is ready. It goes away after 4 s or at the first tap on the paper.</li>
-        <li><b>No flash on the phone:</b> the button is gone completely, and the capsule shifts so the shutter stays centred.</li>
-        <li><b>Camera error:</b> «اختار صورة من الموبايل» is added under «حاول تاني».</li>
-      </ul>
+    <div class="specs">
+      <h3>Layout (top to bottom)</h3>
+      <table>
+        <tr><td>Top bar</td><td><code>TealTopBar</code> as-is: brand teal <code>#0E7C86</code>, bottom corners 28, the status bar inside it, the back arrow («رجوع») at the start, no title. It stays on the opening and error states.</td></tr>
+        <tr><td>Feed</td><td>Full width, 8px under the bar, Fit (3:4 here). Nothing is drawn over it except the focus brackets. On a short screen the feed shrinks, still Fit, so the dock keeps its height.</td></tr>
+        <tr><td>Dock</td><td>The space below the feed: the status line (the hint or the flash mode), then the capsule.</td></tr>
+        <tr><td>Capsule</td><td>Photos · shutter · flash in RTL order. Translucent white 6% fill with a 13% hairline border. Discs are 44 inside 48 × 48 tap areas. The shutter is 68 with a 3px teal ring and a faint outer ring.</td></tr>
+      </table>
+
+      <h3>Behaviour</h3>
+      <table>
+        <tr><td>Flash</td><td>Each tap moves off → auto → on, and the icon changes shape (slashed bolt / bolt with «A» / bolt; on also fills mint). The status line spells out «الفلاش: …» for 2 s. The flash fires with the shutter, and it is off every time the camera opens, including after a retake.</td></tr>
+        <tr><td>No flash on the phone</td><td>The flash button is not shown. The capsule shifts so the shutter stays centred.</td></tr>
+        <tr><td>Tap to focus</td><td>Focus (and exposure, where the phone supports it) on the tapped point. White corner brackets with a dark halo show where, then fade after ~1.4 s.</td></tr>
+        <tr><td>Hint</td><td>«المس الورقة علشان تبقى واضحة» shows <b>once per camera visit</b>, when the camera first opens. It hides after 4 s or at the first tap. It does not come back after a retake or a retry.</td></tr>
+        <tr><td>Photos</td><td>Opens the phone's photo picker in place of the camera, so Back returns Home (same as the permission sheet's «اختار صورة بدلًا من ذلك»).</td></tr>
+        <tr><td>Camera error</td><td>The bar, the message, «حاول تاني», then «اختار صورة من الموبايل».</td></tr>
+      </table>
     </div>
-
-    <h3>Still to pick before T10</h3>
-    <ol>
-      <li><b>Layout:</b> C1 (framed window) or C2 (edge-to-edge).</li>
-      <li><b>Top bar colour:</b> brand teal <code>#0E7C86</code>, identical to the analysis and error screens, or deep teal <code>#0A5C64</code>. Deep teal is calmer next to a live camera and still from the palette, but it would differ from the other bars.</li>
-      <li><b>Bottom area:</b>
-        <ul>
-          <li>Glass capsule: as in C.</li>
-          <li>Mirrored dock: a panel whose rounded top echoes the bar's rounded bottom, framing the feed between the two.</li>
-          <li>Teal glow: a soft brand glow behind a teal-tinted capsule.</li>
-        </ul>
-      </li>
-      <li><b>When the hint shows:</b> the mockup shows it every time the camera opens, including coming back from the crop screen. The alternative is once per camera visit: not again after a retake.</li>
-    </ol>
   </section>
 </main>
 
@@ -398,7 +347,7 @@
   const MODES = ['off', 'auto', 'on'];
   const LABEL = { off: 'الفلاش: مطفي', auto: 'الفلاش: تلقائي', on: 'الفلاش: شغال' };
   const ICON = { off: '#i-flash-off', auto: '#i-flash-auto', on: '#i-flash' };
-  const fresh = () => ({ mode: 'ready', flash: 'off', hasFlash: true });
+  const fresh = () => ({ mode: 'ready', flash: 'off', hasFlash: true, hintShown: false });
   const state = new Map(screens.map((s) => [s, fresh()]));
   const timers = new Map();
   const later = (screen, key, ms, fn) => {
@@ -424,7 +373,11 @@
     screen.querySelector(which).classList.toggle('show', show);
   }
 
+  // Once per camera visit: never again after a retake or a retry.
   function showHint(screen) {
+    const s = state.get(screen);
+    if (s.hintShown) return;
+    s.hintShown = true;
     pill(screen, '[data-flash-chip]', false);
     pill(screen, '[data-hint]', true);
     later(screen, 'hint', 4000, () => pill(screen, '[data-hint]', false));
@@ -470,7 +423,6 @@
         // Back from the crop screen: the camera re-opens and the flash resets to off.
         s.mode = 'ready'; s.flash = 'off'; render(screen);
         toast(screen, 'رجعت للكاميرا — الفلاش رجع مطفي');
-        showHint(screen);
       });
     });
   }
@@ -532,28 +484,12 @@
     });
   });
 
-  // Toolbar — options.
-  document.querySelectorAll('[data-option]').forEach((group) => {
-    group.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-value]');
-      if (!btn) return;
-      group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
-      if (group.dataset.option === 'bar') {
-        document.documentElement.style.setProperty('--bar-color', btn.dataset.value === 'deep' ? 'var(--brand-deep)' : 'var(--brand)');
-      } else {
-        document.body.classList.remove('dock-glass', 'dock-mirror', 'dock-glow');
-        document.body.classList.add('dock-' + btn.dataset.value);
-      }
-    });
-  });
-
   const largeText = document.getElementById('largeText');
   largeText.addEventListener('change', (e) => document.documentElement.style.setProperty('--ts', e.target.checked ? '1.5' : '1'));
 
-  // Optional deep link, e.g. `#on,deep,mirror,large`.
+  // Optional deep link, e.g. `#on,large`.
   const wanted = location.hash.slice(1).split(',').filter(Boolean);
   if (wanted.includes('large')) { largeText.checked = true; largeText.dispatchEvent(new Event('change')); }
-  wanted.forEach((w) => document.querySelector(`[data-option] [data-value="${w}"]`)?.click());
   const preset = wanted.find((w) => seg.querySelector(`[data-state="${w}"]`));
   if (preset) seg.querySelector(`[data-state="${preset}"]`).click();
 })();
