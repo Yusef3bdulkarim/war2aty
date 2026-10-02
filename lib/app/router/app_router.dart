@@ -331,6 +331,12 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                     context.go(AppRoutes.home);
                     context.push(AppRoutes.captureWith(CaptureSource.camera));
                   },
+                  // Same shape as `onCaptureAnother`, into the gallery
+                  // (F23 #5).
+                  onPickFromGallery: () {
+                    context.go(AppRoutes.home);
+                    context.push(AppRoutes.captureWith(CaptureSource.gallery));
+                  },
                   onSave: () => unawaited(_saveResult(context, session)),
                   onCreateReminder: (date) =>
                       _startReminderFromDate(context, date),

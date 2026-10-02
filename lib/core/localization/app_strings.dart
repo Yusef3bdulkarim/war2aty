@@ -604,14 +604,63 @@ abstract interface class AppStrings {
   String get analysisFailedTitle;
   String get analysisFailedMessage;
 
+  /// The service-problem page's tips (F23 #8).
+  String get analysisFailedTipsTitle;
+  String get analysisFailedTipWait;
+  String get analysisFailedTipConnection;
+  String get analysisFailedTipReadText;
+
   /// The phone is offline. The analysis needs the network; the text does not.
+  /// Never says where the text was read: the online reading may have
+  /// succeeded before the connection fell (F23 #6).
   String get analysisNoInternetTitle;
   String get analysisNoInternetMessage;
 
-  /// The three daily analyses are used up. No retry is offered — it would
-  /// only fail again.
+  /// The no-internet page's tips (F23 #6).
+  String get analysisNoInternetTipsTitle;
+  String get analysisNoInternetTipWifi;
+  String get analysisNoInternetTipAirplane;
+  String get analysisNoInternetTipSignal;
+
+  /// The step tracker on the no-internet and service-problem pages (F23
+  /// #10): the photo and the reading are done, the explanation waits or
+  /// failed.
+  String get analysisStepPhoto;
+  String get analysisStepReading;
+  String get analysisStepExplanation;
+  String get analysisStepDone;
+  String get analysisStepWaitingForInternet;
+  String get analysisStepNotFinished;
+
+  /// The tracker read as one sentence by a screen reader; [explanation] is
+  /// the last step's state.
+  String analysisStepsSemantics(String explanation);
+
+  /// The daily analyses are used up. No retry is offered — it would only
+  /// fail again. [analysisLimitReachedMessage] is for when the limit is not
+  /// known (an empty usage cache, F23 #14).
   String get analysisLimitReachedTitle;
   String get analysisLimitReachedMessage;
+
+  /// The same message, naming the daily [limit].
+  String analysisLimitReachedMessageWithLimit(int limit);
+
+  /// The daily-limit countdown card (F23 #7, #15).
+  String get analysisLimitResetsInLabel;
+
+  /// How long until the analyses renew, e.g. «5 ساعات و 12 دقيقة». Either
+  /// part may be 0, not both.
+  String analysisLimitResetsIn(int hours, int minutes);
+  String get analysisLimitResetTime;
+  String get analysisLimitRenewed;
+
+  /// «استخدمت 3 من 3 النهارده».
+  String analysisLimitUsedOf(int limit);
+
+  /// The daily-limit page's «what now» card (F23 #7).
+  String get analysisLimitTipsTitle;
+  String get analysisLimitTipReadText;
+  String get analysisLimitTipTomorrow;
 
   /// Leaves a state page for the home screen.
   String get analysisBackToHome;
@@ -696,22 +745,50 @@ abstract interface class AppStrings {
   /// has to know which parts to check.
   String get resultPartialBanner;
 
-  /// The paper was read, but this kind of document cannot be explained
-  /// responsibly. The text and the reader are still offered.
+  /// The paper was read, but could not be explained: its text was too
+  /// unclear, or its kind is out of scope. The server does not say which, so
+  /// the message covers both (F23 #5).
   String get analysisUnsupportedTitle;
   String get analysisUnsupportedMessage;
+
+  /// Under the unsupported message: an `unsupported` answer never takes a
+  /// daily slot (§31 rule 6). Only true there — not on the other pages.
+  String get analysisAttemptNotCounted;
+
+  /// The second line of the unsupported page's «عرض النص المستخرج» card.
+  String get analysisExtractedTextCardSubtitle;
+
+  /// The unsupported page's «الأوراق اللي بنشرحها» grid: each kind and its
+  /// examples (F23 #5).
+  String get analysisSupportedDocumentsTitle;
+  String get analysisSupportedInvoices;
+  String get analysisSupportedInvoicesExamples;
+  String get analysisSupportedAppointments;
+  String get analysisSupportedAppointmentsExamples;
+  String get analysisSupportedGovernment;
+  String get analysisSupportedGovernmentExamples;
+  String get analysisSupportedEducation;
+  String get analysisSupportedEducationExamples;
+  String get analysisSupportedOther;
+  String get analysisSupportedOtherExamples;
+
+  /// Opens the gallery from the unsupported page, beside the camera.
+  String get analysisPickFromGallery;
 
   /// The user turned off analysis consent in Settings (F11-T02) — the state
   /// page's own words, not a generic failure.
   String get analysisConsentDeclinedTitle;
   String get analysisConsentDeclinedMessage;
 
+  /// What turning analysis on would give (F23 #9).
+  String get analysisConsentValueTitle;
+  String get analysisConsentValueType;
+  String get analysisConsentValueKeyPoints;
+  String get analysisConsentValueRequired;
+  String get analysisConsentValueDates;
+
   /// Leads to Settings from the declined-consent state page (F11-T02).
   String get analysisConsentDeclinedOpenSettings;
-
-  /// Reads the extracted text aloud from a state screen, where there is no
-  /// surrounding text to lean on.
-  String get resultListenToExtractedText;
 
   /// Leaves a dead end by photographing a different paper.
   String get analysisCaptureAnother;

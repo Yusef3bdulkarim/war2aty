@@ -85,17 +85,11 @@ class DocumentDetailsScreen extends StatelessWidget {
               onCreateReminder: onCreateReminder,
             ),
           DocumentDetailsNotFound() => _StateBody(
-            glyph: StrokeGlyph.search,
-            tint: colors.surfaceAlt,
-            iconColor: colors.textMuted,
             title: context.strings.documentDetailsNotFoundTitle,
             message: context.strings.documentDetailsNotFoundMessage,
             onClose: onClose,
           ),
           DocumentDetailsUnavailable() => _StateBody(
-            glyph: StrokeGlyph.warningTriangle,
-            tint: colors.warningTint,
-            iconColor: colors.warning,
             title: context.strings.documentDetailsErrorTitle,
             message: context.strings.documentDetailsErrorMessage,
             onClose: onClose,
@@ -123,18 +117,8 @@ class _Loading extends StatelessWidget {
 /// The document is gone, or could not be read — one layout, two sets of
 /// words, the same shape [ServiceStateView]'s callers already use.
 class _StateBody extends StatelessWidget {
-  const _StateBody({
-    required this.glyph,
-    required this.tint,
-    required this.iconColor,
-    required this.title,
-    required this.message,
-    this.onClose,
-  });
+  const _StateBody({required this.title, required this.message, this.onClose});
 
-  final StrokeGlyph glyph;
-  final Color tint;
-  final Color iconColor;
   final String title;
   final String message;
   final VoidCallback? onClose;
@@ -144,9 +128,6 @@ class _StateBody extends StatelessWidget {
     final strings = context.strings;
 
     return ServiceStateView(
-      glyph: glyph,
-      tint: tint,
-      iconColor: iconColor,
       title: title,
       message: message,
       primary: ServiceStateAction(

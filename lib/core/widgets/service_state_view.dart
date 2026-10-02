@@ -3,32 +3,25 @@ import 'package:flutter/material.dart';
 import '../icons/stroke_icon.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
+import 'teal_top_bar.dart';
 
-// From `Waraqti.dc.html` → the service-state pages (no internet, daily limit,
-// service down, unsupported paper). One layout, four sets of words.
-const double _topPaddingTop = 56 - 52;
-const double _topPaddingH = 16;
-const double _topPaddingBottom = 12;
-// 48dp — Material / WCAG 2.5.5 minimum tap target (F12-T01). Kept as its own
-// constant rather than `TopBarIconButton.dimension`: this button sits inside
-// a floating circular card, a different shape from the plain top-bar row
-// icon `TopBarIconButton` covers.
-const double _backButton = 48;
-const double _backIconSize = 22;
-const double _bodyPaddingH = 30;
-const double _bodyPaddingV = 20;
-const double _iconBox = 96;
-const double _iconBoxRadius = 28;
-const double _iconSize = 46;
-const double _iconGapBelow = 24;
+// The failure pages' redesign (F23): the result page's teal bar, the words,
+// the page's own content, and the actions pinned at the bottom. The mockups
+// are the F23 canvas's frames; the icon panel the Waraqti design had above
+// the title is gone (F23 #4).
+const double _bodyPaddingTop = 24;
+const double _bodyPaddingH = 18;
+const double _bodyPaddingBottom = 16;
+const double _wordsPaddingH = 12;
 const double _titleFontSize = 21;
 const double _titleGapBelow = 12;
 const double _messageFontSize = 15.5;
 const double _messageHeight = 1.8;
+const double _noteGap = 12;
+const double _contentGap = 16;
 const double _actionsPaddingH = 20;
-const double _actionsPaddingTop = 16;
+const double _actionsPaddingTop = 14;
 const double _actionsPaddingBottom = 30;
 const double _primaryHeight = 54;
 const double _secondaryHeight = 52;
@@ -36,14 +29,28 @@ const double _tertiaryHeight = 48;
 const double _actionRadius = 15;
 const double _actionGap = 9;
 const double _actionFontSize = 16;
+const double _pairFontSize = 15;
 const double _tertiaryFontSize = 15;
+const double _actionIconSize = 20;
+const double _actionIconGap = 8;
+
+/// From this text scale on, a side-by-side pair of actions stacks: two
+/// Arabic labels no longer fit half the width each (F23 #13).
+const double pairedActionsStackScale = 1.3;
 
 /// One thing the user can do from a state page.
 class ServiceStateAction {
-  const ServiceStateAction({required this.label, required this.onPressed});
+  const ServiceStateAction({
+    required this.label,
+    required this.onPressed,
+    this.glyph,
+  });
 
   final String label;
   final VoidCallback onPressed;
+
+  /// Drawn before the label, in the label's colour.
+  final StrokeGlyph? glyph;
 }
 
 /// A full page that explains why there is no result, and what to do instead.
@@ -52,34 +59,42 @@ class ServiceStateAction {
 /// another photo — because the user has already spent the effort of taking the
 /// picture. A dead end here would throw that away.
 ///
-/// The four states share this layout so they read as the same app talking,
-/// and each supplies its own words and its own tint.
+/// The pages share this layout so they read as the same app talking: the
+/// teal bar, a centred [title] and [message], an optional [note] under them,
+/// then whatever [content] the page brings (cards of tips, a countdown, the
+/// supported papers). The words and content scroll; the actions stay pinned.
 class ServiceStateView extends StatelessWidget {
   const ServiceStateView({
-    required this.glyph,
-    required this.tint,
-    required this.iconColor,
     required this.title,
     required this.message,
     required this.primary,
     this.secondary,
     this.tertiary,
+    this.note,
+    this.content = const [],
+    this.pairPrimaryActions = false,
     this.onBack,
     super.key,
   });
 
-  final StrokeGlyph glyph;
-
-  /// The icon panel's fill, and the colour of the glyph on it.
-  final Color tint;
-  final Color iconColor;
-
   final String title;
   final String message;
 
+  /// A small line under the message, such as a reassurance.
+  final Widget? note;
+
+  /// The page's own blocks, below the words, in order.
+  final List<Widget> content;
+
   final ServiceStateAction primary;
   final ServiceStateAction? secondary;
+
+  /// The quiet last action, drawn as text.
   final ServiceStateAction? tertiary;
+
+  /// Draws [primary] and [secondary] side by side, as two equal choices,
+  /// until the text grows to [pairedActionsStackScale].
+  final bool pairPrimaryActions;
 
   final VoidCallback? onBack;
 
@@ -87,100 +102,68 @@ class ServiceStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final strings = context.strings;
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
+    final note = this.note;
 
     return Column(
       children: [
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              _topPaddingH,
-              _topPaddingTop,
-              _topPaddingH,
-              _topPaddingBottom,
-            ),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colors.card,
-                  shape: BoxShape.circle,
-                  boxShadow: AppShadows.low,
-                ),
-                child: SizedBox.square(
-                  dimension: _backButton,
-                  child: IconButton(
-                    onPressed: onBack,
-                    padding: EdgeInsets.zero,
-                    tooltip: strings.analysisResultBackLabel,
-                    icon: Transform.flip(
-                      flipX: mirror,
-                      child: StrokeIcon(
-                        StrokeGlyph.arrowBack,
-                        color: colors.ink,
-                        size: _backIconSize,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
+        // The page prints its own heading, so the bar announces none.
+        TealTopBar(
+          backTooltip: strings.analysisResultBackLabel,
+          onBack: onBack,
         ),
         Expanded(
           // Scrollable rather than centred-and-clipped: under Large Text the
-          // icon, heading and message together outgrow a small phone.
+          // words and the cards together outgrow a small phone.
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: _bodyPaddingH,
-              vertical: _bodyPaddingV,
+            padding: const EdgeInsets.fromLTRB(
+              _bodyPaddingH,
+              _bodyPaddingTop,
+              _bodyPaddingH,
+              _bodyPaddingBottom,
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: _iconBox,
-                  height: _iconBox,
-                  decoration: BoxDecoration(
-                    color: tint,
-                    borderRadius: BorderRadius.circular(_iconBoxRadius),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _wordsPaddingH,
                   ),
-                  child: Center(
-                    child: StrokeIcon(
-                      glyph,
-                      color: iconColor,
-                      size: _iconSize,
-                      strokeWidth: 1.7,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: _iconGapBelow),
-                Semantics(
-                  header: true,
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headlineMedium.copyWith(
-                      fontSize: _titleFontSize,
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: _titleGapBelow),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontSize: _messageFontSize,
-                    fontWeight: AppTypography.medium,
-                    height: _messageHeight,
-                    color: colors.textSecondary,
+                  child: Column(
+                    children: [
+                      Semantics(
+                        header: true,
+                        child: Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: AppTypography.headlineMedium.copyWith(
+                            fontSize: _titleFontSize,
+                            fontWeight: AppTypography.extraBold,
+                            color: colors.ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: _titleGapBelow),
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontSize: _messageFontSize,
+                          fontWeight: AppTypography.medium,
+                          height: _messageHeight,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      if (note != null) ...[
+                        const SizedBox(height: _noteGap),
+                        note,
+                      ],
+                    ],
                   ),
                 ),
+                for (final block in content) ...[
+                  const SizedBox(height: _contentGap),
+                  block,
+                ],
               ],
             ),
           ),
@@ -195,29 +178,17 @@ class ServiceStateView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Action(
-                action: primary,
-                height: _primaryHeight,
-                background: colors.brandPrimary,
-                foreground: colors.onBrand,
-              ),
-              if (secondary case final secondary?) ...[
-                const SizedBox(height: _actionGap),
-                _Action(
-                  action: secondary,
-                  height: _secondaryHeight,
-                  background: colors.surfaceTeal,
-                  foreground: colors.brandPrimary,
-                ),
-              ],
+              ..._leadingActions(context, colors),
               if (tertiary case final tertiary?) ...[
                 const SizedBox(height: _actionGap),
-                SizedBox(
-                  height: _tertiaryHeight,
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: _tertiaryHeight),
                   child: TextButton(
                     onPressed: tertiary.onPressed,
                     style: TextButton.styleFrom(
-                      foregroundColor: colors.textMuted,
+                      // `textSecondary`, not `textMuted`: the muted grey is
+                      // under 3:1 on the page (F23 #16).
+                      foregroundColor: colors.textSecondary,
                       textStyle: AppTypography.labelCard.copyWith(
                         fontSize: _tertiaryFontSize,
                         fontWeight: AppTypography.bold,
@@ -233,41 +204,104 @@ class ServiceStateView extends StatelessWidget {
       ],
     );
   }
+
+  /// The filled buttons: one under the other, or [primary] and [secondary]
+  /// in one row when [pairPrimaryActions] asks for it and the text still fits.
+  List<Widget> _leadingActions(BuildContext context, AppColors colors) {
+    final primaryButton = _Action(
+      action: primary,
+      minHeight: _primaryHeight,
+      background: colors.brandPrimary,
+      foreground: colors.onBrand,
+      fontSize: pairPrimaryActions ? _pairFontSize : _actionFontSize,
+    );
+    final secondary = this.secondary;
+    if (secondary == null) return [primaryButton];
+
+    final paired =
+        pairPrimaryActions &&
+        MediaQuery.textScalerOf(context).scale(1) < pairedActionsStackScale;
+    final secondaryButton = _Action(
+      action: secondary,
+      // A pair is two equal choices, so both take the primary's height.
+      minHeight: pairPrimaryActions ? _primaryHeight : _secondaryHeight,
+      background: colors.surfaceTeal,
+      foreground: colors.brandPrimary,
+      fontSize: pairPrimaryActions ? _pairFontSize : _actionFontSize,
+    );
+    if (paired) {
+      return [
+        // Equal heights even when one label wraps: the row takes the taller
+        // button's height and stretches the other to it.
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: primaryButton),
+              const SizedBox(width: _actionGap),
+              Expanded(child: secondaryButton),
+            ],
+          ),
+        ),
+      ];
+    }
+    return [primaryButton, const SizedBox(height: _actionGap), secondaryButton];
+  }
 }
 
-/// One of the two filled buttons.
+/// One of the filled buttons. It grows with Large Text rather than clipping
+/// its label.
 class _Action extends StatelessWidget {
   const _Action({
     required this.action,
-    required this.height,
+    required this.minHeight,
     required this.background,
     required this.foreground,
+    required this.fontSize,
   });
 
   final ServiceStateAction action;
-  final double height;
+  final double minHeight;
   final Color background;
   final Color foreground;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
+    final glyph = action.glyph;
+    final label = Text(action.label, textAlign: TextAlign.center);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minHeight),
       child: FilledButton(
         onPressed: action.onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: background,
           foregroundColor: foreground,
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_actionRadius),
           ),
           textStyle: AppTypography.labelLarge.copyWith(
-            fontSize: _actionFontSize,
+            fontSize: fontSize,
             fontWeight: AppTypography.bold,
           ),
         ),
-        child: Text(action.label, textAlign: TextAlign.center),
+        child: glyph == null
+            ? label
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StrokeIcon(
+                    glyph,
+                    color: foreground,
+                    size: _actionIconSize,
+                    strokeWidth: 2,
+                  ),
+                  const SizedBox(width: _actionIconGap),
+                  Flexible(child: label),
+                ],
+              ),
       ),
     );
   }

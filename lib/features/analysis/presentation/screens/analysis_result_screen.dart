@@ -31,6 +31,14 @@ import '../cubit/analysis_result_cubit.dart';
 import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
+import '../widgets/failure/analysis_steps_card.dart';
+import '../widgets/failure/consent_value_card.dart';
+import '../widgets/failure/extracted_text_entry_card.dart';
+import '../widgets/failure/failure_note_chip.dart';
+import '../widgets/failure/failure_tips_card.dart';
+import '../widgets/failure/limit_reset_card.dart';
+import '../widgets/failure/privacy_text_note.dart';
+import '../widgets/failure/supported_documents_section.dart';
 
 // From `Waraqti.dc.html` → the result page. The top of the page is F21's
 // hero (`ResultHeroScrollView`).
@@ -45,10 +53,10 @@ const double _explanationHeight = 1.9;
 class AnalysisResultScreen extends StatelessWidget {
   const AnalysisResultScreen({
     this.onClose,
-    this.onListen,
     this.onCreateReminder,
     this.onSave,
     this.onCaptureAnother,
+    this.onPickFromGallery,
     this.onOpenSettings,
     super.key,
   });
@@ -56,16 +64,6 @@ class AnalysisResultScreen extends StatelessWidget {
   /// Leaves the result. The router supplies it; optional so the screen can be
   /// pumped on its own in a widget test.
   final VoidCallback? onClose;
-
-  /// Reads the extracted text aloud from a state page that has no analysis to
-  /// offer modes over (no internet, daily limit reached, an unsupported
-  /// paper). Absent until there is a reader (F10) — every control that would
-  /// use it is left out rather than shown doing nothing.
-  ///
-  /// The ready result itself does not take this: its mini-player (F10-T03) is
-  /// self-contained, since it needs to draw a bar inline in the page rather
-  /// than just run a callback.
-  final VoidCallback? onListen;
 
   /// Starts a reminder for the date the user chose. Absent until the reminder
   /// flow exists (F09).
@@ -75,8 +73,13 @@ class AnalysisResultScreen extends StatelessWidget {
   /// never stored without the user asking (UX rules §5.3 and §5.4).
   final VoidCallback? onSave;
 
-  /// Starts a fresh capture. The way out of an unsupported paper.
+  /// Opens the camera for a fresh capture: one of an unsupported paper's two
+  /// ways out.
   final VoidCallback? onCaptureAnother;
+
+  /// Opens the gallery instead: the other way out of an unsupported paper
+  /// (F23 #5).
+  final VoidCallback? onPickFromGallery;
 
   /// Opens the settings screen. The way out of a declined analysis consent
   /// (F11-T02) — absent until the settings screen exists to open (F11-T01).
@@ -104,8 +107,8 @@ class AnalysisResultScreen extends StatelessWidget {
             AnalysisResultFailed() => _FailureBody(
               state: state,
               onClose: onClose,
-              onListen: onListen,
               onCaptureAnother: onCaptureAnother,
+              onPickFromGallery: onPickFromGallery,
               onOpenSettings: onOpenSettings,
             ),
           },
@@ -386,26 +389,24 @@ class _MiniPlayerSlot extends StatelessWidget {
 
 /// The analysis did not come back.
 ///
-/// Each failure gets its own words and its own way forward. On the offline
-/// route, every one of them can also fall through to the text the phone
-/// already read — which is why this is stateful: showing that text is a
-/// branch of this page rather than a place the user navigates away to and
-/// has to find their way back from. On the online route (F13) there is no
-/// such text, and retrying is the only way forward (never a fallback to
-/// on-device OCR — F13-T16).
+/// Each failure gets its own words and its own way forward. Every one of them
+/// can also fall through to the text already read off the paper — which is
+/// why this is stateful: showing that text is a branch of this page rather
+/// than a place the user navigates away to and has to find their way back
+/// from. Listening is not offered here (F23 #12).
 class _FailureBody extends StatefulWidget {
   const _FailureBody({
     required this.state,
     this.onClose,
-    this.onListen,
     this.onCaptureAnother,
+    this.onPickFromGallery,
     this.onOpenSettings,
   });
 
   final AnalysisResultFailed state;
   final VoidCallback? onClose;
-  final VoidCallback? onListen;
   final VoidCallback? onCaptureAnother;
+  final VoidCallback? onPickFromGallery;
   final VoidCallback? onOpenSettings;
 
   @override
@@ -444,41 +445,20 @@ class _FailureBodyState extends State<_FailureBody> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
     final strings = context.strings;
 
     if (_showText) {
       return ExtractedTextOnlyView(
         text: widget.state.extractedText,
         onBack: () => setState(() => _showText = false),
-        onListen: widget.onListen,
       );
     }
 
     final kind = _kind;
+    final home = _homeAction(strings);
+    final primary = _primary(strings, home);
     return ServiceStateView(
       onBack: widget.onClose,
-      glyph: switch (kind) {
-        _FailureKind.offline => StrokeGlyph.wifiOff,
-        _FailureKind.limitReached => StrokeGlyph.clock,
-        _FailureKind.unsupported => StrokeGlyph.documentSteps,
-        _FailureKind.consentDeclined => StrokeGlyph.shieldCheck,
-        _FailureKind.serviceProblem => StrokeGlyph.warningTriangle,
-      },
-      tint: switch (kind) {
-        _FailureKind.offline ||
-        _FailureKind.limitReached ||
-        _FailureKind.consentDeclined => colors.surfaceTealAlt,
-        _FailureKind.unsupported => colors.surfaceAlt,
-        _FailureKind.serviceProblem => colors.warningTint,
-      },
-      iconColor: switch (kind) {
-        _FailureKind.offline ||
-        _FailureKind.limitReached ||
-        _FailureKind.consentDeclined => colors.brandPrimary,
-        _FailureKind.unsupported => colors.textMuted,
-        _FailureKind.serviceProblem => colors.warning,
-      },
       title: switch (kind) {
         _FailureKind.offline => strings.analysisNoInternetTitle,
         _FailureKind.limitReached => strings.analysisLimitReachedTitle,
@@ -488,16 +468,112 @@ class _FailureBodyState extends State<_FailureBody> {
       },
       message: switch (kind) {
         _FailureKind.offline => strings.analysisNoInternetMessage,
-        _FailureKind.limitReached => strings.analysisLimitReachedMessage,
+        _FailureKind.limitReached => switch (_dailyLimit) {
+          final limit? => strings.analysisLimitReachedMessageWithLimit(limit),
+          null => strings.analysisLimitReachedMessage,
+        },
         _FailureKind.unsupported => strings.analysisUnsupportedMessage,
         _FailureKind.consentDeclined => strings.analysisConsentDeclinedMessage,
         _FailureKind.serviceProblem => strings.analysisFailedMessage,
       },
-      primary: _primary(strings),
+      note: kind == _FailureKind.unsupported
+          ? FailureNoteChip(text: strings.analysisAttemptNotCounted)
+          : null,
+      content: _content(kind, strings),
+      // Camera and gallery: two equal ways to a paper the app can explain.
+      pairPrimaryActions: kind == _FailureKind.unsupported,
+      primary: primary,
       secondary: _secondary(strings),
-      tertiary: _tertiary(strings, kind),
+      // The quiet way home — unless the primary already is it.
+      tertiary: identical(primary, home) ? null : home,
     );
   }
+
+  /// The page's own blocks under its words.
+  List<Widget> _content(_FailureKind kind, AppStrings strings) =>
+      switch (kind) {
+        // Option B (F23 #5): the text one tap away, then what does work.
+        _FailureKind.unsupported => [
+          if (_hasText) ExtractedTextEntryCard(onTap: _openText),
+          const SupportedDocumentsSection(),
+        ],
+        // When the analyses renew, then what still works today (F23 #7).
+        _FailureKind.limitReached => [
+          if (widget.state.failure case DailyLimitReachedFailure(
+            :final resetAtCairo,
+          ))
+            LimitResetCard(resetAt: resetAtCairo, dailyLimit: _dailyLimit),
+          FailureTipsCard(
+            title: strings.analysisLimitTipsTitle,
+            tips: [
+              // Only when there is text to read and copy.
+              if (_hasText)
+                FailureTip(
+                  glyph: StrokeGlyph.documentSteps,
+                  text: strings.analysisLimitTipReadText,
+                ),
+              FailureTip(
+                glyph: StrokeGlyph.lightbulb,
+                text: strings.analysisLimitTipTomorrow,
+                tone: FailureTipTone.amber,
+              ),
+            ],
+          ),
+        ],
+        // What is done, the explanation that did not finish, then what to try
+        // if it happens again (F23 #8).
+        _FailureKind.serviceProblem => [
+          const AnalysisStepsCard(explanation: ExplanationStep.failed),
+          FailureTipsCard(
+            title: strings.analysisFailedTipsTitle,
+            tips: [
+              FailureTip(
+                glyph: StrokeGlyph.clock,
+                text: strings.analysisFailedTipWait,
+              ),
+              FailureTip(
+                glyph: StrokeGlyph.wifi,
+                text: strings.analysisFailedTipConnection,
+              ),
+              // Only when there is text to read meanwhile.
+              if (_hasText)
+                FailureTip(
+                  glyph: StrokeGlyph.documentSteps,
+                  text: strings.analysisFailedTipReadText,
+                ),
+            ],
+          ),
+        ],
+        // What is already done, then what to check (F23 #6).
+        _FailureKind.offline => [
+          const AnalysisStepsCard(explanation: ExplanationStep.waiting),
+          FailureTipsCard(
+            title: strings.analysisNoInternetTipsTitle,
+            tips: [
+              FailureTip(
+                glyph: StrokeGlyph.wifi,
+                text: strings.analysisNoInternetTipWifi,
+              ),
+              FailureTip(
+                glyph: StrokeGlyph.airplane,
+                text: strings.analysisNoInternetTipAirplane,
+              ),
+              FailureTip(
+                glyph: StrokeGlyph.signal,
+                text: strings.analysisNoInternetTipSignal,
+              ),
+            ],
+          ),
+        ],
+        // What turning it on would give, and what happens to the text then
+        // (F23 #9). The way there is Settings; nothing is switched here.
+        _FailureKind.consentDeclined => const [
+          ConsentValueCard(),
+          PrivacyTextNote(),
+        ],
+      };
+
+  void _openText() => setState(() => _showText = true);
 
   _FailureKind get _kind => switch (widget.state.failure) {
     NoInternetFailure() => _FailureKind.offline,
@@ -509,24 +585,66 @@ class _FailureBodyState extends State<_FailureBody> {
 
   /// Whether there is any text to fall back to.
   ///
-  /// True on the offline route — the OCR ran on the phone before any of
-  /// this, so the fallback costs nothing and uses none of the daily
-  /// allowance. Always false on the online route (F13): there is no local
-  /// OCR text, so the section and its actions simply drop themselves.
+  /// Both routes reach the analysis through the OCR review, so it is normally
+  /// there (F23 #11); showing it costs nothing and uses none of the daily
+  /// allowance. When it is empty, the actions that would show it drop
+  /// themselves.
   bool get _hasText => widget.state.extractedText.trim().isNotEmpty;
+
+  /// The daily limit to name, or `null` to word the page without one. A
+  /// limit of 0 or less is not a number to tell anyone (it would read «عندك
+  /// تحليل ذكي واحد»), so it counts as unknown.
+  int? get _dailyLimit => switch (widget.state.dailyLimit) {
+    final limit? when limit > 0 => limit,
+    _ => null,
+  };
 
   bool get _canRetry =>
       _kind == _FailureKind.offline || _kind == _FailureKind.serviceProblem;
 
   ServiceStateAction _showTextAction(AppStrings strings) => ServiceStateAction(
     label: strings.resultShowExtractedText,
-    onPressed: () => setState(() => _showText = true),
+    onPressed: _openText,
   );
+
+  ServiceStateAction _homeAction(AppStrings strings) => ServiceStateAction(
+    label: strings.analysisBackToHome,
+    onPressed: widget.onClose ?? () {},
+  );
+
+  /// The camera, when the router supplied the way there.
+  ServiceStateAction? _cameraAction(AppStrings strings) =>
+      switch (widget.onCaptureAnother) {
+        final onCaptureAnother? => ServiceStateAction(
+          label: strings.analysisCaptureAnother,
+          glyph: StrokeGlyph.camera,
+          onPressed: onCaptureAnother,
+        ),
+        null => null,
+      };
+
+  /// The gallery, when the router supplied the way there.
+  ServiceStateAction? _galleryAction(AppStrings strings) =>
+      switch (widget.onPickFromGallery) {
+        final onPickFromGallery? => ServiceStateAction(
+          label: strings.analysisPickFromGallery,
+          glyph: StrokeGlyph.gallery,
+          onPressed: onPickFromGallery,
+        ),
+        null => null,
+      };
 
   /// Retrying leads the way where it can work; a declined consent leads to
   /// Settings instead, since retrying would only fail the same way again;
   /// otherwise the text does.
-  ServiceStateAction _primary(AppStrings strings) {
+  /// [home] is returned itself, never a copy, when nothing else applies —
+  /// so the page can tell and not offer home a second time.
+  ServiceStateAction _primary(AppStrings strings, ServiceStateAction home) {
+    // An unsupported paper leads with a new one: the camera, else the
+    // gallery; its text is a card in the page instead (F23 #5).
+    if (_kind == _FailureKind.unsupported) {
+      return _cameraAction(strings) ?? _galleryAction(strings) ?? home;
+    }
     if (_kind == _FailureKind.consentDeclined) {
       if (widget.onOpenSettings case final onOpenSettings?) {
         return ServiceStateAction(
@@ -542,13 +660,14 @@ class _FailureBodyState extends State<_FailureBody> {
       );
     }
     if (_hasText) return _showTextAction(strings);
-    return ServiceStateAction(
-      label: strings.analysisBackToHome,
-      onPressed: widget.onClose ?? () {},
-    );
+    return home;
   }
 
   ServiceStateAction? _secondary(AppStrings strings) {
+    // An unsupported paper: the gallery, beside the camera.
+    if (_kind == _FailureKind.unsupported) {
+      return _cameraAction(strings) == null ? null : _galleryAction(strings);
+    }
     if (!_hasText) return null;
     // A declined consent's primary slot went to Settings above, so the text
     // — never spent, since the request never went out — takes this one.
@@ -558,29 +677,6 @@ class _FailureBodyState extends State<_FailureBody> {
     }
     // Whichever of the two the primary did not take.
     if (_canRetry) return _showTextAction(strings);
-    if (widget.onListen case final onListen?) {
-      return ServiceStateAction(
-        label: strings.resultListenToExtractedText,
-        onPressed: onListen,
-      );
-    }
     return null;
-  }
-
-  /// An unsupported paper is the one dead end the user can only leave by
-  /// photographing something else; the rest are worth coming back to.
-  ServiceStateAction _tertiary(AppStrings strings, _FailureKind kind) {
-    if (kind == _FailureKind.unsupported) {
-      if (widget.onCaptureAnother case final onCaptureAnother?) {
-        return ServiceStateAction(
-          label: strings.analysisCaptureAnother,
-          onPressed: onCaptureAnother,
-        );
-      }
-    }
-    return ServiceStateAction(
-      label: strings.analysisBackToHome,
-      onPressed: widget.onClose ?? () {},
-    );
   }
 }

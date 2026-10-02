@@ -637,6 +637,7 @@ void _registerAnalysis(AppEnvironment env) {
         analyzeDocument: getIt(),
         buildResult: getIt(),
         syncDailyUsage: getIt(),
+        getDailyUsage: getIt(),
       ),
     )
     // The OCR review screen (F14) — reuses `ExtractCandidates`, already

@@ -17,6 +17,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
@@ -98,6 +99,7 @@ void main() {
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
+      getDailyUsage: GetDailyUsage(FakeUsageRepository()),
     );
     tts = FakeTextToSpeechService();
     speedStore = FakeDefaultReadingSpeedStore();

@@ -28,6 +28,7 @@ import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/core/usage/usage_hint_holder.dart';
+import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
@@ -260,6 +261,7 @@ void main() {
           analyzeDocument: getIt(),
           buildResult: getIt(),
           syncDailyUsage: SyncDailyUsage(usage),
+          getDailyUsage: GetDailyUsage(usage),
         ),
       )
       // The result route also mounts these two (F09 save, F10 audio reader) —
