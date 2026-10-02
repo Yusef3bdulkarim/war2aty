@@ -95,5 +95,24 @@ without a flash, camera error, Large Text ×1.5). A URL hash such as
 | # | ID | Title | Acceptance criteria | Status |
 |---|---|---|---|---|
 | 8 | F24-T08 | Branch + three mockups | Branch `feature/camera-redesign` off `develop` (after #25). One local standalone HTML file holds three Waraqti variants (A native minimal, B labelled elderly-first, C floating capsule), each with the light toggle, the photos shortcut beside the shutter and tap-to-focus. The feed stays Fit. Every control is ≥ 48 × 48 and no state is shown by colour alone; states are RTL, Large Text, opening, error and no flash | DONE |
-| 9 | F24-T09 | The owner's pick | The owner chooses a variant (or a mix) and answers the open behaviour questions listed at the bottom of the mockup page | TODO |
+| 9 | F24-T09 | The owner's pick | The owner chooses a variant (or a mix) and answers the open behaviour questions listed at the bottom of the mockup page | WIP — see [T09 decisions](#t09-decisions-2026-10-03); layout, bar colour, bottom style and hint timing still to pick on the refined page |
 | 10 | F24-T10 | Waraqti design updated | The chosen variant is committed to `Waraqti.dc.html`, through a `/design-sync` session the owner starts | TODO |
+
+### T09 decisions (2026-10-03)
+
+The owner picked **variant C** as the base, with these changes:
+
+- **Smaller controls:** shutter 78 → 68; photos and flash discs 52 → 44, keeping 48 × 48 tap areas.
+- **Top bar:** C's top row is replaced with the app's `TealTopBar` (the analysis and failure pages' bar: colour and style).
+- **The space around the feed:** proposals for making it look purposeful, plus colour suggestions for the bar and the bottom area.
+
+Answers to the six behaviour questions:
+
+1. **Flash**, not a torch: off / auto / on, firing with the shutter.
+2. **Photos button:** a plain icon, so there is no early photo-library permission.
+3. **Hint:** yes — a subtle, auto-hiding focus hint.
+4. **Camera error page:** «اختار صورة من الموبايل» goes under «حاول تاني».
+5. **Phone without a flash:** the flash button is hidden completely.
+6. **After a shot:** the flash resets to off on returning to the camera.
+
+The refined page (same file) shows two layout proposals, C1 framed window and C2 edge-to-edge, with switchable bar colour (brand / deep teal) and bottom style (glass capsule / mirrored dock / teal glow). Still to pick: the layout, the bar colour, the bottom style, and whether the hint shows on every camera open or once per visit.

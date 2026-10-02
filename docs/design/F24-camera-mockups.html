@@ -19,663 +19,439 @@
     --brand-deep: #0A5C64;
     --ink: #1D2B30;
     --text-2: #5A686E;
-    --muted: #8A969B;
     --bg: #E9E6DF;
     --surface: #F5F4EF;
-    --surface-alt: #F2EFE8;
     --card: #FFFFFF;
     --border: #E0DCD3;
     --mint: #34D0B4;
-    --warn-tint: #FBEFD8;
-    --warn-ink: #8A5A0E;
-    --error: #C4362A;
-    --error-tint: #FBECEA;
     --backdrop: #111417;     /* captureBackdrop */
     --lift: #2B3138;         /* the viewfinder's radial lift */
-    --bar: #22272B;          /* previewActionBar */
-    --on-dark: #FFFFFF;
+    --preview-bg: #1B1F22;   /* previewBackground */
+    --action-bar: #22272B;   /* previewActionBar */
 
-    /* Large Text multiplier, flipped by the toolbar. */
+    /* Options the toolbar flips. */
+    --bar-color: var(--brand);
     --ts: 1;
   }
 
   * { box-sizing: border-box; }
   html, body { margin: 0; }
-  body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: "Cairo", system-ui, sans-serif;
-    line-height: 1.6;
-  }
+  body { background: var(--bg); color: var(--ink); font-family: "Cairo", system-ui, sans-serif; line-height: 1.6; }
   button { font: inherit; color: inherit; }
 
   /* ───────────────────────── Page chrome ───────────────────────── */
-  .page { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+  .page { max-width: 1120px; margin: 0 auto; padding: 32px 16px 64px; }
   .page h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.2px; }
-  .page .lede { color: var(--text-2); margin: 0 0 24px; max-width: 760px; font-size: 15px; }
+  .page .lede { color: var(--text-2); margin: 0 0 20px; max-width: 800px; font-size: 15px; }
 
   .toolbar {
     position: sticky; top: 0; z-index: 10;
-    display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(8px);
-    padding: 12px 0; margin-bottom: 24px;
-    border-bottom: 1px solid var(--border);
+    display: grid; gap: 10px;
+    background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px);
+    padding: 12px 0; margin-bottom: 24px; border-bottom: 1px solid var(--border);
   }
-  .toolbar .label { font-size: 13px; font-weight: 700; color: var(--text-2); }
+  .tb-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .tb-row .label { font-size: 13px; font-weight: 700; color: var(--text-2); min-width: 64px; }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   .seg button {
-    border: 1px solid var(--border); background: var(--card);
-    border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 600;
-    cursor: pointer; color: var(--ink);
+    border: 1px solid var(--border); background: var(--card); border-radius: 999px;
+    padding: 5px 13px; font-size: 13.5px; font-weight: 600; cursor: pointer; color: var(--ink);
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .seg button[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .seg .sw { width: 12px; height: 12px; border-radius: 50%; display: inline-block; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
   .seg button:focus-visible, .check input:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
   .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
   .check input { width: 18px; height: 18px; accent-color: var(--brand); }
 
-  .variants {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(372px, 1fr));
-    gap: 32px 24px;
-    align-items: start;
-  }
-  .variant { display: flex; flex-direction: column; align-items: center; gap: 16px; }
-  .variant header { width: 100%; max-width: 372px; min-height: 76px; }
-  .variant .tag {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 30px; height: 30px; border-radius: 10px;
-    background: var(--brand); color: #fff; font-weight: 800; font-size: 15px;
-    margin-inline-end: 10px; vertical-align: middle;
-  }
+  .phones { display: grid; grid-template-columns: repeat(auto-fit, minmax(372px, 1fr)); gap: 32px 24px; justify-items: center; }
+  .variant { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .variant header { width: 100%; max-width: 372px; }
+  .variant .tag { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 10px; border-radius: 10px; background: var(--brand); color: #fff; font-weight: 800; font-size: 14px; margin-inline-end: 10px; vertical-align: middle; }
   .variant h2 { display: inline; font-size: 19px; font-weight: 800; vertical-align: middle; }
-  .variant .sub { color: var(--text-2); font-size: 14px; margin: 6px 0 0; }
+  .variant .sub { color: var(--text-2); font-size: 14px; margin: 6px 0 0; min-height: 46px; }
 
-  .notes {
-    width: 100%; max-width: 372px;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
-    padding: 14px 18px; font-size: 14px;
-  }
-  .notes dt { font-weight: 700; margin-top: 8px; }
-  .notes dt:first-child { margin-top: 0; }
-  .notes dd { margin: 0; color: var(--text-2); }
-
-  .questions {
-    margin-top: 48px; background: var(--card); border: 1px solid var(--border);
-    border-radius: 20px; padding: 20px 24px; max-width: 900px;
-  }
-  .questions h2 { font-size: 19px; font-weight: 800; margin: 0 0 4px; }
-  .questions p { margin: 0 0 12px; color: var(--text-2); font-size: 14.5px; }
-  .questions ol { margin: 0; padding-inline-start: 22px; font-size: 14.5px; }
-  .questions li { margin-bottom: 8px; }
-  .questions li b { color: var(--ink); }
+  .panel { margin-top: 40px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px 24px; }
+  .panel h2 { font-size: 19px; font-weight: 800; margin: 0 0 10px; }
+  .panel h3 { font-size: 15.5px; font-weight: 800; margin: 18px 0 6px; }
+  .panel ul, .panel ol { margin: 0; padding-inline-start: 22px; font-size: 14.5px; color: var(--text-2); }
+  .panel li { margin-bottom: 6px; }
+  .panel li b { color: var(--ink); }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px 32px; }
 
   /* ───────────────────────── Phone frame ───────────────────────── */
-  .phone {
-    width: 372px; height: 792px; padding: 6px;
-    border-radius: 50px; background: #0B0D0F;
-    box-shadow: 0 24px 48px -16px rgba(29,43,48,.45), inset 0 0 0 1.5px #2A2F34;
-    flex: none;
-  }
-  @media (max-width: 400px) {
-    .phone { transform: scale(.86); transform-origin: top center; margin-bottom: -110px; }
-  }
+  .phone { width: 372px; height: 792px; padding: 6px; border-radius: 50px; background: #0B0D0F; box-shadow: 0 24px 48px -16px rgba(29,43,48,.45), inset 0 0 0 1.5px #2A2F34; flex: none; }
+  @media (max-width: 400px) { .phone { transform: scale(.86); transform-origin: top center; margin-bottom: -110px; } }
   .screen {
-    position: relative; width: 360px; height: 780px; overflow: hidden;
-    border-radius: 44px;
+    position: relative; width: 360px; height: 780px; overflow: hidden; border-radius: 44px;
     background: radial-gradient(110% 110% at 50% 40%, var(--lift), var(--backdrop));
-    color: var(--on-dark);
-    font-family: "Cairo", system-ui, sans-serif;
-    user-select: none;
+    color: #fff; user-select: none;
   }
-  .statusbar {
-    position: absolute; inset: 0 0 auto 0; height: 30px; z-index: 6;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 26px; font-size: 13px; font-weight: 700; letter-spacing: .3px;
+  /* Dock option: a soft teal glow rising from the bottom. */
+  .dock-glow .screen {
+    background:
+      radial-gradient(95% 34% at 50% 100%, rgba(14,124,134,.42), rgba(14,124,134,0) 72%),
+      radial-gradient(110% 110% at 50% 40%, var(--lift), var(--backdrop));
   }
+  .statusbar { position: absolute; inset: 0 0 auto 0; height: 30px; z-index: 6; display: flex; align-items: center; justify-content: space-between; padding: 0 26px; font-size: 13px; font-weight: 700; }
   .statusbar .icons { display: flex; gap: 6px; align-items: center; }
   .statusbar .icons i { display: block; background: #fff; border-radius: 2px; }
-  .gesturebar {
-    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-    width: 118px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.55); z-index: 6;
-  }
-  /* The app's safe area: everything below the status bar, above the gesture bar. */
-  .safe { position: absolute; top: 30px; bottom: 20px; left: 0; right: 0; }
+  .gesturebar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 118px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.55); z-index: 6; }
 
-  /* ───────────────────── The live feed (Fit, 3:4) ───────────────────── */
-  .feed {
-    position: absolute; left: 0; right: 0; top: 50%;
-    height: 480px; transform: translateY(-50%);
-    overflow: hidden; cursor: crosshair;
+  /* ───────────── TealTopBar — lib/core/widgets/teal_top_bar.dart ─────────────
+     brandPrimary, bottom corners 28, status bar inside it, 4px above and below
+     a 48px row, 16px sides, the back arrow at the start, no visible title. */
+  .tealbar {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+    height: 86px; padding: 34px 16px 4px;
+    background: var(--bar-color); border-radius: 0 0 28px 28px;
+    display: flex; align-items: center; transition: background .25s;
   }
+  .tealbar .back { width: 48px; height: 48px; border: 0; padding: 0; background: transparent; color: #fff; display: grid; place-items: center; cursor: pointer; border-radius: 50%; }
+  .tealbar .back:hover { background: rgba(255,255,255,.12); }
+  .tealbar .back svg { width: 24px; height: 24px; }
+
+  /* ───────────── The live feed (Fit, 3:4) — two layout proposals ───────────── */
+  .feed { position: absolute; overflow: hidden; cursor: crosshair; }
+  .c1 .feed { top: 98px; left: 14px; right: 14px; height: 443px; border-radius: 20px; box-shadow: 0 0 0 1px rgba(255,255,255,.07); }
+  .c2 .feed { top: 94px; left: 0; right: 0; height: 480px; }
+
   .scene {
     position: absolute; inset: 0;
     background:
       repeating-linear-gradient(97deg, rgba(255,255,255,.025) 0 2px, transparent 2px 9px),
       radial-gradient(120% 90% at 40% 35%, #6B5A4B 0%, #4A3E35 55%, #2F2823 100%);
-    transition: filter .35s ease;
   }
   .paper {
-    position: absolute; left: 50%; top: 50%;
-    width: 232px; height: 328px;
+    position: absolute; left: 50%; top: 50%; width: 214px; height: 302px;
     transform: translate(-50%, -50%) rotate(-4deg);
-    background: #F7F6F1; border-radius: 3px;
-    box-shadow: 0 18px 30px -12px rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.25);
-    padding: 18px 16px; direction: rtl;
+    background: #F7F6F1; border-radius: 3px; box-shadow: 0 18px 30px -12px rgba(0,0,0,.6), 0 2px 4px rgba(0,0,0,.25);
+    padding: 16px 14px; direction: rtl;
   }
-  .paper .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .paper .logo { width: 34px; height: 34px; border-radius: 50%; background: #1F5C9E; opacity: .85; }
-  .paper .ttl { width: 104px; height: 10px; border-radius: 3px; background: #3D4A50; opacity: .75; }
+  .c2 .paper { width: 232px; height: 328px; padding: 18px 16px; }
+  .paper .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .paper .logo { width: 32px; height: 32px; border-radius: 50%; background: #1F5C9E; opacity: .85; }
+  .paper .ttl { width: 98px; height: 10px; border-radius: 3px; background: #3D4A50; opacity: .75; }
   .paper .ln { height: 6px; border-radius: 3px; background: #A9B2B5; margin: 7px 0; }
-  .paper .tbl { margin: 14px 0; border-top: 1.5px solid #C9CFD1; border-bottom: 1.5px solid #C9CFD1; padding: 6px 0; }
+  .paper .tbl { margin: 12px 0; border-top: 1.5px solid #C9CFD1; border-bottom: 1.5px solid #C9CFD1; padding: 6px 0; }
   .paper .row { display: flex; justify-content: space-between; margin: 6px 0; }
   .paper .row i { display: block; height: 6px; border-radius: 3px; background: #B7BFC2; }
-  .paper .total { margin-top: 14px; border: 1.5px solid #3D4A50; border-radius: 4px; height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; }
+  .paper .total { margin-top: 12px; border: 1.5px solid #3D4A50; border-radius: 4px; height: 36px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; }
   .paper .total i { display: block; height: 8px; border-radius: 3px; background: #3D4A50; opacity: .8; }
-
-  .torchlight {
-    position: absolute; inset: 0; pointer-events: none; opacity: 0;
-    background: radial-gradient(70% 55% at 50% 50%, rgba(255,250,235,.32), rgba(255,250,235,0) 70%);
-    transition: opacity .35s ease;
-  }
-  .flash-on .torchlight { opacity: 1; }
-  .flash-on .scene { filter: brightness(1.22) saturate(1.04); }
 
   .shot-flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
   .shot-flash.go { animation: shot .32s ease-out; }
-  @keyframes shot { 0% { opacity: .9; } 100% { opacity: 0; } }
+  .shot-flash.fired { animation: fired .6s ease-out; }
+  @keyframes shot { 0% { opacity: .85; } 100% { opacity: 0; } }
+  @keyframes fired { 0%, 30% { opacity: 1; } 100% { opacity: 0; } }
 
-  /* Tap-to-focus indicators — each variant draws its own. */
+  /* Tap-to-focus: C's corner brackets, with a dark halo so they read on white paper. */
   .focus { position: absolute; width: 76px; height: 76px; margin: -38px 0 0 -38px; pointer-events: none; opacity: 0; }
   .focus.go { animation: focusIn 1.4s ease-out forwards; }
-  @keyframes focusIn {
-    0% { opacity: 0; transform: scale(1.35); }
-    14% { opacity: 1; transform: scale(1); }
-    70% { opacity: 1; transform: scale(1); }
-    100% { opacity: 0; transform: scale(1); }
-  }
+  @keyframes focusIn { 0% { opacity: 0; transform: scale(1.35); } 14% { opacity: 1; transform: scale(1); } 70% { opacity: 1; } 100% { opacity: 0; transform: scale(1); } }
+  .focus i { position: absolute; width: 17px; height: 17px; border: 0 solid #fff; filter: drop-shadow(0 0 1.5px rgba(0,0,0,.9)) drop-shadow(0 0 4px rgba(0,0,0,.45)); }
+  .focus i:nth-child(1) { top: 0; left: 0; border-top-width: 2.5px; border-left-width: 2.5px; border-top-left-radius: 6px; }
+  .focus i:nth-child(2) { top: 0; right: 0; border-top-width: 2.5px; border-right-width: 2.5px; border-top-right-radius: 6px; }
+  .focus i:nth-child(3) { bottom: 0; right: 0; border-bottom-width: 2.5px; border-right-width: 2.5px; border-bottom-right-radius: 6px; }
+  .focus i:nth-child(4) { bottom: 0; left: 0; border-bottom-width: 2.5px; border-left-width: 2.5px; border-bottom-left-radius: 6px; }
 
-  /* ───────────────────── Shared controls ───────────────────── */
-  .btn-round {
-    width: 48px; height: 48px; border-radius: 50%; border: 0; padding: 0;
-    display: grid; place-items: center; cursor: pointer;
-    background: rgba(255,255,255,.14); color: #fff;
-    transition: background .2s, color .2s, transform .1s;
-  }
-  .btn-round:active { transform: scale(.94); }
-  .btn-round svg { width: 24px; height: 24px; }
-  button:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+  /* ───────────── The dock: everything below the feed ───────────── */
+  .dock { position: absolute; left: 0; right: 0; bottom: 0; z-index: 3; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding-bottom: 22px; transition: background .25s; }
+  .c1 .dock { top: 541px; }
+  .c2 .dock { top: 574px; }
+  /* Dock option: a panel whose rounded top mirrors the teal bar's rounded bottom. */
+  .dock-mirror .dock { top: auto; border-radius: 28px 28px 0 0; background: var(--preview-bg); box-shadow: 0 -1px 0 rgba(255,255,255,.06); padding-top: 14px; }
+  .dock-mirror .c1 .dock { height: 228px; }
+  .dock-mirror .c2 .dock { height: 196px; }
 
-  .shutter {
-    width: 80px; height: 80px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
-    background: #fff; box-shadow: 0 0 0 5px rgba(255,255,255,.25);
-    display: grid; place-items: center; transition: opacity .2s, transform .1s;
+  /* The status line above the capsule: the focus hint, or the flash mode after a change. */
+  .status { min-height: 34px; display: grid; place-items: center; }
+  .status > * { grid-area: 1 / 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px; max-width: 320px; margin: 0 16px;
+    background: rgba(255,255,255,.1); border-radius: 999px; padding: 5px 14px;
+    font-size: calc(13.5px * var(--ts)); font-weight: 600; line-height: 1.4; text-align: center;
+    opacity: 0; transform: translateY(4px); transition: opacity .35s, transform .35s; pointer-events: none;
   }
-  .shutter::after {
-    content: ""; width: 64px; height: 64px; border-radius: 50%;
-    background: #fff; border: 3px solid var(--backdrop);
-    transition: transform .15s;
+  .pill.show { opacity: 1; transform: none; }
+  .hint .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
+  .flash-chip svg { width: 16px; height: 16px; flex: none; }
+  .flash-chip.on { background: var(--mint); color: var(--ink); }
+
+  .capsule {
+    position: relative; display: flex; align-items: center; gap: 18px; padding: 8px 12px; border-radius: 999px;
+    background: rgba(17,20,23,.55); border: 1px solid rgba(255,255,255,.13);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    transition: transform .25s, background .25s, border-color .25s;
   }
+  .dock-mirror .capsule { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.08); backdrop-filter: none; }
+  .dock-glow .capsule { background: rgba(10,92,100,.42); border-color: rgba(52,208,180,.28); }
+
+  /* 44px discs inside 48px tap targets: sleeker, never under the app's 48dp floor. */
+  .cbtn { width: 48px; height: 48px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; place-items: center; color: #fff; }
+  .cbtn .disc { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.14); transition: background .2s, color .2s, transform .1s; }
+  .cbtn:active .disc { transform: scale(.92); }
+  .cbtn svg { width: 22px; height: 22px; }
+  .flash-btn svg { display: none; }
+  .flash-off .flash-btn .ic-off, .flash-auto .flash-btn .ic-auto, .flash-on .flash-btn .ic-on { display: block; }
+  .flash-on .flash-btn .disc { background: var(--mint); color: var(--ink); }
+  .no-flash .flash-btn { display: none; }
+  /* With the flash gone, shift the capsule so the shutter stays dead centre (48 + 18 gap) / 2. */
+  .no-flash .capsule { transform: translateX(33px); }
+
+  .shutter { width: 68px; height: 68px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: #fff; box-shadow: 0 0 0 3px var(--brand), 0 0 0 6px rgba(255,255,255,.16); display: grid; place-items: center; transition: opacity .2s; }
+  .shutter::after { content: ""; width: 54px; height: 54px; border-radius: 50%; background: #fff; border: 2.5px solid var(--backdrop); transition: transform .15s; }
   .shutter:active::after { transform: scale(.9); }
   .is-capturing .shutter { opacity: .6; cursor: default; }
   .is-capturing .shutter::after { animation: busy .9s ease-in-out infinite; }
   @keyframes busy { 50% { transform: scale(.86); } }
+  button:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
 
   .ico { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .flash-btn .ic-on { display: none; }
-  .flash-on .flash-btn .ic-on { display: block; }
-  .flash-on .flash-btn .ic-off { display: none; }
 
-  /* Toast: what a tap would do in the real app. */
-  .toast {
-    position: absolute; top: 96px; left: 50%; transform: translate(-50%, -6px);
-    background: rgba(0,0,0,.72); color: #fff; border-radius: 14px;
-    padding: 8px 14px; font-size: calc(13.5px * var(--ts)); font-weight: 600;
-    white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis;
-    opacity: 0; transition: opacity .2s, transform .2s; z-index: 8; pointer-events: none;
-  }
+  .toast { position: absolute; top: 104px; left: 50%; transform: translate(-50%, -6px); background: rgba(0,0,0,.75); color: #fff; border-radius: 14px; padding: 8px 14px; font-size: calc(13.5px * var(--ts)); font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity .2s, transform .2s; z-index: 8; pointer-events: none; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-  /* ───────────────────── Opening / error states ───────────────────── */
-  .state-layer { position: absolute; inset: 0; display: none; z-index: 4; }
+  /* ───────────── Opening / error: the bar stays, as on the failure pages ───────────── */
+  .state-layer { position: absolute; top: 86px; left: 0; right: 0; bottom: 20px; display: none; z-index: 4; }
   .screen.is-opening .opening, .screen.is-error .error { display: flex; }
-  .screen.is-opening .feed, .screen.is-error .feed,
-  .screen.is-opening .ctrl, .screen.is-error .ctrl { display: none; }
-  /* Close stays reachable while the camera opens, as in today's app. */
-  .screen.is-opening .top { display: flex; }
-  .screen.is-opening .flash-wrap, .screen.is-opening .status-chip { display: none; }
-
+  .screen.is-opening .feed, .screen.is-error .feed, .screen.is-opening .dock, .screen.is-error .dock { display: none; }
   .opening { flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
   .spinner { width: 40px; height: 40px; border-radius: 50%; border: 4px solid rgba(255,255,255,.2); border-top-color: rgba(255,255,255,.85); animation: spin .9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .opening p { margin: 0; font-size: calc(15px * var(--ts)); color: rgba(255,255,255,.85); }
-
   .error { flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; gap: 8px; }
   .error > svg { width: 48px; height: 48px; color: rgba(255,255,255,.85); margin-bottom: 8px; }
   .error h3 { margin: 0; font-size: calc(22px * var(--ts)); font-weight: 700; line-height: 1.4; }
   .error p { margin: 0 0 12px; font-size: calc(15px * var(--ts)); color: rgba(255,255,255,.8); }
-  .error .primary, .error .secondary {
-    width: 100%; min-height: 52px; border-radius: 14px; font-size: calc(16px * var(--ts)); font-weight: 700;
-    cursor: pointer; padding: 10px 16px; line-height: 1.4;
-  }
+  .error .primary, .error .secondary { width: 100%; min-height: 52px; border-radius: 14px; font-size: calc(16px * var(--ts)); font-weight: 700; cursor: pointer; padding: 10px 16px; line-height: 1.4; }
   .error .primary { border: 0; background: var(--brand); color: #fff; }
   .error .secondary { border: 1.5px solid rgba(255,255,255,.4); background: transparent; color: #fff; margin-top: 4px; }
-  .error .close-row { position: absolute; top: 8px; inset-inline-start: 20px; }
-
-  /* ═════════════════════ Variant A — Native minimal ═════════════════════ */
-  .va .top { position: absolute; top: 8px; left: 20px; right: 20px; display: flex; justify-content: space-between; align-items: center; z-index: 3; }
-  .va .flash-wrap { display: flex; align-items: center; gap: 8px; }
-  .va .flash-chip {
-    font-size: calc(13px * var(--ts)); font-weight: 700; padding: 3px 10px; border-radius: 999px;
-    background: var(--warn-tint); color: var(--warn-ink); display: none; white-space: nowrap;
-  }
-  .va.flash-on .flash-chip { display: inline-block; }
-  .va.flash-on .flash-btn { background: #fff; color: var(--ink); }
-  .va.no-flash .flash-wrap { visibility: hidden; }
-  .va .bottom {
-    position: absolute; bottom: 30px; left: 0; right: 0; z-index: 3;
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 34px;
-  }
-  .va .gallery {
-    justify-self: start; width: 56px; height: 56px; border-radius: 16px;
-    border: 2px solid rgba(255,255,255,.85); background: rgba(255,255,255,.08);
-    display: grid; place-items: center; cursor: pointer; color: #fff; padding: 0;
-  }
-  .va .gallery svg { width: 26px; height: 26px; }
-  .va .focus { border-radius: 50%; border: 2px solid var(--mint); box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
-
-  /* ═════════════════════ Variant B — Labelled, elderly-first ═════════════════════ */
-  .vb .top { position: absolute; top: 8px; inset-inline-start: 20px; z-index: 3; }
-  .vb .close-pill {
-    height: 48px; border-radius: 999px; border: 0; cursor: pointer;
-    background: rgba(255,255,255,.14); color: #fff;
-    display: inline-flex; align-items: center; gap: 6px; padding: 0 16px 0 18px;
-    font-size: calc(15px * var(--ts)); font-weight: 700;
-  }
-  .vb .close-pill svg { width: 22px; height: 22px; }
-  /* Hint and tray share one bottom stack, so a taller tray (Large Text) pushes
-     the hint up instead of sliding under it. */
-  .vb .bstack {
-    position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
-    display: flex; flex-direction: column; align-items: center; gap: 16px;
-  }
-  .vb .hint {
-    display: flex; align-items: center; gap: 8px; max-width: 320px; margin: 0 16px;
-    background: rgba(0,0,0,.5); border-radius: 20px; padding: 8px 16px;
-    font-size: calc(14px * var(--ts)); font-weight: 600; line-height: 1.45; text-align: center;
-  }
-  .vb .hint .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--mint); animation: pulse 1.4s ease-in-out infinite alternate; }
-  @keyframes pulse { from { opacity: .4; } to { opacity: 1; } }
-  .vb .tray {
-    align-self: stretch;
-    background: var(--bar); border-radius: 28px 28px 0 0;
-    padding: 16px 12px 22px;
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 4px;
-    box-shadow: 0 -8px 24px rgba(0,0,0,.25);
-  }
-  .vb .tool { display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: 0; cursor: pointer; color: #fff; padding: 0; }
-  .vb .tile {
-    width: 60px; height: 60px; border-radius: 18px; display: grid; place-items: center;
-    background: rgba(255,255,255,.1); transition: background .2s, color .2s;
-  }
-  .vb .tile svg { width: 28px; height: 28px; }
-  .vb .tool .lbl { font-size: calc(14px * var(--ts)); font-weight: 700; line-height: 1.35; color: rgba(255,255,255,.92); text-align: center; max-width: 104px; }
-  .vb .shot { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .vb .shot .lbl { font-size: calc(14px * var(--ts)); font-weight: 700; color: rgba(255,255,255,.92); }
-  .vb.flash-on .flash-btn .tile { background: var(--warn-tint); color: var(--warn-ink); }
-  .vb.no-flash .flash-btn { opacity: .45; cursor: default; }
-  .vb .focus { border-radius: 50%; border: 3px solid var(--mint); box-shadow: 0 0 0 2px rgba(0,0,0,.3); }
-  .vb .focus::after {
-    content: ""; position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
-    border-radius: 50%; background: var(--mint);
-  }
-
-  /* ═════════════════════ Variant C — Floating capsule ═════════════════════ */
-  .vc .top { position: absolute; top: 8px; left: 20px; right: 20px; display: flex; align-items: center; z-index: 3; }
-  .vc .status-chip {
-    position: absolute; left: 50%; transform: translateX(-50%);
-    display: none; align-items: center; gap: 6px;
-    background: var(--mint); color: var(--ink); border-radius: 999px; padding: 5px 12px 5px 14px;
-    font-size: calc(13.5px * var(--ts)); font-weight: 700; white-space: nowrap;
-  }
-  .vc .status-chip svg { width: 16px; height: 16px; }
-  .vc.flash-on .status-chip { display: inline-flex; }
-  .vc .capsule {
-    position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 3;
-    display: flex; align-items: center; gap: 22px;
-    padding: 10px 14px; border-radius: 999px;
-    background: rgba(17,20,23,.55); border: 1px solid rgba(255,255,255,.14);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  }
-  .vc .capsule .btn-round { width: 52px; height: 52px; }
-  .vc .shutter { width: 78px; height: 78px; box-shadow: 0 0 0 4px var(--brand), 0 0 0 7px rgba(255,255,255,.18); }
-  .vc .shutter::after { width: 62px; height: 62px; }
-  .vc.flash-on .flash-btn { background: var(--mint); color: var(--ink); }
-  .vc.no-flash .flash-btn { visibility: hidden; } /* keep the slot, so the shutter stays centred */
-  .vc .focus { width: 80px; height: 80px; margin: -40px 0 0 -40px; }
-  .vc .focus i { position: absolute; width: 18px; height: 18px; border-color: #fff; border-style: solid; border-width: 0; filter: drop-shadow(0 0 1.5px rgba(0,0,0,.9)) drop-shadow(0 0 4px rgba(0,0,0,.45)); } /* readable on white paper too */
-  .vc .focus i:nth-child(1) { top: 0; left: 0; border-top-width: 2.5px; border-left-width: 2.5px; border-top-left-radius: 6px; }
-  .vc .focus i:nth-child(2) { top: 0; right: 0; border-top-width: 2.5px; border-right-width: 2.5px; border-top-right-radius: 6px; }
-  .vc .focus i:nth-child(3) { bottom: 0; right: 0; border-bottom-width: 2.5px; border-right-width: 2.5px; border-bottom-right-radius: 6px; }
-  .vc .focus i:nth-child(4) { bottom: 0; left: 0; border-bottom-width: 2.5px; border-left-width: 2.5px; border-bottom-left-radius: 6px; }
 </style>
 </head>
-<body>
+<body class="dock-glass">
 
-<!-- Icon sprite (24×24, 2px stroke — matches the app's stroke icons). -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <symbol id="i-x" viewBox="0 0 24 24"><path class="ico" d="M6 6l12 12M18 6 6 18"/></symbol>
+    <!-- StrokeGlyph.arrowBack, exactly as the app draws it (points to the start of an Arabic line). -->
+    <symbol id="i-back" viewBox="0 0 24 24"><path class="ico" d="M15 6l6 6-6 6M3 12h18"/></symbol>
     <symbol id="i-flash" viewBox="0 0 24 24"><path class="ico" d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></symbol>
     <symbol id="i-flash-off" viewBox="0 0 24 24"><path class="ico" d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/><path class="ico" d="M3 3l18 18"/></symbol>
+    <symbol id="i-flash-auto" viewBox="0 0 24 24"><path class="ico" d="M11 2 3.5 12.5h6l-1 7.5 7.5-10.5h-6l1-7.5z"/><path class="ico" d="M16.5 23l2.6-7 2.6 7M17.4 20.8h3.4" stroke-width="1.7"/></symbol>
     <symbol id="i-photos" viewBox="0 0 24 24"><rect class="ico" x="3" y="3" width="18" height="18" rx="3"/><circle class="ico" cx="9" cy="9" r="2"/><path class="ico" d="m21 15-4.5-4.5L5 21"/></symbol>
     <symbol id="i-cam-off" viewBox="0 0 24 24"><path class="ico" d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle class="ico" cx="12" cy="13" r="3.5"/><path class="ico" d="M3 3l18 18"/></symbol>
   </defs>
 </svg>
 
-<main class="page">
-  <h1>F24 · Camera redesign — three variants</h1>
-  <p class="lede">
-    Each phone is live. Tap the paper to focus, tap ⚡ to toggle the light, tap the shutter to take a shot.
-    The toolbar puts all three phones in the same state so they can be compared side by side.
-    Same constraints for all three: Waraqti palette and Cairo, Arabic RTL, the feed letterboxed (Fit) exactly as today,
-    every control at least 48 × 48, and no state shown by colour alone.
-  </p>
+<template id="phone-body">
+  <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
 
-  <div class="toolbar" role="group" aria-label="Preview controls">
-    <span class="label">State</span>
-    <div class="seg" id="states">
-      <button type="button" data-state="ready" aria-pressed="true">Ready</button>
-      <button type="button" data-state="flash">Light on</button>
-      <button type="button" data-state="focus">Focusing</button>
-      <button type="button" data-state="capturing">Capturing</button>
-      <button type="button" data-state="opening">Opening camera</button>
-      <button type="button" data-state="noflash">Phone has no flash</button>
-      <button type="button" data-state="error">Camera error</button>
-    </div>
-    <label class="check"><input type="checkbox" id="largeText"> Large Text (×1.5)</label>
+  <div class="tealbar">
+    <button type="button" class="back" data-close aria-label="رجوع"><svg><use href="#i-back"/></svg></button>
   </div>
 
-  <section class="variants">
+  <div class="feed" data-feed>
+    <div class="scene"></div>
+    <div class="paper" aria-hidden="true">
+      <div class="hd"><span class="logo"></span><span class="ttl"></span></div>
+      <div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:84%"></div>
+      <div class="tbl">
+        <div class="row"><i style="width:40%"></i><i style="width:22%"></i></div>
+        <div class="row"><i style="width:48%"></i><i style="width:18%"></i></div>
+        <div class="row"><i style="width:34%"></i><i style="width:24%"></i></div>
+      </div>
+      <div class="ln" style="width:60%"></div>
+      <div class="total"><i style="width:30%"></i><i style="width:26%"></i></div>
+    </div>
+    <div class="focus" data-focus><i></i><i></i><i></i><i></i></div>
+    <div class="shot-flash" data-shot></div>
+  </div>
 
-    <!-- ═══════════════ A ═══════════════ -->
+  <div class="dock">
+    <div class="status" aria-live="polite">
+      <span class="pill hint" data-hint><span class="dot"></span>المس الورقة علشان تبقى واضحة</span>
+      <span class="pill flash-chip" data-flash-chip><svg data-chip-icon><use href="#i-flash-off"/></svg><span data-chip-text>الفلاش: مطفي</span></span>
+    </div>
+    <div class="capsule">
+      <button type="button" class="cbtn" data-gallery aria-label="اختار صورة من الموبايل"><span class="disc"><svg><use href="#i-photos"/></svg></span></button>
+      <button type="button" class="shutter" data-shutter aria-label="التقاط الصورة"></button>
+      <button type="button" class="cbtn flash-btn" data-flash aria-label="الفلاش: مطفي">
+        <span class="disc"><svg class="ic-off"><use href="#i-flash-off"/></svg><svg class="ic-auto"><use href="#i-flash-auto"/></svg><svg class="ic-on"><use href="#i-flash"/></svg></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="state-layer opening"><div class="spinner"></div><p>بنفتح الكاميرا…</p></div>
+  <div class="state-layer error">
+    <svg><use href="#i-cam-off"/></svg>
+    <h3>مقدرناش نفتح الكاميرا</h3>
+    <p>حصلت مشكلة في الكاميرا. جرّب تاني، أو ارجع واختار صورة من الموبايل.</p>
+    <button type="button" class="primary" data-retry>حاول تاني</button>
+    <button type="button" class="secondary" data-gallery>اختار صورة من الموبايل</button>
+  </div>
+
+  <div class="toast" data-toast></div>
+  <div class="gesturebar"></div>
+</template>
+
+<main class="page">
+  <h1>F24 · Camera redesign — variant C, refined</h1>
+  <div class="lede">
+    Variant C with your T09 answers applied:
+    <ul style="margin:6px 0 0; padding-inline-start:20px; color:var(--text-2); font-size:15px;">
+      <li>the app's teal top bar</li>
+      <li>smaller controls: shutter 78 → 68, photos and flash 52 → 44 (the tap areas stay 48 × 48)</li>
+      <li>an off / auto / on flash that fires with the shutter</li>
+      <li>an auto-hiding focus hint</li>
+    </ul>
+    <span style="color:var(--text-2); font-size:15px;">The two phones are the layout proposals for the space around the feed. The toolbar's Top bar and Bottom options change both phones at once.
+    (The earlier A / B / C page is in git history at <code>64026cd</code>.)</span>
+  </div>
+
+  <div class="toolbar">
+    <div class="tb-row">
+      <span class="label">State</span>
+      <div class="seg" id="states">
+        <button type="button" data-state="ready" aria-pressed="true">Ready (hint)</button>
+        <button type="button" data-state="auto">Flash auto</button>
+        <button type="button" data-state="on">Flash on</button>
+        <button type="button" data-state="focus">Focusing</button>
+        <button type="button" data-state="capturing">Capturing</button>
+        <button type="button" data-state="opening">Opening camera</button>
+        <button type="button" data-state="noflash">Phone has no flash</button>
+        <button type="button" data-state="error">Camera error</button>
+      </div>
+      <label class="check"><input type="checkbox" id="largeText"> Large Text (×1.5)</label>
+    </div>
+    <div class="tb-row">
+      <span class="label">Top bar</span>
+      <div class="seg" data-option="bar">
+        <button type="button" data-value="brand" aria-pressed="true"><span class="sw" style="background:#0E7C86"></span>Brand teal — as in the app</button>
+        <button type="button" data-value="deep"><span class="sw" style="background:#0A5C64"></span>Deep teal</button>
+      </div>
+    </div>
+    <div class="tb-row">
+      <span class="label">Bottom</span>
+      <div class="seg" data-option="dock">
+        <button type="button" data-value="glass" aria-pressed="true">Glass capsule</button>
+        <button type="button" data-value="mirror">Mirrored dock</button>
+        <button type="button" data-value="glow">Teal glow</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="phones">
     <article class="variant">
       <header>
-        <span class="tag">A</span><h2>Native minimal</h2>
-        <p class="sub">The phone's own camera, in Waraqti colours. Icons only.</p>
+        <span class="tag">C1</span><h2>Framed window</h2>
+        <p class="sub">The feed becomes a rounded window, inset 14px, with the bar above and the dock below. The dark space reads as a frame, not leftovers.</p>
       </header>
-
-      <div class="phone">
-        <div class="screen va" data-variant="A" dir="rtl" lang="ar">
-          <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
-          <div class="safe">
-            <div class="feed" data-feed>
-              <div class="scene"></div>
-              <div class="paper" aria-hidden="true">
-                <div class="hd"><span class="logo"></span><span class="ttl"></span></div>
-                <div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:84%"></div>
-                <div class="tbl">
-                  <div class="row"><i style="width:40%"></i><i style="width:22%"></i></div>
-                  <div class="row"><i style="width:48%"></i><i style="width:18%"></i></div>
-                  <div class="row"><i style="width:34%"></i><i style="width:24%"></i></div>
-                </div>
-                <div class="ln" style="width:60%"></div>
-                <div class="total"><i style="width:30%"></i><i style="width:26%"></i></div>
-              </div>
-              <div class="torchlight"></div>
-              <div class="focus" data-focus></div>
-              <div class="shot-flash" data-shot></div>
-            </div>
-
-            <div class="top ctrl">
-              <button type="button" class="btn-round" data-close aria-label="إغلاق"><svg><use href="#i-x"/></svg></button>
-              <div class="flash-wrap">
-                <span class="flash-chip">الفلاش شغال</span>
-                <button type="button" class="btn-round flash-btn" data-flash aria-label="الفلاش" aria-pressed="false">
-                  <svg class="ic-off"><use href="#i-flash-off"/></svg><svg class="ic-on"><use href="#i-flash"/></svg>
-                </button>
-              </div>
-            </div>
-
-            <div class="bottom ctrl">
-              <button type="button" class="gallery" data-gallery aria-label="اختار صورة من الموبايل"><svg><use href="#i-photos"/></svg></button>
-              <button type="button" class="shutter" data-shutter aria-label="التقاط الصورة"></button>
-              <span></span>
-            </div>
-
-            <div class="state-layer opening"><div class="spinner"></div><p>بنفتح الكاميرا…</p></div>
-            <div class="state-layer error">
-              <div class="close-row"><button type="button" class="btn-round" data-close aria-label="إغلاق"><svg><use href="#i-x"/></svg></button></div>
-              <svg><use href="#i-cam-off"/></svg>
-              <h3>مقدرناش نفتح الكاميرا</h3>
-              <p>حصلت مشكلة في الكاميرا. جرّب تاني، أو ارجع واختار صورة من الموبايل.</p>
-              <button type="button" class="primary" data-retry>حاول تاني</button>
-              <button type="button" class="secondary" data-gallery>اختار صورة من الموبايل</button>
-            </div>
-            <div class="toast" data-toast></div>
-          </div>
-          <div class="gesturebar"></div>
-        </div>
-      </div>
-
-      <dl class="notes">
-        <dt>Layout</dt>
-        <dd>Close top-start, the light top-end. The shutter is centred, with the photos tile on its start side, the way the phone's own camera mirrors it in Arabic.</dd>
-        <dt>Light on</dt>
-        <dd>The button fills white with a plain ⚡ (the slashed icon means off), and an amber «الفلاش شغال» chip appears beside it.</dd>
-        <dt>Focus</dt>
-        <dd>A thin mint ring where the finger landed, fading after about a second.</dd>
-        <dt>Trade-off</dt>
-        <dd>Cleanest and most familiar, but nothing on screen is a word. An older user has to recognise ⚡ and the photo icon (screen readers still get Arabic labels).</dd>
-      </dl>
+      <div class="phone"><div class="screen c1" dir="rtl" lang="ar"></div></div>
     </article>
-
-    <!-- ═══════════════ B ═══════════════ -->
     <article class="variant">
       <header>
-        <span class="tag">B</span><h2>Labelled, elderly-first</h2>
-        <p class="sub">Every control says what it does. A short hint returns.</p>
+        <span class="tag">C2</span><h2>Edge-to-edge</h2>
+        <p class="sub">The feed keeps the full width (the biggest preview). The space below it becomes a dock that holds the hint and the flash status off the paper.</p>
       </header>
-
-      <div class="phone">
-        <div class="screen vb" data-variant="B" dir="rtl" lang="ar">
-          <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
-          <div class="safe">
-            <div class="feed" data-feed>
-              <div class="scene"></div>
-              <div class="paper" aria-hidden="true">
-                <div class="hd"><span class="logo"></span><span class="ttl"></span></div>
-                <div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:84%"></div>
-                <div class="tbl">
-                  <div class="row"><i style="width:40%"></i><i style="width:22%"></i></div>
-                  <div class="row"><i style="width:48%"></i><i style="width:18%"></i></div>
-                  <div class="row"><i style="width:34%"></i><i style="width:24%"></i></div>
-                </div>
-                <div class="ln" style="width:60%"></div>
-                <div class="total"><i style="width:30%"></i><i style="width:26%"></i></div>
-              </div>
-              <div class="torchlight"></div>
-              <div class="focus" data-focus></div>
-              <div class="shot-flash" data-shot></div>
-            </div>
-
-            <div class="top ctrl">
-              <button type="button" class="close-pill" data-close><svg><use href="#i-x"/></svg>إغلاق</button>
-            </div>
-
-            <div class="bstack ctrl">
-            <div class="hint"><span class="dot"></span><span>المس الورقة على الشاشة علشان تبقى واضحة</span></div>
-
-            <div class="tray">
-              <button type="button" class="tool" data-gallery>
-                <span class="tile"><svg><use href="#i-photos"/></svg></span>
-                <span class="lbl">الصور</span>
-              </button>
-              <div class="shot">
-                <button type="button" class="shutter" data-shutter aria-label="التقاط الصورة"></button>
-                <span class="lbl" aria-hidden="true">صوّر</span>
-              </div>
-              <button type="button" class="tool flash-btn" data-flash aria-pressed="false">
-                <span class="tile"><svg class="ic-off"><use href="#i-flash-off"/></svg><svg class="ic-on"><use href="#i-flash"/></svg></span>
-                <span class="lbl" data-flash-label data-off="الفلاش: مطفي" data-on="الفلاش: شغال" data-none="مفيش فلاش">الفلاش: مطفي</span>
-              </button>
-            </div>
-            </div>
-
-            <div class="state-layer opening"><div class="spinner"></div><p>بنفتح الكاميرا…</p></div>
-            <div class="state-layer error">
-              <div class="close-row"><button type="button" class="close-pill" data-close><svg><use href="#i-x"/></svg>إغلاق</button></div>
-              <svg><use href="#i-cam-off"/></svg>
-              <h3>مقدرناش نفتح الكاميرا</h3>
-              <p>حصلت مشكلة في الكاميرا. جرّب تاني، أو ارجع واختار صورة من الموبايل.</p>
-              <button type="button" class="primary" data-retry>حاول تاني</button>
-              <button type="button" class="secondary" data-gallery>اختار صورة من الموبايل</button>
-            </div>
-            <div class="toast" data-toast></div>
-          </div>
-          <div class="gesturebar"></div>
-        </div>
-      </div>
-
-      <dl class="notes">
-        <dt>Layout</dt>
-        <dd>A solid tray with three labelled controls: «الصور», the shutter («صوّر») and the light. Close is a pill that reads «إغلاق».</dd>
-        <dt>Light on</dt>
-        <dd>The label changes from «الفلاش: مطفي» to «الفلاش: شغال» and the tile turns amber. On a phone with no flash the control stays visible but greyed, reading «مفيش فلاش».</dd>
-        <dt>Focus</dt>
-        <dd>A bolder mint ring with a centre dot. The hint above the tray tells the user they can tap at all.</dd>
-        <dt>Trade-off</dt>
-        <dd>Easiest to understand without guessing, but it is the busiest of the three, and the tray and hint cover the bottom edge of the feed.</dd>
-      </dl>
-    </article>
-
-    <!-- ═══════════════ C ═══════════════ -->
-    <article class="variant">
-      <header>
-        <span class="tag">C</span><h2>Floating capsule</h2>
-        <p class="sub">One glass capsule in thumb reach. Icons only.</p>
-      </header>
-
-      <div class="phone">
-        <div class="screen vc" data-variant="C" dir="rtl" lang="ar">
-          <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
-          <div class="safe">
-            <div class="feed" data-feed>
-              <div class="scene"></div>
-              <div class="paper" aria-hidden="true">
-                <div class="hd"><span class="logo"></span><span class="ttl"></span></div>
-                <div class="ln" style="width:92%"></div><div class="ln" style="width:70%"></div><div class="ln" style="width:84%"></div>
-                <div class="tbl">
-                  <div class="row"><i style="width:40%"></i><i style="width:22%"></i></div>
-                  <div class="row"><i style="width:48%"></i><i style="width:18%"></i></div>
-                  <div class="row"><i style="width:34%"></i><i style="width:24%"></i></div>
-                </div>
-                <div class="ln" style="width:60%"></div>
-                <div class="total"><i style="width:30%"></i><i style="width:26%"></i></div>
-              </div>
-              <div class="torchlight"></div>
-              <div class="focus" data-focus><i></i><i></i><i></i><i></i></div>
-              <div class="shot-flash" data-shot></div>
-            </div>
-
-            <div class="top ctrl">
-              <button type="button" class="btn-round" data-close aria-label="إغلاق"><svg><use href="#i-x"/></svg></button>
-              <span class="status-chip"><svg><use href="#i-flash"/></svg>الفلاش شغال</span>
-            </div>
-
-            <div class="capsule ctrl">
-              <button type="button" class="btn-round" data-gallery aria-label="اختار صورة من الموبايل"><svg><use href="#i-photos"/></svg></button>
-              <button type="button" class="shutter" data-shutter aria-label="التقاط الصورة"></button>
-              <button type="button" class="btn-round flash-btn" data-flash aria-label="الفلاش" aria-pressed="false">
-                <svg class="ic-off"><use href="#i-flash-off"/></svg><svg class="ic-on"><use href="#i-flash"/></svg>
-              </button>
-            </div>
-
-            <div class="state-layer opening"><div class="spinner"></div><p>بنفتح الكاميرا…</p></div>
-            <div class="state-layer error">
-              <div class="close-row"><button type="button" class="btn-round" data-close aria-label="إغلاق"><svg><use href="#i-x"/></svg></button></div>
-              <svg><use href="#i-cam-off"/></svg>
-              <h3>مقدرناش نفتح الكاميرا</h3>
-              <p>حصلت مشكلة في الكاميرا. جرّب تاني، أو ارجع واختار صورة من الموبايل.</p>
-              <button type="button" class="primary" data-retry>حاول تاني</button>
-              <button type="button" class="secondary" data-gallery>اختار صورة من الموبايل</button>
-            </div>
-            <div class="toast" data-toast></div>
-          </div>
-          <div class="gesturebar"></div>
-        </div>
-      </div>
-
-      <dl class="notes">
-        <dt>Layout</dt>
-        <dd>Photos, shutter and light sit in one translucent capsule floating over the bottom band. Close is alone at top-start.</dd>
-        <dt>Light on</dt>
-        <dd>The button turns mint with a plain ⚡, and a «الفلاش شغال» chip appears at the top centre. On a phone with no flash the light button disappears but keeps its slot, so the shutter never moves.</dd>
-        <dt>Focus</dt>
-        <dd>White corner brackets, echoing the viewfinder language users already know from scanner apps.</dd>
-        <dt>Trade-off</dt>
-        <dd>The most polished look, but the blur needs a BackdropFilter in Flutter, which costs a little on low-end phones. Icons only, apart from the chip.</dd>
-      </dl>
+      <div class="phone"><div class="screen c2" dir="rtl" lang="ar"></div></div>
     </article>
   </section>
 
-  <section class="questions">
-    <h2>Behaviour the mockups had to pick — please confirm or change</h2>
-    <p>These are placeholders so the screens could be drawn. None of them is decided.</p>
+  <section class="panel">
+    <h2>What changed from variant C</h2>
+    <div class="cols">
+      <ul>
+        <li><b>Top bar:</b> C's floating ✕ is replaced with <code>TealTopBar</code> as-is: the back arrow at the start, no title, bottom corners rounded 28, the status bar inside the teal. It stays on the opening and error states, the same way it does on the analysis failure pages.</li>
+        <li><b>Smaller controls:</b> the shutter is 68 (from 78) with a 3px teal ring. Photos and flash are 44 discs (from 52) inside 48 × 48 tap areas.</li>
+        <li><b>Controls never cover the paper:</b> the capsule, the hint and the flash status all sit in the dock below the feed.</li>
+      </ul>
+      <ul>
+        <li><b>Flash:</b> each tap moves off → auto → on. The icon changes shape for each mode (slashed bolt, bolt with «A», plain bolt) and a status chip spells it out for 2 s. When the shot is taken with the flash on, or on auto in low light, the flash fires. Coming back to the camera resets it to off.</li>
+        <li><b>Hint:</b> «المس الورقة علشان تبقى واضحة» fades in when the camera is ready. It goes away after 4 s or at the first tap on the paper.</li>
+        <li><b>No flash on the phone:</b> the button is gone completely, and the capsule shifts so the shutter stays centred.</li>
+        <li><b>Camera error:</b> «اختار صورة من الموبايل» is added under «حاول تاني».</li>
+      </ul>
+    </div>
+
+    <h3>Still to pick before T10</h3>
     <ol>
-      <li><b>Light or flash?</b> All three show a two-state <em>light</em> (a torch that stays on while framing, so you see the result before shooting). The alternative is a classic <em>flash</em> that fires only with the shutter (off / auto / on).</li>
-      <li><b>Photos button:</b> a plain icon, which needs no new permission. A thumbnail of the latest photo would need access to the photo library.</li>
-      <li><b>Hint:</b> only B brings a hint back. A and C have none.</li>
-      <li><b>Camera error page:</b> all three add «اختار صورة من الموبايل» under «حاول تاني», since the error message already tells the user to do that. Today the page has only the retry.</li>
-      <li><b>Phone without a flash:</b> A and C hide the light but keep its space, so the shutter stays put. B shows it greyed out as «مفيش فلاش».</li>
-      <li><b>Light after a shot:</b> whether it stays on when the user comes back from the crop screen, or always starts off.</li>
+      <li><b>Layout:</b> C1 (framed window) or C2 (edge-to-edge).</li>
+      <li><b>Top bar colour:</b> brand teal <code>#0E7C86</code>, identical to the analysis and error screens, or deep teal <code>#0A5C64</code>. Deep teal is calmer next to a live camera and still from the palette, but it would differ from the other bars.</li>
+      <li><b>Bottom area:</b>
+        <ul>
+          <li>Glass capsule: as in C.</li>
+          <li>Mirrored dock: a panel whose rounded top echoes the bar's rounded bottom, framing the feed between the two.</li>
+          <li>Teal glow: a soft brand glow behind a teal-tinted capsule.</li>
+        </ul>
+      </li>
+      <li><b>When the hint shows:</b> the mockup shows it every time the camera opens, including coming back from the crop screen. The alternative is once per camera visit: not again after a retake.</li>
     </ol>
   </section>
 </main>
 
 <script>
 (() => {
+  const tpl = document.getElementById('phone-body');
   const screens = [...document.querySelectorAll('.screen')];
-  const fresh = () => ({ mode: 'ready', flash: false, hasFlash: true });
+  screens.forEach((s) => s.appendChild(tpl.content.cloneNode(true)));
+
+  const MODES = ['off', 'auto', 'on'];
+  const LABEL = { off: 'الفلاش: مطفي', auto: 'الفلاش: تلقائي', on: 'الفلاش: شغال' };
+  const ICON = { off: '#i-flash-off', auto: '#i-flash-auto', on: '#i-flash' };
+  const fresh = () => ({ mode: 'ready', flash: 'off', hasFlash: true });
   const state = new Map(screens.map((s) => [s, fresh()]));
   const timers = new Map();
+  const later = (screen, key, ms, fn) => {
+    const k = screen.dataset.k = screen.dataset.k || Math.random();
+    const id = k + key;
+    clearTimeout(timers.get(id));
+    timers.set(id, setTimeout(fn, ms));
+  };
 
   function render(screen) {
     const s = state.get(screen);
     screen.classList.toggle('is-opening', s.mode === 'opening');
     screen.classList.toggle('is-error', s.mode === 'error');
     screen.classList.toggle('is-capturing', s.mode === 'capturing');
-    screen.classList.toggle('flash-on', s.flash && s.hasFlash);
     screen.classList.toggle('no-flash', !s.hasFlash);
+    MODES.forEach((m) => screen.classList.toggle('flash-' + m, s.flash === m));
+    const fb = screen.querySelector('[data-flash]');
+    fb.setAttribute('aria-label', LABEL[s.flash]);
+    screen.querySelectorAll('[data-shutter]').forEach((b) => { b.disabled = s.mode !== 'ready'; });
+  }
 
-    screen.querySelectorAll('[data-flash]').forEach((b) => {
-      b.setAttribute('aria-pressed', String(s.flash && s.hasFlash));
-      b.disabled = !s.hasFlash;
-    });
-    screen.querySelectorAll('[data-flash-label]').forEach((el) => {
-      el.textContent = !s.hasFlash ? el.dataset.none : (s.flash ? el.dataset.on : el.dataset.off);
-    });
-    screen.querySelectorAll('[data-shutter]').forEach((b) => {
-      b.disabled = s.mode !== 'ready';
-      b.setAttribute('aria-disabled', String(s.mode !== 'ready'));
-    });
+  function pill(screen, which, show) {
+    screen.querySelector(which).classList.toggle('show', show);
+  }
+
+  function showHint(screen) {
+    pill(screen, '[data-flash-chip]', false);
+    pill(screen, '[data-hint]', true);
+    later(screen, 'hint', 4000, () => pill(screen, '[data-hint]', false));
+  }
+
+  function showFlashChip(screen) {
+    const s = state.get(screen);
+    const chip = screen.querySelector('[data-flash-chip]');
+    chip.querySelector('[data-chip-text]').textContent = LABEL[s.flash];
+    chip.querySelector('[data-chip-icon] use').setAttribute('href', ICON[s.flash]);
+    chip.classList.toggle('on', s.flash === 'on');
+    pill(screen, '[data-hint]', false);
+    pill(screen, '[data-flash-chip]', true);
+    later(screen, 'chip', 2000, () => pill(screen, '[data-flash-chip]', false));
   }
 
   function toast(screen, text) {
     const el = screen.querySelector('[data-toast]');
     el.textContent = text;
     el.classList.add('show');
-    clearTimeout(el._t);
-    el._t = setTimeout(() => el.classList.remove('show'), 1600);
+    later(screen, 'toast', 1700, () => el.classList.remove('show'));
   }
 
   function focusAt(screen, x, y) {
     const ring = screen.querySelector('[data-focus]');
-    ring.style.left = x + 'px';
-    ring.style.top = y + 'px';
-    ring.classList.remove('go');
-    void ring.offsetWidth; // restart the animation
-    ring.classList.add('go');
+    ring.style.left = x + 'px'; ring.style.top = y + 'px';
+    ring.classList.remove('go'); void ring.offsetWidth; ring.classList.add('go');
   }
 
   function capture(screen, { settle = true } = {}) {
@@ -683,75 +459,101 @@
     if (s.mode !== 'ready') return;
     s.mode = 'capturing';
     render(screen);
+    pill(screen, '[data-hint]', false);
     const shot = screen.querySelector('[data-shot]');
-    shot.classList.remove('go'); void shot.offsetWidth; shot.classList.add('go');
+    shot.classList.remove('go', 'fired'); void shot.offsetWidth;
+    shot.classList.add(s.flash === 'off' ? 'go' : 'fired'); // the flash fires with the shutter
     if (!settle) return;
-    clearTimeout(timers.get(screen));
-    timers.set(screen, setTimeout(() => {
-      s.mode = 'ready';
-      render(screen);
-      toast(screen, 'الصورة اتصورت ← بتروح لشاشة القص');
-    }, 900));
+    later(screen, 'cap', 900, () => {
+      toast(screen, 'الصورة اتصورت ← شاشة القص');
+      later(screen, 'back', 1900, () => {
+        // Back from the crop screen: the camera re-opens and the flash resets to off.
+        s.mode = 'ready'; s.flash = 'off'; render(screen);
+        toast(screen, 'رجعت للكاميرا — الفلاش رجع مطفي');
+        showHint(screen);
+      });
+    });
   }
 
   screens.forEach((screen) => {
     const s = state.get(screen);
     const feed = screen.querySelector('[data-feed]');
-
     feed.addEventListener('click', (e) => {
       if (s.mode !== 'ready') return;
       const r = feed.getBoundingClientRect();
-      const scale = r.width / feed.offsetWidth; // the phone may be scaled down on small screens
+      const scale = r.width / feed.offsetWidth;
       focusAt(screen, (e.clientX - r.left) / scale, (e.clientY - r.top) / scale);
+      pill(screen, '[data-hint]', false);
     });
-    screen.querySelectorAll('[data-flash]').forEach((b) => b.addEventListener('click', () => {
-      if (!s.hasFlash || s.mode !== 'ready') return;
-      s.flash = !s.flash;
-      render(screen);
-    }));
-    screen.querySelectorAll('[data-shutter]').forEach((b) => b.addEventListener('click', () => capture(screen)));
+    screen.querySelector('[data-flash]').addEventListener('click', () => {
+      if (s.mode !== 'ready') return;
+      s.flash = MODES[(MODES.indexOf(s.flash) + 1) % MODES.length];
+      render(screen); showFlashChip(screen);
+    });
+    screen.querySelector('[data-shutter]').addEventListener('click', () => capture(screen));
     screen.querySelectorAll('[data-gallery]').forEach((b) => b.addEventListener('click', () => toast(screen, 'هنا بتفتح صور الموبايل')));
-    screen.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => toast(screen, 'هنا بتقفل الكاميرا وترجع')));
-    screen.querySelectorAll('[data-retry]').forEach((b) => b.addEventListener('click', () => {
+    screen.querySelector('[data-close]').addEventListener('click', () => toast(screen, 'هنا بترجع من الكاميرا'));
+    screen.querySelector('[data-retry]').addEventListener('click', () => {
       s.mode = 'opening'; render(screen);
-      clearTimeout(timers.get(screen));
-      timers.set(screen, setTimeout(() => { s.mode = 'ready'; render(screen); }, 1200));
-    }));
+      later(screen, 'retry', 1200, () => { s.mode = 'ready'; render(screen); showHint(screen); });
+    });
     render(screen);
+    showHint(screen);
   });
 
-  // Toolbar: put every phone in the same state.
+  // Toolbar — states.
   const seg = document.getElementById('states');
   seg.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-state]');
     if (!btn) return;
     seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
     screens.forEach((screen) => {
-      clearTimeout(timers.get(screen));
+      for (const [id, t] of timers) if (id.startsWith(screen.dataset.k)) clearTimeout(t);
       const s = Object.assign(state.get(screen), fresh());
+      ['[data-hint]', '[data-flash-chip]'].forEach((p) => pill(screen, p, false));
       switch (btn.dataset.state) {
-        case 'flash': s.flash = true; break;
+        case 'auto': s.flash = 'auto'; break;
+        case 'on': s.flash = 'on'; break;
         case 'opening': s.mode = 'opening'; break;
         case 'error': s.mode = 'error'; break;
         case 'noflash': s.hasFlash = false; break;
       }
       render(screen);
-      if (btn.dataset.state === 'capturing') capture(screen, { settle: false });
-      if (btn.dataset.state === 'focus') {
-        const feed = screen.querySelector('[data-feed]');
-        focusAt(screen, feed.offsetWidth * 0.55, feed.offsetHeight * 0.42);
+      switch (btn.dataset.state) {
+        case 'ready': case 'noflash': showHint(screen); break;
+        case 'auto': case 'on': showFlashChip(screen); break;
+        case 'capturing': s.flash = 'on'; render(screen); capture(screen, { settle: false }); break;
+        case 'focus': {
+          const feed = screen.querySelector('[data-feed]');
+          focusAt(screen, feed.offsetWidth * 0.55, feed.offsetHeight * 0.42);
+          break;
+        }
+      }
+    });
+  });
+
+  // Toolbar — options.
+  document.querySelectorAll('[data-option]').forEach((group) => {
+    group.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-value]');
+      if (!btn) return;
+      group.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+      if (group.dataset.option === 'bar') {
+        document.documentElement.style.setProperty('--bar-color', btn.dataset.value === 'deep' ? 'var(--brand-deep)' : 'var(--brand)');
+      } else {
+        document.body.classList.remove('dock-glass', 'dock-mirror', 'dock-glow');
+        document.body.classList.add('dock-' + btn.dataset.value);
       }
     });
   });
 
   const largeText = document.getElementById('largeText');
-  largeText.addEventListener('change', (e) => {
-    document.documentElement.style.setProperty('--ts', e.target.checked ? '1.5' : '1');
-  });
+  largeText.addEventListener('change', (e) => document.documentElement.style.setProperty('--ts', e.target.checked ? '1.5' : '1'));
 
-  // Optional deep link, e.g. `#flash,large` — preselects a toolbar state.
+  // Optional deep link, e.g. `#on,deep,mirror,large`.
   const wanted = location.hash.slice(1).split(',').filter(Boolean);
   if (wanted.includes('large')) { largeText.checked = true; largeText.dispatchEvent(new Event('change')); }
+  wanted.forEach((w) => document.querySelector(`[data-option] [data-value="${w}"]`)?.click());
   const preset = wanted.find((w) => seg.querySelector(`[data-state="${w}"]`));
   if (preset) seg.querySelector(`[data-state="${preset}"]`).click();
 })();
