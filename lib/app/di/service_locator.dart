@@ -173,8 +173,6 @@ import '../../features/capture/domain/usecases/open_permission_settings.dart';
 import '../../features/capture/domain/usecases/pick_image_from_gallery.dart';
 import '../../features/capture/domain/usecases/request_camera_permission.dart';
 import '../../features/capture/domain/usecases/rotate_image.dart';
-import '../../features/capture/domain/usecases/start_frame_stream.dart';
-import '../../features/capture/domain/usecases/stop_frame_stream.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
@@ -484,13 +482,8 @@ void _registerCapture() {
         preview: camera,
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
-        cropToGuideBox: getIt(),
         disposeCamera: DisposeCamera(camera),
         cleanupFiles: getIt(),
-        // The live edge detector reads the same device's frames (F16).
-        startFrameStream: StartFrameStream(camera),
-        stopFrameStream: StopFrameStream(camera),
-        detectDocumentEdges: getIt(),
       );
     })
     // Pure Dart, no plugin and no disk (F16 locked decisions #2/#3), so one

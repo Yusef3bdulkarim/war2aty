@@ -8,7 +8,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/captured_photo.dart';
-import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/camera_capture_cubit.dart';
 import '../cubit/camera_capture_state.dart';
@@ -92,13 +91,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     context.read<CameraCaptureCubit>().start();
   }
 
-  /// Fires the shutter.
-  ///
-  /// The whole frame is kept: the user's own crop on the preview screen is
-  /// the only crop.
-  void _capture() {
-    context.read<CameraCaptureCubit>().capture(guideBox: UnitRect.full);
-  }
+  void _capture() => context.read<CameraCaptureCubit>().capture();
 
   @override
   Widget build(BuildContext context) {
