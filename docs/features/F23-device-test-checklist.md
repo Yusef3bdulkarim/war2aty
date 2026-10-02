@@ -140,13 +140,15 @@ Run each on **A (unsupported)** and **C (daily limit)**, plus where noted.
 
 | ID | ✅ / ❌ | Notes |
 |---|---|---|
-| A1–A10 | | |
-| B1–B7 | | |
-| C1–C7 | | |
-| D1–D5 | | |
-| E1–E5 | | |
-| F1–F5 | | |
-| G1–G4 | | |
+| A1–A10 | ✅ | Owner, 2026-10-03 |
+| B1–B7 | ✅ | Owner, 2026-10-03; tunnel cut before continue, restored for B7 |
+| C1–C7 | ✅ | Owner, 2026-10-03; countdown read ≈ 23 h at 00:55 Cairo |
+| D1–D4 | ✅ | Owner, 2026-10-03; read on the phone (online reading off), 503 from the kill switch |
+| D5 | ✅ | Owner, 2026-10-03. The retry reached the server without a new photo; the server's answer to that retry was `unsupported` (the phone-read text was too rough), so the page after it was the unsupported page |
+| E1–E4 | ✅ | Owner, 2026-10-03 |
+| E5 | ✅ | Confirmed by the owner, 2026-10-03. Note: the local backend log showed no analysis request after the consent page (01:02 Cairo) up to 01:05 |
+| F1–F5 | ✅ | Confirmed by the owner, 2026-10-03. Note: the local backend log showed no analysis request between 01:02 and 01:05 Cairo, and the daily-limit and no-internet triggers were not requested for F |
+| G1–G4 | — | Not run: the owner closed the device pass after F |
 
 Every ❌ is fixed on this branch, with a test that reproduces it, before T14 is
 marked DONE.
