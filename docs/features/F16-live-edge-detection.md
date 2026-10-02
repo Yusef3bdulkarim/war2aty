@@ -1,5 +1,11 @@
 # F16 · Live Document Edge Detection
 
+> **Superseded by [F24 · Camera Redesign](F24-camera-redesign.md)
+> (2026-10-03).** The live edge detection, the guide that followed the paper,
+> and everything built for them (the detector, the frame stream, the perf
+> budget, the frame → preview mapping) were removed in F24 Phase 1. The camera
+> is a plain camera again. This document is kept as history.
+
 - **Branch:** `feature/live-edge-detection` (off `feature/document-crop`) · **Milestone:** post-M9
 - **Depends on:** F15 (the guide box and the guide-box crop it feeds), F03 (the capture screen), F13 (`PerspectiveCorrector`/`doclens`, which stays the source of geometric truth) · **Feeds:** nothing — this is a guidance layer on top of an already-working pipeline
 - **Progress:** 9 / 10 DONE
