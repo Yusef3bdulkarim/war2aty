@@ -30,7 +30,6 @@ const double _textHeight = 2;
 const double _actionsPaddingH = 16;
 const double _actionsPaddingTop = 12;
 const double _actionsPaddingBottom = 28;
-const double _actionGap = 10;
 const double _actionHeight = 52;
 const double _actionRadius = 15;
 const double _actionFontSize = 15;
@@ -49,20 +48,12 @@ const Duration _copiedFeedback = Duration(seconds: 2);
 /// It says plainly that there is no explanation here, so the raw text is never
 /// mistaken for one.
 class ExtractedTextOnlyView extends StatelessWidget {
-  const ExtractedTextOnlyView({
-    required this.text,
-    this.onBack,
-    this.onListen,
-    super.key,
-  });
+  const ExtractedTextOnlyView({required this.text, this.onBack, super.key});
 
   /// The normalized OCR text.
   final String text;
 
   final VoidCallback? onBack;
-
-  /// Reads it aloud. Absent until there is a reader for it (F10).
-  final VoidCallback? onListen;
 
   @override
   Widget build(BuildContext context) {
@@ -114,28 +105,13 @@ class ExtractedTextOnlyView extends StatelessWidget {
               _actionsPaddingH,
               _actionsPaddingBottom,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _Action(
-                    label: strings.actionCopy,
-                    background: colors.surfaceTeal,
-                    foreground: colors.brandPrimary,
-                    onPressed: () => _copy(context),
-                  ),
-                ),
-                if (onListen case final onListen?) ...[
-                  const SizedBox(width: _actionGap),
-                  Expanded(
-                    child: _Action(
-                      label: strings.resultListenToText,
-                      background: colors.brandPrimary,
-                      foreground: colors.onBrand,
-                      onPressed: onListen,
-                    ),
-                  ),
-                ],
-              ],
+            // Copy only: listening is not offered on the failure pages
+            // (F23 #12).
+            child: _Action(
+              label: strings.actionCopy,
+              background: colors.surfaceTeal,
+              foreground: colors.brandPrimary,
+              onPressed: () => _copy(context),
             ),
           ),
         ),
@@ -287,6 +263,8 @@ class _Action extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      // Full width: it is the bar's only button.
+      width: double.infinity,
       height: _actionHeight,
       child: FilledButton(
         onPressed: onPressed,

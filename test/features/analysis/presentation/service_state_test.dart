@@ -159,6 +159,8 @@ void main() {
   Future<void> pumpConsentDeclined(
     WidgetTester tester, {
     VoidCallback? onOpenSettings,
+    Locale locale = AppLocalizations.arabic,
+    TextScaler? textScaler,
   }) async {
     await consentStore.writeConsent(false);
     await cubit.analyze();
@@ -168,6 +170,8 @@ void main() {
         value: cubit,
         child: AnalysisResultScreen(onOpenSettings: onOpenSettings),
       ),
+      locale: locale,
+      textScaler: textScaler,
     );
   }
 
@@ -521,6 +525,24 @@ void main() {
       );
     });
 
+    testWidgets('fits a small phone at 2.0× text, in English too (F23-T13)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      for (final locale in AppLocalizations.supportedLocales) {
+        await pumpConsentDeclined(
+          tester,
+          onOpenSettings: () {},
+          locale: locale,
+          textScaler: const TextScaler.linear(2),
+        );
+        expect(tester.takeException(), isNull, reason: '$locale');
+      }
+    });
+
     testWidgets('switches nothing itself: no toggle on the page', (
       tester,
     ) async {
@@ -798,6 +820,98 @@ void main() {
         );
         expect(tester.takeException(), isNull, reason: '$locale');
       }
+    });
+  });
+
+  group('the quality gate fixes (F23-T13)', () {
+    /// A failure page for a run whose OCR read nothing, with [usage] as the
+    /// cached daily usage.
+    Future<void> pumpWithoutText(
+      WidgetTester tester,
+      AppFailure failure, {
+      FakeUsageRepository? usage,
+      bool consentDeclined = false,
+    }) async {
+      final cache = usage ?? FakeUsageRepository();
+      addTearDown(cache.dispose);
+      final emptyCubit = AnalysisResultCubit(
+        session: _session,
+        source: const OcrAnalysisSource(
+          ExtractionResult(
+            text: NormalizedOcrText(originalText: '', cleanedText: ''),
+          ),
+        ),
+        getAnalysisConsent: GetAnalysisConsent(consentStore),
+        analyzeDocument: AnalyzeDocument(repository),
+        buildResult: const BuildAnalysisResult(),
+        syncDailyUsage: SyncDailyUsage(cache),
+        getDailyUsage: GetDailyUsage(cache),
+      );
+      addTearDown(emptyCubit.close);
+      if (consentDeclined) await consentStore.writeConsent(false);
+      repository.answer = Err(failure);
+      await emptyCubit.analyze();
+      await pumpApp(
+        tester,
+        BlocProvider<AnalysisResultCubit>.value(
+          value: emptyCubit,
+          child: const AnalysisResultScreen(),
+        ),
+      );
+    }
+
+    testWidgets('the daily limit with no text offers home once', (
+      tester,
+    ) async {
+      await pumpWithoutText(
+        tester,
+        DailyLimitReachedFailure(DateTime.utc(2026, 8, 26)),
+      );
+
+      expect(find.text(_strings.analysisBackToHome), findsOneWidget);
+      expect(
+        find.widgetWithText(FilledButton, _strings.analysisBackToHome),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('consent off, no Settings, no text: home once', (tester) async {
+      await pumpWithoutText(
+        tester,
+        const AnalysisConsentDeclinedFailure(),
+        consentDeclined: true,
+      );
+
+      expect(find.text(_strings.analysisBackToHome), findsOneWidget);
+    });
+
+    testWidgets('a cached limit of 0 is worded as unknown', (tester) async {
+      await pumpWithoutText(
+        tester,
+        DailyLimitReachedFailure(DateTime.utc(2026, 8, 26)),
+        usage: FakeUsageRepository(seed: usageWith(limit: 0, remaining: 0)),
+      );
+
+      expect(find.text(_strings.analysisLimitReachedMessage), findsOneWidget);
+      expect(
+        tester.widget<LimitResetCard>(find.byType(LimitResetCard)).dailyLimit,
+        isNull,
+      );
+    });
+
+    testWidgets('the text page offers copy alone, across the width', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const NoInternetFailure());
+      await tester.tap(find.text(_strings.resultShowExtractedText));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_strings.resultListenToText), findsNothing);
+      final copy = tester.getSize(
+        find.widgetWithText(FilledButton, _strings.actionCopy),
+      );
+      final page = tester.getSize(find.byType(ExtractedTextOnlyView));
+      expect(copy.width, greaterThan(page.width * 0.8));
     });
   });
 }

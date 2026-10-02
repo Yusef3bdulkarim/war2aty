@@ -455,6 +455,8 @@ class _FailureBodyState extends State<_FailureBody> {
     }
 
     final kind = _kind;
+    final home = _homeAction(strings);
+    final primary = _primary(strings, home);
     return ServiceStateView(
       onBack: widget.onClose,
       title: switch (kind) {
@@ -466,7 +468,7 @@ class _FailureBodyState extends State<_FailureBody> {
       },
       message: switch (kind) {
         _FailureKind.offline => strings.analysisNoInternetMessage,
-        _FailureKind.limitReached => switch (widget.state.dailyLimit) {
+        _FailureKind.limitReached => switch (_dailyLimit) {
           final limit? => strings.analysisLimitReachedMessageWithLimit(limit),
           null => strings.analysisLimitReachedMessage,
         },
@@ -480,9 +482,10 @@ class _FailureBodyState extends State<_FailureBody> {
       content: _content(kind, strings),
       // Camera and gallery: two equal ways to a paper the app can explain.
       pairPrimaryActions: kind == _FailureKind.unsupported,
-      primary: _primary(strings),
+      primary: primary,
       secondary: _secondary(strings),
-      tertiary: _tertiary(strings),
+      // The quiet way home — unless the primary already is it.
+      tertiary: identical(primary, home) ? null : home,
     );
   }
 
@@ -499,10 +502,7 @@ class _FailureBodyState extends State<_FailureBody> {
           if (widget.state.failure case DailyLimitReachedFailure(
             :final resetAtCairo,
           ))
-            LimitResetCard(
-              resetAt: resetAtCairo,
-              dailyLimit: widget.state.dailyLimit,
-            ),
+            LimitResetCard(resetAt: resetAtCairo, dailyLimit: _dailyLimit),
           FailureTipsCard(
             title: strings.analysisLimitTipsTitle,
             tips: [
@@ -591,6 +591,14 @@ class _FailureBodyState extends State<_FailureBody> {
   /// themselves.
   bool get _hasText => widget.state.extractedText.trim().isNotEmpty;
 
+  /// The daily limit to name, or `null` to word the page without one. A
+  /// limit of 0 or less is not a number to tell anyone (it would read «عندك
+  /// تحليل ذكي واحد»), so it counts as unknown.
+  int? get _dailyLimit => switch (widget.state.dailyLimit) {
+    final limit? when limit > 0 => limit,
+    _ => null,
+  };
+
   bool get _canRetry =>
       _kind == _FailureKind.offline || _kind == _FailureKind.serviceProblem;
 
@@ -629,13 +637,13 @@ class _FailureBodyState extends State<_FailureBody> {
   /// Retrying leads the way where it can work; a declined consent leads to
   /// Settings instead, since retrying would only fail the same way again;
   /// otherwise the text does.
-  ServiceStateAction _primary(AppStrings strings) {
+  /// [home] is returned itself, never a copy, when nothing else applies —
+  /// so the page can tell and not offer home a second time.
+  ServiceStateAction _primary(AppStrings strings, ServiceStateAction home) {
     // An unsupported paper leads with a new one: the camera, else the
     // gallery; its text is a card in the page instead (F23 #5).
     if (_kind == _FailureKind.unsupported) {
-      return _cameraAction(strings) ??
-          _galleryAction(strings) ??
-          _homeAction(strings);
+      return _cameraAction(strings) ?? _galleryAction(strings) ?? home;
     }
     if (_kind == _FailureKind.consentDeclined) {
       if (widget.onOpenSettings case final onOpenSettings?) {
@@ -652,7 +660,7 @@ class _FailureBodyState extends State<_FailureBody> {
       );
     }
     if (_hasText) return _showTextAction(strings);
-    return _homeAction(strings);
+    return home;
   }
 
   ServiceStateAction? _secondary(AppStrings strings) {
@@ -670,16 +678,5 @@ class _FailureBodyState extends State<_FailureBody> {
     // Whichever of the two the primary did not take.
     if (_canRetry) return _showTextAction(strings);
     return null;
-  }
-
-  /// The quiet way home — unless the primary already is it (an unsupported
-  /// page with neither the camera nor the gallery to offer).
-  ServiceStateAction? _tertiary(AppStrings strings) {
-    if (_kind == _FailureKind.unsupported &&
-        _cameraAction(strings) == null &&
-        _galleryAction(strings) == null) {
-      return null;
-    }
-    return _homeAction(strings);
   }
 }
