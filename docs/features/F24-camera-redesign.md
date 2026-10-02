@@ -3,7 +3,7 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 5 / 7 DONE · Phase 2 — not yet planned
+- **Progress:** Phase 1 — 6 / 7 DONE · Phase 2 — not yet planned
 - **PRs:** two, both into `develop` — one for Phase 1 (cleanup), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
@@ -61,8 +61,25 @@ deleted file.
 | 3 | F24-T03 | Cubit/state: no detection, no guide crop | `CameraReady` carries no document; the cubit no longer starts/stops a frame stream, detects, budgets or crops; `capture()` takes no `guideBox` and hands the photo on unchanged, still cleaning up a stale run's file. `detection_budget.dart`, `detected_document.dart` and the budget test deleted; cubit tests updated | DONE |
 | 4 | F24-T04 | Domain/data/DI: no frame stream, no detector | `CameraService` and `PlatformCameraService` lose the frame stream (and the throttle, and the explicit `imageFormatGroup`); the detector, algorithm, tuning, `CameraFrame`, `DocumentQuad`, `UnitPoint` and the `DetectDocumentEdges` / `StartFrameStream` / `StopFrameStream` / `CropToGuideBox` use cases deleted with their tests and DI registrations; the test fake updated (`platform_camera_service_test.dart` only covered the frame builder, so it is deleted whole) | DONE |
 | 5 | F24-T05 | Quality gate | `dart format .`, `flutter analyze`, `flutter test` clean; no leftover references to the removed code anywhere in `lib/` or `test/`; `/flutter-code-review` passes. The sweep also caught `UnitRect.expanded`/`clamped` (the guide crop's margin, dead once `CropToGuideBox` went), removed with their tests | DONE |
-| 6 | F24-T06 | Device check | On a physical phone: the camera opens, the shutter takes an upright, sharp photo that reaches the preview screen, background → resume re-opens the camera, and coming back from the preview screen re-arms it. Results recorded below | TODO |
+| 6 | F24-T06 | Device check | On a physical phone: the camera opens, the shutter takes an upright, sharp photo that reaches the preview screen, background → resume re-opens the camera, and coming back from the preview screen re-arms it. Results recorded below — all 9 checks pass (2026-10-03) | DONE |
 | 7 | F24-T07 | PR #1 | Phase 1 PR into `develop` | TODO |
+
+## Device pass (F24-T06)
+
+Phone: RMX2001 (Android 11), dev flavor, local Supabase over `adb reverse`.
+Run by the owner on 2026-10-03; all nine checks pass.
+
+| # | Check | Expected | Result |
+|---|---|---|---|
+| 1 | Home → «صوّر ورقتك» | The camera opens to a plain live feed: no corner brackets, no hint pill; close (top-start) and the shutter only || ✅ |
+| 2 | Point at a paper and hold still for a few seconds | Nothing is drawn over the feed; no lag or stutter || ✅ |
+| 3 | Tap the shutter | One photo; the preview/crop screen opens with the **whole** frame, upright and sharp || ✅ |
+| 4 | Back from the preview screen | The camera re-opens live (not stuck on a spinner or a frozen frame) || ✅ |
+| 5 | Shutter → crop → continue to analysis | The analysis runs as before (the photo format change does not affect OCR) || ✅ |
+| 6 | With the camera open, press Home, then return to the app | The camera releases and re-opens live || ✅ |
+| 7 | Lock the screen on the camera, then unlock | Same as #6 || ✅ |
+| 8 | Close (✕) | Leaves the camera || ✅ |
+| 9 | Large Text (system font size max) | Camera screen unchanged, nothing overflows || ✅ |
 
 ## Phase 2 — Camera redesign
 
