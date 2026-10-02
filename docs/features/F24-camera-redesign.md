@@ -3,8 +3,8 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 6 / 7 DONE · Phase 2 — not yet planned
-- **PRs:** two, both into `develop` — one for Phase 1 (cleanup), one for Phase 2 (redesign)
+- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — not yet planned
+- **PRs:** two, both into `develop` — one for Phase 1 (cleanup, [#25](https://github.com/Yusef3bdulkarim/war2aty/pull/25)), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
 
@@ -62,7 +62,7 @@ deleted file.
 | 4 | F24-T04 | Domain/data/DI: no frame stream, no detector | `CameraService` and `PlatformCameraService` lose the frame stream (and the throttle, and the explicit `imageFormatGroup`); the detector, algorithm, tuning, `CameraFrame`, `DocumentQuad`, `UnitPoint` and the `DetectDocumentEdges` / `StartFrameStream` / `StopFrameStream` / `CropToGuideBox` use cases deleted with their tests and DI registrations; the test fake updated (`platform_camera_service_test.dart` only covered the frame builder, so it is deleted whole) | DONE |
 | 5 | F24-T05 | Quality gate | `dart format .`, `flutter analyze`, `flutter test` clean; no leftover references to the removed code anywhere in `lib/` or `test/`; `/flutter-code-review` passes. The sweep also caught `UnitRect.expanded`/`clamped` (the guide crop's margin, dead once `CropToGuideBox` went), removed with their tests | DONE |
 | 6 | F24-T06 | Device check | On a physical phone: the camera opens, the shutter takes an upright, sharp photo that reaches the preview screen, background → resume re-opens the camera, and coming back from the preview screen re-arms it. Results recorded below — all 9 checks pass (2026-10-03) | DONE |
-| 7 | F24-T07 | PR #1 | Phase 1 PR into `develop` | TODO |
+| 7 | F24-T07 | PR #1 | Phase 1 PR into `develop` — [#25](https://github.com/Yusef3bdulkarim/war2aty/pull/25) | DONE |
 
 ## Device pass (F24-T06)
 
