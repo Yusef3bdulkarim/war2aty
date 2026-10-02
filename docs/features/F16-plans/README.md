@@ -1,5 +1,8 @@
 # F16 · Per-task implementation plans
 
+> **Superseded by [F24](../F24-camera-redesign.md) (2026-10-03)** — the code
+> these plans describe was removed in F24 Phase 1. Kept as history.
+
 One file per task of [`../F16-live-edge-detection.md`](../F16-live-edge-detection.md).
 Each plan is written so work can start from it directly: files to create/modify,
 the design decisions already settled, an ordered step list, the tests to write,

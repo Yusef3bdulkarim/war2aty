@@ -59,7 +59,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'cameraPermissionOpenSettings': (s) => s.cameraPermissionOpenSettings,
   'cameraPermissionPickInstead': (s) => s.cameraPermissionPickInstead,
   'cameraOpening': (s) => s.cameraOpening,
-  'cameraViewfinderHint': (s) => s.cameraViewfinderHint,
   'cameraShutterLabel': (s) => s.cameraShutterLabel,
   'cameraCloseLabel': (s) => s.cameraCloseLabel,
   'cameraCaptureErrorTitle': (s) => s.cameraCaptureErrorTitle,

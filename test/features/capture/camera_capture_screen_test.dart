@@ -6,20 +6,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/navigation/app_route_observer.dart';
-import 'package:war2aty/features/capture/domain/entities/camera_frame.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
-import 'package:war2aty/features/capture/domain/entities/document_quad.dart';
-import 'package:war2aty/features/capture/domain/entities/unit_point.dart';
-import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
-import 'package:war2aty/features/capture/domain/usecases/crop_to_guide_box.dart';
-import 'package:war2aty/features/capture/domain/usecases/detect_document_edges.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
-import 'package:war2aty/features/capture/domain/usecases/start_frame_stream.dart';
-import 'package:war2aty/features/capture/domain/usecases/stop_frame_stream.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/capture/presentation/screens/camera_capture_screen.dart';
 
@@ -35,21 +26,14 @@ Future<_Result> _pumpViewfinder(
   WidgetTester tester,
   FakeCameraService camera, {
   TextScaler? textScaler,
-  FakeDocumentEdgeDetector? detector,
 }) async {
   final result = _Result();
   final cubit = CameraCaptureCubit(
     preview: const FakeCameraPreview(),
     initializeCamera: InitializeCamera(camera),
     capturePhoto: CapturePhoto(camera),
-    cropToGuideBox: CropToGuideBox(CropImage(FakeImageCropper())),
     disposeCamera: DisposeCamera(camera),
     cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
-    startFrameStream: StartFrameStream(camera),
-    stopFrameStream: StopFrameStream(camera),
-    detectDocumentEdges: DetectDocumentEdges(
-      detector ?? FakeDocumentEdgeDetector(),
-    ),
   );
   addTearDown(cubit.close);
 
@@ -73,13 +57,26 @@ Future<_Result> _pumpViewfinder(
 
 void main() {
   group('CameraCaptureScreen', () {
-    testWidgets('shows the live preview and framing hint once ready', (
-      tester,
-    ) async {
+    testWidgets('once ready, shows the bare live preview with its close and '
+        'shutter controls — no guide, no hint (F24)', (tester) async {
       await _pumpViewfinder(tester, FakeCameraService());
 
       expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
-      expect(find.text(_strings.cameraViewfinderHint), findsOneWidget);
+      expect(find.bySemanticsLabel(_strings.cameraCloseLabel), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(_strings.cameraShutterLabel),
+        findsOneWidget,
+      );
+      // The hint pill was the viewfinder's only text; nothing is drawn over
+      // the feed any more.
+      expect(find.byType(Text), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(Center),
+          matching: find.byType(CustomPaint),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('asks for light status-bar icons', (tester) async {
@@ -150,12 +147,8 @@ void main() {
         preview: const FakeCameraPreview(),
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
-        cropToGuideBox: CropToGuideBox(CropImage(FakeImageCropper())),
         disposeCamera: DisposeCamera(camera),
         cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
-        startFrameStream: StartFrameStream(camera),
-        stopFrameStream: StopFrameStream(camera),
-        detectDocumentEdges: DetectDocumentEdges(FakeDocumentEdgeDetector()),
       );
       addTearDown(cubit.close);
 
@@ -206,7 +199,7 @@ void main() {
 
       expect(
         Directionality.of(
-          tester.element(find.text(_strings.cameraViewfinderHint)),
+          tester.element(find.bySemanticsLabel(_strings.cameraCloseLabel)),
         ),
         TextDirection.rtl,
       );
@@ -221,107 +214,6 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
-  });
-
-  group('CameraCaptureScreen · the capture keeps the whole frame', () {
-    /// A page filling the middle of the frame.
-    const quad = DocumentQuad(
-      topLeft: UnitPoint(0.2, 0.15),
-      topRight: UnitPoint(0.75, 0.15),
-      bottomRight: UnitPoint(0.75, 0.7),
-      bottomLeft: UnitPoint(0.2, 0.7),
-    );
-
-    /// The failure T10 caught on a real device: a detection collapsed to a
-    /// wide, flat sliver. Cropping to it discarded ~85% of the page.
-    const sliver = DocumentQuad(
-      topLeft: UnitPoint(0.05, 0.60),
-      topRight: UnitPoint(0.95, 0.60),
-      bottomRight: UnitPoint(0.95, 0.72),
-      bottomLeft: UnitPoint(0.05, 0.72),
-    );
-
-    CameraFrame frameFor() => CameraFrame(
-      bytes: Uint8List(0),
-      width: 800,
-      height: 600,
-      bytesPerRow: 800,
-      format: CameraFrameFormat.luma8,
-    );
-
-    /// Pumps the viewfinder with a cropper the test can read back, optionally
-    /// feeding one detected frame through before the shutter is tapped.
-    Future<FakeImageCropper> pumpAndCapture(
-      WidgetTester tester, {
-      DocumentQuad? detected,
-    }) async {
-      final camera = FakeCameraService();
-      final cropper = FakeImageCropper(
-        output: const CapturedPhoto('/tmp/c.jpg'),
-      );
-      final detector = FakeDocumentEdgeDetector(quad: detected);
-      final cubit = CameraCaptureCubit(
-        preview: const FakeCameraPreview(),
-        initializeCamera: InitializeCamera(camera),
-        capturePhoto: CapturePhoto(camera),
-        cropToGuideBox: CropToGuideBox(CropImage(cropper)),
-        disposeCamera: DisposeCamera(camera),
-        cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
-        startFrameStream: StartFrameStream(camera),
-        stopFrameStream: StopFrameStream(camera),
-        detectDocumentEdges: DetectDocumentEdges(detector),
-      );
-      addTearDown(cubit.close);
-
-      await pumpApp(
-        tester,
-        BlocProvider<CameraCaptureCubit>.value(
-          value: cubit,
-          child: CameraCaptureScreen(onCaptured: (_) {}, onClose: () {}),
-        ),
-        settle: false,
-      );
-      await tester.pump();
-      await tester.pump();
-
-      if (detected != null) {
-        await camera.deliverFrame(frameFor());
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-      }
-
-      await tester.tap(find.bySemanticsLabel(_strings.cameraShutterLabel));
-      await tester.pump();
-      await tester.pump();
-      return cropper;
-    }
-
-    testWidgets('with no document, nothing is cropped', (tester) async {
-      final cropper = await pumpAndCapture(tester);
-
-      expect(cropper.lastRegion, UnitRect.full);
-    });
-
-    testWidgets('a detected document does not crop the capture', (
-      tester,
-    ) async {
-      final cropper = await pumpAndCapture(tester, detected: quad);
-
-      // The guide is drawn on the page, but the file keeps the whole frame.
-      expect(cropper.lastRegion, UnitRect.full);
-    });
-
-    testWidgets(
-      'a collapsed detection cannot crop the document away — the regression '
-      'T10 found on a real device',
-      (tester) async {
-        final cropper = await pumpAndCapture(tester, detected: sliver);
-
-        // Following this quad would have kept a band ~12% of the frame tall
-        // and thrown the rest of the page away.
-        expect(cropper.lastRegion, UnitRect.full);
-      },
-    );
   });
 }
 
