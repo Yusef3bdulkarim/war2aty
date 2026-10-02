@@ -71,15 +71,15 @@ Run by the owner on 2026-10-03; all nine checks pass.
 
 | # | Check | Expected | Result |
 |---|---|---|---|
-| 1 | Home → «صوّر ورقتك» | The camera opens to a plain live feed: no corner brackets, no hint pill; close (top-start) and the shutter only || ✅ |
-| 2 | Point at a paper and hold still for a few seconds | Nothing is drawn over the feed; no lag or stutter || ✅ |
-| 3 | Tap the shutter | One photo; the preview/crop screen opens with the **whole** frame, upright and sharp || ✅ |
-| 4 | Back from the preview screen | The camera re-opens live (not stuck on a spinner or a frozen frame) || ✅ |
-| 5 | Shutter → crop → continue to analysis | The analysis runs as before (the photo format change does not affect OCR) || ✅ |
-| 6 | With the camera open, press Home, then return to the app | The camera releases and re-opens live || ✅ |
-| 7 | Lock the screen on the camera, then unlock | Same as #6 || ✅ |
-| 8 | Close (✕) | Leaves the camera || ✅ |
-| 9 | Large Text (system font size max) | Camera screen unchanged, nothing overflows || ✅ |
+| 1 | Home → «صوّر ورقتك» | The camera opens to a plain live feed: no corner brackets, no hint pill; close (top-start) and the shutter only | ✅ |
+| 2 | Point at a paper and hold still for a few seconds | Nothing is drawn over the feed; no lag or stutter | ✅ |
+| 3 | Tap the shutter | One photo; the preview/crop screen opens with the **whole** frame, upright and sharp | ✅ |
+| 4 | Back from the preview screen | The camera re-opens live (not stuck on a spinner or a frozen frame) | ✅ |
+| 5 | Shutter → crop → continue to analysis | The analysis runs as before (the photo format change does not affect OCR) | ✅ |
+| 6 | With the camera open, press Home, then return to the app | The camera releases and re-opens live | ✅ |
+| 7 | Lock the screen on the camera, then unlock | Same as #6 | ✅ |
+| 8 | Close (✕) | Leaves the camera | ✅ |
+| 9 | Large Text (system font size max) | Camera screen unchanged, nothing overflows | ✅ |
 
 ## Phase 2 — Camera redesign
 
