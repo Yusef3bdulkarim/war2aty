@@ -182,6 +182,21 @@ final class EnStrings implements AppStrings {
   String get cameraOpening => 'Opening the camera…';
 
   @override
+  String get cameraFlashOff => 'Flash: off';
+
+  @override
+  String get cameraFlashAuto => 'Flash: auto';
+
+  @override
+  String get cameraFlashOn => 'Flash: on';
+
+  @override
+  String get cameraFocusHint => 'Tap the paper to bring it into focus';
+
+  @override
+  String get cameraPickFromPhone => 'Choose a photo from your phone';
+
+  @override
   String get cameraShutterLabel => 'Take photo';
 
   @override
