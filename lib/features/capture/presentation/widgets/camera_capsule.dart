@@ -112,10 +112,12 @@ class _DiscButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The InkResponse below supplies the tap action a screen reader's
+    // double-tap fires; the icon itself carries no label, so nothing else is
+    // merged in.
     return Semantics(
       button: true,
       label: label,
-      excludeSemantics: true,
       child: SizedBox.square(
         dimension: _tapTarget,
         child: Material(

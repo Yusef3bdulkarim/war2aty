@@ -181,8 +181,13 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                           }
                         },
                       ),
+                      // A lens that cannot focus on a point gets no hint: the
+                      // tap it suggests would do nothing.
                       BlocListener<CameraCaptureCubit, CameraCaptureState>(
-                        listenWhen: (_, s) => s is CameraReady && !_hintShown,
+                        listenWhen: (_, s) =>
+                            s is CameraReady &&
+                            s.capabilities.canFocus &&
+                            !_hintShown,
                         listener: (_, _) => _showHint(),
                       ),
                       // Only a change while armed is the user's tap; the reset

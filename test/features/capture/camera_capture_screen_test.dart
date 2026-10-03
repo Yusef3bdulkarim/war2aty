@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -243,6 +244,24 @@ void main() {
       expect(_opacityOf(tester, _strings.cameraFlashAuto), 1);
     });
 
+    testWidgets("a screen reader's double-tap changes the mode too", (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      final camera = FakeCameraService();
+      await _pumpViewfinder(tester, camera);
+
+      final node = tester.getSemantics(
+        find.bySemanticsLabel(_strings.cameraFlashOff),
+      );
+      expect(node.getSemanticsData().hasAction(SemanticsAction.tap), isTrue);
+      tester.semantics.tap(find.semantics.byLabel(_strings.cameraFlashOff));
+      await tester.pump();
+
+      expect(camera.flashModes, [CameraFlashMode.auto]);
+      semantics.dispose();
+    });
+
     testWidgets('the mode is spelled out for two seconds, then fades', (
       tester,
     ) async {
@@ -319,6 +338,22 @@ void main() {
       await _pumpViewfinder(tester, FakeCameraService());
 
       expect(_opacityOf(tester, _strings.cameraFocusHint), 1);
+    });
+
+    testWidgets('is not shown on a lens that cannot focus on a point', (
+      tester,
+    ) async {
+      await _pumpViewfinder(
+        tester,
+        FakeCameraService(
+          capabilities: const CameraCapabilities(
+            hasFlash: true,
+            canFocus: false,
+          ),
+        ),
+      );
+
+      expect(_opacityOf(tester, _strings.cameraFocusHint), 0);
     });
 
     testWidgets('hides on its own after four seconds', (tester) async {
