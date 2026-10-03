@@ -201,9 +201,6 @@ final class ArStrings implements AppStrings {
   String get cameraShutterLabel => 'التقاط الصورة';
 
   @override
-  String get cameraCloseLabel => 'إغلاق';
-
-  @override
   String get cameraCaptureErrorTitle => 'مقدرناش نفتح الكاميرا';
 
   @override

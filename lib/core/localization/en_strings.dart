@@ -200,9 +200,6 @@ final class EnStrings implements AppStrings {
   String get cameraShutterLabel => 'Take photo';
 
   @override
-  String get cameraCloseLabel => 'Close';
-
-  @override
   String get cameraCaptureErrorTitle => 'We could not open the camera';
 
   @override

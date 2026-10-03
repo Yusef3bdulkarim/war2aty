@@ -65,7 +65,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'cameraFocusHint': (s) => s.cameraFocusHint,
   'cameraPickFromPhone': (s) => s.cameraPickFromPhone,
   'cameraShutterLabel': (s) => s.cameraShutterLabel,
-  'cameraCloseLabel': (s) => s.cameraCloseLabel,
   'cameraCaptureErrorTitle': (s) => s.cameraCaptureErrorTitle,
   'cameraCaptureErrorMessage': (s) => s.cameraCaptureErrorMessage,
   'galleryOpening': (s) => s.galleryOpening,

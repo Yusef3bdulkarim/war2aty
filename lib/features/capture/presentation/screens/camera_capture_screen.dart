@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,18 +10,26 @@ import '../../../../core/navigation/app_route_observer.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/teal_top_bar.dart';
+import '../../domain/entities/camera_flash_mode.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../../domain/entities/focus_point.dart';
 import '../capture_palette.dart';
 import '../cubit/camera_capture_cubit.dart';
 import '../cubit/camera_capture_state.dart';
+import '../widgets/camera_capsule.dart';
+import '../widgets/camera_status_line.dart';
+import '../widgets/focusable_preview.dart';
 
-// From `Waraqti.dc.html` → `camera`.
-const double _controlBox = 42;
-const double _shutterOuter = 80;
-const double _shutterInner = 64;
+// From the approved F24 design (`docs/design/F24-camera-mockups.html`, C2).
+const double _feedGap = 8;
+const double _capsuleHeight = 84;
+const double _dockGap = 14;
+const double _dockBottom = 22;
 
-/// The viewfinder: a plain live camera feed and one shutter button that
-/// produces a single portrait photo. No guide is drawn over the feed (F24).
+/// The viewfinder (F24): the app's teal bar, the live feed full width and
+/// Fit, and a dock below it with the status line and the glass capsule —
+/// photos, shutter, flash. Nothing covers the paper but the focus brackets.
 ///
 /// The screen owns the app-lifecycle wiring — the camera is released when the
 /// app goes to the background and re-opened on return, so it is never held
@@ -27,6 +38,7 @@ class CameraCaptureScreen extends StatefulWidget {
   const CameraCaptureScreen({
     required this.onCaptured,
     required this.onClose,
+    required this.onPickFromPhone,
     super.key,
   });
 
@@ -36,12 +48,29 @@ class CameraCaptureScreen extends StatefulWidget {
   /// Leaves the capture flow.
   final VoidCallback onClose;
 
+  /// Swaps the camera for the phone's photo picker (F24).
+  final VoidCallback onPickFromPhone;
+
   @override
   State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
 }
 
 class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     with WidgetsBindingObserver, RouteAware {
+  static const Duration _hintFor = Duration(seconds: 4);
+  static const Duration _chipFor = Duration(seconds: 2);
+
+  /// The focus hint shows once per camera visit (F24). This state lives as
+  /// long as the camera route, so a retake ([didPopNext]), a retry or a trip
+  /// to the background does not bring it back.
+  bool _hintShown = false;
+  bool _hintVisible = false;
+  Timer? _hintTimer;
+
+  /// The flash mode being spelled out after a tap, or `null`.
+  CameraFlashMode? _flashChip;
+  Timer? _chipTimer;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +87,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 
   @override
   void dispose() {
+    _hintTimer?.cancel();
+    _chipTimer?.cancel();
     appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -91,12 +122,35 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     context.read<CameraCaptureCubit>().start();
   }
 
-  void _capture() => context.read<CameraCaptureCubit>().capture();
+  void _showHint() {
+    _hintShown = true;
+    setState(() => _hintVisible = true);
+    _hintTimer = Timer(_hintFor, _hideHint);
+  }
+
+  void _hideHint() {
+    _hintTimer?.cancel();
+    if (mounted && _hintVisible) setState(() => _hintVisible = false);
+  }
+
+  void _showFlashChip(CameraFlashMode mode) {
+    _hideHint();
+    _chipTimer?.cancel();
+    setState(() => _flashChip = mode);
+    _chipTimer = Timer(_chipFor, () {
+      if (mounted) setState(() => _flashChip = null);
+    });
+  }
+
+  void _focus(FocusPoint point) {
+    _hideHint();
+    context.read<CameraCaptureCubit>().focusAt(point);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Light status-bar icons on the dark backdrop; the app's default is
-    // dark ones for its light screens (F21).
+    final s = context.strings;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -110,26 +164,62 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
               colors: [Color(0xFF2B3138), captureBackdrop],
             ),
           ),
-          child: BlocConsumer<CameraCaptureCubit, CameraCaptureState>(
-            // A captured photo is a one-shot hand-off, not a screen: react to it
-            // in the listener and leave the builder to the visible states.
-            listenWhen: (_, s) => s is CameraCaptured,
-            listener: (context, state) {
-              if (state is CameraCaptured) widget.onCaptured(state.photo);
-            },
-            builder: (context, state) => SafeArea(
-              child: switch (state) {
-                CameraCaptureError() => _CameraError(
-                  onRetry: context.read<CameraCaptureCubit>().start,
-                  onClose: widget.onClose,
+          child: Column(
+            children: [
+              TealTopBar(backTooltip: s.actionBack, onBack: widget.onClose),
+              Expanded(
+                child: SafeArea(
+                  top: false,
+                  child: MultiBlocListener(
+                    listeners: [
+                      // A captured photo is a one-shot hand-off, not a screen.
+                      BlocListener<CameraCaptureCubit, CameraCaptureState>(
+                        listenWhen: (_, s) => s is CameraCaptured,
+                        listener: (_, state) {
+                          if (state is CameraCaptured) {
+                            widget.onCaptured(state.photo);
+                          }
+                        },
+                      ),
+                      BlocListener<CameraCaptureCubit, CameraCaptureState>(
+                        listenWhen: (_, s) => s is CameraReady && !_hintShown,
+                        listener: (_, _) => _showHint(),
+                      ),
+                      // Only a change while armed is the user's tap; the reset
+                      // to off on every open is not announced.
+                      BlocListener<CameraCaptureCubit, CameraCaptureState>(
+                        listenWhen: (previous, current) =>
+                            previous is CameraReady &&
+                            current is CameraReady &&
+                            previous.flashMode != current.flashMode,
+                        listener: (_, state) {
+                          if (state is CameraReady) {
+                            _showFlashChip(state.flashMode);
+                          }
+                        },
+                      ),
+                    ],
+                    child: BlocBuilder<CameraCaptureCubit, CameraCaptureState>(
+                      builder: (context, state) => switch (state) {
+                        CameraLive() => _Viewfinder(
+                          state: state,
+                          hintVisible: _hintVisible,
+                          flashChip: _flashChip,
+                          onFocus: _focus,
+                          onPickFromPhone: widget.onPickFromPhone,
+                        ),
+                        CameraCaptureError() => _CameraError(
+                          onRetry: context.read<CameraCaptureCubit>().start,
+                          onPickFromPhone: widget.onPickFromPhone,
+                        ),
+                        CameraInitializing() ||
+                        CameraCaptured() => const _Opening(),
+                      },
+                    ),
+                  ),
                 ),
-                _ => _Viewfinder(
-                  state: state,
-                  onClose: widget.onClose,
-                  onShutter: _capture,
-                ),
-              },
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -137,53 +227,80 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 }
 
-/// The live view with its close control and shutter.
+/// The feed and the dock below it.
 class _Viewfinder extends StatelessWidget {
   const _Viewfinder({
     required this.state,
-    required this.onClose,
-    required this.onShutter,
+    required this.hintVisible,
+    required this.flashChip,
+    required this.onFocus,
+    required this.onPickFromPhone,
   });
 
-  final CameraCaptureState state;
-  final VoidCallback onClose;
-  final VoidCallback onShutter;
+  final CameraLive state;
+  final bool hintVisible;
+  final CameraFlashMode? flashChip;
+  final ValueChanged<FocusPoint> onFocus;
+  final VoidCallback onPickFromPhone;
 
   @override
   Widget build(BuildContext context) {
-    final isReady = state is CameraReady || state is CameraCapturing;
+    final cubit = context.read<CameraCaptureCubit>();
+    final armed = state is CameraReady;
+    // Room for the status line at two lines of (possibly enlarged) text,
+    // with headroom over the pill's exact line metrics.
+    final statusLine = math.max(
+      34.0,
+      MediaQuery.textScalerOf(context).scale(13.5) * 1.5 * 2 + 14,
+    );
+    const dockFixed = _dockGap + _capsuleHeight + _dockBottom;
 
-    return Stack(
-      children: [
-        if (isReady)
-          Positioned.fill(
-            // Fit, not cover: the feed keeps its own aspect on the backdrop,
-            // so what is seen is exactly what is captured.
-            child: Center(
-              child: context.read<CameraCaptureCubit>().preview.build(context),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The dock keeps its height on a short screen; the feed shrinks
+        // instead — still Fit, so the whole frame stays visible.
+        final feedMax = math.max(
+          0.0,
+          constraints.maxHeight - _feedGap - statusLine - dockFixed,
+        );
+
+        return Column(
+          children: [
+            const SizedBox(height: _feedGap),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: feedMax),
+              child: FocusablePreview(
+                preview: cubit.preview.build(context),
+                enabled: armed && state.capabilities.canFocus,
+                onFocus: onFocus,
+              ),
             ),
-          )
-        else
-          const Positioned.fill(child: _Opening()),
-        Positioned(
-          top: 8,
-          left: AppSpacing.xl,
-          right: AppSpacing.xl,
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: _CloseButton(onTap: onClose),
-          ),
-        ),
-        if (isReady)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 40,
-            child: Center(
-              child: _Shutter(enabled: state is CameraReady, onTap: onShutter),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: _dockBottom),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CameraStatusLine(
+                      hintVisible: hintVisible,
+                      flashChip: flashChip,
+                    ),
+                    const SizedBox(height: _dockGap),
+                    CameraCapsule(
+                      flashMode: state.flashMode,
+                      hasFlash: state.capabilities.hasFlash,
+                      shutterEnabled: armed,
+                      onShutter: cubit.capture,
+                      onFlash: cubit.cycleFlash,
+                      onPickFromPhone: onPickFromPhone,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -217,152 +334,74 @@ class _Opening extends StatelessWidget {
   }
 }
 
-/// The rounded translucent close control, top-start.
-class _CloseButton extends StatelessWidget {
-  const _CloseButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.strings;
-
-    return Semantics(
-      button: true,
-      label: s.cameraCloseLabel,
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.14),
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            width: _controlBox,
-            height: _controlBox,
-            child: Icon(
-              Icons.close_rounded,
-              color: AppColors.of(context).onBrand,
-              size: 22,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The white shutter. Disabled mid-capture so it cannot fire twice.
-class _Shutter extends StatelessWidget {
-  const _Shutter({required this.enabled, required this.onTap});
-
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.strings;
-
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      label: s.cameraShutterLabel,
-      child: GestureDetector(
-        onTap: enabled ? onTap : null,
-        child: Container(
-          width: _shutterOuter,
-          height: _shutterOuter,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: enabled ? 1 : 0.6),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.25),
-                spreadRadius: 5,
-              ),
-            ],
-          ),
-          child: Center(
-            child: Container(
-              width: _shutterInner,
-              height: _shutterInner,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(color: captureBackdrop, width: 3),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The full-screen error state, with a retry and a way back.
+/// The camera could not open or a shot failed: retry, or take a photo from
+/// the phone instead (F24). The teal bar above still leads back.
 class _CameraError extends StatelessWidget {
-  const _CameraError({required this.onRetry, required this.onClose});
+  const _CameraError({required this.onRetry, required this.onPickFromPhone});
 
   final VoidCallback onRetry;
-  final VoidCallback onClose;
+  final VoidCallback onPickFromPhone;
 
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-    final onDark = AppColors.of(context).onBrand;
+    final colors = AppColors.of(context);
+    final onDark = colors.onBrand;
 
-    return Stack(
-      children: [
-        Positioned(
-          top: 8,
-          left: AppSpacing.xl,
-          right: AppSpacing.xl,
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: _CloseButton(onTap: onClose),
-          ),
-        ),
-        Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.xxl),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.no_photography_outlined,
-                  color: onDark.withValues(alpha: 0.85),
-                  size: 48,
-                  semanticLabel: s.cameraCaptureErrorTitle,
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  s.cameraCaptureErrorTitle,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.headlineMedium.copyWith(color: onDark),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  s.cameraCaptureErrorMessage,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: onDark.withValues(alpha: 0.8),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                FilledButton(
-                  onPressed: onRetry,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.of(context).brandPrimary,
-                    foregroundColor: onDark,
-                    minimumSize: const Size.fromHeight(52),
-                    textStyle: AppTypography.labelLarge,
-                  ),
-                  child: Text(s.actionRetry),
-                ),
-              ],
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.xxl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.no_photography_outlined,
+              color: onDark.withValues(alpha: 0.85),
+              size: 48,
+              semanticLabel: s.cameraCaptureErrorTitle,
             ),
-          ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              s.cameraCaptureErrorTitle,
+              textAlign: TextAlign.center,
+              style: AppTypography.headlineMedium.copyWith(color: onDark),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              s.cameraCaptureErrorMessage,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMedium.copyWith(
+                color: onDark.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.brandPrimary,
+                foregroundColor: onDark,
+                minimumSize: const Size.fromHeight(52),
+                textStyle: AppTypography.labelLarge,
+              ),
+              child: Text(s.actionRetry),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton(
+              onPressed: onPickFromPhone,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: onDark,
+                side: BorderSide(
+                  color: onDark.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
+                minimumSize: const Size.fromHeight(52),
+                textStyle: AppTypography.labelLarge,
+              ),
+              child: Text(s.cameraPickFromPhone),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

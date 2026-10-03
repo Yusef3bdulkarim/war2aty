@@ -121,9 +121,6 @@ abstract interface class AppStrings {
   /// Accessibility label for the shutter button.
   String get cameraShutterLabel;
 
-  /// Accessibility label for the close button.
-  String get cameraCloseLabel;
-
   /// Shown when the camera cannot be opened or a shot fails.
   String get cameraCaptureErrorTitle;
   String get cameraCaptureErrorMessage;

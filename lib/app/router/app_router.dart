@@ -589,6 +589,11 @@ Widget _cameraViewfinder(BuildContext context) {
     child: CameraCaptureScreen(
       onCaptured: (photo) => context.push(AppRoutes.previewWith(photo.path)),
       onClose: context.pop,
+      // Replaces the camera rather than stacking on it, as the permission
+      // sheet's "pick instead" does: the user chose the photos *instead*, so
+      // Back from the picker returns Home, not to a camera left open (F24).
+      onPickFromPhone: () =>
+          context.pushReplacement(AppRoutes.captureWith(CaptureSource.gallery)),
     ),
   );
 }
