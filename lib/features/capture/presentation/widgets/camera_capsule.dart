@@ -58,13 +58,14 @@ class CameraCapsule extends StatelessWidget {
           color: Colors.white.withValues(alpha: 0.06),
           border: Border.all(color: Colors.white.withValues(alpha: 0.13)),
           borderRadius: BorderRadius.circular(999),
-          // A soft brand-teal lift, so the capsule stands off a white page.
-          // Drawn outside the shape only, so the glass inside stays clear.
+          // A soft lift in the backdrop's own grey, so the capsule stands off a
+          // white page. Drawn outside the shape only, so the glass inside
+          // stays clear.
           boxShadow: [
             BoxShadow(
-              color: colors.brandPrimary.withValues(alpha: 0.45),
-              blurRadius: 18,
-              offset: const Offset(0, 4),
+              color: captureBackdrop.withValues(alpha: 0.22),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
               blurStyle: BlurStyle.outer,
             ),
           ],
