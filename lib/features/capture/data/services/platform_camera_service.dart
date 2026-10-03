@@ -53,6 +53,7 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
       // The whole app is portrait; lock capture so a photo taken with the
       // phone slightly rotated is still saved upright.
       await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      final hasFlash = await _startWithFlashOff(controller);
 
       // Cancelled while we were opening — release this controller rather than
       // adopt it, so a suspend/close mid-open cannot leave the camera held.
@@ -61,9 +62,12 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
         return const Err(ImageProcessingFailure());
       }
       _controller = controller;
-      // Flash and focus are wired up in F24-T13; until then the camera offers
-      // exactly what today's viewfinder uses — the shutter alone.
-      return const Ok(CameraCapabilities.none);
+      return Ok(
+        CameraCapabilities(
+          hasFlash: hasFlash,
+          canFocus: controller.value.focusPointSupported,
+        ),
+      );
     } on Object {
       await _releaseController();
       return const Err(ImageProcessingFailure());
@@ -85,15 +89,71 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
     }
   }
 
-  // F24-T13 replaces these two with the plugin calls; reported as
-  // unsupported until then, which [initialize]'s capabilities already say.
   @override
-  Future<Result<void, AppFailure>> setFlashMode(CameraFlashMode mode) async =>
-      const Err(ImageProcessingFailure());
+  Future<Result<void, AppFailure>> setFlashMode(CameraFlashMode mode) async {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return const Err(ImageProcessingFailure());
+    }
+    try {
+      await controller.setFlashMode(pluginFlashMode(mode));
+      return const Ok(null);
+    } on Object {
+      return const Err(ImageProcessingFailure());
+    }
+  }
 
   @override
-  Future<Result<void, AppFailure>> focusAt(FocusPoint point) async =>
-      const Err(ImageProcessingFailure());
+  Future<Result<void, AppFailure>> focusAt(FocusPoint point) async {
+    final controller = _controller;
+    if (controller == null ||
+        !controller.value.isInitialized ||
+        !controller.value.focusPointSupported) {
+      return const Err(ImageProcessingFailure());
+    }
+    final offset = Offset(point.x, point.y);
+    try {
+      await controller.setFocusPoint(offset);
+    } on Object {
+      return const Err(ImageProcessingFailure());
+    }
+    // Metering the same spot keeps a white page from coming out grey; it is a
+    // bonus on top of focus, so a lens that declines it is not a failure.
+    if (controller.value.exposurePointSupported) {
+      try {
+        await controller.setExposurePoint(offset);
+      } on Object {
+        // Focus already landed; the exposure stays on the phone's own choice.
+      }
+    }
+    return const Ok(null);
+  }
+
+  /// The plugin's flash mode for ours. A flash, never a torch (F24): on
+  /// fires with the shutter only.
+  @visibleForTesting
+  static FlashMode pluginFlashMode(CameraFlashMode mode) => switch (mode) {
+    CameraFlashMode.off => FlashMode.off,
+    CameraFlashMode.auto => FlashMode.auto,
+    CameraFlashMode.on => FlashMode.always,
+  };
+
+  /// Puts a freshly opened [controller] on the flash off and says whether the
+  /// lens has one.
+  ///
+  /// The plugin opens every camera on auto, so this runs on every open — it is
+  /// what makes a retake start dark (F24). The same call is the flash probe:
+  /// iOS refuses every flash mode, off included, on a lens without a flash.
+  /// Android accepts any mode whether or not a flash exists, so there it
+  /// always reads as present (locked decision #8).
+  Future<bool> _startWithFlashOff(CameraController controller) async {
+    try {
+      await controller.setFlashMode(FlashMode.off);
+      return true;
+    } on Object {
+      return false;
+    }
+  }
 
   @override
   Future<void> dispose() async {
