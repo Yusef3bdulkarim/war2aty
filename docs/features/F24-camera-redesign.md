@@ -115,7 +115,7 @@ without a flash, camera error, Large Text ×1.5). A URL hash such as
 | 16 | F24-T16 | Router | The photos shortcut and the error page's button replace the camera route with the gallery route (`pushReplacement`, as the permission sheet already does), so Back returns Home. Landed in the T15 commit, since the screen's new callback would not compile without it | DONE |
 | 17 | F24-T17 | Quality gate | `dart format .`, `flutter analyze`, `flutter test`; `/flutter-code-review`; `@code-reviewer`. The self-review fixed the disc buttons' screen-reader tap and the hint showing where focus does not work. `@code-reviewer` passed; its two nits were fixed (the flash label now fades out, and the hidden hint is not read) | DONE |
 | 18 | F24-T18 | Device check | Real phone: flash off / auto / on actually fires (or doesn't); reset to off after a retake; tap-to-focus sharpens the tapped area; hint once per visit; the photos shortcut; no-flash handling; error page; RTL, Large Text. Owner's pass on the RMX2001: 12 / 12 ✅ | DONE |
-| 19 | F24-T19 | PR #2 | Phase 2 PR into `develop` | TODO |
+| 19 | F24-T19 | PR #2 | Phase 2 PR into `develop` — [#26](https://github.com/Yusef3bdulkarim/war2aty/pull/26) | DONE |
 
 ### T09 decisions (2026-10-03)
 
