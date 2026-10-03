@@ -92,6 +92,7 @@ import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../core/reminders/usecases/delete_all_reminders.dart';
 import '../../core/reminders/usecases/delete_reminder.dart';
 import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
+import '../../core/reminders/usecases/handle_reminder_notification_action.dart';
 import '../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import '../../core/reminders/usecases/snooze_reminder.dart';
 import '../../core/reminders/usecases/watch_reminder.dart';
@@ -761,6 +762,10 @@ void _registerReminders() {
       () => CompleteReminder(getIt(), getIt()),
     )
     ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
+    // F25-T03. A notification's «تم» / «أجّل ساعة».
+    ..registerFactory<HandleReminderNotificationAction>(
+      () => HandleReminderNotificationAction(getIt(), getIt()),
+    )
     ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
     // F11-T11.
     ..registerFactory<DeleteAllReminders>(
