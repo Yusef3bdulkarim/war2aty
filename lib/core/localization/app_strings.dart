@@ -916,10 +916,35 @@ abstract interface class AppStrings {
   /// widget tree.
   String get reminderNotificationChannelName;
 
-  /// Shown on the OS notification instead of the reminder's real title when
-  /// sensitive details are hidden (F09-T14, default on) — never a specific
-  /// amount, account number or name, whatever the reminder is about.
-  String get reminderNotificationGenericTitle;
+  // The OS notification's own copy (F25-T01) — the tone rises as the event
+  // gets closer. A span («3 أيام», «ساعتين», «20 دقيقة») is built by one of
+  // the three counters below and dropped into a title, so each language
+  // keeps its own number agreement and word order.
+  String reminderNotificationDays(int days);
+  String reminderNotificationHours(int hours);
+  String reminderNotificationMinutes(int minutes);
+
+  /// Details shown: the reminder's own title, behind how close it is.
+  String reminderNotificationTitleDaysLeft(String days, String title);
+  String reminderNotificationTitleTomorrow(String title);
+  String reminderNotificationTitleIn(String span, String title);
+  String reminderNotificationTitleToday(String title);
+  String reminderNotificationTitleNow(String title);
+
+  /// Details shown: when the event is, ahead of the user's own note.
+  String reminderNotificationBodyOn(String date);
+  String reminderNotificationBodyOnAt(String date, String time);
+  String reminderNotificationBodyAt(String time);
+  String get reminderNotificationBodyNow;
+
+  /// Details hidden (F09-T14, default on): when, never what — no title, no
+  /// note, no amount, account number or name, whatever the reminder is
+  /// about.
+  String reminderNotificationHiddenTitleIn(String span);
+  String get reminderNotificationHiddenTitleTomorrow;
+  String get reminderNotificationHiddenTitleToday;
+  String get reminderNotificationHiddenTitleNow;
+  String get reminderNotificationHiddenBody;
 
   // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
   String get reminderListTitle;

@@ -1097,8 +1097,50 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderNotificationChannelName => 'Reminders';
   @override
-  String get reminderNotificationGenericTitle =>
-      'You have an upcoming reminder';
+  String reminderNotificationDays(int days) =>
+      days == 1 ? '1 day' : '$days days';
+  @override
+  String reminderNotificationHours(int hours) =>
+      hours == 1 ? 'an hour' : '$hours hours';
+  @override
+  String reminderNotificationMinutes(int minutes) =>
+      minutes == 1 ? 'a minute' : '$minutes minutes';
+  @override
+  String reminderNotificationTitleDaysLeft(String days, String title) =>
+      '$days left: $title';
+  @override
+  String reminderNotificationTitleTomorrow(String title) =>
+      'Due tomorrow: $title';
+  @override
+  String reminderNotificationTitleIn(String span, String title) =>
+      'In $span: $title';
+  @override
+  String reminderNotificationTitleToday(String title) => 'Today: $title';
+  @override
+  String reminderNotificationTitleNow(String title) => 'Now: $title';
+  @override
+  String reminderNotificationBodyOn(String date) => 'It\'s on $date.';
+  @override
+  String reminderNotificationBodyOnAt(String date, String time) =>
+      'It\'s on $date at $time.';
+  @override
+  String reminderNotificationBodyAt(String time) => 'At $time.';
+  @override
+  String get reminderNotificationBodyNow => 'It\'s time.';
+  @override
+  String reminderNotificationHiddenTitleIn(String span) =>
+      'You have a reminder in $span';
+  @override
+  String get reminderNotificationHiddenTitleTomorrow =>
+      'You have a reminder for tomorrow';
+  @override
+  String get reminderNotificationHiddenTitleToday =>
+      'You have a reminder for today';
+  @override
+  String get reminderNotificationHiddenTitleNow => 'You have a reminder now';
+  @override
+  String get reminderNotificationHiddenBody =>
+      'Open the app to see the details.';
   @override
   String get reminderListTitle => 'Reminders';
   @override

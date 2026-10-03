@@ -94,6 +94,7 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
       final content = reminderNotificationContent(
         reminder,
         strings,
+        firesAt: alert.scheduledAt,
         hideSensitiveDetails: hideSensitiveDetails,
       );
       try {

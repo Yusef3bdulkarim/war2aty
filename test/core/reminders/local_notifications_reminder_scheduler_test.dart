@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
+import 'package:war2aty/core/reminders/alert_time_offset.dart';
 import 'package:war2aty/core/reminders/flutter_local_notifications_reminder_scheduler.dart';
 import 'package:war2aty/core/reminders/notification_id.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
@@ -10,6 +11,7 @@ import 'package:war2aty/core/reminders/reminder_alert_status.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/time/cairo_day.dart';
 
 import '../../support/fakes.dart';
 
@@ -126,8 +128,9 @@ void main() {
 
       await scheduler.reconcile();
 
-      final (title, _) = notifications.scheduled.values.single;
-      expect(title, ar.reminderNotificationGenericTitle);
+      final (title, body) = notifications.scheduled.values.single;
+      expect(title, isNot(contains('فاتورة')));
+      expect(body, ar.reminderNotificationHiddenBody);
     });
 
     test('still hides once the setting is explicitly turned on', () async {
@@ -139,8 +142,9 @@ void main() {
 
       await scheduler.reconcile();
 
-      final (title, _) = notifications.scheduled.values.single;
-      expect(title, ar.reminderNotificationGenericTitle);
+      final (title, body) = notifications.scheduled.values.single;
+      expect(title, isNot(contains('فاتورة')));
+      expect(body, ar.reminderNotificationHiddenBody);
     });
 
     test('shows the real title once the user turns it off', () async {
@@ -153,9 +157,62 @@ void main() {
       await scheduler.reconcile();
 
       final (title, _) = notifications.scheduled.values.single;
-      expect(title, 'دفع فاتورة الكهرباء');
+      expect(title, contains('دفع فاتورة الكهرباء'));
     });
   });
+
+  test(
+    'words each alert by how close it fires to the event (F25-T01)',
+    () async {
+      await privacyStore.writeHideSensitiveDetails(false);
+      final inFiveDays = cairoWallClockOf(
+        DateTime.now().toUtc().add(const Duration(days: 5)),
+      );
+      final event = DateTime(inFiveDays.year, inFiveDays.month, inFiveDays.day);
+      final eventInstant = cairoInstantOf(event, 600);
+      repository.pendingOutcome = Ok([
+        Reminder(
+          id: 'r1',
+          title: 'دفع فاتورة الكهرباء',
+          eventDate: event,
+          eventMinuteOfDay: 600,
+          status: ReminderStatus.pending,
+          isManual: true,
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+          alerts: [
+            for (final (i, offset) in [
+              AlertTimeOffset.threeDaysBefore,
+              AlertTimeOffset.oneDayBefore,
+            ].indexed)
+              ReminderAlert(
+                id: 'r1-a$i',
+                reminderId: 'r1',
+                scheduledAt: offset.applyTo(eventInstant),
+                status: ReminderAlertStatus.scheduled,
+              ),
+          ],
+        ),
+      ]);
+
+      await scheduler.reconcile();
+
+      final (threeDays, _) =
+          notifications.scheduled[notificationIdOf('r1-a0')]!;
+      final (oneDay, _) = notifications.scheduled[notificationIdOf('r1-a1')]!;
+      expect(
+        threeDays,
+        ar.reminderNotificationTitleDaysLeft(
+          ar.reminderNotificationDays(3),
+          'دفع فاتورة الكهرباء',
+        ),
+      );
+      expect(
+        oneDay,
+        ar.reminderNotificationTitleTomorrow('دفع فاتورة الكهرباء'),
+      );
+    },
+  );
 
   test(
     'marks a past scheduled alert delivered (best-effort bookkeeping)',

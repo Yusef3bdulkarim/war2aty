@@ -1107,7 +1107,60 @@ final class ArStrings implements AppStrings {
   @override
   String get reminderNotificationChannelName => 'التذكيرات';
   @override
-  String get reminderNotificationGenericTitle => 'عندك تذكير بموعد قريب';
+  String reminderNotificationDays(int days) => switch (days) {
+    1 => 'يوم',
+    2 => 'يومين',
+    <= 10 => '$days أيام',
+    _ => '$days يوم',
+  };
+  @override
+  String reminderNotificationHours(int hours) => switch (hours) {
+    1 => 'ساعة',
+    2 => 'ساعتين',
+    <= 10 => '$hours ساعات',
+    _ => '$hours ساعة',
+  };
+  @override
+  String reminderNotificationMinutes(int minutes) => switch (minutes) {
+    1 => 'دقيقة',
+    2 => 'دقيقتين',
+    <= 10 => '$minutes دقايق',
+    _ => '$minutes دقيقة',
+  };
+  @override
+  String reminderNotificationTitleDaysLeft(String days, String title) =>
+      'فاضل $days: $title';
+  @override
+  String reminderNotificationTitleTomorrow(String title) =>
+      'بكرة آخر ميعاد: $title';
+  @override
+  String reminderNotificationTitleIn(String span, String title) =>
+      'بعد $span: $title';
+  @override
+  String reminderNotificationTitleToday(String title) => 'النهارده: $title';
+  @override
+  String reminderNotificationTitleNow(String title) => 'دلوقتي: $title';
+  @override
+  String reminderNotificationBodyOn(String date) => 'الموعد $date.';
+  @override
+  String reminderNotificationBodyOnAt(String date, String time) =>
+      'الموعد $date الساعة $time.';
+  @override
+  String reminderNotificationBodyAt(String time) => 'الساعة $time.';
+  @override
+  String get reminderNotificationBodyNow => 'ميعادها جه.';
+  @override
+  String reminderNotificationHiddenTitleIn(String span) =>
+      'عندك موعد بعد $span';
+  @override
+  String get reminderNotificationHiddenTitleTomorrow => 'عندك موعد بكرة';
+  @override
+  String get reminderNotificationHiddenTitleToday => 'عندك موعد النهارده';
+  @override
+  String get reminderNotificationHiddenTitleNow => 'عندك موعد دلوقتي';
+  @override
+  String get reminderNotificationHiddenBody =>
+      'افتح التطبيق علشان تشوف التفاصيل.';
   @override
   String get reminderListTitle => 'التذكيرات';
   @override
