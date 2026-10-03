@@ -99,6 +99,17 @@ void main() {
       expect(find.bySemanticsLabel(_strings.cameraFlashOff), findsOneWidget);
     });
 
+    testWidgets('the feed runs the full width of the screen (F24, option b)', (
+      tester,
+    ) async {
+      await _pumpViewfinder(tester, FakeCameraService());
+
+      expect(
+        tester.getSize(find.byKey(FakeCameraPreview.key)).width,
+        tester.getSize(find.byType(Scaffold)).width,
+      );
+    });
+
     testWidgets('asks for light status-bar icons', (tester) async {
       await _pumpViewfinder(tester, FakeCameraService());
 
@@ -262,16 +273,24 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets('the mode is spelled out for two seconds, then fades', (
-      tester,
-    ) async {
+    testWidgets('the mode is spelled out for two seconds, then fades out '
+        'with its words rather than vanishing', (tester) async {
       await _pumpViewfinder(tester, FakeCameraService());
       await tester.tap(find.byKey(_flashButton));
       await tester.pump();
 
       await tester.pump(const Duration(seconds: 2));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
 
-      // The chip is gone; the button keeps the mode.
+      // Mid-fade: the words are still drawn, fading.
+      expect(find.text(_strings.cameraFlashAuto), findsOneWidget);
+      expect(_opacityOf(tester, _strings.cameraFlashAuto), 0);
+
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pump();
+
+      // Faded: the chip is gone; the button keeps the mode.
       expect(find.text(_strings.cameraFlashAuto), findsNothing);
       expect(find.bySemanticsLabel(_strings.cameraFlashAuto), findsOneWidget);
     });
@@ -362,6 +381,20 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
 
       expect(_opacityOf(tester, _strings.cameraFocusHint), 0);
+    });
+
+    testWidgets('is read by a screen reader only while it shows', (
+      tester,
+    ) async {
+      await _pumpViewfinder(tester, FakeCameraService());
+      // The live semantics tree — what TalkBack and VoiceOver walk.
+      final hint = find.semantics.byLabel(_strings.cameraFocusHint);
+      expect(hint, findsOne);
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump();
+
+      expect(hint, findsNothing);
     });
 
     testWidgets('hides at the first tap on the feed', (tester) async {

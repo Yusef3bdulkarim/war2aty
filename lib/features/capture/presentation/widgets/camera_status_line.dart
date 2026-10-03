@@ -11,8 +11,9 @@ import 'camera_flash_glyph.dart';
 /// tap on the flash — the flash mode spelled out. One at a time, cross-faded.
 ///
 /// The flash chip is visual only: the flash button already carries the mode
-/// as its screen-reader label, so the chip is not read a second time.
-class CameraStatusLine extends StatelessWidget {
+/// as its screen-reader label, so the chip is not read a second time. The
+/// hint is read only while it shows.
+class CameraStatusLine extends StatefulWidget {
   const CameraStatusLine({
     required this.hintVisible,
     required this.flashChip,
@@ -25,43 +26,76 @@ class CameraStatusLine extends StatelessWidget {
   /// The flash mode to spell out, or `null` when the chip is hidden.
   final CameraFlashMode? flashChip;
 
+  @override
+  State<CameraStatusLine> createState() => _CameraStatusLineState();
+}
+
+class _CameraStatusLineState extends State<CameraStatusLine> {
   static const Duration _fade = Duration(milliseconds: 350);
+
+  /// The mode the chip shows. It outlives [CameraStatusLine.flashChip] by the
+  /// fade, so the chip fades out with its words instead of vanishing.
+  CameraFlashMode? _shown;
+
+  @override
+  void initState() {
+    super.initState();
+    _shown = widget.flashChip;
+  }
+
+  @override
+  void didUpdateWidget(CameraStatusLine oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final chip = widget.flashChip;
+    if (chip != null) _shown = chip;
+  }
+
+  void _onChipFaded() {
+    if (widget.flashChip == null && _shown != null) {
+      setState(() => _shown = null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final chip = flashChip;
+    final chip = _shown;
     final colors = AppColors.of(context);
+    final hintShows = widget.hintVisible && widget.flashChip == null;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 34),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AnimatedOpacity(
-            opacity: hintVisible && chip == null ? 1 : 0,
-            duration: _fade,
-            child: _Pill(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: colors.mint,
-                      shape: BoxShape.circle,
+          ExcludeSemantics(
+            excluding: !hintShows,
+            child: AnimatedOpacity(
+              opacity: hintShows ? 1 : 0,
+              duration: _fade,
+              child: _Pill(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: colors.mint,
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(child: _PillText(context.strings.cameraFocusHint)),
-                ],
+                    const SizedBox(width: 8),
+                    Flexible(child: _PillText(context.strings.cameraFocusHint)),
+                  ],
+                ),
               ),
             ),
           ),
           ExcludeSemantics(
             child: AnimatedOpacity(
-              opacity: chip == null ? 0 : 1,
+              opacity: widget.flashChip == null ? 0 : 1,
               duration: _fade,
+              onEnd: _onChipFaded,
               child: chip == null
                   ? const SizedBox.shrink()
                   : _Pill(

@@ -141,3 +141,36 @@ Final picks on the refined page:
 - **Hint:** **once per camera visit**, not again after a retake.
 
 `docs/design/F24-camera-mockups.html` now shows only this final design, with its spec. The earlier A / B / C and option pages are in git history (`64026cd`, `c7a0ab0`).
+
+### Layout decision after the first device run (2026-10-03)
+
+On Android the camera plugin gives a 16:9 picture (`ResolutionPreset.high`, 1280×720), not the 3:4 the mockup assumed. No usable 4:3 preset exists: `low` is 320×240, and `max` is the RMX2001's full 64 MP sensor. At full width, a 16:9 feed leaves too little room below it for the dock.
+
+The two options were:
+- **(a)** shrink the feed, which leaves bands down the sides
+- **(b)** keep the feed full width and float the dock over its bottom
+
+**The owner chose (b).** The feed stays Fit, full width under the bar, and the status line and capsule sit over roughly the bottom 100dp of the picture.
+
+A dark fade behind the dock (from the backdrop at 0% to 90%) keeps the white shutter, the glass capsule and the hint legible over a white page. The fade takes no taps.
+
+The mockup page still shows the C2 3:4 frame. This section overrides it for the feed's height.
+
+## Device pass (F24-T18)
+
+Phone: RMX2001 (Android 11), dev flavor, local Supabase over `adb reverse`.
+
+| # | Check | Expected | Result |
+|---|---|---|---|
+| 1 | Home → «صوّر ورقتك» | Teal bar with the back arrow; the feed full width under it; the dock below with the capsule (photos · shutter · flash). Nothing over the paper | |
+| 2 | Wait on the camera | The hint «المس الورقة علشان تبقى واضحة» shows and fades after ~4 s | |
+| 3 | Tap a spot on the paper | White corner brackets at that spot; the area sharpens | |
+| 4 | Tap ⚡ three times | Icon: slashed → bolt with «A» → bolt on mint, then back to slashed. «الفلاش: …» spelled out for ~2 s each time | |
+| 5 | Flash **on** → shutter | The flash fires; the photo reaches the crop screen upright and sharp | |
+| 6 | Flash **auto** → shutter, in a dim room and then a bright one | Fires in the dark, not in bright light | |
+| 7 | Back from the crop screen (retake) | The camera re-opens with the flash **off**, and the hint does **not** come back | |
+| 8 | The photos button | The phone's photo picker opens; Back from it returns Home, not to the camera | |
+| 9 | Back arrow in the teal bar | Leaves the camera | |
+| 10 | Home button / lock, then return | The camera re-opens live, the flash off | |
+| 11 | TalkBack: swipe to the flash and photos buttons, double-tap | Each is read («الفلاش: مطفي», «اختار صورة من الموبايل») and works | |
+| 12 | Large Text (system font size max) | Nothing overflows; the dock keeps its room and the feed shrinks if needed | |

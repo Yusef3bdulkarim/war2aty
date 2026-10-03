@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -23,9 +22,10 @@ import '../widgets/focusable_preview.dart';
 
 // From the approved F24 design (`docs/design/F24-camera-mockups.html`, C2).
 const double _feedGap = 8;
-const double _capsuleHeight = 84;
 const double _dockGap = 14;
 const double _dockBottom = 22;
+// Where the fade behind the dock starts, above the status line.
+const double _dockFadeTop = 40;
 
 /// The viewfinder (F24): the app's teal bar, the live feed full width and
 /// Fit, and a dock below it with the status line and the glass capsule —
@@ -232,7 +232,12 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   }
 }
 
-/// The feed and the dock below it.
+/// The feed, full width under the bar, and the dock pinned to the bottom.
+///
+/// The feed is Fit at the camera's own shape. Android gives a 16:9 picture,
+/// which at full width runs under the dock; the owner chose that over a
+/// narrower feed with side bands (F24, layout option b). A fade behind the
+/// dock keeps the controls and the hint legible over a white page.
 class _Viewfinder extends StatelessWidget {
   const _Viewfinder({
     required this.state,
@@ -252,39 +257,52 @@ class _Viewfinder extends StatelessWidget {
   Widget build(BuildContext context) {
     final cubit = context.read<CameraCaptureCubit>();
     final armed = state is CameraReady;
-    // Room for the status line at two lines of (possibly enlarged) text,
-    // with headroom over the pill's exact line metrics.
-    final statusLine = math.max(
-      34.0,
-      MediaQuery.textScalerOf(context).scale(13.5) * 1.5 * 2 + 14,
-    );
-    const dockFixed = _dockGap + _capsuleHeight + _dockBottom;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // The dock keeps its height on a short screen; the feed shrinks
-        // instead — still Fit, so the whole frame stays visible.
-        final feedMax = math.max(
-          0.0,
-          constraints.maxHeight - _feedGap - statusLine - dockFixed,
-        );
-
-        return Column(
-          children: [
-            const SizedBox(height: _feedGap),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: feedMax),
-              child: FocusablePreview(
-                preview: cubit.preview.build(context),
-                enabled: armed && state.capabilities.canFocus,
-                onFocus: onFocus,
-              ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: _feedGap),
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: FocusablePreview(
+              preview: cubit.preview.build(context),
+              enabled: armed && state.capabilities.canFocus,
+              onFocus: onFocus,
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: _dockBottom),
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Stack(
+            children: [
+              // The fade takes no taps, so focusing still works on the paper
+              // showing through it.
+              const Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: [0, 0.4, 1],
+                        colors: [
+                          Color(0x00111417),
+                          Color(0xB3111417),
+                          Color(0xE6111417),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: _dockFadeTop,
+                  bottom: _dockBottom,
+                ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     CameraStatusLine(
                       hintVisible: hintVisible,
@@ -302,10 +320,10 @@ class _Viewfinder extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
