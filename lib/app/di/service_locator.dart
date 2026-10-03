@@ -63,6 +63,7 @@ import '../../core/env/usecases/get_app_version.dart';
 import '../../core/identity/installation_id_provider.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
+import '../../core/localization/saved_locale_strings.dart';
 import '../../core/localization/usecases/get_saved_locale.dart';
 import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
@@ -80,6 +81,7 @@ import '../../core/reminders/flutter_local_notifications_port.dart';
 import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
 import '../../core/reminders/local_notifications_port.dart';
 import '../../core/reminders/notification_privacy_store.dart';
+import '../../core/reminders/reminder_notification_response.dart';
 import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
@@ -387,8 +389,12 @@ List<BootstrapStep> _buildLaunchSteps() {
     }, critical: false),
     BootstrapStep(BootstrapStage.reminders, () async {
       // The plugin/timezone/channel setup (F09-T10) has to run before the
-      // first `reconcile` ever schedules anything.
-      await getIt<LocalNotificationsPort>().initialize();
+      // first `reconcile` ever schedules anything. The buttons' labels are
+      // fixed here for iOS (F25-T02), in the language saved at launch.
+      final strings = appStringsForSavedLocale(await getIt<GetSavedLocale>()());
+      await getIt<LocalNotificationsPort>().initialize(
+        actionLabels: ReminderNotificationActionLabels.of(strings),
+      );
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),

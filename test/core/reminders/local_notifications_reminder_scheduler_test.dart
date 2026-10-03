@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
 import 'package:war2aty/core/reminders/alert_time_offset.dart';
 import 'package:war2aty/core/reminders/flutter_local_notifications_reminder_scheduler.dart';
@@ -46,6 +47,41 @@ void main() {
 
     expect(outcome, const Ok<int, AppFailure>(2));
     expect(notifications.scheduled, hasLength(2));
+  });
+
+  test('carries the reminder id and its two buttons (F25-T02)', () async {
+    final future = DateTime.now().toUtc().add(const Duration(days: 1));
+    final reminder = fakeReminder(id: 'r7', alertTimes: [future]);
+    final id = notificationIdOf(reminder.alerts.single.id);
+    repository.pendingOutcome = Ok([reminder]);
+
+    await scheduler.reconcile();
+
+    expect(notifications.payloads[id], 'r7');
+    final labels = notifications.actionLabels[id]!;
+    expect(labels.complete, ar.reminderNotificationActionComplete);
+    expect(labels.snooze, ar.reminderNotificationActionSnooze);
+  });
+
+  test('labels the buttons in the saved language', () async {
+    final english = LocalNotificationsReminderScheduler(
+      notifications,
+      repository,
+      GetSavedLocale(FakeLocaleStore('en')),
+      GetHideSensitiveNotificationDetails(privacyStore),
+    );
+    final future = DateTime.now().toUtc().add(const Duration(days: 1));
+    repository.pendingOutcome = Ok([
+      fakeReminder(alertTimes: [future]),
+    ]);
+
+    await english.reconcile();
+
+    final labels = notifications.actionLabels.values.single;
+    expect(
+      labels.complete,
+      const EnStrings().reminderNotificationActionComplete,
+    );
   });
 
   test('never schedules an alert already in the past', () async {

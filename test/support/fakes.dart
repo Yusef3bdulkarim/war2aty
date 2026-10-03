@@ -42,6 +42,7 @@ import 'package:war2aty/core/reminders/notification_privacy_store.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/reminder_alert.dart';
 import 'package:war2aty/core/reminders/reminder_alert_status.dart';
+import 'package:war2aty/core/reminders/reminder_notification_response.dart';
 import 'package:war2aty/core/reminders/reminder_scheduler.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 import 'package:war2aty/core/reminders/reminders_repository.dart';
@@ -1334,8 +1335,18 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
   /// scheduler's own failure handling.
   final Set<int> failingIds = {};
 
+  /// The payload and button labels each id was last scheduled with (F25).
+  final Map<int, String> payloads = {};
+  final Map<int, ReminderNotificationActionLabels> actionLabels = {};
+  ReminderNotificationActionLabels? initializedActionLabels;
+
   @override
-  Future<void> initialize() async => initializeCount++;
+  Future<void> initialize({
+    required ReminderNotificationActionLabels actionLabels,
+  }) async {
+    initializeCount++;
+    initializedActionLabels = actionLabels;
+  }
 
   @override
   Future<void> schedule({
@@ -1343,18 +1354,24 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
     required DateTime at,
     required String title,
     String? body,
+    required String payload,
+    required ReminderNotificationActionLabels actionLabels,
   }) async {
     if (failingIds.contains(id)) {
       throw StateError('scheduling failed for $id');
     }
     scheduled[id] = (title, body);
     scheduledAt[id] = at;
+    payloads[id] = payload;
+    this.actionLabels[id] = actionLabels;
   }
 
   @override
   Future<void> cancel(int id) async {
     scheduled.remove(id);
     scheduledAt.remove(id);
+    payloads.remove(id);
+    actionLabels.remove(id);
   }
 
   @override

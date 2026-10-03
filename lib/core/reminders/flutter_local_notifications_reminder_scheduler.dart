@@ -1,7 +1,6 @@
 import '../error/app_failure.dart';
 import '../localization/app_strings.dart';
-import '../localization/ar_strings.dart';
-import '../localization/en_strings.dart';
+import '../localization/saved_locale_strings.dart';
 import '../localization/usecases/get_saved_locale.dart';
 import '../result/result.dart';
 import 'local_notifications_port.dart';
@@ -10,6 +9,7 @@ import 'reminder.dart';
 import 'reminder_alert.dart';
 import 'reminder_alert_status.dart';
 import 'reminder_notification_content.dart';
+import 'reminder_notification_response.dart';
 import 'reminder_scheduler.dart';
 import 'reminders_repository.dart';
 import 'usecases/get_hide_sensitive_notification_details.dart';
@@ -89,6 +89,7 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
     // change mid-batch, and there is no reason to hit the database again
     // for every alert in it.
     final hideSensitiveDetails = await _getHideSensitiveDetails();
+    final actionLabels = ReminderNotificationActionLabels.of(strings);
     var scheduledCount = 0;
     for (final (reminder, alert) in due) {
       final content = reminderNotificationContent(
@@ -103,6 +104,10 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
           at: alert.scheduledAt,
           title: content.title,
           body: content.body,
+          // The reminder, not the alert: whichever of its alerts fired,
+          // tapping or pressing a button acts on the reminder (F25).
+          payload: reminder.id,
+          actionLabels: actionLabels,
         );
         await _repository.setAlertStatus(
           alert.id,
@@ -122,8 +127,6 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
     return Ok(scheduledCount);
   }
 
-  Future<AppStrings> _currentStrings() async {
-    final code = await _getSavedLocale();
-    return code == 'en' ? const EnStrings() : const ArStrings();
-  }
+  Future<AppStrings> _currentStrings() async =>
+      appStringsForSavedLocale(await _getSavedLocale());
 }

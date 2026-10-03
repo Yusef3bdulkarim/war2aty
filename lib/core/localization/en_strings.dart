@@ -1142,6 +1142,10 @@ final class EnStrings implements AppStrings {
   String get reminderNotificationHiddenBody =>
       'Open the app to see the details.';
   @override
+  String get reminderNotificationActionComplete => 'Done';
+  @override
+  String get reminderNotificationActionSnooze => 'Snooze 1 hour';
+  @override
   String get reminderListTitle => 'Reminders';
   @override
   String get reminderTabUpcoming => 'Upcoming';
