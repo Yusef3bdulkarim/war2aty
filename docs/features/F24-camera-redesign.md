@@ -152,7 +152,7 @@ The two options were:
 
 **The owner chose (b).** The feed stays Fit, full width under the bar, and the status line and capsule sit over roughly the bottom 100dp of the picture.
 
-A dark fade behind the dock (from the backdrop at 0% to 90%) keeps the white shutter, the glass capsule and the hint legible over a white page. The fade takes no taps.
+The owner then removed the dark fade that sat behind the dock, so the controls float straight on the feed.
 
 The mockup page still shows the C2 3:4 frame. This section overrides it for the feed's height.
 

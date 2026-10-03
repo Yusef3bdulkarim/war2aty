@@ -24,8 +24,6 @@ import '../widgets/focusable_preview.dart';
 const double _feedGap = 8;
 const double _dockGap = 14;
 const double _dockBottom = 22;
-// Where the fade behind the dock starts, above the status line.
-const double _dockFadeTop = 40;
 
 /// The viewfinder (F24): the app's teal bar, the live feed full width and
 /// Fit, and a dock below it with the status line and the glass capsule —
@@ -236,8 +234,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
 ///
 /// The feed is Fit at the camera's own shape. Android gives a 16:9 picture,
 /// which at full width runs under the dock; the owner chose that over a
-/// narrower feed with side bands (F24, layout option b). A fade behind the
-/// dock keeps the controls and the hint legible over a white page.
+/// narrower feed with side bands (F24, layout option b).
 class _Viewfinder extends StatelessWidget {
   const _Viewfinder({
     required this.state,
@@ -274,53 +271,26 @@ class _Viewfinder extends StatelessWidget {
         ),
         Align(
           alignment: Alignment.bottomCenter,
-          child: Stack(
-            children: [
-              // The fade takes no taps, so focusing still works on the paper
-              // showing through it.
-              const Positioned.fill(
-                child: IgnorePointer(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: [0, 0.4, 1],
-                        colors: [
-                          Color(0x00111417),
-                          Color(0xB3111417),
-                          Color(0xE6111417),
-                        ],
-                      ),
-                    ),
-                  ),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: _dockBottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CameraStatusLine(
+                  hintVisible: hintVisible,
+                  flashChip: flashChip,
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  top: _dockFadeTop,
-                  bottom: _dockBottom,
+                const SizedBox(height: _dockGap),
+                CameraCapsule(
+                  flashMode: state.flashMode,
+                  hasFlash: state.capabilities.hasFlash,
+                  shutterEnabled: armed,
+                  onShutter: cubit.capture,
+                  onFlash: cubit.cycleFlash,
+                  onPickFromPhone: onPickFromPhone,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CameraStatusLine(
-                      hintVisible: hintVisible,
-                      flashChip: flashChip,
-                    ),
-                    const SizedBox(height: _dockGap),
-                    CameraCapsule(
-                      flashMode: state.flashMode,
-                      hasFlash: state.capabilities.hasFlash,
-                      shutterEnabled: armed,
-                      onShutter: cubit.capture,
-                      onFlash: cubit.cycleFlash,
-                      onPickFromPhone: onPickFromPhone,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],
