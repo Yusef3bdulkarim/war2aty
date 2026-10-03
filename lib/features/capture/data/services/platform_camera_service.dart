@@ -4,7 +4,10 @@ import 'package:flutter/widgets.dart';
 
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
+import '../../domain/entities/camera_capabilities.dart';
+import '../../domain/entities/camera_flash_mode.dart';
 import '../../domain/entities/captured_photo.dart';
+import '../../domain/entities/focus_point.dart';
 import '../../domain/services/camera_service.dart';
 import '../../presentation/camera_preview_port.dart';
 
@@ -27,7 +30,7 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
   int _epoch = 0;
 
   @override
-  Future<Result<void, AppFailure>> initialize() async {
+  Future<Result<CameraCapabilities, AppFailure>> initialize() async {
     final epoch = ++_epoch;
     try {
       // Re-initialising: drop any controller a previous attempt left behind
@@ -58,7 +61,9 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
         return const Err(ImageProcessingFailure());
       }
       _controller = controller;
-      return const Ok(null);
+      // Flash and focus are wired up in F24-T13; until then the camera offers
+      // exactly what today's viewfinder uses — the shutter alone.
+      return const Ok(CameraCapabilities.none);
     } on Object {
       await _releaseController();
       return const Err(ImageProcessingFailure());
@@ -79,6 +84,16 @@ final class PlatformCameraService implements CameraService, CameraPreviewPort {
       return const Err(ImageProcessingFailure());
     }
   }
+
+  // F24-T13 replaces these two with the plugin calls; reported as
+  // unsupported until then, which [initialize]'s capabilities already say.
+  @override
+  Future<Result<void, AppFailure>> setFlashMode(CameraFlashMode mode) async =>
+      const Err(ImageProcessingFailure());
+
+  @override
+  Future<Result<void, AppFailure>> focusAt(FocusPoint point) async =>
+      const Err(ImageProcessingFailure());
 
   @override
   Future<void> dispose() async {
