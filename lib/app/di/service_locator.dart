@@ -163,12 +163,14 @@ import '../../features/capture/domain/usecases/create_analysis_session.dart';
 import '../../features/capture/domain/usecases/crop_image.dart';
 import '../../features/capture/domain/usecases/decide_analysis_route.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
+import '../../features/capture/domain/usecases/focus_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
 import '../../features/capture/domain/usecases/initialize_camera.dart';
 import '../../features/capture/domain/usecases/open_permission_settings.dart';
 import '../../features/capture/domain/usecases/pick_image_from_gallery.dart';
 import '../../features/capture/domain/usecases/request_camera_permission.dart';
 import '../../features/capture/domain/usecases/rotate_image.dart';
+import '../../features/capture/domain/usecases/set_camera_flash.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
@@ -478,6 +480,8 @@ void _registerCapture() {
         preview: camera,
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
+        setCameraFlash: SetCameraFlash(camera),
+        focusCamera: FocusCamera(camera),
         disposeCamera: DisposeCamera(camera),
         cleanupFiles: getIt(),
       );

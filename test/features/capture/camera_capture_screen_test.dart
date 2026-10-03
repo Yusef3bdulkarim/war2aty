@@ -10,7 +10,9 @@ import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
+import 'package:war2aty/features/capture/domain/usecases/focus_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
+import 'package:war2aty/features/capture/domain/usecases/set_camera_flash.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/capture/presentation/screens/camera_capture_screen.dart';
 
@@ -32,6 +34,8 @@ Future<_Result> _pumpViewfinder(
     preview: const FakeCameraPreview(),
     initializeCamera: InitializeCamera(camera),
     capturePhoto: CapturePhoto(camera),
+    setCameraFlash: SetCameraFlash(camera),
+    focusCamera: FocusCamera(camera),
     disposeCamera: DisposeCamera(camera),
     cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
   );
@@ -147,6 +151,8 @@ void main() {
         preview: const FakeCameraPreview(),
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
+        setCameraFlash: SetCameraFlash(camera),
+        focusCamera: FocusCamera(camera),
         disposeCamera: DisposeCamera(camera),
         cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
       );

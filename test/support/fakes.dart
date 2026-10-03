@@ -429,9 +429,15 @@ final class FakeCameraService implements CameraService {
     return initFails ? const Err(ImageProcessingFailure()) : Ok(capabilities);
   }
 
+  /// When set, [setFlashMode] waits on it — lets a test hold a flash change
+  /// with the camera and tap again meanwhile.
+  Completer<void>? flashGate;
+
   @override
   Future<Result<void, AppFailure>> setFlashMode(CameraFlashMode mode) async {
     flashModes.add(mode);
+    final gate = flashGate;
+    if (gate != null) await gate.future;
     return flashFails ? const Err(ImageProcessingFailure()) : const Ok(null);
   }
 
