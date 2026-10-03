@@ -3,7 +3,7 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — 9 / 12 DONE (T10 waived)
+- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — 12 / 12 DONE (T10 waived) · **F24 COMPLETE**
 - **PRs:** two, both into `develop` — one for Phase 1 (cleanup, [#25](https://github.com/Yusef3bdulkarim/war2aty/pull/25)), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
@@ -111,10 +111,10 @@ without a flash, camera error, Large Text ×1.5). A URL hash such as
 | 12 | F24-T12 | Cubit/state | `CameraReady` carries the flash mode, whether there is a flash, and whether focus is supported. `start()` always lands on flash off, so a retake resets it. `cycleFlash()` moves off → auto → on (a no-op without a flash; a failure keeps the old mode). `focusAt()` is ignored unless ready and supported, and its failure is silent (guidance only). Both keep the generation guard. Cubit tests. `CameraReady` and `CameraCapturing` share a `CameraLive` parent, so the dock reads the same fields mid-shot | DONE |
 | 13 | F24-T13 | Data: `PlatformCameraService` | After every open, the controller is set to `FlashMode.off`: the plugin starts in auto. Flash support: iOS detects it from a failing `setFlashMode`; Android always reports a flash (locked decision #8). Focus support comes from `focusPointSupported`; `focusAt` sets the focus point, and the exposure point where supported. `CameraException` maps to a typed failure, never thrown. The plugin-free mapping is unit-tested. The probe is the same `setFlashMode(off)` call that forces the flash off: iOS refuses every mode, off included, on a lens without a flash | DONE |
 | 14 | F24-T14 | Shared icons + strings | `StrokeGlyph.flash`, `flashOff` and `flashAuto` join the shared icon set. New strings: «الفلاش: مطفي / تلقائي / شغال», the focus hint «المس الورقة علشان تبقى واضحة», and «اختار صورة من الموبايل» on the camera. `actionBack` and `StrokeGlyph.gallery` are reused. `app_strings_test` updated. `cameraCloseLabel` goes in T15, when the back arrow replaces the ✕ | DONE |
-| 15 | F24-T15 | Screen | `CameraCaptureScreen` rebuilt to the final design: `TealTopBar`, the full-width Fit feed, and the dock (status line + capsule). The feed shrinks, still Fit, when the screen is too short for the dock. Also: the focus brackets at the tapped point; the hint once per visit (screen state, so a retake or retry does not bring it back); the flash chip for 2 s; no flash button without a flash, with the shutter kept centred; the error page with «اختار صورة من الموبايل»; the bar on the opening and error states. Widget tests: RTL, Large Text, no flash, flash cycle, the tap → normalised point, hint once per visit across `didPopNext`, the error buttons. Split into `FocusablePreview`, `CameraStatusLine` and `CameraCapsule` under `presentation/widgets/`. `cameraCloseLabel` is removed | DONE |
+| 15 | F24-T15 | Screen | `CameraCaptureScreen` rebuilt to the final design: `TealTopBar`, the full-width Fit feed, and the dock (status line + capsule) floating over the feed's bottom (layout option b, below), with a soft grey shadow around the capsule. Also: the focus brackets at the tapped point; the hint once per visit (screen state, so a retake or retry does not bring it back); the flash chip for 2 s; no flash button without a flash, with the shutter kept centred; the error page with «اختار صورة من الموبايل»; the bar on the opening and error states. Widget tests: RTL, Large Text, no flash, flash cycle, the tap → normalised point, hint once per visit across `didPopNext`, the error buttons. Split into `FocusablePreview`, `CameraStatusLine` and `CameraCapsule` under `presentation/widgets/`. `cameraCloseLabel` is removed | DONE |
 | 16 | F24-T16 | Router | The photos shortcut and the error page's button replace the camera route with the gallery route (`pushReplacement`, as the permission sheet already does), so Back returns Home. Landed in the T15 commit, since the screen's new callback would not compile without it | DONE |
-| 17 | F24-T17 | Quality gate | `dart format .`, `flutter analyze`, `flutter test`; `/flutter-code-review`; `@code-reviewer` | TODO |
-| 18 | F24-T18 | Device check | Real phone: flash off / auto / on actually fires (or doesn't); reset to off after a retake; tap-to-focus sharpens the tapped area; hint once per visit; the photos shortcut; no-flash handling; error page; RTL, Large Text | TODO |
+| 17 | F24-T17 | Quality gate | `dart format .`, `flutter analyze`, `flutter test`; `/flutter-code-review`; `@code-reviewer`. The self-review fixed the disc buttons' screen-reader tap and the hint showing where focus does not work. `@code-reviewer` passed; its two nits were fixed (the flash label now fades out, and the hidden hint is not read) | DONE |
+| 18 | F24-T18 | Device check | Real phone: flash off / auto / on actually fires (or doesn't); reset to off after a retake; tap-to-focus sharpens the tapped area; hint once per visit; the photos shortcut; no-flash handling; error page; RTL, Large Text. Owner's pass on the RMX2001: 12 / 12 ✅ | DONE |
 | 19 | F24-T19 | PR #2 | Phase 2 PR into `develop` | TODO |
 
 ### T09 decisions (2026-10-03)
@@ -152,7 +152,7 @@ The two options were:
 
 **The owner chose (b).** The feed stays Fit, full width under the bar, and the status line and capsule sit over roughly the bottom 100dp of the picture.
 
-The owner then removed the dark fade that sat behind the dock, so the controls float straight on the feed.
+The owner then removed the dark fade that sat behind the dock, so the controls float straight on the feed. Instead, the capsule has a soft shadow in the backdrop grey (`#111417` at 22%, blur 12, outside the shape only). The grey strip below a 16:9 feed is kept as it is: filling it would crop the preview's sides, and the owner chose not to.
 
 The mockup page still shows the C2 3:4 frame. This section overrides it for the feed's height.
 
@@ -162,15 +162,15 @@ Phone: RMX2001 (Android 11), dev flavor, local Supabase over `adb reverse`.
 
 | # | Check | Expected | Result |
 |---|---|---|---|
-| 1 | Home → «صوّر ورقتك» | Teal bar with the back arrow; the feed full width under it; the dock below with the capsule (photos · shutter · flash). Nothing over the paper | |
-| 2 | Wait on the camera | The hint «المس الورقة علشان تبقى واضحة» shows and fades after ~4 s | |
-| 3 | Tap a spot on the paper | White corner brackets at that spot; the area sharpens | |
-| 4 | Tap ⚡ three times | Icon: slashed → bolt with «A» → bolt on mint, then back to slashed. «الفلاش: …» spelled out for ~2 s each time | |
-| 5 | Flash **on** → shutter | The flash fires; the photo reaches the crop screen upright and sharp | |
-| 6 | Flash **auto** → shutter, in a dim room and then a bright one | Fires in the dark, not in bright light | |
-| 7 | Back from the crop screen (retake) | The camera re-opens with the flash **off**, and the hint does **not** come back | |
-| 8 | The photos button | The phone's photo picker opens; Back from it returns Home, not to the camera | |
-| 9 | Back arrow in the teal bar | Leaves the camera | |
-| 10 | Home button / lock, then return | The camera re-opens live, the flash off | |
-| 11 | TalkBack: swipe to the flash and photos buttons, double-tap | Each is read («الفلاش: مطفي», «اختار صورة من الموبايل») and works | |
-| 12 | Large Text (system font size max) | Nothing overflows; the dock keeps its room and the feed shrinks if needed | |
+| 1 | Home → «صوّر ورقتك» | Teal bar with the back arrow; the feed full width under it; the capsule (photos · shutter · flash) floating over the feed's bottom | ✅ |
+| 2 | Wait on the camera | The hint «المس الورقة علشان تبقى واضحة» shows and fades after ~4 s | ✅ |
+| 3 | Tap a spot on the paper | White corner brackets at that spot; the area sharpens | ✅ |
+| 4 | Tap ⚡ three times | Icon: slashed → bolt with «A» → bolt on mint, then back to slashed. «الفلاش: …» spelled out for ~2 s each time | ✅ |
+| 5 | Flash **on** → shutter | The flash fires; the photo reaches the crop screen upright and sharp | ✅ |
+| 6 | Flash **auto** → shutter, in a dim room and then a bright one | Fires in the dark, not in bright light | ✅ |
+| 7 | Back from the crop screen (retake) | The camera re-opens with the flash **off**, and the hint does **not** come back | ✅ |
+| 8 | The photos button | The phone's photo picker opens; Back from it returns Home, not to the camera | ✅ |
+| 9 | Back arrow in the teal bar | Leaves the camera | ✅ |
+| 10 | Home button / lock, then return | The camera re-opens live, the flash off | ✅ |
+| 11 | TalkBack: swipe to the flash and photos buttons, double-tap | Each is read («الفلاش: مطفي», «اختار صورة من الموبايل») and works | ✅ |
+| 12 | Large Text (system font size max) | Nothing overflows | ✅ |
