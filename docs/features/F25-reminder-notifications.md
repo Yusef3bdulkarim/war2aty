@@ -50,7 +50,7 @@ reads the same as the reminder details screen.
 | 3 | F25-T03 | Action use case | `HandleReminderNotificationAction`: complete / snooze 1h, ignores a reminder no longer pending, awaits reconcile | DONE |
 | 4 | F25-T04 | Tap → details | foreground + cold-start taps land on `/reminders/:id` once the router is up | DONE |
 | 5 | F25-T05 | Background actions | `@pragma('vm:entry-point')` handler + its own minimal composition; Drift shared across isolates; Android `ActionBroadcastReceiver`; iOS plugin registrant | DONE |
-| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | TODO |
+| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | IN PROGRESS — gate passed 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2164 tests green, dev debug APK builds); device checklist pending |
 
 ## Exit DoD
 
