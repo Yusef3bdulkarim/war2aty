@@ -33,9 +33,20 @@ const String reminderNotificationCategoryId = 'reminder';
 /// minutes late is a fair trade against asking for a permission this app
 /// cannot justify. This was F09's own "decide at start" item.
 final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
-  FlutterLocalNotificationsPort(this._plugin, this._channelName);
+  FlutterLocalNotificationsPort(
+    this._plugin,
+    this._channelName, {
+    fln.DidReceiveBackgroundNotificationResponseCallback? onBackgroundResponse,
+  }) : _onBackgroundResponse = onBackgroundResponse;
 
   final fln.FlutterLocalNotificationsPlugin _plugin;
+
+  /// Runs a pressed «تم» / «أجّل ساعة» in a background engine (F25-T05) —
+  /// a top-level `@pragma('vm:entry-point')` function, registered with the
+  /// platform in [initialize]. `null` for a port built inside that engine,
+  /// which never calls [initialize].
+  final fln.DidReceiveBackgroundNotificationResponseCallback?
+  _onBackgroundResponse;
 
   /// The Android channel's display name — Arabic, unconditionally. It is a
   /// label on Android's own per-app notification settings page, not
@@ -48,8 +59,7 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
     required ReminderNotificationActionLabels actionLabels,
     required void Function(ReminderNotificationResponse) onResponse,
   }) async {
-    tzdata.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Africa/Cairo'));
+    initializeReminderTimeZones();
 
     await _plugin.initialize(
       settings: fln.InitializationSettings(
@@ -79,9 +89,10 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
         ),
       ),
       onDidReceiveNotificationResponse: (response) {
-        final parsed = _parse(response);
+        final parsed = reminderNotificationResponseFromPlugin(response);
         if (parsed != null) onResponse(parsed);
       },
+      onDidReceiveBackgroundNotificationResponse: _onBackgroundResponse,
     );
 
     await _plugin
@@ -141,7 +152,9 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
     final details = await _plugin.getNotificationAppLaunchDetails();
     final response = details?.notificationResponse;
     if (details == null || !details.didNotificationLaunchApp) return null;
-    return response == null ? null : _parse(response);
+    return response == null
+        ? null
+        : reminderNotificationResponseFromPlugin(response);
   }
 
   @override
@@ -154,8 +167,21 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
   }
 }
 
-ReminderNotificationResponse? _parse(fln.NotificationResponse response) =>
-    reminderNotificationResponseOf(
-      payload: response.payload,
-      actionId: response.actionId,
-    );
+/// Loads the IANA data and sets the plugin's local zone to Cairo — the part
+/// of [FlutterLocalNotificationsPort.initialize] a background engine also
+/// needs before it can schedule (F25-T05), without re-initializing the
+/// plugin the app already set up.
+void initializeReminderTimeZones() {
+  tzdata.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Africa/Cairo'));
+}
+
+/// Reads a plugin response into the app's own type — `null` when it is not
+/// one of this app's reminder notifications (see
+/// [reminderNotificationResponseOf]).
+ReminderNotificationResponse? reminderNotificationResponseFromPlugin(
+  fln.NotificationResponse response,
+) => reminderNotificationResponseOf(
+  payload: response.payload,
+  actionId: response.actionId,
+);

@@ -209,6 +209,7 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../notifications/reminder_notification_background.dart';
 import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
@@ -746,7 +747,12 @@ void _registerReminders() {
     ..registerLazySingleton<LocalNotificationsPort>(
       // Arabic, unconditionally — see `FlutterLocalNotificationsPort`'s own
       // doc comment for why this one string isn't locale-aware.
-      () => FlutterLocalNotificationsPort(getIt(), 'التذكيرات'),
+      () => FlutterLocalNotificationsPort(
+        getIt(),
+        'التذكيرات',
+        // F25-T05. A pressed «تم» / «أجّل ساعة» runs here, off the app.
+        onBackgroundResponse: onReminderNotificationBackgroundResponse,
+      ),
     )
     // F09-T14. Same `app_settings` table `DriftLocaleStore` reads/writes.
     ..registerLazySingleton<NotificationPrivacyStore>(

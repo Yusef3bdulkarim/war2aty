@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminder-notifications`, based on `develop` · **Milestone:** post-F24
 - **Depends on:** F09 (reminders, `ReminderScheduler`, the notification port), F11-T10 (the notification-privacy setting)
-- **Progress:** 4 / 6 DONE
+- **Progress:** 5 / 6 DONE
 
 What a reminder's OS notification says, and what the user can do from it.
 F09 shipped a bare notification: hidden mode (the default) said only «عندك
@@ -49,7 +49,7 @@ reads the same as the reminder details screen.
 | 2 | F25-T02 | Port: payload + actions | plugin-free `ReminderNotificationResponse`; payload = reminder id; «تم»/«أجّل ساعة» buttons (Android per notification, iOS category); long body expands | DONE |
 | 3 | F25-T03 | Action use case | `HandleReminderNotificationAction`: complete / snooze 1h, ignores a reminder no longer pending, awaits reconcile | DONE |
 | 4 | F25-T04 | Tap → details | foreground + cold-start taps land on `/reminders/:id` once the router is up | DONE |
-| 5 | F25-T05 | Background actions | `@pragma('vm:entry-point')` handler + its own minimal composition; Drift shared across isolates; Android `ActionBroadcastReceiver`; iOS plugin registrant | TODO |
+| 5 | F25-T05 | Background actions | `@pragma('vm:entry-point')` handler + its own minimal composition; Drift shared across isolates; Android `ActionBroadcastReceiver`; iOS plugin registrant | DONE |
 | 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | TODO |
 
 ## Exit DoD

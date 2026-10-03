@@ -61,8 +61,19 @@ class UsageCache extends Table {
 class AppDatabase extends _$AppDatabase {
   /// Opens the on-device database. Pass an [executor] (e.g. an in-memory one)
   /// in tests.
+  ///
+  /// Shared across isolates (F25-T05): a notification's «تم» / «أجّل ساعة»
+  /// writes from a background engine while the app may be open. Sharing
+  /// makes both talk to one database isolate, so the write never races the
+  /// app's own connection and the app's open lists update straight away.
   AppDatabase([QueryExecutor? executor])
-    : super(executor ?? driftDatabase(name: 'war2aty'));
+    : super(
+        executor ??
+            driftDatabase(
+              name: 'war2aty',
+              native: const DriftNativeOptions(shareAcrossIsolates: true),
+            ),
+      );
 
   @override
   int get schemaVersion => 3;
