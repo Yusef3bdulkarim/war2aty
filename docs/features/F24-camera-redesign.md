@@ -3,7 +3,7 @@
 - **Branches:** Phase 1 `refactor/remove-live-edge-detection`, based on `develop` · Phase 2 `feature/camera-redesign`, based on `develop` once Phase 1 is merged (or on the Phase 1 branch if design work starts first) · **Milestone:** post-F23
 - **Depends on:** F03 (the capture screen), F16 (the live edge detection this feature removes)
 - **Supersedes:** [F16 · Live edge detection](F16-live-edge-detection.md)
-- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — not yet planned
+- **Progress:** Phase 1 — 7 / 7 DONE · Phase 2 — 12 / 12 DONE (T10 waived) · **F24 COMPLETE**
 - **PRs:** two, both into `develop` — one for Phase 1 (cleanup, [#25](https://github.com/Yusef3bdulkarim/war2aty/pull/25)), one for Phase 2 (redesign)
 
 The owner's rework of the camera screen, 2026-10-03, in two phases.
@@ -47,6 +47,16 @@ Resolved with the owner on 2026-10-03.
    large touch targets for older users. Three variants are delivered as a
    local standalone HTML file in the repository; the chosen variant is
    committed to `Waraqti.dc.html` **before** any Flutter UI work starts.
+   > **Amended 2026-10-03 (owner, decision 1 b).** The committed final page,
+   > `docs/design/F24-camera-mockups.html`, is the camera screen's design
+   > source, as F23's approved mockups were for its pages. `Waraqti.dc.html` is
+   > updated from it whenever convenient. This is no longer a gate on the
+   > Flutter work.
+8. **Flash on a phone without one (owner, decision 2 b, 2026-10-03).** iOS
+   reports a missing flash (`setFlashMode` fails with `setFlashModeFailed`), so
+   the button is hidden there. The camera plugin cannot tell on Android
+   (CameraX), so Android always shows the button; on a phone without a flash it
+   changes the mode and nothing fires. No native code is added.
 
 ## Phase 1 — Remove the live document frame
 
@@ -83,5 +93,84 @@ Run by the owner on 2026-10-03; all nine checks pass.
 
 ## Phase 2 — Camera redesign
 
-Planned after Phase 1: three HTML mockup variants → the owner's choice →
-`Waraqti.dc.html` updated → the task table for the Flutter work.
+Three HTML mockup variants → the owner's choice → `Waraqti.dc.html` updated →
+the task table for the Flutter work. No Flutter UI is written before T10.
+
+Mockups: [`docs/design/F24-camera-mockups.html`](../design/F24-camera-mockups.html)
+— open it in a browser. All three phones are interactive, and the toolbar puts
+them in the same state (ready, light on, focusing, capturing, opening, phone
+without a flash, camera error, Large Text ×1.5). A URL hash such as
+`#flash,large` preselects a state.
+
+| # | ID | Title | Acceptance criteria | Status |
+|---|---|---|---|---|
+| 8 | F24-T08 | Branch + three mockups | Branch `feature/camera-redesign` off `develop` (after #25). One local standalone HTML file holds three Waraqti variants (A native minimal, B labelled elderly-first, C floating capsule), each with the light toggle, the photos shortcut beside the shutter and tap-to-focus. The feed stays Fit. Every control is ≥ 48 × 48 and no state is shown by colour alone; states are RTL, Large Text, opening, error and no flash | DONE |
+| 9 | F24-T09 | The owner's pick | The owner chooses a variant (or a mix) and answers the open behaviour questions listed at the bottom of the mockup page | DONE — see [T09 decisions](#t09-decisions-2026-10-03) |
+| 10 | F24-T10 | Waraqti design updated | The final design is committed to `Waraqti.dc.html` | **WAIVED** — locked decision #7 amended: the committed page is the design source; `Waraqti.dc.html` is updated from it whenever convenient |
+| 11 | F24-T11 | Domain: flash, focus, capabilities | `CameraFlashMode` (off / auto / on), `CameraCapabilities` (has a flash, can focus) and a normalised `FocusPoint` (0..1, validated). `CameraService.initialize` returns the capabilities and gains `setFlashMode` and `focusAt`. New `SetCameraFlash` and `FocusCamera` use cases; `InitializeCamera` passes the capabilities through. Pure Dart; tests for `FocusPoint` and the use cases; the test fake updated. Until T13, `PlatformCameraService` reports `CameraCapabilities.none` and refuses flash/focus, which matches today's screen | DONE |
+| 12 | F24-T12 | Cubit/state | `CameraReady` carries the flash mode, whether there is a flash, and whether focus is supported. `start()` always lands on flash off, so a retake resets it. `cycleFlash()` moves off → auto → on (a no-op without a flash; a failure keeps the old mode). `focusAt()` is ignored unless ready and supported, and its failure is silent (guidance only). Both keep the generation guard. Cubit tests. `CameraReady` and `CameraCapturing` share a `CameraLive` parent, so the dock reads the same fields mid-shot | DONE |
+| 13 | F24-T13 | Data: `PlatformCameraService` | After every open, the controller is set to `FlashMode.off`: the plugin starts in auto. Flash support: iOS detects it from a failing `setFlashMode`; Android always reports a flash (locked decision #8). Focus support comes from `focusPointSupported`; `focusAt` sets the focus point, and the exposure point where supported. `CameraException` maps to a typed failure, never thrown. The plugin-free mapping is unit-tested. The probe is the same `setFlashMode(off)` call that forces the flash off: iOS refuses every mode, off included, on a lens without a flash | DONE |
+| 14 | F24-T14 | Shared icons + strings | `StrokeGlyph.flash`, `flashOff` and `flashAuto` join the shared icon set. New strings: «الفلاش: مطفي / تلقائي / شغال», the focus hint «المس الورقة علشان تبقى واضحة», and «اختار صورة من الموبايل» on the camera. `actionBack` and `StrokeGlyph.gallery` are reused. `app_strings_test` updated. `cameraCloseLabel` goes in T15, when the back arrow replaces the ✕ | DONE |
+| 15 | F24-T15 | Screen | `CameraCaptureScreen` rebuilt to the final design: `TealTopBar`, the full-width Fit feed, and the dock (status line + capsule) floating over the feed's bottom (layout option b, below), with a soft grey shadow around the capsule. Also: the focus brackets at the tapped point; the hint once per visit (screen state, so a retake or retry does not bring it back); the flash chip for 2 s; no flash button without a flash, with the shutter kept centred; the error page with «اختار صورة من الموبايل»; the bar on the opening and error states. Widget tests: RTL, Large Text, no flash, flash cycle, the tap → normalised point, hint once per visit across `didPopNext`, the error buttons. Split into `FocusablePreview`, `CameraStatusLine` and `CameraCapsule` under `presentation/widgets/`. `cameraCloseLabel` is removed | DONE |
+| 16 | F24-T16 | Router | The photos shortcut and the error page's button replace the camera route with the gallery route (`pushReplacement`, as the permission sheet already does), so Back returns Home. Landed in the T15 commit, since the screen's new callback would not compile without it | DONE |
+| 17 | F24-T17 | Quality gate | `dart format .`, `flutter analyze`, `flutter test`; `/flutter-code-review`; `@code-reviewer`. The self-review fixed the disc buttons' screen-reader tap and the hint showing where focus does not work. `@code-reviewer` passed; its two nits were fixed (the flash label now fades out, and the hidden hint is not read) | DONE |
+| 18 | F24-T18 | Device check | Real phone: flash off / auto / on actually fires (or doesn't); reset to off after a retake; tap-to-focus sharpens the tapped area; hint once per visit; the photos shortcut; no-flash handling; error page; RTL, Large Text. Owner's pass on the RMX2001: 12 / 12 ✅ | DONE |
+| 19 | F24-T19 | PR #2 | Phase 2 PR into `develop` — [#26](https://github.com/Yusef3bdulkarim/war2aty/pull/26) | DONE |
+
+### T09 decisions (2026-10-03)
+
+The owner picked **variant C** as the base, with these changes:
+
+- **Smaller controls:** shutter 78 → 68; photos and flash discs 52 → 44, keeping 48 × 48 tap areas.
+- **Top bar:** C's top row is replaced with the app's `TealTopBar` (the analysis and failure pages' bar: colour and style).
+- **The space around the feed:** proposals for making it look purposeful, plus colour suggestions for the bar and the bottom area.
+
+Answers to the six behaviour questions:
+
+1. **Flash**, not a torch: off / auto / on, firing with the shutter.
+2. **Photos button:** a plain icon, so there is no early photo-library permission.
+3. **Hint:** yes — a subtle, auto-hiding focus hint.
+4. **Camera error page:** «اختار صورة من الموبايل» goes under «حاول تاني».
+5. **Phone without a flash:** the flash button is hidden completely.
+6. **After a shot:** the flash resets to off on returning to the camera.
+
+Final picks on the refined page:
+- **Layout:** C2, edge-to-edge.
+- **Top bar:** brand teal, exactly as `TealTopBar`.
+- **Bottom:** glass capsule.
+- **Hint:** **once per camera visit**, not again after a retake.
+
+`docs/design/F24-camera-mockups.html` now shows only this final design, with its spec. The earlier A / B / C and option pages are in git history (`64026cd`, `c7a0ab0`).
+
+### Layout decision after the first device run (2026-10-03)
+
+On Android the camera plugin gives a 16:9 picture (`ResolutionPreset.high`, 1280×720), not the 3:4 the mockup assumed. No usable 4:3 preset exists: `low` is 320×240, and `max` is the RMX2001's full 64 MP sensor. At full width, a 16:9 feed leaves too little room below it for the dock.
+
+The two options were:
+- **(a)** shrink the feed, which leaves bands down the sides
+- **(b)** keep the feed full width and float the dock over its bottom
+
+**The owner chose (b).** The feed stays Fit, full width under the bar, and the status line and capsule sit over roughly the bottom 100dp of the picture.
+
+The owner then removed the dark fade that sat behind the dock, so the controls float straight on the feed. Instead, the capsule has a soft shadow in the backdrop grey (`#111417` at 22%, blur 12, outside the shape only). The grey strip below a 16:9 feed is kept as it is: filling it would crop the preview's sides, and the owner chose not to.
+
+The mockup page still shows the C2 3:4 frame. This section overrides it for the feed's height.
+
+## Device pass (F24-T18)
+
+Phone: RMX2001 (Android 11), dev flavor, local Supabase over `adb reverse`.
+
+| # | Check | Expected | Result |
+|---|---|---|---|
+| 1 | Home → «صوّر ورقتك» | Teal bar with the back arrow; the feed full width under it; the capsule (photos · shutter · flash) floating over the feed's bottom | ✅ |
+| 2 | Wait on the camera | The hint «المس الورقة علشان تبقى واضحة» shows and fades after ~4 s | ✅ |
+| 3 | Tap a spot on the paper | White corner brackets at that spot; the area sharpens | ✅ |
+| 4 | Tap ⚡ three times | Icon: slashed → bolt with «A» → bolt on mint, then back to slashed. «الفلاش: …» spelled out for ~2 s each time | ✅ |
+| 5 | Flash **on** → shutter | The flash fires; the photo reaches the crop screen upright and sharp | ✅ |
+| 6 | Flash **auto** → shutter, in a dim room and then a bright one | Fires in the dark, not in bright light | ✅ |
+| 7 | Back from the crop screen (retake) | The camera re-opens with the flash **off**, and the hint does **not** come back | ✅ |
+| 8 | The photos button | The phone's photo picker opens; Back from it returns Home, not to the camera | ✅ |
+| 9 | Back arrow in the teal bar | Leaves the camera | ✅ |
+| 10 | Home button / lock, then return | The camera re-opens live, the flash off | ✅ |
+| 11 | TalkBack: swipe to the flash and photos buttons, double-tap | Each is read («الفلاش: مطفي», «اختار صورة من الموبايل») and works | ✅ |
+| 12 | Large Text (system font size max) | Nothing overflows | ✅ |

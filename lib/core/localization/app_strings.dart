@@ -105,11 +105,21 @@ abstract interface class AppStrings {
   /// Announced while the camera is opening.
   String get cameraOpening;
 
+  /// The flash button's state, spelled out after a tap and read to a screen
+  /// reader (F24).
+  String get cameraFlashOff;
+  String get cameraFlashAuto;
+  String get cameraFlashOn;
+
+  /// The focus hint, shown once per camera visit (F24).
+  String get cameraFocusHint;
+
+  /// The camera's shortcut to the phone's photos, and the same choice on the
+  /// camera error page (F24).
+  String get cameraPickFromPhone;
+
   /// Accessibility label for the shutter button.
   String get cameraShutterLabel;
-
-  /// Accessibility label for the close button.
-  String get cameraCloseLabel;
 
   /// Shown when the camera cannot be opened or a shot fails.
   String get cameraCaptureErrorTitle;

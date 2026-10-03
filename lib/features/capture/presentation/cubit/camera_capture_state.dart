@@ -1,4 +1,6 @@
 import '../../../../core/error/app_failure.dart';
+import '../../domain/entities/camera_capabilities.dart';
+import '../../domain/entities/camera_flash_mode.dart';
 import '../../domain/entities/captured_photo.dart';
 
 /// Where the viewfinder stands.
@@ -20,15 +22,42 @@ final class CameraInitializing extends CameraCaptureState {
   const CameraInitializing();
 }
 
+/// The live preview is on screen — armed ([CameraReady]) or mid-shot
+/// ([CameraCapturing]). Both draw the same dock, so both carry what it shows.
+sealed class CameraLive extends CameraCaptureState {
+  const CameraLive({
+    this.flashMode = CameraFlashMode.off,
+    this.capabilities = CameraCapabilities.none,
+  });
+
+  /// The flash the shot fires with. Always [CameraFlashMode.off] when the
+  /// camera has just opened (F24).
+  final CameraFlashMode flashMode;
+
+  /// What the open camera can do — whether to offer the flash button, and
+  /// whether a tap on the preview focuses.
+  final CameraCapabilities capabilities;
+
+  @override
+  bool operator ==(Object other) =>
+      other.runtimeType == runtimeType &&
+      other is CameraLive &&
+      other.flashMode == flashMode &&
+      other.capabilities == capabilities;
+
+  @override
+  int get hashCode => Object.hash(runtimeType, flashMode, capabilities);
+}
+
 /// The live preview is running; the shutter is armed.
-final class CameraReady extends CameraCaptureState {
-  const CameraReady();
+final class CameraReady extends CameraLive {
+  const CameraReady({super.flashMode, super.capabilities});
 }
 
 /// A shot is being taken. The shutter is disabled so a second tap cannot fire
 /// a second capture over the first.
-final class CameraCapturing extends CameraCaptureState {
-  const CameraCapturing();
+final class CameraCapturing extends CameraLive {
+  const CameraCapturing({super.flashMode, super.capabilities});
 }
 
 /// A photo was written to disk; the screen hands [photo] on to the next stage.

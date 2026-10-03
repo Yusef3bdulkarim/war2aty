@@ -183,10 +183,22 @@ final class ArStrings implements AppStrings {
   String get cameraOpening => 'بنفتح الكاميرا…';
 
   @override
-  String get cameraShutterLabel => 'التقاط الصورة';
+  String get cameraFlashOff => 'الفلاش: مطفي';
 
   @override
-  String get cameraCloseLabel => 'إغلاق';
+  String get cameraFlashAuto => 'الفلاش: تلقائي';
+
+  @override
+  String get cameraFlashOn => 'الفلاش: شغال';
+
+  @override
+  String get cameraFocusHint => 'المس الورقة علشان تبقى واضحة';
+
+  @override
+  String get cameraPickFromPhone => 'اختار صورة من الموبايل';
+
+  @override
+  String get cameraShutterLabel => 'التقاط الصورة';
 
   @override
   String get cameraCaptureErrorTitle => 'مقدرناش نفتح الكاميرا';

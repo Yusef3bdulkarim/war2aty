@@ -56,7 +56,10 @@ import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/entities/focus_point.dart';
 import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
@@ -385,11 +388,26 @@ final class FakeCameraService implements CameraService {
     this.initFails = false,
     this.captureFails = false,
     this.photo = const CapturedPhoto('/tmp/shot.jpg'),
+    this.capabilities = const CameraCapabilities(
+      hasFlash: true,
+      canFocus: true,
+    ),
   });
 
   bool initFails;
   bool captureFails;
   final CapturedPhoto photo;
+
+  /// What [initialize] reports — a phone with a flash and focus by default.
+  CameraCapabilities capabilities;
+
+  /// Set to make [setFlashMode] / [focusAt] fail.
+  bool flashFails = false;
+  bool focusFails = false;
+
+  /// Every flash mode and focus point asked for, in order.
+  final List<CameraFlashMode> flashModes = [];
+  final List<FocusPoint> focusPoints = [];
 
   /// When set, [initialize] waits on it before returning — lets a test hold the
   /// camera "opening" and interleave a suspend/close with it.
@@ -404,11 +422,29 @@ final class FakeCameraService implements CameraService {
   int disposeCount = 0;
 
   @override
-  Future<Result<void, AppFailure>> initialize() async {
+  Future<Result<CameraCapabilities, AppFailure>> initialize() async {
     initializeCount++;
     final gate = initializeGate;
     if (gate != null) await gate.future;
-    return initFails ? const Err(ImageProcessingFailure()) : const Ok(null);
+    return initFails ? const Err(ImageProcessingFailure()) : Ok(capabilities);
+  }
+
+  /// When set, [setFlashMode] waits on it — lets a test hold a flash change
+  /// with the camera and tap again meanwhile.
+  Completer<void>? flashGate;
+
+  @override
+  Future<Result<void, AppFailure>> setFlashMode(CameraFlashMode mode) async {
+    flashModes.add(mode);
+    final gate = flashGate;
+    if (gate != null) await gate.future;
+    return flashFails ? const Err(ImageProcessingFailure()) : const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> focusAt(FocusPoint point) async {
+    focusPoints.add(point);
+    return focusFails ? const Err(ImageProcessingFailure()) : const Ok(null);
   }
 
   @override

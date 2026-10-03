@@ -122,6 +122,15 @@ enum StrokeGlyph {
   /// A light bulb — a tip on the daily-limit page (F23).
   lightbulb,
 
+  /// A lightning bolt — the camera's flash, on (F24).
+  flash,
+
+  /// The bolt struck through — the camera's flash, off (F24).
+  flashOff,
+
+  /// The bolt with a small «A» — the camera's flash, automatic (F24).
+  flashAuto,
+
   /// A simple plus sign — the add action on the note card (F08-T09).
   plus,
 
@@ -257,6 +266,12 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   StrokeGlyph.lightbulb:
       'M9 18h6 M10 21h4 M12 3a6 6 0 0 0-4 10.5c.8.8 1 1.5 1 2.5h6c0-1 .2-1.7 '
       '1-2.5A6 6 0 0 0 12 3z',
+  StrokeGlyph.flash: 'M13 2 4 14h7l-1 8 9-12h-7l1-8z',
+  StrokeGlyph.flashOff: 'M13 2 4 14h7l-1 8 9-12h-7l1-8z M3 3l18 18',
+  // A smaller bolt, shifted up and left, with the «A» in the lower corner.
+  StrokeGlyph.flashAuto:
+      'M11 2 3.5 12.5h6l-1 7.5 7.5-10.5h-6l1-7.5z '
+      'M16 22l2.75-7 2.75 7 M17.1 19.6h3.3',
   StrokeGlyph.arrowBack: 'M15 6l6 6-6 6 M3 12h18',
   // `<circle cx=11 cy=11 r=7/>` plus the handle.
   StrokeGlyph.plus: 'M12 5v14M5 12h14',

@@ -2,15 +2,23 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
+import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/entities/focus_point.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
+import 'package:war2aty/features/capture/domain/usecases/focus_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
+import 'package:war2aty/features/capture/domain/usecases/set_camera_flash.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_state.dart';
 
 import '../../support/fakes.dart';
+
+/// What [FakeCameraService] reports by default: a flash, and focus.
+const _full = CameraCapabilities(hasFlash: true, canFocus: true);
 
 CameraCaptureCubit cubitFor(
   FakeCameraService camera, {
@@ -20,6 +28,8 @@ CameraCaptureCubit cubitFor(
     preview: const FakeCameraPreview(),
     initializeCamera: InitializeCamera(camera),
     capturePhoto: CapturePhoto(camera),
+    setCameraFlash: SetCameraFlash(camera),
+    focusCamera: FocusCamera(camera),
     disposeCamera: DisposeCamera(camera),
     cleanupFiles: CleanupCaptureFiles(cleanup ?? FakeCaptureFileCleanup()),
   );
@@ -34,14 +44,15 @@ void main() {
       expect(cubit.state, const CameraInitializing());
     });
 
-    test('opening the camera lands on ready', () async {
+    test('opening the camera lands on ready, flash off, with what the camera '
+        'can do', () async {
       final camera = FakeCameraService();
       final cubit = cubitFor(camera);
       addTearDown(cubit.close);
 
       await cubit.start();
 
-      expect(cubit.state, const CameraReady());
+      expect(cubit.state, const CameraReady(capabilities: _full));
       expect(camera.initializeCount, 1);
     });
 
@@ -257,6 +268,175 @@ void main() {
 
       expect(cubit.state, const CameraInitializing());
       expect(cleanup.deleteCalls, isEmpty);
+    });
+  });
+
+  group('CameraCaptureCubit · flash (F24)', () {
+    test(
+      'each tap moves off -> auto -> on -> off, through the camera',
+      () async {
+        final camera = FakeCameraService();
+        final cubit = cubitFor(camera);
+        addTearDown(cubit.close);
+        await cubit.start();
+
+        final seen = <CameraFlashMode>[];
+        for (var i = 0; i < 3; i++) {
+          await cubit.cycleFlash();
+          seen.add((cubit.state as CameraReady).flashMode);
+        }
+
+        expect(seen, [
+          CameraFlashMode.auto,
+          CameraFlashMode.on,
+          CameraFlashMode.off,
+        ]);
+        expect(camera.flashModes, seen);
+      },
+    );
+
+    test('a phone without a flash ignores the tap', () async {
+      final camera = FakeCameraService(
+        capabilities: const CameraCapabilities(hasFlash: false, canFocus: true),
+      );
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      await cubit.cycleFlash();
+
+      expect(camera.flashModes, isEmpty);
+      expect((cubit.state as CameraReady).flashMode, CameraFlashMode.off);
+    });
+
+    test('a refused change keeps the old mode, with no error page', () async {
+      final camera = FakeCameraService()..flashFails = true;
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      await cubit.cycleFlash();
+
+      expect(cubit.state, const CameraReady(capabilities: _full));
+    });
+
+    test('a second tap while a change is with the camera is ignored', () async {
+      final gate = Completer<void>();
+      final camera = FakeCameraService()..flashGate = gate;
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      final first = cubit.cycleFlash();
+      await Future<void>.delayed(Duration.zero);
+      await cubit.cycleFlash();
+      gate.complete();
+      await first;
+
+      // One step, not two that both started from "off".
+      expect(camera.flashModes, [CameraFlashMode.auto]);
+      expect((cubit.state as CameraReady).flashMode, CameraFlashMode.auto);
+    });
+
+    test(
+      'opening the camera again lands on off — a retake starts dark',
+      () async {
+        final camera = FakeCameraService();
+        final cubit = cubitFor(camera);
+        addTearDown(cubit.close);
+        await cubit.start();
+        await cubit.cycleFlash();
+        await cubit.cycleFlash();
+
+        await cubit.start();
+
+        expect((cubit.state as CameraReady).flashMode, CameraFlashMode.off);
+      },
+    );
+
+    test('a change that lands after a suspend emits nothing', () async {
+      final gate = Completer<void>();
+      final camera = FakeCameraService()..flashGate = gate;
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      final changing = cubit.cycleFlash();
+      await Future<void>.delayed(Duration.zero);
+      await cubit.suspend();
+      gate.complete();
+      await changing;
+
+      expect(cubit.state, const CameraInitializing());
+    });
+
+    test('the shot carries the flash mode while it is taken', () async {
+      final gate = Completer<void>();
+      final camera = FakeCameraService()..captureGate = gate;
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+      await cubit.cycleFlash();
+
+      final capturing = cubit.capture();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        cubit.state,
+        const CameraCapturing(
+          flashMode: CameraFlashMode.auto,
+          capabilities: _full,
+        ),
+      );
+      gate.complete();
+      await capturing;
+    });
+  });
+
+  group('CameraCaptureCubit · tap to focus (F24)', () {
+    test('focuses on the tapped point', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      await cubit.focusAt(FocusPoint(0.3, 0.7));
+
+      expect(camera.focusPoints, [FocusPoint(0.3, 0.7)]);
+    });
+
+    test('a lens that cannot focus on a point is not asked', () async {
+      final camera = FakeCameraService(
+        capabilities: const CameraCapabilities(hasFlash: true, canFocus: false),
+      );
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      await cubit.focusAt(FocusPoint.center);
+
+      expect(camera.focusPoints, isEmpty);
+    });
+
+    test('a tap before the camera is ready is ignored', () async {
+      final camera = FakeCameraService();
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+
+      await cubit.focusAt(FocusPoint.center);
+
+      expect(camera.focusPoints, isEmpty);
+    });
+
+    test('a lens that declines changes nothing on screen', () async {
+      final camera = FakeCameraService()..focusFails = true;
+      final cubit = cubitFor(camera);
+      addTearDown(cubit.close);
+      await cubit.start();
+
+      await cubit.focusAt(FocusPoint.center);
+
+      expect(cubit.state, const CameraReady(capabilities: _full));
     });
   });
 }

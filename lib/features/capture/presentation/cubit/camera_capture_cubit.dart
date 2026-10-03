@@ -2,14 +2,20 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/app_failure.dart';
+import '../../../../core/result/result.dart';
+import '../../domain/entities/focus_point.dart';
 import '../../domain/usecases/capture_photo.dart';
 import '../../domain/usecases/cleanup_capture_files.dart';
 import '../../domain/usecases/dispose_camera.dart';
+import '../../domain/usecases/focus_camera.dart';
 import '../../domain/usecases/initialize_camera.dart';
+import '../../domain/usecases/set_camera_flash.dart';
 import '../camera_preview_port.dart';
 import 'camera_capture_state.dart';
 
-/// Drives the viewfinder: open the camera, take one photo, release the camera.
+/// Drives the viewfinder: open the camera, set the flash, focus where the user
+/// taps, take one photo, release the camera.
 ///
 /// Business actions go through use cases. The one thing that is not a use case
 /// is [preview] — a pure UI port the screen uses to paint the live feed; it
@@ -20,10 +26,14 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     required this.preview,
     required InitializeCamera initializeCamera,
     required CapturePhoto capturePhoto,
+    required SetCameraFlash setCameraFlash,
+    required FocusCamera focusCamera,
     required DisposeCamera disposeCamera,
     required CleanupCaptureFiles cleanupFiles,
   }) : _initializeCamera = initializeCamera,
        _capturePhoto = capturePhoto,
+       _setCameraFlash = setCameraFlash,
+       _focusCamera = focusCamera,
        _disposeCamera = disposeCamera,
        _cleanupFiles = cleanupFiles,
        super(const CameraInitializing());
@@ -33,6 +43,8 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
 
   final InitializeCamera _initializeCamera;
   final CapturePhoto _capturePhoto;
+  final SetCameraFlash _setCameraFlash;
+  final FocusCamera _focusCamera;
   final DisposeCamera _disposeCamera;
   final CleanupCaptureFiles _cleanupFiles;
 
@@ -42,8 +54,13 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
   /// [capture] that was still in flight when it ran.
   int _generation = 0;
 
-  /// Opens the camera. Also the retry path after an error and the re-open path
-  /// when the app returns to the foreground.
+  /// Set while a flash change is with the camera, so a quick second tap cannot
+  /// read the same starting mode and skip a step (F24).
+  bool _changingFlash = false;
+
+  /// Opens the camera. Also the retry path after an error, the re-open path
+  /// when the app returns to the foreground, and — since it lands on the flash
+  /// off — what resets the flash after a retake (F24).
   Future<void> start() async {
     if (isClosed) return;
     final generation = ++_generation;
@@ -52,7 +69,49 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
     final result = await _initializeCamera();
     if (isClosed || generation != _generation) return;
 
-    emit(result.fold((_) => const CameraReady(), CameraCaptureError.new));
+    emit(
+      result.fold(
+        (capabilities) => CameraReady(capabilities: capabilities),
+        CameraCaptureError.new,
+      ),
+    );
+  }
+
+  /// Moves the flash one step: off → auto → on → off.
+  ///
+  /// Ignored unless the preview is armed and the lens has a flash. The new
+  /// mode is shown once the camera has taken it; if the camera refuses, the
+  /// old mode stays — the flash is an aid, so a refusal is not an error page.
+  Future<void> cycleFlash() async {
+    final current = state;
+    if (isClosed || _changingFlash || current is! CameraReady) return;
+    if (!current.capabilities.hasFlash) return;
+    final generation = _generation;
+    final next = current.flashMode.next;
+
+    _changingFlash = true;
+    final Result<void, AppFailure> result;
+    try {
+      result = await _setCameraFlash(next);
+    } finally {
+      _changingFlash = false;
+    }
+    if (isClosed || generation != _generation || state != current) return;
+    if (result.isErr) return;
+
+    emit(CameraReady(flashMode: next, capabilities: current.capabilities));
+  }
+
+  /// Focuses where the user tapped the preview.
+  ///
+  /// Ignored unless the preview is armed and the lens can focus on a point.
+  /// The outcome is not reported: focusing only helps the shot, so a lens that
+  /// declines leaves nothing for the user to act on.
+  Future<void> focusAt(FocusPoint point) async {
+    final current = state;
+    if (isClosed || current is! CameraReady) return;
+    if (!current.capabilities.canFocus) return;
+    await _focusCamera(point);
   }
 
   /// Fires the shutter. Ignored unless the preview is live, so a stray tap
@@ -61,9 +120,15 @@ final class CameraCaptureCubit extends Cubit<CameraCaptureState> {
   /// The whole frame is kept: the user's own crop on the preview screen is
   /// the only crop.
   Future<void> capture() async {
-    if (isClosed || state is! CameraReady) return;
+    final current = state;
+    if (isClosed || current is! CameraReady) return;
     final generation = ++_generation;
-    emit(const CameraCapturing());
+    emit(
+      CameraCapturing(
+        flashMode: current.flashMode,
+        capabilities: current.capabilities,
+      ),
+    );
 
     final result = await _capturePhoto();
     if (isClosed || generation != _generation) {
