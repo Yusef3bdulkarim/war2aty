@@ -209,6 +209,7 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -393,9 +394,15 @@ List<BootstrapStep> _buildLaunchSteps() {
       // first `reconcile` ever schedules anything. The buttons' labels are
       // fixed here for iOS (F25-T02), in the language saved at launch.
       final strings = appStringsForSavedLocale(await getIt<GetSavedLocale>()());
-      await getIt<LocalNotificationsPort>().initialize(
+      final notifications = getIt<LocalNotificationsPort>();
+      await notifications.initialize(
         actionLabels: ReminderNotificationActionLabels.of(strings),
+        onResponse: _onReminderNotificationResponse,
       );
+      // A tap that launched the app from cold is only ever reported here
+      // (F25-T04); it opens once the router is up.
+      final launchedBy = await notifications.launchResponse();
+      if (launchedBy != null) _onReminderNotificationResponse(launchedBy);
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -405,6 +412,13 @@ List<BootstrapStep> _buildLaunchSteps() {
     }, critical: false),
   ];
 }
+
+void _onReminderNotificationResponse(ReminderNotificationResponse response) =>
+    dispatchReminderNotificationResponse(
+      response,
+      taps: getIt(),
+      handleAction: getIt(),
+    );
 
 void _registerOnboarding() {
   getIt
@@ -765,6 +779,11 @@ void _registerReminders() {
     // F25-T03. A notification's «تم» / «أجّل ساعة».
     ..registerFactory<HandleReminderNotificationAction>(
       () => HandleReminderNotificationAction(getIt(), getIt()),
+    )
+    // F25-T04. App-scoped: the launch step writes a tap here before the
+    // router exists, `ReminderNotificationOpener` reads it once it does.
+    ..registerLazySingleton<ReminderNotificationTaps>(
+      ReminderNotificationTaps.new,
     )
     ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
     // F11-T11.

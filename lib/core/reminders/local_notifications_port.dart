@@ -11,9 +11,19 @@ abstract interface class LocalNotificationsPort {
   /// iOS category that carries [actionLabels] (F25-T02: iOS fixes a
   /// notification's buttons when the category is registered, not per
   /// notification). Called once, from the launch sequence.
+  ///
+  /// [onResponse] hears what the user does with a notification while the
+  /// app is running (F25-T04) — in practice a tap; a button press normally
+  /// runs in a background engine instead (F25-T05).
   Future<void> initialize({
     required ReminderNotificationActionLabels actionLabels,
+    required void Function(ReminderNotificationResponse) onResponse,
   });
+
+  /// The tap that launched the app from a terminated state, if one did
+  /// (F25-T04) — [initialize]'s [onResponse] never hears that one. `null`
+  /// for an ordinary launch.
+  Future<ReminderNotificationResponse?> launchResponse();
 
   /// Schedules one notification at the real instant [at] (UTC). Scheduling
   /// the same [id] again replaces whatever was there before.

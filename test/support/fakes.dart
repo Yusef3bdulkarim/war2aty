@@ -1340,13 +1340,25 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
   final Map<int, ReminderNotificationActionLabels> actionLabels = {};
   ReminderNotificationActionLabels? initializedActionLabels;
 
+  /// What [initialize] was handed to report responses with — call it to
+  /// play a notification tap or button press (F25-T04).
+  void Function(ReminderNotificationResponse)? onResponse;
+
+  /// What [launchResponse] reports: the tap that "launched" the app.
+  ReminderNotificationResponse? launchedBy;
+
   @override
   Future<void> initialize({
     required ReminderNotificationActionLabels actionLabels,
+    required void Function(ReminderNotificationResponse) onResponse,
   }) async {
     initializeCount++;
     initializedActionLabels = actionLabels;
+    this.onResponse = onResponse;
   }
+
+  @override
+  Future<ReminderNotificationResponse?> launchResponse() async => launchedBy;
 
   @override
   Future<void> schedule({

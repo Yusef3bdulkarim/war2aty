@@ -46,6 +46,7 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
   @override
   Future<void> initialize({
     required ReminderNotificationActionLabels actionLabels,
+    required void Function(ReminderNotificationResponse) onResponse,
   }) async {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Africa/Cairo'));
@@ -77,6 +78,10 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
           ],
         ),
       ),
+      onDidReceiveNotificationResponse: (response) {
+        final parsed = _parse(response);
+        if (parsed != null) onResponse(parsed);
+      },
     );
 
     await _plugin
@@ -132,6 +137,14 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
   );
 
   @override
+  Future<ReminderNotificationResponse?> launchResponse() async {
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    final response = details?.notificationResponse;
+    if (details == null || !details.didNotificationLaunchApp) return null;
+    return response == null ? null : _parse(response);
+  }
+
+  @override
   Future<void> cancel(int id) => _plugin.cancel(id: id);
 
   @override
@@ -140,3 +153,9 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
     return {for (final request in requests) request.id};
   }
 }
+
+ReminderNotificationResponse? _parse(fln.NotificationResponse response) =>
+    reminderNotificationResponseOf(
+      payload: response.payload,
+      actionId: response.actionId,
+    );

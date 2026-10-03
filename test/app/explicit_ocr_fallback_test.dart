@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
+import 'package:war2aty/app/notifications/reminder_notification_taps.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/core/accessibility/high_contrast_cubit.dart';
 import 'package:war2aty/core/accessibility/text_size_cubit.dart';
@@ -328,6 +329,9 @@ void main() {
         );
       })
       ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
+      ..registerLazySingleton<ReminderNotificationTaps>(
+        ReminderNotificationTaps.new,
+      )
       ..registerLazySingleton<GoRouter>(
         () => createAppRouter(onboardingGate: getIt()),
       );
