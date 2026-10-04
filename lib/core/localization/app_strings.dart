@@ -924,27 +924,22 @@ abstract interface class AppStrings {
   String reminderNotificationHours(int hours);
   String reminderNotificationMinutes(int minutes);
 
-  /// Details shown: the reminder's own title, behind how close it is.
+  /// The reminder's own title, behind how close it is — in both modes
+  /// (F25-T08).
   String reminderNotificationTitleDaysLeft(String days, String title);
   String reminderNotificationTitleTomorrow(String title);
   String reminderNotificationTitleIn(String span, String title);
   String reminderNotificationTitleToday(String title);
   String reminderNotificationTitleNow(String title);
 
-  /// Details shown: when the event is, ahead of the user's own note.
-  String reminderNotificationBodyOn(String date);
-  String reminderNotificationBodyOnAt(String date, String time);
+  /// The body (F25-T08): the event's time, then the user's note when
+  /// details are shown — «10:00 صباحًا • السداد عن طريق فوري» — or the time
+  /// alone, «الساعة 10:00 صباحًا». Hidden mode shows the bare time.
+  String reminderNotificationBodyTimeAndNote(String time, String note);
   String reminderNotificationBodyAt(String time);
-  String get reminderNotificationBodyNow;
 
-  /// Details hidden (F09-T14, default on): when, never what — no title, no
-  /// note, no amount, account number or name, whatever the reminder is
-  /// about.
-  String reminderNotificationHiddenTitleIn(String span);
-  String get reminderNotificationHiddenTitleTomorrow;
-  String get reminderNotificationHiddenTitleToday;
-  String get reminderNotificationHiddenTitleNow;
-  String get reminderNotificationHiddenBody;
+  /// The body when there is neither a time nor a note to show.
+  String get reminderNotificationTapToContinue;
 
   // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
   String get reminderListTitle;

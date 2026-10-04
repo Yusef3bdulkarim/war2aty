@@ -603,7 +603,7 @@ final class EnStrings implements AppStrings {
       'Hide sensitive details on the lock screen';
   @override
   String get settingsNotificationPrivacyDescription =>
-      "We won't show amounts or important numbers inside the notification.";
+      "Only the reminder's name and time will show, not your note.";
 
   @override
   String get settingsDeleteAllDocumentsLabel => 'Delete all documents';
@@ -1107,7 +1107,7 @@ final class EnStrings implements AppStrings {
       minutes == 1 ? 'a minute' : '$minutes minutes';
   @override
   String reminderNotificationTitleDaysLeft(String days, String title) =>
-      '$days left: $title';
+      'In $days: $title';
   @override
   String reminderNotificationTitleTomorrow(String title) =>
       'Due tomorrow: $title';
@@ -1119,28 +1119,12 @@ final class EnStrings implements AppStrings {
   @override
   String reminderNotificationTitleNow(String title) => 'Now: $title';
   @override
-  String reminderNotificationBodyOn(String date) => 'It\'s on $date.';
+  String reminderNotificationBodyTimeAndNote(String time, String note) =>
+      '$time • $note';
   @override
-  String reminderNotificationBodyOnAt(String date, String time) =>
-      'It\'s on $date at $time.';
+  String reminderNotificationBodyAt(String time) => 'At $time';
   @override
-  String reminderNotificationBodyAt(String time) => 'At $time.';
-  @override
-  String get reminderNotificationBodyNow => 'It\'s time.';
-  @override
-  String reminderNotificationHiddenTitleIn(String span) =>
-      'You have a reminder in $span';
-  @override
-  String get reminderNotificationHiddenTitleTomorrow =>
-      'You have a reminder for tomorrow';
-  @override
-  String get reminderNotificationHiddenTitleToday =>
-      'You have a reminder for today';
-  @override
-  String get reminderNotificationHiddenTitleNow => 'You have a reminder now';
-  @override
-  String get reminderNotificationHiddenBody =>
-      'Open the app to see the details.';
+  String get reminderNotificationTapToContinue => 'Tap to continue';
   @override
   String get reminderListTitle => 'Reminders';
   @override

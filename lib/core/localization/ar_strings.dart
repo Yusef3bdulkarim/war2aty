@@ -604,7 +604,7 @@ final class ArStrings implements AppStrings {
       'إخفاء التفاصيل الحساسة من شاشة القفل';
   @override
   String get settingsNotificationPrivacyDescription =>
-      'مش هنظهر المبالغ أو الأرقام المهمة داخل الإشعار.';
+      'هيظهر اسم التذكير وميعاده بس، من غير ملاحظتك.';
 
   @override
   String get settingsDeleteAllDocumentsLabel => 'حذف كل المستندات';
@@ -1141,26 +1141,12 @@ final class ArStrings implements AppStrings {
   @override
   String reminderNotificationTitleNow(String title) => 'دلوقتي: $title';
   @override
-  String reminderNotificationBodyOn(String date) => 'الموعد $date.';
+  String reminderNotificationBodyTimeAndNote(String time, String note) =>
+      '$time • $note';
   @override
-  String reminderNotificationBodyOnAt(String date, String time) =>
-      'الموعد $date الساعة $time.';
+  String reminderNotificationBodyAt(String time) => 'الساعة $time';
   @override
-  String reminderNotificationBodyAt(String time) => 'الساعة $time.';
-  @override
-  String get reminderNotificationBodyNow => 'ميعادها جه.';
-  @override
-  String reminderNotificationHiddenTitleIn(String span) =>
-      'عندك موعد بعد $span';
-  @override
-  String get reminderNotificationHiddenTitleTomorrow => 'عندك موعد بكرة';
-  @override
-  String get reminderNotificationHiddenTitleToday => 'عندك موعد النهارده';
-  @override
-  String get reminderNotificationHiddenTitleNow => 'عندك موعد دلوقتي';
-  @override
-  String get reminderNotificationHiddenBody =>
-      'افتح التطبيق علشان تشوف التفاصيل.';
+  String get reminderNotificationTapToContinue => 'اضغط للمتابعة';
   @override
   String get reminderListTitle => 'التذكيرات';
   @override

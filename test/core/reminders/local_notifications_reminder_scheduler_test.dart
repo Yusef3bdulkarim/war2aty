@@ -74,8 +74,12 @@ void main() {
 
     await english.reconcile();
 
-    final (_, body) = notifications.scheduled.values.single;
-    expect(body, const EnStrings().reminderNotificationHiddenBody);
+    final (title, body) = notifications.scheduled.values.single;
+    expect(
+      title,
+      const EnStrings().reminderNotificationTitleNow('دفع فاتورة الكهرباء'),
+    );
+    expect(body, '10:00 AM');
   });
 
   test('never schedules an alert already in the past', () async {
@@ -149,45 +153,42 @@ void main() {
     expect(repository.lastAlertStatus, ReminderAlertStatus.failed);
   });
 
-  group('notification privacy (F09-T14)', () {
-    test('hides the reminder\'s title by default', () async {
+  group('notification privacy (F09-T14, reworded F25-T08)', () {
+    // Since F25-T08 hiding keeps only the user's note off the lock screen;
+    // the title shows in both modes (the owner's call, 2026-10-04).
+    const note = 'السداد عن طريق فوري';
+
+    Future<(String, String?)> scheduledFor() async {
       final future = DateTime.now().toUtc().add(const Duration(days: 1));
       repository.pendingOutcome = Ok([
-        fakeReminder(alertTimes: [future]),
+        fakeReminder(description: note, alertTimes: [future]),
       ]);
-
       await scheduler.reconcile();
+      return notifications.scheduled.values.single;
+    }
 
-      final (title, body) = notifications.scheduled.values.single;
-      expect(title, isNot(contains('فاتورة')));
-      expect(body, ar.reminderNotificationHiddenBody);
-    });
+    test('by default: the title and time, never the note', () async {
+      final (title, body) = await scheduledFor();
 
-    test('still hides once the setting is explicitly turned on', () async {
-      await privacyStore.writeHideSensitiveDetails(true);
-      final future = DateTime.now().toUtc().add(const Duration(days: 1));
-      repository.pendingOutcome = Ok([
-        fakeReminder(alertTimes: [future]),
-      ]);
-
-      await scheduler.reconcile();
-
-      final (title, body) = notifications.scheduled.values.single;
-      expect(title, isNot(contains('فاتورة')));
-      expect(body, ar.reminderNotificationHiddenBody);
-    });
-
-    test('shows the real title once the user turns it off', () async {
-      await privacyStore.writeHideSensitiveDetails(false);
-      final future = DateTime.now().toUtc().add(const Duration(days: 1));
-      repository.pendingOutcome = Ok([
-        fakeReminder(alertTimes: [future]),
-      ]);
-
-      await scheduler.reconcile();
-
-      final (title, _) = notifications.scheduled.values.single;
       expect(title, contains('دفع فاتورة الكهرباء'));
+      expect(body, '10:00 صباحًا');
+    });
+
+    test('still hides the note once explicitly turned on', () async {
+      await privacyStore.writeHideSensitiveDetails(true);
+
+      final (_, body) = await scheduledFor();
+
+      expect(body, isNot(contains(note)));
+    });
+
+    test('shows the note once the user turns it off', () async {
+      await privacyStore.writeHideSensitiveDetails(false);
+
+      final (title, body) = await scheduledFor();
+
+      expect(title, contains('دفع فاتورة الكهرباء'));
+      expect(body, '10:00 صباحًا • $note');
     });
   });
 

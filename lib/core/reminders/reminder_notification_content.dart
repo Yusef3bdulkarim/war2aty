@@ -1,113 +1,84 @@
 import '../localization/app_strings.dart';
 import '../time/cairo_day.dart';
-import '../time/document_date_label.dart';
 import 'reminder.dart';
 import 'reminder_due_label.dart';
 
 /// What an OS notification for one of a reminder's alerts should say.
 final class ReminderNotificationContent {
-  const ReminderNotificationContent({required this.title, this.body});
+  const ReminderNotificationContent({required this.title, required this.body});
 
   final String title;
-  final String? body;
+  final String body;
 }
 
 /// Builds the notification text for the alert of [reminder] that fires at
-/// [firesAt] (F09-T10, reworded F25-T01).
+/// [firesAt] (F09-T10, reworded F25-T01, restructured F25-T08).
 ///
-/// The tone rises as the event gets closer — «فاضل 3 أيام», «بكرة آخر
-/// ميعاد», «بعد ساعتين», «دلوقتي» — so each of a reminder's (up to three)
-/// alerts reads differently. The stage is worked out from [firesAt], not from
-/// the clock, so the same alert always gets the same words however many
-/// times reconcile reschedules it.
+/// **Title, in both modes:** how close the event is, then the reminder's own
+/// title — «فاضل 3 أيام: …», «بكرة آخر ميعاد: …», «بعد ساعتين: …»,
+/// «دلوقتي: …». The stage is worked out from [firesAt], not from the clock,
+/// so the same alert always gets the same words however many times
+/// reconcile reschedules it.
+///
+/// **Body:** the event's time, and — only when details are shown — the
+/// user's note after it («10:00 صباحًا • السداد عن طريق فوري»). With no note
+/// the time reads «الساعة 10:00 صباحًا»; with no time, the note alone, or
+/// «اضغط للمتابعة» when there is nothing else to say. The time is never
+/// invented for an event that has none.
 ///
 /// [hideSensitiveDetails] is the setting's own current value (F09-T14,
 /// default on) — this function does not read it itself, so it stays a pure
-/// function of its arguments. Hidden says *when* but never the reminder's
-/// real title or note: someone glancing at a lock screen may learn that
-/// something is due tomorrow, never what it is or for how much (F25 locked
-/// decision #2).
+/// function of its arguments. Since F25-T08 (the owner's call, 2026-10-04)
+/// hiding keeps only the user's note off the lock screen: the title is shown
+/// as-is in both modes.
 ReminderNotificationContent reminderNotificationContent(
   Reminder reminder,
   AppStrings strings, {
   required DateTime firesAt,
   required bool hideSensitiveDetails,
 }) {
-  final stage = _stageOf(reminder, firesAt);
-
-  if (hideSensitiveDetails) {
-    return ReminderNotificationContent(
-      title: switch (stage) {
-        _DaysAway(:final days) => strings.reminderNotificationHiddenTitleIn(
-          strings.reminderNotificationDays(days),
-        ),
-        _Tomorrow() => strings.reminderNotificationHiddenTitleTomorrow,
-        _HoursAway(:final hours) => strings.reminderNotificationHiddenTitleIn(
-          strings.reminderNotificationHours(hours),
-        ),
-        _MinutesAway(:final minutes) =>
-          strings.reminderNotificationHiddenTitleIn(
-            strings.reminderNotificationMinutes(minutes),
-          ),
-        _Today() => strings.reminderNotificationHiddenTitleToday,
-        _Now() => strings.reminderNotificationHiddenTitleNow,
-      },
-      body: strings.reminderNotificationHiddenBody,
-    );
-  }
-
-  final title = reminder.title;
   final eventInstant = reminder.eventInstant;
   final time = eventInstant == null
       ? null
       : formatClockTime(strings, eventInstant);
 
-  final (String heading, String? timing) = switch (stage) {
-    _DaysAway(:final days) => (
-      strings.reminderNotificationTitleDaysLeft(
-        strings.reminderNotificationDays(days),
-        title,
-      ),
-      _onDate(strings, reminder.eventDate, time),
-    ),
-    _Tomorrow() => (
-      strings.reminderNotificationTitleTomorrow(title),
-      time == null ? null : strings.reminderNotificationBodyAt(time),
-    ),
-    _HoursAway(:final hours) => (
-      strings.reminderNotificationTitleIn(
-        strings.reminderNotificationHours(hours),
-        title,
-      ),
-      time == null ? null : strings.reminderNotificationBodyAt(time),
-    ),
-    _MinutesAway(:final minutes) => (
-      strings.reminderNotificationTitleIn(
-        strings.reminderNotificationMinutes(minutes),
-        title,
-      ),
-      time == null ? null : strings.reminderNotificationBodyAt(time),
-    ),
-    _Today() => (strings.reminderNotificationTitleToday(title), null),
-    _Now() => (
-      strings.reminderNotificationTitleNow(title),
-      strings.reminderNotificationBodyNow,
-    ),
-  };
-
-  final note = reminder.description?.trim();
-  final parts = [?timing, if (note != null && note.isNotEmpty) note];
   return ReminderNotificationContent(
-    title: heading,
-    body: parts.isEmpty ? null : parts.join(' '),
+    title: _titleOf(_stageOf(reminder, firesAt), reminder.title, strings),
+    body: hideSensitiveDetails
+        ? time ?? strings.reminderNotificationTapToContinue
+        : _shownBody(time, reminder.description?.trim(), strings),
   );
 }
 
-String _onDate(AppStrings s, DateTime eventDate, String? time) {
-  final date = formatDayMonth(s, eventDate);
-  return time == null
-      ? s.reminderNotificationBodyOn(date)
-      : s.reminderNotificationBodyOnAt(date, time);
+String _titleOf(_Stage stage, String title, AppStrings s) => switch (stage) {
+  _DaysAway(:final days) => s.reminderNotificationTitleDaysLeft(
+    s.reminderNotificationDays(days),
+    title,
+  ),
+  _Tomorrow() => s.reminderNotificationTitleTomorrow(title),
+  _HoursAway(:final hours) => s.reminderNotificationTitleIn(
+    s.reminderNotificationHours(hours),
+    title,
+  ),
+  _MinutesAway(:final minutes) => s.reminderNotificationTitleIn(
+    s.reminderNotificationMinutes(minutes),
+    title,
+  ),
+  _Today() => s.reminderNotificationTitleToday(title),
+  _Now() => s.reminderNotificationTitleNow(title),
+};
+
+String _shownBody(String? time, String? note, AppStrings s) {
+  final hasNote = note != null && note.isNotEmpty;
+  return switch ((time, hasNote)) {
+    (final String time, true) => s.reminderNotificationBodyTimeAndNote(
+      time,
+      note!,
+    ),
+    (final String time, false) => s.reminderNotificationBodyAt(time),
+    (null, true) => note!,
+    (null, false) => s.reminderNotificationTapToContinue,
+  };
 }
 
 /// How far [firesAt] is from [reminder]'s event: whole Cairo calendar days
