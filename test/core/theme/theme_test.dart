@@ -52,6 +52,26 @@ void main() {
       expect(theme.textTheme.bodyMedium?.color, AppColors.light.ink);
     });
 
+    test('every SnackBar floats with rounded corners (F26-T03)', () {
+      for (final (theme, colors) in [
+        (AppTheme.light(), AppColors.light),
+        (AppTheme.highContrast(), AppColors.highContrast),
+      ]) {
+        final snackBar = theme.snackBarTheme;
+        expect(snackBar.behavior, SnackBarBehavior.floating);
+        expect(snackBar.insetPadding, const EdgeInsets.fromLTRB(16, 0, 16, 16));
+        expect(
+          snackBar.shape,
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.md),
+          ),
+        );
+        expect(snackBar.backgroundColor, colors.ink);
+        expect(snackBar.contentTextStyle?.color, colors.onBrand);
+        expect(snackBar.contentTextStyle?.fontFamily, 'Cairo');
+      }
+    });
+
     test('high-contrast theme uses the HC palette', () {
       final theme = AppTheme.highContrast();
       expect(theme.colorScheme.primary, AppColors.highContrast.brandPrimary);
@@ -71,5 +91,48 @@ void main() {
       final textWidget = tester.widget<Text>(find.text('ورقتي'));
       expect(textWidget.data, 'ورقتي');
     });
+  });
+
+  testWidgets('a plain SnackBar floats clear of the edges and the nav bar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const navBarHeight = 80.0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          // As the shell draws it: content runs under a translucent bar.
+          extendBody: true,
+          bottomNavigationBar: const SizedBox(height: navBarHeight),
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('تم'))),
+              child: const Text('show'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('show'));
+    await tester.pumpAndSettle();
+
+    // The visible card: the SnackBar widget's own box includes the inset.
+    final rect = tester.getRect(
+      find
+          .descendant(
+            of: find.byType(SnackBar),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+    expect(rect.left, greaterThanOrEqualTo(16));
+    expect(rect.right, lessThanOrEqualTo(390 - 16));
+    expect(rect.bottom, lessThanOrEqualTo(844 - navBarHeight));
   });
 }

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/ui-polish-bars-snackbar`, based on `develop` · **Milestone:** post-F25
 - **Depends on:** F21/F23 (`TealTopBar`), F07 (the remaining-analyses hint)
-- **Progress:** 2 / 5 DONE
+- **Progress:** 3 / 5 DONE
 
 Three pieces of polish the owner asked for on 2026-10-04, after an audit of
 every screen's top bar, every SnackBar call site, and every way out of the
@@ -44,7 +44,7 @@ Resolved with the owner on 2026-10-04.
 |---|---|---|---|---|
 | 1 | F26-T01 | Title in `TealTopBar` | optional white centred `title`, a header for screen readers; tests | DONE |
 | 2 | F26-T02 | Migrate the old bars | reminder details, reminder form, privacy policy — and the extracted-text page, a fourth copy found while migrating — on `TealTopBar`; the four `_TopBar` copies deleted | DONE |
-| 3 | F26-T03 | Floating SnackBar | `snackBarTheme` in `AppTheme` (light + high contrast); theme test | TODO |
+| 3 | F26-T03 | Floating SnackBar | `snackBarTheme` in `AppTheme` (light + high contrast): floating, 16px inset, `AppRadii.md`, ink card with white Cairo text; theme + layout tests | DONE |
 | 4 | F26-T04 | Hint on every exit | result route stores the hint when it leaves the tree; the shell holds it while covered; reproducing tests | TODO |
 | 5 | F26-T05 | Quality gate + review | `dart format` / `flutter analyze` / `flutter test`; independent `@code-reviewer` pass | TODO |
 
