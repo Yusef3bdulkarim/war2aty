@@ -6,15 +6,10 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/top_bar_icon_button.dart';
+import '../../../../core/widgets/teal_top_bar.dart';
 
 // From `Waraqti.dc.html` → the text-only page.
-const double _topBarTop = 56 - 52;
-const double _topBarBottom = 12;
-const double _topBarGap = 8;
-const double _topBarFontSize = 16;
 const double _bodyPadding = 18;
 const double _noteRadius = 12;
 const double _notePaddingH = 13;
@@ -62,7 +57,11 @@ class ExtractedTextOnlyView extends StatelessWidget {
 
     return Column(
       children: [
-        _TopBar(onBack: onBack),
+        TealTopBar(
+          title: strings.extractedTextOnlyTitle,
+          backTooltip: strings.analysisResultBackLabel,
+          onBack: onBack,
+        ),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(_bodyPadding),
@@ -125,72 +124,6 @@ class ExtractedTextOnlyView extends StatelessWidget {
       SnackBar(
         content: Text(context.strings.ocrTextCopied),
         duration: _copiedFeedback,
-      ),
-    );
-  }
-}
-
-/// The page's bar: a way back, and the page's name.
-class _TopBar extends StatelessWidget {
-  const _TopBar({this.onBack});
-
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.card,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenHorizontal,
-            _topBarTop,
-            AppSpacing.screenHorizontal,
-            _topBarBottom,
-          ),
-          child: Row(
-            children: [
-              TopBarIconButton(
-                onPressed: onBack,
-                tooltip: strings.analysisResultBackLabel,
-                icon: Transform.flip(
-                  flipX: mirror,
-                  child: StrokeIcon(
-                    StrokeGlyph.arrowBack,
-                    color: colors.ink,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    strings.extractedTextOnlyTitle,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.labelCard.copyWith(
-                      fontSize: _topBarFontSize,
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              // Balances the back button so the title stays centred.
-              const SizedBox.square(dimension: TopBarIconButton.dimension),
-            ],
-          ),
-        ),
       ),
     );
   }

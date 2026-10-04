@@ -9,6 +9,7 @@ import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/widgets/teal_top_bar.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/models/reminder_from_document_args.dart';
 import 'package:war2aty/features/reminders/presentation/screens/reminder_form_screen.dart';
@@ -58,6 +59,29 @@ void main() {
       ),
     ),
   );
+
+  testWidgets('titles the page on the teal top bar (F26-T02)', (tester) async {
+    var closed = 0;
+    final cubit = ReminderFormCubit.manual(
+      createFromDocumentDate: createFromDocumentDate,
+      createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
+    );
+    addTearDown(cubit.close);
+
+    await pumpScreen(tester, cubit, onClose: () => closed++);
+
+    expect(
+      find.descendant(
+        of: find.byType(TealTopBar),
+        matching: find.text(ar.reminderCreateScreenTitle),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip(ar.actionBack));
+    expect(closed, 1);
+  });
 
   testWidgets('shows the prefilled title and the paper\'s event date/time', (
     tester,
