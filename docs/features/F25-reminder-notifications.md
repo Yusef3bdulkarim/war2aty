@@ -91,7 +91,7 @@ reads the same as the reminder details screen.
 | 3 | F25-T03 | Action use case | `HandleReminderNotificationAction` — *removed by T07* | REVERTED |
 | 4 | F25-T04 | Tap → details | foreground + cold-start taps land on `/reminders/:id` once the router is up | DONE |
 | 5 | F25-T05 | Background actions | background entry point, shared-isolate Drift, Android receiver, iOS registrant — *removed by T07* | REVERTED |
-| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | IN PROGRESS — gate re-run after T09 on 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2144 tests green); device checklist pending |
+| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | IN PROGRESS — gate re-run after T09 on 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2144 tests green); independent `@code-reviewer` pass 2026-10-04: no critical or major findings; device checklist pending |
 | 7 | F25-T07 | Remove the buttons (Option 3) | buttons, action use case and all background execution removed; database, manifest and `AppDelegate.swift` back to `develop`; tap-to-open kept | DONE |
 | 8 | F25-T08 | Restructure title/body (Option A) | title shown in both modes; body = time • note; settings description reworded — *body superseded by T09* | DONE |
 | 9 | F25-T09 | Hidden title «عندك تذكير», note-only body | hidden title «{stage}: عندك تذكير {title}»; body = note or nothing, no time in any mode; English mirrored | DONE |
