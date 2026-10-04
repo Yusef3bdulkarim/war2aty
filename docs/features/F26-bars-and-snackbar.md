@@ -3,6 +3,7 @@
 - **Branch:** `feature/ui-polish-bars-snackbar`, based on `develop` · **Milestone:** post-F25
 - **Depends on:** F21/F23 (`TealTopBar`), F07 (the remaining-analyses hint)
 - **Progress:** 5 / 5 DONE · **F26 COMPLETE**
+- **PR:** [#28](https://github.com/Yusef3bdulkarim/war2aty/pull/28) into `develop`
 
 Three pieces of polish the owner asked for on 2026-10-04, after an audit of
 every screen's top bar, every SnackBar call site, and every way out of the
