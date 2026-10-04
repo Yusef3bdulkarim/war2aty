@@ -7,15 +7,27 @@ abstract interface class LocalNotificationsPort {
   /// Sets up whatever the platform needs before [schedule] can be called —
   /// the plugin itself, the timezone database, the Android channel. Called
   /// once, from the launch sequence.
-  Future<void> initialize();
+  ///
+  /// [onOpened] hears the reminder id of a notification the user taps while
+  /// the app is running (F25-T04).
+  Future<void> initialize({required void Function(String reminderId) onOpened});
+
+  /// The reminder id of the notification whose tap launched the app from a
+  /// terminated state, if one did (F25-T04) — [initialize]'s `onOpened`
+  /// never hears that one. `null` for an ordinary launch.
+  Future<String?> launchedReminderId();
 
   /// Schedules one notification at the real instant [at] (UTC). Scheduling
   /// the same [id] again replaces whatever was there before.
+  ///
+  /// [payload] — the reminder's id — comes back when the notification is
+  /// tapped (F25-T04).
   Future<void> schedule({
     required int id,
     required DateTime at,
     required String title,
     String? body,
+    required String payload,
   });
 
   /// Cancels [id]. Cancelling one that is not scheduled is a no-op.

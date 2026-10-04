@@ -17,6 +17,8 @@ import '../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../features/settings/presentation/cubit/settings_cubit.dart';
 import 'di/service_locator.dart';
+import 'notifications/reminder_notification_opener.dart';
+import 'notifications/reminder_notification_taps.dart';
 
 /// Root widget.
 ///
@@ -86,7 +88,9 @@ class WaraqtiApp extends StatelessWidget {
                           localizationsDelegates: AppLocalizations.delegates,
                           localeResolutionCallback: AppLocalizations.resolve,
                           routerConfig: getIt<GoRouter>(),
-                          builder: _appBuilder(textSize, highContrast),
+                          builder: _withNotificationOpener(
+                            _appBuilder(textSize, highContrast),
+                          ),
                         );
                       }
 
@@ -114,6 +118,15 @@ class WaraqtiApp extends StatelessWidget {
     );
   }
 }
+
+/// Wraps [builder] so a reminder notification tap opens that reminder
+/// (F25-T04) — only on the router's app, the one that can navigate.
+TransitionBuilder _withNotificationOpener(TransitionBuilder builder) =>
+    (context, child) => ReminderNotificationOpener(
+      taps: getIt<ReminderNotificationTaps>(),
+      router: getIt<GoRouter>(),
+      child: builder(context, child),
+    );
 
 /// Returns the [MaterialApp.builder] that applies the user's [TextSize]
 /// (F11-T05) and active [AppColors] palette (F11-T06).

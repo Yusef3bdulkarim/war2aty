@@ -94,6 +94,7 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
       final content = reminderNotificationContent(
         reminder,
         strings,
+        firesAt: alert.scheduledAt,
         hideSensitiveDetails: hideSensitiveDetails,
       );
       try {
@@ -102,6 +103,9 @@ final class LocalNotificationsReminderScheduler implements ReminderScheduler {
           at: alert.scheduledAt,
           title: content.title,
           body: content.body,
+          // The reminder, not the alert: whichever of its alerts fired, a
+          // tap opens the reminder (F25-T04).
+          payload: reminder.id,
         );
         await _repository.setAlertStatus(
           alert.id,

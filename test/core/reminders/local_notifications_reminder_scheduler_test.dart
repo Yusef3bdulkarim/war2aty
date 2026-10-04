@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
+import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/usecases/get_saved_locale.dart';
+import 'package:war2aty/core/reminders/alert_time_offset.dart';
 import 'package:war2aty/core/reminders/flutter_local_notifications_reminder_scheduler.dart';
 import 'package:war2aty/core/reminders/notification_id.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
@@ -10,6 +12,7 @@ import 'package:war2aty/core/reminders/reminder_alert_status.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/time/cairo_day.dart';
 
 import '../../support/fakes.dart';
 
@@ -44,6 +47,43 @@ void main() {
 
     expect(outcome, const Ok<int, AppFailure>(2));
     expect(notifications.scheduled, hasLength(2));
+  });
+
+  test('carries the reminder id, for a tap to open (F25-T04)', () async {
+    final future = DateTime.now().toUtc().add(const Duration(days: 1));
+    final reminder = fakeReminder(id: 'r7', alertTimes: [future]);
+    final id = notificationIdOf(reminder.alerts.single.id);
+    repository.pendingOutcome = Ok([reminder]);
+
+    await scheduler.reconcile();
+
+    expect(notifications.payloads[id], 'r7');
+  });
+
+  test('words the notification in the saved language', () async {
+    final english = LocalNotificationsReminderScheduler(
+      notifications,
+      repository,
+      GetSavedLocale(FakeLocaleStore('en')),
+      GetHideSensitiveNotificationDetails(privacyStore),
+    );
+    final future = DateTime.now().toUtc().add(const Duration(days: 1));
+    repository.pendingOutcome = Ok([
+      fakeReminder(alertTimes: [future]),
+    ]);
+
+    await english.reconcile();
+
+    final (title, body) = notifications.scheduled.values.single;
+    expect(
+      title,
+      const EnStrings().reminderNotificationTitleNow(
+        const EnStrings().reminderNotificationHiddenTitleOf(
+          'دفع فاتورة الكهرباء',
+        ),
+      ),
+    );
+    expect(body, isNull);
   });
 
   test('never schedules an alert already in the past', () async {
@@ -117,45 +157,98 @@ void main() {
     expect(repository.lastAlertStatus, ReminderAlertStatus.failed);
   });
 
-  group('notification privacy (F09-T14)', () {
-    test('hides the reminder\'s title by default', () async {
+  group('notification privacy (F09-T14, reworded F25-T08/T09)', () {
+    // Hiding keeps the user's note off the lock screen; the title shows in
+    // both modes, behind «عندك تذكير» when hidden (the owner's call).
+    const note = 'السداد عن طريق فوري';
+
+    Future<(String, String?)> scheduledFor() async {
       final future = DateTime.now().toUtc().add(const Duration(days: 1));
       repository.pendingOutcome = Ok([
-        fakeReminder(alertTimes: [future]),
+        fakeReminder(description: note, alertTimes: [future]),
       ]);
-
       await scheduler.reconcile();
+      return notifications.scheduled.values.single;
+    }
 
-      final (title, _) = notifications.scheduled.values.single;
-      expect(title, ar.reminderNotificationGenericTitle);
+    test('by default: the title, never the note', () async {
+      final (title, body) = await scheduledFor();
+
+      expect(title, contains('عندك تذكير دفع فاتورة الكهرباء'));
+      expect(body, isNull);
     });
 
-    test('still hides once the setting is explicitly turned on', () async {
+    test('still hides the note once explicitly turned on', () async {
       await privacyStore.writeHideSensitiveDetails(true);
-      final future = DateTime.now().toUtc().add(const Duration(days: 1));
-      repository.pendingOutcome = Ok([
-        fakeReminder(alertTimes: [future]),
-      ]);
 
-      await scheduler.reconcile();
+      final (_, body) = await scheduledFor();
 
-      final (title, _) = notifications.scheduled.values.single;
-      expect(title, ar.reminderNotificationGenericTitle);
+      expect(body, isNull);
     });
 
-    test('shows the real title once the user turns it off', () async {
+    test('shows the note once the user turns it off', () async {
       await privacyStore.writeHideSensitiveDetails(false);
-      final future = DateTime.now().toUtc().add(const Duration(days: 1));
-      repository.pendingOutcome = Ok([
-        fakeReminder(alertTimes: [future]),
-      ]);
 
-      await scheduler.reconcile();
+      final (title, body) = await scheduledFor();
 
-      final (title, _) = notifications.scheduled.values.single;
-      expect(title, 'دفع فاتورة الكهرباء');
+      expect(title, contains('دفع فاتورة الكهرباء'));
+      expect(title, isNot(contains('عندك تذكير')));
+      expect(body, note);
     });
   });
+
+  test(
+    'words each alert by how close it fires to the event (F25-T01)',
+    () async {
+      await privacyStore.writeHideSensitiveDetails(false);
+      final inFiveDays = cairoWallClockOf(
+        DateTime.now().toUtc().add(const Duration(days: 5)),
+      );
+      final event = DateTime(inFiveDays.year, inFiveDays.month, inFiveDays.day);
+      final eventInstant = cairoInstantOf(event, 600);
+      repository.pendingOutcome = Ok([
+        Reminder(
+          id: 'r1',
+          title: 'دفع فاتورة الكهرباء',
+          eventDate: event,
+          eventMinuteOfDay: 600,
+          status: ReminderStatus.pending,
+          isManual: true,
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+          alerts: [
+            for (final (i, offset) in [
+              AlertTimeOffset.threeDaysBefore,
+              AlertTimeOffset.oneDayBefore,
+            ].indexed)
+              ReminderAlert(
+                id: 'r1-a$i',
+                reminderId: 'r1',
+                scheduledAt: offset.applyTo(eventInstant),
+                status: ReminderAlertStatus.scheduled,
+              ),
+          ],
+        ),
+      ]);
+
+      await scheduler.reconcile();
+
+      final (threeDays, _) =
+          notifications.scheduled[notificationIdOf('r1-a0')]!;
+      final (oneDay, _) = notifications.scheduled[notificationIdOf('r1-a1')]!;
+      expect(
+        threeDays,
+        ar.reminderNotificationTitleDaysLeft(
+          ar.reminderNotificationDays(3),
+          'دفع فاتورة الكهرباء',
+        ),
+      );
+      expect(
+        oneDay,
+        ar.reminderNotificationTitleTomorrow('دفع فاتورة الكهرباء'),
+      );
+    },
+  );
 
   test(
     'marks a past scheduled alert delivered (best-effort bookkeeping)',

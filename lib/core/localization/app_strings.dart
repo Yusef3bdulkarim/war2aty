@@ -916,10 +916,26 @@ abstract interface class AppStrings {
   /// widget tree.
   String get reminderNotificationChannelName;
 
-  /// Shown on the OS notification instead of the reminder's real title when
-  /// sensitive details are hidden (F09-T14, default on) — never a specific
-  /// amount, account number or name, whatever the reminder is about.
-  String get reminderNotificationGenericTitle;
+  // The OS notification's own copy (F25-T01) — the tone rises as the event
+  // gets closer. A span («3 أيام», «ساعتين», «20 دقيقة») is built by one of
+  // the three counters below and dropped into a title, so each language
+  // keeps its own number agreement and word order.
+  String reminderNotificationDays(int days);
+  String reminderNotificationHours(int hours);
+  String reminderNotificationMinutes(int minutes);
+
+  /// The reminder's own title, behind how close it is — in both modes
+  /// (F25-T08).
+  String reminderNotificationTitleDaysLeft(String days, String title);
+  String reminderNotificationTitleTomorrow(String title);
+  String reminderNotificationTitleIn(String span, String title);
+  String reminderNotificationTitleToday(String title);
+  String reminderNotificationTitleNow(String title);
+
+  /// The reminder's title as details-hidden mode shows it (F25-T09) —
+  /// «عندك تذكير فاتورة الكهرباء» — then placed behind the stage like any
+  /// other title.
+  String reminderNotificationHiddenTitleOf(String title);
 
   // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
   String get reminderListTitle;

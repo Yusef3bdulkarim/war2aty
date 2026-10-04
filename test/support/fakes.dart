@@ -1117,6 +1117,7 @@ Reminder fakeReminder({
   String id = 'r1',
   String? documentId,
   String title = 'دفع فاتورة الكهرباء',
+  String? description,
   ReminderStatus status = ReminderStatus.pending,
   bool isManual = false,
   List<DateTime> alertTimes = const [],
@@ -1124,6 +1125,7 @@ Reminder fakeReminder({
   id: id,
   documentId: documentId,
   title: title,
+  description: description,
   eventDate: DateTime(2026, 8, 25),
   eventMinuteOfDay: 600,
   status: status,
@@ -1334,8 +1336,26 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
   /// scheduler's own failure handling.
   final Set<int> failingIds = {};
 
+  /// The payload (reminder id) each id was last scheduled with (F25).
+  final Map<int, String> payloads = {};
+
+  /// What [initialize] was handed to report taps with — call it to play a
+  /// notification tap (F25-T04).
+  void Function(String reminderId)? onOpened;
+
+  /// What [launchedReminderId] reports: the tap that "launched" the app.
+  String? launchedBy;
+
   @override
-  Future<void> initialize() async => initializeCount++;
+  Future<void> initialize({
+    required void Function(String reminderId) onOpened,
+  }) async {
+    initializeCount++;
+    this.onOpened = onOpened;
+  }
+
+  @override
+  Future<String?> launchedReminderId() async => launchedBy;
 
   @override
   Future<void> schedule({
@@ -1343,18 +1363,21 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
     required DateTime at,
     required String title,
     String? body,
+    required String payload,
   }) async {
     if (failingIds.contains(id)) {
       throw StateError('scheduling failed for $id');
     }
     scheduled[id] = (title, body);
     scheduledAt[id] = at;
+    payloads[id] = payload;
   }
 
   @override
   Future<void> cancel(int id) async {
     scheduled.remove(id);
     scheduledAt.remove(id);
+    payloads.remove(id);
   }
 
   @override

@@ -422,7 +422,21 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'reminderNotifPermAllow': (s) => s.reminderNotifPermAllow,
   'reminderNotifPermSaveWithout': (s) => s.reminderNotifPermSaveWithout,
   'reminderNotificationChannelName': (s) => s.reminderNotificationChannelName,
-  'reminderNotificationGenericTitle': (s) => s.reminderNotificationGenericTitle,
+  'reminderNotificationDays': (s) => s.reminderNotificationDays(3),
+  'reminderNotificationHours': (s) => s.reminderNotificationHours(2),
+  'reminderNotificationMinutes': (s) => s.reminderNotificationMinutes(20),
+  'reminderNotificationTitleDaysLeft': (s) =>
+      s.reminderNotificationTitleDaysLeft('3', 'title'),
+  'reminderNotificationTitleTomorrow': (s) =>
+      s.reminderNotificationTitleTomorrow('title'),
+  'reminderNotificationTitleIn': (s) =>
+      s.reminderNotificationTitleIn('span', 'title'),
+  'reminderNotificationTitleToday': (s) =>
+      s.reminderNotificationTitleToday('title'),
+  'reminderNotificationTitleNow': (s) =>
+      s.reminderNotificationTitleNow('title'),
+  'reminderNotificationHiddenTitleOf': (s) =>
+      s.reminderNotificationHiddenTitleOf('title'),
   'reminderListTitle': (s) => s.reminderListTitle,
   'reminderTabUpcoming': (s) => s.reminderTabUpcoming,
   'reminderTabMissed': (s) => s.reminderTabMissed,

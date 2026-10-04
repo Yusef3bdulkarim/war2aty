@@ -11,8 +11,9 @@ import 'local_notifications_port.dart';
 const String reminderNotificationChannelId = 'reminders';
 
 /// [LocalNotificationsPort] on top of `flutter_local_notifications` and the
-/// `timezone` package (F09-T10) — the only file in the app allowed to import
-/// `flutter_local_notifications`, matching how `PermissionHandlerService` is
+/// `timezone` package (F09-T10) — the only file in the app allowed to drive
+/// `flutter_local_notifications` (`service_locator.dart` only builds the
+/// plugin instance it is handed), matching how `PermissionHandlerService` is
 /// the only file that imports `permission_handler`. `core/time/cairo_day.dart`
 /// also imports the `timezone` package on its own, narrower terms: it only
 /// resolves `Africa/Cairo` for `cairoInstant` rather than driving the plugin.
@@ -38,7 +39,9 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
   final String _channelName;
 
   @override
-  Future<void> initialize() async {
+  Future<void> initialize({
+    required void Function(String reminderId) onOpened,
+  }) async {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Africa/Cairo'));
 
@@ -55,6 +58,10 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
           requestSoundPermission: false,
         ),
       ),
+      onDidReceiveNotificationResponse: (response) {
+        final reminderId = _reminderIdOf(response);
+        if (reminderId != null) onOpened(reminderId);
+      },
     );
 
     await _plugin
@@ -75,6 +82,7 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
     required DateTime at,
     required String title,
     String? body,
+    required String payload,
   }) => _plugin.zonedSchedule(
     id: id,
     scheduledDate: tz.TZDateTime.from(at, tz.getLocation('Africa/Cairo')),
@@ -82,12 +90,26 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
       android: fln.AndroidNotificationDetails(
         reminderNotificationChannelId,
         _channelName,
+        // A note can run past one line; collapsed, Android would cut it off
+        // with no way to read the rest.
+        styleInformation: body == null
+            ? null
+            : fln.BigTextStyleInformation(body),
       ),
     ),
     androidScheduleMode: fln.AndroidScheduleMode.inexactAllowWhileIdle,
     title: title,
     body: body,
+    payload: payload,
   );
+
+  @override
+  Future<String?> launchedReminderId() async {
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    final response = details?.notificationResponse;
+    if (details == null || !details.didNotificationLaunchApp) return null;
+    return response == null ? null : _reminderIdOf(response);
+  }
 
   @override
   Future<void> cancel(int id) => _plugin.cancel(id: id);
@@ -97,4 +119,11 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
     final requests = await _plugin.pendingNotificationRequests();
     return {for (final request in requests) request.id};
   }
+}
+
+/// The reminder id a tapped notification carries — `null` for one scheduled
+/// before F25, which had no payload: the tap then just opens the app.
+String? _reminderIdOf(fln.NotificationResponse response) {
+  final payload = response.payload;
+  return payload == null || payload.isEmpty ? null : payload;
 }

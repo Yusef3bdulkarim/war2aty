@@ -206,6 +206,7 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
 /// Global service locator.
@@ -388,7 +389,13 @@ List<BootstrapStep> _buildLaunchSteps() {
     BootstrapStep(BootstrapStage.reminders, () async {
       // The plugin/timezone/channel setup (F09-T10) has to run before the
       // first `reconcile` ever schedules anything.
-      await getIt<LocalNotificationsPort>().initialize();
+      final notifications = getIt<LocalNotificationsPort>();
+      final taps = getIt<ReminderNotificationTaps>();
+      await notifications.initialize(onOpened: taps.open);
+      // A tap that launched the app from cold is only ever reported here
+      // (F25-T04); it opens once the router is up.
+      final launchedBy = await notifications.launchedReminderId();
+      if (launchedBy != null) taps.open(launchedBy);
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -755,6 +762,11 @@ void _registerReminders() {
       () => CompleteReminder(getIt(), getIt()),
     )
     ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
+    // F25-T04. App-scoped: the launch step writes a tap here before the
+    // router exists, `ReminderNotificationOpener` reads it once it does.
+    ..registerLazySingleton<ReminderNotificationTaps>(
+      ReminderNotificationTaps.new,
+    )
     ..registerFactory<DeleteReminder>(() => DeleteReminder(getIt(), getIt()))
     // F11-T11.
     ..registerFactory<DeleteAllReminders>(

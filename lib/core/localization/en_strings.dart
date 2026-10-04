@@ -603,7 +603,7 @@ final class EnStrings implements AppStrings {
       'Hide sensitive details on the lock screen';
   @override
   String get settingsNotificationPrivacyDescription =>
-      "We won't show amounts or important numbers inside the notification.";
+      "Only the reminder's name will show, not your note.";
 
   @override
   String get settingsDeleteAllDocumentsLabel => 'Delete all documents';
@@ -1097,8 +1097,30 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderNotificationChannelName => 'Reminders';
   @override
-  String get reminderNotificationGenericTitle =>
-      'You have an upcoming reminder';
+  String reminderNotificationDays(int days) =>
+      days == 1 ? '1 day' : '$days days';
+  @override
+  String reminderNotificationHours(int hours) =>
+      hours == 1 ? 'an hour' : '$hours hours';
+  @override
+  String reminderNotificationMinutes(int minutes) =>
+      minutes == 1 ? 'a minute' : '$minutes minutes';
+  @override
+  String reminderNotificationTitleDaysLeft(String days, String title) =>
+      'In $days: $title';
+  @override
+  String reminderNotificationTitleTomorrow(String title) =>
+      'Due tomorrow: $title';
+  @override
+  String reminderNotificationTitleIn(String span, String title) =>
+      'In $span: $title';
+  @override
+  String reminderNotificationTitleToday(String title) => 'Today: $title';
+  @override
+  String reminderNotificationTitleNow(String title) => 'Now: $title';
+  @override
+  String reminderNotificationHiddenTitleOf(String title) =>
+      'You have a reminder for $title';
   @override
   String get reminderListTitle => 'Reminders';
   @override
