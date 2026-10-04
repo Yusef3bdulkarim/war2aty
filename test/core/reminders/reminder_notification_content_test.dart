@@ -42,38 +42,41 @@ void main() {
     hideSensitiveDetails: hidden,
   );
 
-  group('title: how close it is, then the reminder title — both modes', () {
-    for (final hidden in [false, true]) {
-      final mode = hidden ? 'hidden' : 'shown';
+  group('title: how close it is, then the reminder title', () {
+    test('three days before', () {
+      expect(content(cairo(12, 10)).title, 'فاضل 3 أيام: فاتورة الكهرباء');
+    });
 
-      test('$mode: three days before', () {
-        expect(
-          content(cairo(12, 10), hidden: hidden).title,
-          'فاضل 3 أيام: فاتورة الكهرباء',
-        );
-      });
+    test('the day before', () {
+      expect(content(cairo(14, 10)).title, 'بكرة آخر ميعاد: فاتورة الكهرباء');
+    });
 
-      test('$mode: the day before', () {
-        expect(
-          content(cairo(14, 10), hidden: hidden).title,
-          'بكرة آخر ميعاد: فاتورة الكهرباء',
-        );
-      });
+    test('two hours before', () {
+      expect(content(cairo(15, 8)).title, 'بعد ساعتين: فاتورة الكهرباء');
+    });
 
-      test('$mode: two hours before', () {
-        expect(
-          content(cairo(15, 8), hidden: hidden).title,
-          'بعد ساعتين: فاتورة الكهرباء',
-        );
-      });
+    test('at the event time', () {
+      expect(content(cairo(15, 10)).title, 'دلوقتي: فاتورة الكهرباء');
+    });
 
-      test('$mode: at the event time', () {
-        expect(
-          content(cairo(15, 10), hidden: hidden).title,
-          'دلوقتي: فاتورة الكهرباء',
-        );
-      });
-    }
+    test('details hidden: «عندك تذكير» before the title, at every stage', () {
+      expect(
+        content(cairo(12, 10), hidden: true).title,
+        'فاضل 3 أيام: عندك تذكير فاتورة الكهرباء',
+      );
+      expect(
+        content(cairo(14, 10), hidden: true).title,
+        'بكرة آخر ميعاد: عندك تذكير فاتورة الكهرباء',
+      );
+      expect(
+        content(cairo(15, 8), hidden: true).title,
+        'بعد ساعتين: عندك تذكير فاتورة الكهرباء',
+      );
+      expect(
+        content(cairo(15, 10), hidden: true).title,
+        'دلوقتي: عندك تذكير فاتورة الكهرباء',
+      );
+    });
 
     test('two days reads «يومين», not «2 أيام»', () {
       expect(content(cairo(13, 10)).title, 'فاضل يومين: فاتورة الكهرباء');
@@ -118,56 +121,42 @@ void main() {
     });
   });
 
-  group('body, details shown', () {
-    test('time and note, separated by a bullet', () {
-      expect(content(cairo(12, 10)).body, '10:00 صباحًا • $note');
-    });
-
-    test('the same at every stage — the title already says how close', () {
-      for (final firesAt in [cairo(14, 10), cairo(15, 8), cairo(15, 10)]) {
-        expect(content(firesAt).body, '10:00 صباحًا • $note');
+  group('body: the note only, never the time', () {
+    test('details shown: the note alone', () {
+      for (final firesAt in [cairo(12, 10), cairo(14, 10), cairo(15, 10)]) {
+        expect(content(firesAt).body, note);
       }
     });
 
-    test('no note: the time alone, as «الساعة …»', () {
+    test('no note: no body at all', () {
       expect(
         content(cairo(14, 10), of: reminder(description: null)).body,
-        'الساعة 10:00 صباحًا',
+        isNull,
       );
     });
 
     test('a blank note counts as none', () {
       expect(
         content(cairo(14, 10), of: reminder(description: '   ')).body,
-        'الساعة 10:00 صباحًا',
+        isNull,
       );
     });
 
-    test('no event time: the note alone, never an invented time', () {
+    test('an event with no time: still just the note', () {
       expect(
         content(cairo(12, 10), of: reminder(minuteOfDay: null)).body,
         note,
       );
     });
 
-    test('no event time and no note: «اضغط للمتابعة»', () {
-      expect(
-        content(
-          cairo(12, 10),
-          of: reminder(minuteOfDay: null, description: null),
-        ).body,
-        'اضغط للمتابعة',
-      );
-    });
-  });
-
-  group('body, details hidden — the time only, never the note', () {
-    test('shows the bare time', () {
-      expect(content(cairo(12, 10), hidden: true).body, '10:00 صباحًا');
-      expect(content(cairo(15, 10), hidden: true).body, '10:00 صباحًا');
+    test('never the time, in either mode', () {
+      for (final hidden in [false, true]) {
+        final shown = content(cairo(12, 10), hidden: hidden);
+        expect('${shown.title} ${shown.body}', isNot(contains('10:00')));
+      }
     });
 
-    test('never the note, at any stage', () {
+    test('details hidden: no body — the note stays off the lock screen', () {
       for (final firesAt in [
         cairo(12, 10),
         cairo(14, 10),
@@ -176,19 +165,9 @@ void main() {
         cairo(15, 10),
       ]) {
         final shown = content(firesAt, hidden: true);
-        expect('${shown.title} ${shown.body}', isNot(contains('فوري')));
+        expect(shown.body, isNull);
+        expect(shown.title, isNot(contains('فوري')));
       }
-    });
-
-    test('no event time: «اضغط للمتابعة»', () {
-      expect(
-        content(
-          cairo(12, 10),
-          of: reminder(minuteOfDay: null),
-          hidden: true,
-        ).body,
-        'اضغط للمتابعة',
-      );
     });
   });
 
@@ -226,10 +205,22 @@ void main() {
       );
     });
 
+    test('details hidden', () {
+      expect(
+        content(
+          cairo(12, 10),
+          of: englishReminder(),
+          english: true,
+          hidden: true,
+        ).title,
+        'In 3 days: You have a reminder for Electricity Bill',
+      );
+    });
+
     test('bodies', () {
       expect(
         content(cairo(12, 10), of: englishReminder(), english: true).body,
-        '10:00 AM • Payment via Fawry',
+        'Payment via Fawry',
       );
       expect(
         content(
@@ -237,16 +228,7 @@ void main() {
           of: englishReminder(description: null),
           english: true,
         ).body,
-        'At 10:00 AM',
-      );
-      expect(
-        content(
-          cairo(12, 10),
-          of: englishReminder(),
-          english: true,
-          hidden: true,
-        ).body,
-        '10:00 AM',
+        isNull,
       );
     });
   });

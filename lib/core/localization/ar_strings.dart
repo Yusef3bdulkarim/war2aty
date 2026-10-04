@@ -604,7 +604,7 @@ final class ArStrings implements AppStrings {
       'إخفاء التفاصيل الحساسة من شاشة القفل';
   @override
   String get settingsNotificationPrivacyDescription =>
-      'هيظهر اسم التذكير وميعاده بس، من غير ملاحظتك.';
+      'هيظهر اسم التذكير بس، من غير ملاحظتك.';
 
   @override
   String get settingsDeleteAllDocumentsLabel => 'حذف كل المستندات';
@@ -1141,12 +1141,7 @@ final class ArStrings implements AppStrings {
   @override
   String reminderNotificationTitleNow(String title) => 'دلوقتي: $title';
   @override
-  String reminderNotificationBodyTimeAndNote(String time, String note) =>
-      '$time • $note';
-  @override
-  String reminderNotificationBodyAt(String time) => 'الساعة $time';
-  @override
-  String get reminderNotificationTapToContinue => 'اضغط للمتابعة';
+  String reminderNotificationHiddenTitleOf(String title) => 'عندك تذكير $title';
   @override
   String get reminderListTitle => 'التذكيرات';
   @override

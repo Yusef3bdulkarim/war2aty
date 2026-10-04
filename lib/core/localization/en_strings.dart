@@ -603,7 +603,7 @@ final class EnStrings implements AppStrings {
       'Hide sensitive details on the lock screen';
   @override
   String get settingsNotificationPrivacyDescription =>
-      "Only the reminder's name and time will show, not your note.";
+      "Only the reminder's name will show, not your note.";
 
   @override
   String get settingsDeleteAllDocumentsLabel => 'Delete all documents';
@@ -1119,12 +1119,8 @@ final class EnStrings implements AppStrings {
   @override
   String reminderNotificationTitleNow(String title) => 'Now: $title';
   @override
-  String reminderNotificationBodyTimeAndNote(String time, String note) =>
-      '$time • $note';
-  @override
-  String reminderNotificationBodyAt(String time) => 'At $time';
-  @override
-  String get reminderNotificationTapToContinue => 'Tap to continue';
+  String reminderNotificationHiddenTitleOf(String title) =>
+      'You have a reminder for $title';
   @override
   String get reminderListTitle => 'Reminders';
   @override

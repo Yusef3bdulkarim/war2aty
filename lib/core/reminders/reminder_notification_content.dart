@@ -1,52 +1,48 @@
 import '../localization/app_strings.dart';
 import '../time/cairo_day.dart';
 import 'reminder.dart';
-import 'reminder_due_label.dart';
 
 /// What an OS notification for one of a reminder's alerts should say.
 final class ReminderNotificationContent {
-  const ReminderNotificationContent({required this.title, required this.body});
+  const ReminderNotificationContent({required this.title, this.body});
 
   final String title;
-  final String body;
+
+  /// The user's note, or `null` — no body at all — when there is none to
+  /// show.
+  final String? body;
 }
 
 /// Builds the notification text for the alert of [reminder] that fires at
-/// [firesAt] (F09-T10, reworded F25-T01, restructured F25-T08).
+/// [firesAt] (F09-T10, reworded F25-T01, restructured F25-T08/T09).
 ///
-/// **Title, in both modes:** how close the event is, then the reminder's own
-/// title — «فاضل 3 أيام: …», «بكرة آخر ميعاد: …», «بعد ساعتين: …»,
-/// «دلوقتي: …». The stage is worked out from [firesAt], not from the clock,
-/// so the same alert always gets the same words however many times
-/// reconcile reschedules it.
+/// **Title:** how close the event is, then the reminder's own title —
+/// «فاضل 3 أيام: فاتورة الكهرباء». Details hidden puts «عندك تذكير» before
+/// the title: «فاضل 3 أيام: عندك تذكير فاتورة الكهرباء». The stage is worked
+/// out from [firesAt], not from the clock, so the same alert always gets the
+/// same words however many times reconcile reschedules it.
 ///
-/// **Body:** the event's time, and — only when details are shown — the
-/// user's note after it («10:00 صباحًا • السداد عن طريق فوري»). With no note
-/// the time reads «الساعة 10:00 صباحًا»; with no time, the note alone, or
-/// «اضغط للمتابعة» when there is nothing else to say. The time is never
-/// invented for an event that has none.
+/// **Body:** the user's note, and nothing else — no time, no fallback line.
+/// No note, or details hidden: no body at all.
 ///
 /// [hideSensitiveDetails] is the setting's own current value (F09-T14,
 /// default on) — this function does not read it itself, so it stays a pure
-/// function of its arguments. Since F25-T08 (the owner's call, 2026-10-04)
-/// hiding keeps only the user's note off the lock screen: the title is shown
-/// as-is in both modes.
+/// function of its arguments. Hiding keeps the user's note off the lock
+/// screen; the title shows in both modes (the owner's call, F25-T08).
 ReminderNotificationContent reminderNotificationContent(
   Reminder reminder,
   AppStrings strings, {
   required DateTime firesAt,
   required bool hideSensitiveDetails,
 }) {
-  final eventInstant = reminder.eventInstant;
-  final time = eventInstant == null
-      ? null
-      : formatClockTime(strings, eventInstant);
+  final title = hideSensitiveDetails
+      ? strings.reminderNotificationHiddenTitleOf(reminder.title)
+      : reminder.title;
+  final note = reminder.description?.trim();
 
   return ReminderNotificationContent(
-    title: _titleOf(_stageOf(reminder, firesAt), reminder.title, strings),
-    body: hideSensitiveDetails
-        ? time ?? strings.reminderNotificationTapToContinue
-        : _shownBody(time, reminder.description?.trim(), strings),
+    title: _titleOf(_stageOf(reminder, firesAt), title, strings),
+    body: hideSensitiveDetails || note == null || note.isEmpty ? null : note,
   );
 }
 
@@ -67,19 +63,6 @@ String _titleOf(_Stage stage, String title, AppStrings s) => switch (stage) {
   _Today() => s.reminderNotificationTitleToday(title),
   _Now() => s.reminderNotificationTitleNow(title),
 };
-
-String _shownBody(String? time, String? note, AppStrings s) {
-  final hasNote = note != null && note.isNotEmpty;
-  return switch ((time, hasNote)) {
-    (final String time, true) => s.reminderNotificationBodyTimeAndNote(
-      time,
-      note!,
-    ),
-    (final String time, false) => s.reminderNotificationBodyAt(time),
-    (null, true) => note!,
-    (null, false) => s.reminderNotificationTapToContinue,
-  };
-}
 
 /// How far [firesAt] is from [reminder]'s event: whole Cairo calendar days
 /// first, then — on the event's own day, when it has a time — hours or

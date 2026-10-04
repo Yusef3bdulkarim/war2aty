@@ -77,9 +77,13 @@ void main() {
     final (title, body) = notifications.scheduled.values.single;
     expect(
       title,
-      const EnStrings().reminderNotificationTitleNow('دفع فاتورة الكهرباء'),
+      const EnStrings().reminderNotificationTitleNow(
+        const EnStrings().reminderNotificationHiddenTitleOf(
+          'دفع فاتورة الكهرباء',
+        ),
+      ),
     );
-    expect(body, '10:00 AM');
+    expect(body, isNull);
   });
 
   test('never schedules an alert already in the past', () async {
@@ -153,9 +157,9 @@ void main() {
     expect(repository.lastAlertStatus, ReminderAlertStatus.failed);
   });
 
-  group('notification privacy (F09-T14, reworded F25-T08)', () {
-    // Since F25-T08 hiding keeps only the user's note off the lock screen;
-    // the title shows in both modes (the owner's call, 2026-10-04).
+  group('notification privacy (F09-T14, reworded F25-T08/T09)', () {
+    // Hiding keeps the user's note off the lock screen; the title shows in
+    // both modes, behind «عندك تذكير» when hidden (the owner's call).
     const note = 'السداد عن طريق فوري';
 
     Future<(String, String?)> scheduledFor() async {
@@ -167,11 +171,11 @@ void main() {
       return notifications.scheduled.values.single;
     }
 
-    test('by default: the title and time, never the note', () async {
+    test('by default: the title, never the note', () async {
       final (title, body) = await scheduledFor();
 
-      expect(title, contains('دفع فاتورة الكهرباء'));
-      expect(body, '10:00 صباحًا');
+      expect(title, contains('عندك تذكير دفع فاتورة الكهرباء'));
+      expect(body, isNull);
     });
 
     test('still hides the note once explicitly turned on', () async {
@@ -179,7 +183,7 @@ void main() {
 
       final (_, body) = await scheduledFor();
 
-      expect(body, isNot(contains(note)));
+      expect(body, isNull);
     });
 
     test('shows the note once the user turns it off', () async {
@@ -188,7 +192,8 @@ void main() {
       final (title, body) = await scheduledFor();
 
       expect(title, contains('دفع فاتورة الكهرباء'));
-      expect(body, '10:00 صباحًا • $note');
+      expect(title, isNot(contains('عندك تذكير')));
+      expect(body, note);
     });
   });
 

@@ -438,8 +438,8 @@ class SettingsToggleRow extends StatelessWidget {
   final ValueChanged<bool>? onChanged;
 
   /// An optional explanatory line under [label] — e.g. «إخفاء التفاصيل
-  /// الحساسة من شاشة القفل»'s «هيظهر اسم التذكير وميعاده بس، من غير
-  /// ملاحظتك.» (F11-T10, reworded F25-T08). Every other toggle row has none.
+  /// الحساسة من شاشة القفل»'s «هيظهر اسم التذكير بس، من غير ملاحظتك.»
+  /// (F11-T10, reworded F25-T08/T09). Every other toggle row has none.
   final String? description;
 
   @override

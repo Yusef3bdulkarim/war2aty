@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminder-notifications`, based on `develop` · **Milestone:** post-F24
 - **Depends on:** F09 (reminders, `ReminderScheduler`, the notification port), F11-T10 (the notification-privacy setting)
-- **Progress:** 7 / 8 DONE (T03 and T05 reverted by T07)
+- **Progress:** 8 / 9 DONE (T03 and T05 reverted by T07)
 
 What a reminder's OS notification says, and what the user can do from it.
 F09 shipped a bare notification: hidden mode (the default) said only «عندك
@@ -17,36 +17,32 @@ Resolved with the owner on 2026-10-03, from four proposed copy styles.
    alert, worked out when the alert is scheduled from the alert's own instant
    and the event (Cairo calendar days, then hours on the event's own day):
 
-   *Restructured 2026-10-04 (F25-T08) — this table is current.* The title
-   is the same in both modes:
+   *Restructured 2026-10-04 (F25-T08, then T09) — these tables are
+   current.*
 
-   | Stage | Title (both modes) |
-   |---|---|
-   | 2+ days away | فاضل 3 أيام: {title} |
-   | The day before | بكرة آخر ميعاد: {title} |
-   | Same day, hours away | بعد ساعتين: {title} |
-   | Same day, no event time | النهارده: {title} |
-   | At (or past) the event | دلوقتي: {title} |
-
-   | Body | Details shown | Details hidden |
+   | Stage | Title (details shown) | Title (details hidden) |
    |---|---|---|
-   | Time and note | 10:00 صباحًا • {note} | 10:00 صباحًا |
-   | Time, no note | الساعة 10:00 صباحًا | 10:00 صباحًا |
-   | Note, no time | {note} | اضغط للمتابعة |
-   | Neither | اضغط للمتابعة | اضغط للمتابعة |
+   | 2+ days away | فاضل 3 أيام: {title} | فاضل 3 أيام: عندك تذكير {title} |
+   | The day before | بكرة آخر ميعاد: {title} | بكرة آخر ميعاد: عندك تذكير {title} |
+   | Same day, hours away | بعد ساعتين: {title} | بعد ساعتين: عندك تذكير {title} |
+   | Same day, no event time | النهارده: {title} | النهارده: عندك تذكير {title} |
+   | At (or past) the event | دلوقتي: {title} | دلوقتي: عندك تذكير {title} |
 
-   English: «In 3 days: Electricity Bill», «Due tomorrow: …», «In 2 hours:
-   …», «Now: …»; «10:00 AM • Payment via Fawry», «At 10:00 AM», «Tap to
-   continue».
+   **Body:** the user's note only — never the time, never a fallback line.
+   No note, or details hidden: no body at all.
+
+   English: «In 3 days: Electricity Bill» / «In 3 days: You have a reminder
+   for Electricity Bill», «Due tomorrow: …», «In 2 hours: …», «Now: …»;
+   the body is the note («Payment via Fawry») or nothing.
 2. **Hidden mode shows the title as-is (Option A, F25-T08)** — the owner's
    decision on 2026-10-04, taking responsibility for it: a title can carry
    numbers or names from the paper. Hiding now keeps only the user's note
    off the lock screen, and the setting's description says so: «هيظهر اسم
-   التذكير وميعاده بس، من غير ملاحظتك.» (it used to promise «مش هنظهر
-   المبالغ أو الأرقام المهمة داخل الإشعار.», no longer true).
+   التذكير بس، من غير ملاحظتك.» (it used to promise «مش هنظهر المبالغ أو
+   الأرقام المهمة داخل الإشعار.», no longer true).
 3. **No emoji.**
-4. **The user's note follows the time after a bullet** when details are
-   shown.
+4. **The body is the user's note alone** when details are shown (T09
+   dropped the time from the body).
 5. **Tapping the notification opens that reminder's details screen.**
 6. ~~Two action buttons: «تم» (complete) and «أجّل ساعة» (snooze one hour),
    handled without opening the app.~~ **Withdrawn 2026-10-04** — see
@@ -95,9 +91,10 @@ reads the same as the reminder details screen.
 | 3 | F25-T03 | Action use case | `HandleReminderNotificationAction` — *removed by T07* | REVERTED |
 | 4 | F25-T04 | Tap → details | foreground + cold-start taps land on `/reminders/:id` once the router is up | DONE |
 | 5 | F25-T05 | Background actions | background entry point, shared-isolate Drift, Android receiver, iOS registrant — *removed by T07* | REVERTED |
-| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | IN PROGRESS — gate re-run after T08 on 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2149 tests green); device checklist pending |
+| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | IN PROGRESS — gate re-run after T09 on 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2144 tests green); device checklist pending |
 | 7 | F25-T07 | Remove the buttons (Option 3) | buttons, action use case and all background execution removed; database, manifest and `AppDelegate.swift` back to `develop`; tap-to-open kept | DONE |
-| 8 | F25-T08 | Restructure title/body (Option A) | one title for both modes; body = time • note / «الساعة …» / time only when hidden / «اضغط للمتابعة»; English mirrored; settings description reworded | DONE |
+| 8 | F25-T08 | Restructure title/body (Option A) | title shown in both modes; body = time • note; settings description reworded — *body superseded by T09* | DONE |
+| 9 | F25-T09 | Hidden title «عندك تذكير», note-only body | hidden title «{stage}: عندك تذكير {title}»; body = note or nothing, no time in any mode; English mirrored | DONE |
 
 ## Exit DoD
 
@@ -111,8 +108,8 @@ Android and iOS, details hidden and shown:
 
 1. A reminder 3 days out, 1 day out, 2 hours out, and at its time — each
    notification's title and body match the tables, with and without a note.
-2. Arabic body «10:00 صباحًا • {note}» reads right-to-left with the time
-   first, on both platforms.
+2. Hidden mode's «… عندك تذكير {title}» reads right-to-left correctly, and
+   a notification with no note shows no empty body line.
 3. Tap a notification with the app killed, backgrounded, and in the
    foreground — each lands on that reminder's details.
 4. Tap a notification whose reminder was deleted in the app → the details

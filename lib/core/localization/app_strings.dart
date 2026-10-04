@@ -932,14 +932,10 @@ abstract interface class AppStrings {
   String reminderNotificationTitleToday(String title);
   String reminderNotificationTitleNow(String title);
 
-  /// The body (F25-T08): the event's time, then the user's note when
-  /// details are shown — «10:00 صباحًا • السداد عن طريق فوري» — or the time
-  /// alone, «الساعة 10:00 صباحًا». Hidden mode shows the bare time.
-  String reminderNotificationBodyTimeAndNote(String time, String note);
-  String reminderNotificationBodyAt(String time);
-
-  /// The body when there is neither a time nor a note to show.
-  String get reminderNotificationTapToContinue;
+  /// The reminder's title as details-hidden mode shows it (F25-T09) —
+  /// «عندك تذكير فاتورة الكهرباء» — then placed behind the stage like any
+  /// other title.
+  String reminderNotificationHiddenTitleOf(String title);
 
   // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
   String get reminderListTitle;

@@ -435,11 +435,8 @@ final Map<String, String Function(AppStrings)> _accessors = {
       s.reminderNotificationTitleToday('title'),
   'reminderNotificationTitleNow': (s) =>
       s.reminderNotificationTitleNow('title'),
-  'reminderNotificationBodyTimeAndNote': (s) =>
-      s.reminderNotificationBodyTimeAndNote('time', 'note'),
-  'reminderNotificationBodyAt': (s) => s.reminderNotificationBodyAt('time'),
-  'reminderNotificationTapToContinue': (s) =>
-      s.reminderNotificationTapToContinue,
+  'reminderNotificationHiddenTitleOf': (s) =>
+      s.reminderNotificationHiddenTitleOf('title'),
   'reminderListTitle': (s) => s.reminderListTitle,
   'reminderTabUpcoming': (s) => s.reminderTabUpcoming,
   'reminderTabMissed': (s) => s.reminderTabMissed,
