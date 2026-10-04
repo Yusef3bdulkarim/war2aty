@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminder-notifications`, based on `develop` · **Milestone:** post-F24
 - **Depends on:** F09 (reminders, `ReminderScheduler`, the notification port), F11-T10 (the notification-privacy setting)
-- **Progress:** 8 / 9 DONE (T03 and T05 reverted by T07)
+- **Progress:** 9 / 9 DONE (T03 and T05 reverted by T07) · **F25 COMPLETE**
 - **PR:** [#27](https://github.com/Yusef3bdulkarim/war2aty/pull/27) into `develop`
 
 What a reminder's OS notification says, and what the user can do from it.
@@ -92,7 +92,7 @@ reads the same as the reminder details screen.
 | 3 | F25-T03 | Action use case | `HandleReminderNotificationAction` — *removed by T07* | REVERTED |
 | 4 | F25-T04 | Tap → details | foreground + cold-start taps land on `/reminders/:id` once the router is up | DONE |
 | 5 | F25-T05 | Background actions | background entry point, shared-isolate Drift, Android receiver, iOS registrant — *removed by T07* | REVERTED |
-| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | IN PROGRESS — gate re-run after T09 on 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2144 tests green); independent `@code-reviewer` pass 2026-10-04: no critical or major findings; device checklist pending |
+| 6 | F25-T06 | Quality gate + device pass | `dart format` / `flutter analyze` / `flutter test`; device checklist below | DONE — device pass waived by the owner on 2026-10-04; gate re-run after T09 on 2026-10-04 (format clean, analyze: only the 16 infos already on `develop`, 2144 tests green); independent `@code-reviewer` pass 2026-10-04: no critical or major findings |
 | 7 | F25-T07 | Remove the buttons (Option 3) | buttons, action use case and all background execution removed; database, manifest and `AppDelegate.swift` back to `develop`; tap-to-open kept | DONE |
 | 8 | F25-T08 | Restructure title/body (Option A) | title shown in both modes; body = time • note; settings description reworded — *body superseded by T09* | DONE |
 | 9 | F25-T09 | Hidden title «عندك تذكير», note-only body | hidden title «{stage}: عندك تذكير {title}»; body = note or nothing, no time in any mode; English mirrored | DONE |
@@ -104,6 +104,9 @@ hidden mode never shows the note; tapping opens the right reminder, whether the 
 in the background or open; the notification has no buttons.
 
 ## Device checklist (T06)
+
+*Waived by the owner on 2026-10-04 — not run before merge. Kept as the
+reference for any later device check.*
 
 Android and iOS, details hidden and shown:
 
