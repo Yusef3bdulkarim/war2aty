@@ -42,7 +42,6 @@ import 'package:war2aty/core/reminders/notification_privacy_store.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
 import 'package:war2aty/core/reminders/reminder_alert.dart';
 import 'package:war2aty/core/reminders/reminder_alert_status.dart';
-import 'package:war2aty/core/reminders/reminder_notification_response.dart';
 import 'package:war2aty/core/reminders/reminder_scheduler.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 import 'package:war2aty/core/reminders/reminders_repository.dart';
@@ -1335,30 +1334,26 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
   /// scheduler's own failure handling.
   final Set<int> failingIds = {};
 
-  /// The payload and button labels each id was last scheduled with (F25).
+  /// The payload (reminder id) each id was last scheduled with (F25).
   final Map<int, String> payloads = {};
-  final Map<int, ReminderNotificationActionLabels> actionLabels = {};
-  ReminderNotificationActionLabels? initializedActionLabels;
 
-  /// What [initialize] was handed to report responses with — call it to
-  /// play a notification tap or button press (F25-T04).
-  void Function(ReminderNotificationResponse)? onResponse;
+  /// What [initialize] was handed to report taps with — call it to play a
+  /// notification tap (F25-T04).
+  void Function(String reminderId)? onOpened;
 
-  /// What [launchResponse] reports: the tap that "launched" the app.
-  ReminderNotificationResponse? launchedBy;
+  /// What [launchedReminderId] reports: the tap that "launched" the app.
+  String? launchedBy;
 
   @override
   Future<void> initialize({
-    required ReminderNotificationActionLabels actionLabels,
-    required void Function(ReminderNotificationResponse) onResponse,
+    required void Function(String reminderId) onOpened,
   }) async {
     initializeCount++;
-    initializedActionLabels = actionLabels;
-    this.onResponse = onResponse;
+    this.onOpened = onOpened;
   }
 
   @override
-  Future<ReminderNotificationResponse?> launchResponse() async => launchedBy;
+  Future<String?> launchedReminderId() async => launchedBy;
 
   @override
   Future<void> schedule({
@@ -1367,7 +1362,6 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
     required String title,
     String? body,
     required String payload,
-    required ReminderNotificationActionLabels actionLabels,
   }) async {
     if (failingIds.contains(id)) {
       throw StateError('scheduling failed for $id');
@@ -1375,7 +1369,6 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
     scheduled[id] = (title, body);
     scheduledAt[id] = at;
     payloads[id] = payload;
-    this.actionLabels[id] = actionLabels;
   }
 
   @override
@@ -1383,7 +1376,6 @@ final class FakeLocalNotificationsPort implements LocalNotificationsPort {
     scheduled.remove(id);
     scheduledAt.remove(id);
     payloads.remove(id);
-    actionLabels.remove(id);
   }
 
   @override

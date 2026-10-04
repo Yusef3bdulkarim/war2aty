@@ -63,7 +63,6 @@ import '../../core/env/usecases/get_app_version.dart';
 import '../../core/identity/installation_id_provider.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
-import '../../core/localization/saved_locale_strings.dart';
 import '../../core/localization/usecases/get_saved_locale.dart';
 import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
@@ -81,7 +80,6 @@ import '../../core/reminders/flutter_local_notifications_port.dart';
 import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
 import '../../core/reminders/local_notifications_port.dart';
 import '../../core/reminders/notification_privacy_store.dart';
-import '../../core/reminders/reminder_notification_response.dart';
 import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/reminders/reminders_repository.dart';
 import '../../core/reminders/stub_upcoming_reminder_repository.dart';
@@ -92,7 +90,6 @@ import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../core/reminders/usecases/delete_all_reminders.dart';
 import '../../core/reminders/usecases/delete_reminder.dart';
 import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
-import '../../core/reminders/usecases/handle_reminder_notification_action.dart';
 import '../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import '../../core/reminders/usecases/snooze_reminder.dart';
 import '../../core/reminders/usecases/watch_reminder.dart';
@@ -209,7 +206,6 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
-import '../notifications/reminder_notification_background.dart';
 import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
@@ -392,18 +388,14 @@ List<BootstrapStep> _buildLaunchSteps() {
     }, critical: false),
     BootstrapStep(BootstrapStage.reminders, () async {
       // The plugin/timezone/channel setup (F09-T10) has to run before the
-      // first `reconcile` ever schedules anything. The buttons' labels are
-      // fixed here for iOS (F25-T02), in the language saved at launch.
-      final strings = appStringsForSavedLocale(await getIt<GetSavedLocale>()());
+      // first `reconcile` ever schedules anything.
       final notifications = getIt<LocalNotificationsPort>();
-      await notifications.initialize(
-        actionLabels: ReminderNotificationActionLabels.of(strings),
-        onResponse: _onReminderNotificationResponse,
-      );
+      final taps = getIt<ReminderNotificationTaps>();
+      await notifications.initialize(onOpened: taps.open);
       // A tap that launched the app from cold is only ever reported here
       // (F25-T04); it opens once the router is up.
-      final launchedBy = await notifications.launchResponse();
-      if (launchedBy != null) _onReminderNotificationResponse(launchedBy);
+      final launchedBy = await notifications.launchedReminderId();
+      if (launchedBy != null) taps.open(launchedBy);
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -413,13 +405,6 @@ List<BootstrapStep> _buildLaunchSteps() {
     }, critical: false),
   ];
 }
-
-void _onReminderNotificationResponse(ReminderNotificationResponse response) =>
-    dispatchReminderNotificationResponse(
-      response,
-      taps: getIt(),
-      handleAction: getIt(),
-    );
 
 void _registerOnboarding() {
   getIt
@@ -747,12 +732,7 @@ void _registerReminders() {
     ..registerLazySingleton<LocalNotificationsPort>(
       // Arabic, unconditionally — see `FlutterLocalNotificationsPort`'s own
       // doc comment for why this one string isn't locale-aware.
-      () => FlutterLocalNotificationsPort(
-        getIt(),
-        'التذكيرات',
-        // F25-T05. A pressed «تم» / «أجّل ساعة» runs here, off the app.
-        onBackgroundResponse: onReminderNotificationBackgroundResponse,
-      ),
+      () => FlutterLocalNotificationsPort(getIt(), 'التذكيرات'),
     )
     // F09-T14. Same `app_settings` table `DriftLocaleStore` reads/writes.
     ..registerLazySingleton<NotificationPrivacyStore>(
@@ -782,10 +762,6 @@ void _registerReminders() {
       () => CompleteReminder(getIt(), getIt()),
     )
     ..registerFactory<SnoozeReminder>(() => SnoozeReminder(getIt(), getIt()))
-    // F25-T03. A notification's «تم» / «أجّل ساعة».
-    ..registerFactory<HandleReminderNotificationAction>(
-      () => HandleReminderNotificationAction(getIt(), getIt()),
-    )
     // F25-T04. App-scoped: the launch step writes a tap here before the
     // router exists, `ReminderNotificationOpener` reads it once it does.
     ..registerLazySingleton<ReminderNotificationTaps>(

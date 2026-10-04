@@ -49,7 +49,7 @@ void main() {
     expect(notifications.scheduled, hasLength(2));
   });
 
-  test('carries the reminder id and its two buttons (F25-T02)', () async {
+  test('carries the reminder id, for a tap to open (F25-T04)', () async {
     final future = DateTime.now().toUtc().add(const Duration(days: 1));
     final reminder = fakeReminder(id: 'r7', alertTimes: [future]);
     final id = notificationIdOf(reminder.alerts.single.id);
@@ -58,12 +58,9 @@ void main() {
     await scheduler.reconcile();
 
     expect(notifications.payloads[id], 'r7');
-    final labels = notifications.actionLabels[id]!;
-    expect(labels.complete, ar.reminderNotificationActionComplete);
-    expect(labels.snooze, ar.reminderNotificationActionSnooze);
   });
 
-  test('labels the buttons in the saved language', () async {
+  test('words the notification in the saved language', () async {
     final english = LocalNotificationsReminderScheduler(
       notifications,
       repository,
@@ -77,11 +74,8 @@ void main() {
 
     await english.reconcile();
 
-    final labels = notifications.actionLabels.values.single;
-    expect(
-      labels.complete,
-      const EnStrings().reminderNotificationActionComplete,
-    );
+    final (_, body) = notifications.scheduled.values.single;
+    expect(body, const EnStrings().reminderNotificationHiddenBody);
   });
 
   test('never schedules an alert already in the past', () async {

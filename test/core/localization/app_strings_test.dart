@@ -449,9 +449,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'reminderNotificationHiddenTitleNow': (s) =>
       s.reminderNotificationHiddenTitleNow,
   'reminderNotificationHiddenBody': (s) => s.reminderNotificationHiddenBody,
-  'reminderNotificationActionComplete': (s) =>
-      s.reminderNotificationActionComplete,
-  'reminderNotificationActionSnooze': (s) => s.reminderNotificationActionSnooze,
   'reminderListTitle': (s) => s.reminderListTitle,
   'reminderTabUpcoming': (s) => s.reminderTabUpcoming,
   'reminderTabMissed': (s) => s.reminderTabMissed,

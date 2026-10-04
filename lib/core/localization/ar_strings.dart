@@ -1162,10 +1162,6 @@ final class ArStrings implements AppStrings {
   String get reminderNotificationHiddenBody =>
       'افتح التطبيق علشان تشوف التفاصيل.';
   @override
-  String get reminderNotificationActionComplete => 'تم';
-  @override
-  String get reminderNotificationActionSnooze => 'أجّل ساعة';
-  @override
   String get reminderListTitle => 'التذكيرات';
   @override
   String get reminderTabUpcoming => 'القادمة';

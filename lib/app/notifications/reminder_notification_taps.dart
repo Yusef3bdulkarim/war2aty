@@ -1,9 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
-
-import '../../core/reminders/reminder_notification_response.dart';
-import '../../core/reminders/usecases/handle_reminder_notification_action.dart';
 
 /// The reminder a notification tap asked to open, held until the router is
 /// up to show it (F25-T04).
@@ -27,22 +22,5 @@ final class ReminderNotificationTaps extends ChangeNotifier {
     final id = _pending;
     _pending = null;
     return id;
-  }
-}
-
-/// Routes what the user did with a reminder notification, in the app's own
-/// isolate: a tap opens the reminder; a button press (which normally runs
-/// in the background engine instead, F25-T05) is handled here too, so it is
-/// never dropped if a platform delivers it to the app.
-void dispatchReminderNotificationResponse(
-  ReminderNotificationResponse response, {
-  required ReminderNotificationTaps taps,
-  required HandleReminderNotificationAction handleAction,
-}) {
-  switch (response) {
-    case ReminderNotificationOpened(:final reminderId):
-      taps.open(reminderId);
-    case ReminderNotificationActionChosen(:final reminderId, :final action):
-      unawaited(handleAction(reminderId, action));
   }
 }

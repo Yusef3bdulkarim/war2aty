@@ -946,12 +946,6 @@ abstract interface class AppStrings {
   String get reminderNotificationHiddenTitleNow;
   String get reminderNotificationHiddenBody;
 
-  /// The notification's two buttons (F25-T02) — «تم» completes the
-  /// reminder, «أجّل ساعة» fires it again an hour later, neither opening
-  /// the app.
-  String get reminderNotificationActionComplete;
-  String get reminderNotificationActionSnooze;
-
   // Reminders list (F09-T11) — «التذكيرات», the reminders tab.
   String get reminderListTitle;
   String get reminderTabUpcoming;

@@ -1,5 +1,3 @@
-import 'reminder_notification_response.dart';
-
 /// The one OS-notification capability a reminder scheduler needs, behind a
 /// plugin-free port — the same shape `OcrEngine`/`CameraService` wrap their
 /// own plugins in (CLAUDE.md §B9). `ReminderScheduler`'s real implementation
@@ -7,38 +5,29 @@ import 'reminder_notification_response.dart';
 /// can be driven by a fake in tests instead of a platform channel.
 abstract interface class LocalNotificationsPort {
   /// Sets up whatever the platform needs before [schedule] can be called —
-  /// the plugin itself, the timezone database, the Android channel, and the
-  /// iOS category that carries [actionLabels] (F25-T02: iOS fixes a
-  /// notification's buttons when the category is registered, not per
-  /// notification). Called once, from the launch sequence.
+  /// the plugin itself, the timezone database, the Android channel. Called
+  /// once, from the launch sequence.
   ///
-  /// [onResponse] hears what the user does with a notification while the
-  /// app is running (F25-T04) — in practice a tap; a button press normally
-  /// runs in a background engine instead (F25-T05).
-  Future<void> initialize({
-    required ReminderNotificationActionLabels actionLabels,
-    required void Function(ReminderNotificationResponse) onResponse,
-  });
+  /// [onOpened] hears the reminder id of a notification the user taps while
+  /// the app is running (F25-T04).
+  Future<void> initialize({required void Function(String reminderId) onOpened});
 
-  /// The tap that launched the app from a terminated state, if one did
-  /// (F25-T04) — [initialize]'s [onResponse] never hears that one. `null`
-  /// for an ordinary launch.
-  Future<ReminderNotificationResponse?> launchResponse();
+  /// The reminder id of the notification whose tap launched the app from a
+  /// terminated state, if one did (F25-T04) — [initialize]'s `onOpened`
+  /// never hears that one. `null` for an ordinary launch.
+  Future<String?> launchedReminderId();
 
   /// Schedules one notification at the real instant [at] (UTC). Scheduling
   /// the same [id] again replaces whatever was there before.
   ///
-  /// [payload] comes back with whatever the user does with the
-  /// notification (F25) — the reminder's id. [actionLabels] are its «تم» /
-  /// «أجّل ساعة» buttons on Android; iOS shows the ones [initialize]
-  /// registered.
+  /// [payload] — the reminder's id — comes back when the notification is
+  /// tapped (F25-T04).
   Future<void> schedule({
     required int id,
     required DateTime at,
     required String title,
     String? body,
     required String payload,
-    required ReminderNotificationActionLabels actionLabels,
   });
 
   /// Cancels [id]. Cancelling one that is not scheduled is a no-op.
