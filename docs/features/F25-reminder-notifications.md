@@ -3,6 +3,7 @@
 - **Branch:** `feature/reminder-notifications`, based on `develop` · **Milestone:** post-F24
 - **Depends on:** F09 (reminders, `ReminderScheduler`, the notification port), F11-T10 (the notification-privacy setting)
 - **Progress:** 8 / 9 DONE (T03 and T05 reverted by T07)
+- **PR:** [#27](https://github.com/Yusef3bdulkarim/war2aty/pull/27) into `develop`
 
 What a reminder's OS notification says, and what the user can do from it.
 F09 shipped a bare notification: hidden mode (the default) said only «عندك
