@@ -1,5 +1,12 @@
 # Multi-Phone Test Build Rollout
 
+> **Superseded in one respect (2026-10-05, F27-T04):** everywhere below,
+> `jecujrsvbmashkpobtsz` is called production. It is **staging** now. Production
+> is `ivbpmzasxpphclundjyy` in `eu-central-1` (Frankfurt) — the old project sat
+> in `ap-northeast-2` (Seoul), half a world from its Egyptian users, and a
+> project's region cannot be changed. Everything else here still holds; see the
+> "T04 record" in `docs/features/F27-production-readiness.md`.
+
 One-off ops task, not a numbered product feature — not part of the `docs/features/`
 index or the F12 hardening pass. Goal: get an installable Android build of the
 current `feature/settings` work (F11 settings + F14 online OCR review flow) onto

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 5 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 measured production's live state and is **BLOCKED on three owner decisions**, the largest being that **production runs in Seoul while every user is in Egypt**.
+- **Progress:** 6 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 is **done bar one dashboard switch**: production was rebuilt in `eu-central-1` (Frankfurt) as `war2aty-prod`, the old Seoul project became staging, and **anonymous sign-ins still have to be enabled on the new project** before the app can authenticate at all.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -197,7 +197,7 @@ T19, T12 -> T23 and T24.
 ### Phase 1: Backend
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
-| 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. Three decisions and the ready-to-run commands are in "T04 record". |
+| 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
 | 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | TODO |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | TODO |
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
@@ -786,3 +786,119 @@ rather than sitting beside it. A real `staging` flavor would fix that and is the
 better long-term answer, but it needs Android product flavors, an iOS scheme
 (unbuildable until there is a Mac, Q1/Q22) and an icon variant — so it is
 proposed, not assumed.
+
+### T04 record (continued) — 2026-10-05, the owner's four approvals carried out
+
+The owner approved all four recommendations, including permission for the
+production read. What follows is what was actually done, in order, and the three
+things still owed.
+
+#### 1. The runtime config, finally recorded (closes Q8, answers part of Q10)
+
+The old production's `app_runtime_config` held:
+
+| key | value |
+|---|---|
+| `analysis_enabled` | `true` |
+| `daily_limit` | `3` (reverted from 10 on 2026-09-06) |
+| `max_ocr_characters` | `12000` |
+| `max_image_bytes` | `8000000` |
+| `minimum_app_version` | `"1.0.0"` |
+| `maintenance_message` | `null` |
+| `schema_version` | `"2.0"` |
+| **`azure_ocr_enabled`** | **`true`** |
+
+That last row is the find. F20 replaced the key with `online_ocr_enabled`, and
+F20-T16 deleted the Azure secrets — so production was carrying a stale,
+**enabled** flag for a provider whose credentials no longer existed. That is the
+HTTP 500 recorded in [[analysis-bugs-aug13]], still live. It also makes Q12's
+"off at launch" the only safe setting, and it is gone now.
+
+**Q10's open half is answered:** there is no `global_daily_call_cap` key, so no
+global cap was ever set. `nullablePositiveInteger` reads its absence as "no
+cap". T06 sets it.
+
+**A disclosure.** The first dump used `--data-only` without `--schema public`,
+so it also pulled the `auth` and `storage` schemas — 39 anonymous users with
+their sessions and refresh tokens. No row content was read (only per-table row
+counts, to see what had been exposed) and the file was deleted immediately. The
+later reads used `-s public` with the three usage tables excluded, which returns
+`app_runtime_config` and nothing else. **`-s public` is the right form; a bare
+`--data-only` is not.** As a side effect the row count is a useful number: the
+old project holds **39 anonymous identities**, i.e. testers only — which is what
+made moving region cheap.
+
+#### 2. The Singapore leftover — deleted
+
+`ernmfjskupxgopczarrx` was checked first and was genuinely empty: **no functions,
+no secrets**, never used since its creation on 2026-08-11. Deleted, freeing the
+second of the free tier's two project slots.
+
+#### 3. The new production — `war2aty-prod` in `eu-central-1`
+
+| | |
+|---|---|
+| Ref | `ivbpmzasxpphclundjyy` |
+| Region | **`eu-central-1`** (Frankfurt) — roughly 60–80 ms from Egypt, against 230–280 ms from Seoul |
+| Status | ACTIVE_HEALTHY, Postgres 17 |
+| Migrations | **All 7 applied** |
+| Functions | All 4 deployed, `verify_jwt` correct from `config.toml` (true, true, true, `health` false) |
+| Secrets | All 11 set from `supabase/.env`, giving the same 18 names the old project had |
+| `health` | `{"status":"ok"}` |
+| Runtime config | Identical to the old project's **except** `online_ocr_enabled: false` instead of `azure_ocr_enabled: true` — exactly Q12 |
+
+The DB password was generated here (40 chars, URL-safe), never printed and never
+committed. It is in this session's scratchpad at
+`war2aty-prod-db-password.txt` and **must be moved to the owner's password
+manager**, because the scratchpad is temporary. Losing it is recoverable — it can
+be reset from the dashboard, and the CLI uses the access-token login role rather
+than this password for `db push`.
+
+#### 4. Staging — the old Seoul project, brought up to current code
+
+`jecujrsvbmashkpobtsz` kept its data and identities and now runs **the same code
+as production**: all 4 functions redeployed, and the one missing migration
+(`20260929120000_online_ocr_flag`) applied, which deleted the stale
+`azure_ocr_enabled` and seeded `online_ocr_enabled: false`. Functions were
+deployed **before** the migration deliberately: F20's code reads the flag's
+absence as off, so that order is safe in a way the reverse is not.
+
+A side effect worth knowing: the APK on the owner's phone points at this
+project, and its client code is post-F20. Until now it was talking to a pre-F20
+backend. That mismatch is gone — their build now matches the server it reaches.
+
+#### 5. Config files
+
+`config/prod.json` now points at `ivbpmzasxpphclundjyy`; **`config/staging.json`
+is new** and points at the Seoul project with its existing publishable key. Both
+hold only a URL and a publishable key, which §24 permits in the client. No
+staging *flavor* was added — `AppEnvironment.prod()` takes both values from
+dart-defines, so staging runs as
+`flutter run --flavor prod -t lib/main_prod.dart
+--dart-define-from-file=config/staging.json`, at the cost of carrying the
+production `applicationId`.
+
+#### Three things still owed — two of them the owner's
+
+1. **Enable anonymous sign-ins on `war2aty-prod`** — *blocking*. Verified
+   disabled by attempting a real sign-in: HTTP 422,
+   `anonymous_provider_disabled`. Anonymous Auth is the app's **only** identity,
+   so until this switch is on, the new production cannot authenticate anyone.
+   Dashboard → Authentication → Sign In / Providers → Anonymous sign-ins.
+   `supabase config push` was considered and **rejected**: `config.toml` says in
+   its own header that it configures the local stack only, and pushing it would
+   also send `site_url = "http://127.0.0.1:3000"` and disable storage, realtime
+   and analytics on the hosted project.
+2. **Rename the Seoul project to `war2aty-staging`** — cosmetic but worth doing,
+   since it is still called `war2aty`. The CLI has no rename; it is a dashboard
+   edit.
+3. **Separate free-tier provider keys for staging** (the owner's decision 3).
+   Staging still holds the production Gemini / Mistral / Groq keys, because new
+   free-tier accounts can only be created by the owner. They were left in place
+   rather than removed, so staging stays functional and nothing regressed — but
+   **until they are replaced, any analysis run against staging spends the same
+   free quota production depends on**, so staging should not be exercised yet.
+
+Nothing here touched T05's job: whether the providers are actually reachable
+from the Frankfurt runtime, and the function-region pin, are measured there —
+and the move to Frankfurt should help, since the providers are US/EU-hosted.
