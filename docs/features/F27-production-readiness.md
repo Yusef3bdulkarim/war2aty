@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 7 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 is next.
+- **Progress:** 8 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day with the maths written down, and found that **the cap does not cover Gemini at all**; its attestation half is **proposed, not built** — it needs the owner's Google Cloud.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -199,7 +199,7 @@ T19, T12 -> T23 and T24.
 |---|---|---|---|---|---|
 | 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
 | 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **DONE 2026-10-06, with the Gemini check deferred to T08 by the owner.** Region finding and pin shipped (`5a95392`). Mistral → Groq verified live **on production itself**: 11/11 integration tests, real analysis in **9 s**, quota counted — and earlier on staging pinned to `eu-central-1`. Gemini/`ocr-document` was not run: it needs `online_ocr_enabled` on, and no route to that write exists from here. See "T05 record". |
-| 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | TODO |
+| 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **Attestation is proposed, not built**: Play Integrity needs the owner's Google Cloud project, and the plan's own rule is that owner tasks are prepared, not performed. **One new risk found: the cap does not protect Gemini.** See "T06 record". |
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
 | 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO — **also inherits T05's Gemini/`ocr-document` live check** (deferred by the owner 2026-10-06; see "Closing T05"). |
 | 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | TODO |
@@ -1086,3 +1086,106 @@ recorded as T08's inheritance rather than quietly dropped — **T08 must not fli
 check there is the same shape: flag on, one image, assert, flag off.
 
 **`online_ocr_enabled` is still `false` on both projects.** Q12 intact.
+
+### T06 record (2026-10-06) — the cap is armed; attestation is specified, not built
+
+#### The capacity maths (Q3's 500/day against every free tier)
+
+Limits as published on **2026-10-06**. They move, which is why the plan refused
+to quote them in advance; re-check before raising anything.
+
+| Service | Role | Free limit | Carries 500 analyses/day? |
+|---|---|---|---|
+| Mistral `ministral-14b` | analysis, primary | ~1B tokens/month (Experiment tier); per-minute limits no longer published | **Yes on volume** — 500/day × ~3K tokens ≈ 45M/month against 1B. The risk is not volume but that the tier is documented for evaluation |
+| Groq `openai/gpt-oss-120b` | analysis, fallback | 1,000 req/day **but 200,000 tokens/day** | **No — ~66/day.** Token-bound, not request-bound |
+| Gemini 3.5 Flash-Lite | OCR | **500 req/day**, 15 req/min | **Exactly, with zero headroom** |
+| Supabase Edge Functions | all calls | 500,000 invocations/month | Yes — ~16,600/day, and an analysis costs 2–3 |
+
+Two conclusions the plan asked for plainly:
+
+1. **Groq is a safety net, not a second engine.** At ~3K tokens an analysis, its
+   200K tokens/day is about **66 analyses** — 13% of the launch target. A brief
+   Mistral blip is covered; a sustained Mistral outage caps the day at ~66
+   however high this cap is set. The published 1,000 req/day is a decoy: the
+   token ceiling binds first, by a factor of fifteen.
+2. **Gemini has no headroom.** Its 500/day *equals* the target, and 15 req/min
+   will throttle any burst — 500 analyses spread over a 12-hour day averages
+   0.7/min, so only clustering hurts. This matters from T26, not at launch.
+
+So the cap is **500**: the planned envelope, servable by the primary, and it
+bounds B3's blast radius to one day of planned traffic rather than the
+providers' whole quota.
+
+#### What was changed
+
+Migration **`20261006090000_arm_global_daily_call_cap.sql`** seeds
+`global_daily_call_cap = 500`, `ON CONFLICT DO NOTHING` so a tuned value
+survives. Applied to **production and staging**, and verified on production:
+the row reads `500`. The migration's header carries the maths above, so the
+number can be re-derived rather than trusted.
+
+A regression test went into `runtime-config.integration.test.ts`: **"the global
+capacity breaker is armed"**. It asserts the cap is non-null and positive —
+deliberately not the exact number, because the failure that matters is the one
+B3 describes. This cap **fails open**: delete the row and the breaker silently
+turns off with nothing else breaking. The mechanism itself was already well
+covered (`slot-reservation.test.ts`, its integration twin, `analyze-handler`,
+`runtime-config`), so nothing there needed adding. The new test compiles and
+self-skips without a stack, like its neighbours; its assertion was confirmed
+true against production directly.
+
+#### The new risk: this cap does not protect Gemini
+
+`ocr-document` **takes no slot**, by design — charging one would punish a user
+who retakes a blurry photo (see `ocr-handler`'s "Why no slot reservation"). So
+the breaker counts **analysis** calls only, and **Gemini's 500/day sits behind
+no counter at all**. The only thing in front of it is Supabase's anonymous
+sign-in rate limit.
+
+It is dormant today, because `online_ocr_enabled` is `false` and stays so until
+T26 (Q12). **T26 must not flip that flag until the OCR path has its own
+protection** — written into the migration header too, so it cannot be missed by
+someone reading only the schema.
+
+#### Anonymous sign-in rate limits: checked, and deliberately not tightened
+
+Supabase's default is **30 anonymous sign-ins per hour per IP**, configurable
+under Authentication → Rate Limits. That is 720 identities a day from one
+address; at `daily_limit = 3` that is 2,160 analyses of per-user quota, so the
+default alone does not hold the line — the 500 cap is what does, and for OCR
+nothing does.
+
+**Tightening it is the wrong lever here, and that is a judgement worth
+recording.** Egyptian mobile users sit behind carrier NAT, so many genuine
+users share one public address; a low per-IP limit would lock out real people
+on a busy network while barely inconveniencing a scripted abuser with a pool of
+addresses. The default stays.
+
+#### Attestation (Q10): specified, not built — and why
+
+Supabase's own advice for anonymous sign-ins is invisible CAPTCHA or Turnstile.
+**That is the wrong choice for this app**: the audience is explicitly
+«كبار السن وضعاف القراءة/البصر», and a CAPTCHA is precisely the obstacle those
+users fail. Q10's answer — Play Integrity — is invisible to the user, which is
+why it is the right one, and the research confirms it fits the no-paid-tier
+rule: **10,000 requests/day free**, shared across request types, increase on
+request. At 500 analyses/day that is twenty times the need.
+
+It is **not built**, for two reasons that are not reluctance:
+
+1. It needs the owner's **Google Cloud project** linked to Play Console, and
+   the plan's own execution rule says owner tasks are prepared by me and run by
+   the owner. No amount of local work gets past that.
+2. It is feature-sized, not task-sized: an Android integration, a verification
+   step inside the Edge Functions with a new secret, a decision about what to
+   do when attestation is unavailable (an old device, a sideloaded build, Play
+   Services missing — failing closed there locks out legitimate users), and an
+   iOS counterpart (App Attest) that **cannot be built at all** until there is a
+   Mac (Q1/Q22). Building that blind, inside a task whose other half was a
+   one-line config change, would be the wrong shape.
+
+**Proposed: attestation becomes its own task** with the owner's console steps
+written out, placed before T26 (it is what makes flipping `online_ocr_enabled`
+safe) and sequenced after the Play Console work in T13/T21 that creates the
+linked Cloud project it depends on. That is a plan amendment, so it waits for
+the owner.
