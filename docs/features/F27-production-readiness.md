@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 9 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 is next.
+- **Progress:** 10 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -202,7 +202,7 @@ T19, T12 -> T23 and T24.
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **DONE 2026-10-06** on the owner's ruling: attestation is **deferred indefinitely** ("for the future if needed"), not made a task. **One risk stands as a result: the cap does not protect Gemini, and nothing else does either** — so T26's flag flip inherits it. See "T06 record".
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | **DONE bar one push, 2026-10-06.** Migration `20261006100000`: two purge functions behind two `pg_cron` jobs, plus a read-only accessor so the *schedule* is testable. **5 new integration tests, all passing against a real stack**, and the whole backend suite re-run live at **771 passed / 0 failed**. **DONE across all three environments 2026-10-06** — production applied with the owner's explicit permission and verified: 9/9 migrations, both jobs active, both purges executable. Size checked: 11 MB of 500 MB. See "T07 record". |
 | 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | **DONE bar three owner console actions, 2026-10-06.** T04 had already performed the rollout itself by building production fresh, so secrets, the migration and the functions were verified rather than re-run; the flag is `false` per Q12. **T05's inherited Gemini check now passes on production** (200 from `eu-central-1`, 1,371 chars, flag restored). Local `.env` cleaned. Left for the owner: revoke the Azure and Google keys, and switch on Mistral's training opt-out — all three are console-only. See "T08 record". |
-| 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | TODO |
+| 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | **DONE 2026-10-06:** `docs/OPERATIONS.md` — every switch with its fail direction, the quota ceilings with the two that cannot carry launch, the inactivity pause and its effect on pg_cron, and seven incident runbooks. Two findings: **`maintenance_message` is dead end-to-end**, and **a paused project kills the retention jobs permanently**. See "T09 record". |
 
 ### Phase 2: App hardening
 | # | ID | Task | Output / acceptance | Depends on | Status |
@@ -1418,3 +1418,68 @@ still goes to a third party, Groq is still a fallback, and the *image* goes to
 Gemini's free tier, whose terms permit retention and human review. Only moving
 **every** provider to a paid tier would justify revisiting that copy, and that
 is the owner's decision. `app_strings_test` enforces it either way.
+
+### T09 record (2026-10-06) — the operations runbook
+
+`docs/OPERATIONS.md`, written for whoever is on the hook when the app stops
+working, and assuming the Supabase dashboard and nothing else — no checkout, no
+CLI. Five sections: the two projects, the kill switches, the quotas, the
+inactivity pause, and seven incident runbooks.
+
+Every column name it references was **checked against production** rather than
+written from memory (`global_analysis_usage_daily`, `analysis_attempts`,
+`app_runtime_config` all verified), and the switch semantics were read out of
+`runtime-config.ts` and the handlers rather than recalled.
+
+#### Two findings that change how the service is operated
+
+**1. `maintenance_message` is a dead switch, end to end.** The row exists in
+`app_runtime_config` and the app parses it into `RuntimeConfig` — but
+`get-usage` never returns it, and nothing in `lib/` reads the field. Setting it
+posts a notice to nobody. An operator reaching for it mid-incident would believe
+they had told users something when they had not. The runbook says so plainly and
+points at `analysis_enabled = false`, which *does* produce copy the user sees.
+
+Left as-is rather than fixed: wiring it up means a server field, a DTO change
+and a UI surface, which is a feature, not a runbook. Recorded here so whoever
+picks it up knows it is a known gap and not an oversight.
+
+**2. A paused project kills the retention jobs — permanently.** The free plan
+pauses a project after about 7 days of insufficient activity, and `pg_cron` runs
+*inside* the database: a pause stops the jobs, and **they do not return when the
+project is restored**. So a project that paused and was brought back is one whose
+nightly purges are silently dead until someone re-applies the migration. That
+interaction between H4 and T07 was not visible from either task alone. The
+runbook makes re-checking `cron.job` a mandatory step after any restore.
+
+Production will keep itself awake on real traffic once launched; the exposure is
+**before launch, and staging permanently**, since staging has no users. The
+runbook carries a ready-to-paste GitHub Actions ping (free on this public repo),
+**not committed** — adding a workflow is not what T09 was asked for, and it is
+one paste away if a pause ever bites. Two caveats went in with it: a scheduled
+workflow is auto-disabled after 60 days of repository inactivity, and a ping
+addresses the pause but not the storage or invocation ceilings.
+
+#### What else the runbook pins down
+
+- **Switch changes take effect on the next request.** `loadConfig` reads the
+  table per call — no cache, no redeploy. Worth knowing under pressure.
+- **The fail directions, and why they differ.** `daily_limit` fails closed
+  because it is a product rule; `global_daily_call_cap` fails open because it is
+  a safety valve. The consequence is stated: the cap is the one switch whose
+  failure is invisible.
+- **The two ceilings that cannot carry launch**, restated where an operator will
+  meet them: Groq's 200K tokens/day ≈ 66 analyses (its 1,000 req/day is a
+  decoy), and Gemini's 500/day being exactly the target.
+- **Cheapest lever first.** For a Gemini outage or suspected abuse, the first
+  move is `online_ocr_enabled = false`: it removes the unprotected surface and
+  the app still works entirely on-device, costing users accuracy and nothing
+  else.
+- **The abuse surface, written down before the incident** — public repo, public
+  publishable key, anonymous sign-in, reinstall resets the per-user limit, and
+  the cap not covering OCR. Five ordered levers, with the carrier-NAT warning
+  attached to the rate-limit one so nobody reaches for it first.
+- **What does not exist:** no alerting until T12, and **no backups at all** on
+  the free plan. The latter is only survivable because every document lives on
+  the user's phone and the server holds nothing but counters and anonymous
+  identities — recorded as a standing reason never to put anything else there.
