@@ -15,6 +15,7 @@ import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
+import 'package:war2aty/core/widgets/teal_top_bar.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
@@ -204,6 +205,23 @@ void main() {
 
       expect(find.byType(ExtractedTextOnlyView), findsOneWidget);
       expect(find.text(_extraction.text.cleanedText), findsOneWidget);
+    });
+
+    testWidgets('titles the text page on the teal top bar (F26-T02)', (
+      tester,
+    ) async {
+      await pumpFailure(tester, const NoInternetFailure());
+
+      await tester.tap(find.text(_strings.resultShowExtractedText));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(
+          of: find.byType(TealTopBar),
+          matching: find.text(_strings.extractedTextOnlyTitle),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('shows what is done, the explanation waiting (F23-T09)', (

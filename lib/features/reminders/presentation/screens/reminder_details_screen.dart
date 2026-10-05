@@ -7,12 +7,11 @@ import '../../../../core/localization/app_strings.dart';
 import '../../../../core/reminders/reminder.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/time/cairo_day.dart';
 import '../../../../core/time/document_date_label.dart';
 import '../../../../core/widgets/service_state_view.dart';
-import '../../../../core/widgets/top_bar_icon_button.dart';
+import '../../../../core/widgets/teal_top_bar.dart';
 import '../cubit/reminder_details_cubit.dart';
 import '../cubit/reminder_details_state.dart';
 import '../widgets/delete_reminder_sheet.dart';
@@ -20,10 +19,6 @@ import '../widgets/reminder_status_pill.dart';
 import '../widgets/snooze_sheet.dart';
 
 // From `Waraqti.dc.html` → `isReminderDetails`.
-const double _topBarTop = 56 - 52;
-const double _topBarBottom = 12;
-const double _topBarSide = AppSpacing.screenHorizontal;
-const double _topBarGap = 8;
 const double _pageSide = 18;
 const double _pageTop = 18;
 const double _pageBottom = 32;
@@ -151,7 +146,11 @@ class _DetailsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _TopBar(onClose: onClose),
+        TealTopBar(
+          title: context.strings.reminderDetailsTitle,
+          backTooltip: context.strings.analysisResultBackLabel,
+          onBack: onClose,
+        ),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(
@@ -183,73 +182,6 @@ class _DetailsBody extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({this.onClose});
-
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.card,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            _topBarSide,
-            _topBarTop,
-            _topBarSide,
-            _topBarBottom,
-          ),
-          child: Row(
-            children: [
-              TopBarIconButton(
-                onPressed: onClose,
-                tooltip: strings.analysisResultBackLabel,
-                icon: Transform.flip(
-                  flipX: mirror,
-                  child: StrokeIcon(
-                    StrokeGlyph.arrowBack,
-                    color: colors.ink,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    strings.reminderDetailsTitle,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.labelCard.copyWith(
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              // Balances the back button so the title stays centred, the
-              // same trick `DocumentDetailsScreen`'s overflow menu slot does
-              // — this screen just has nothing to put there.
-              const SizedBox(width: TopBarIconButton.dimension),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -31,7 +31,9 @@ const double _maxLabelScale = 1.3;
 ///
 /// Also consumes [UsageHintHolder]: when the user leaves the analysis result
 /// screen, the router stores the remaining-quota count in the holder, and this
-/// shell shows it as a SnackBar on the first frame after the hint arrives.
+/// shell shows it as a SnackBar on the first frame after the hint arrives —
+/// unless a page covers the shell (the camera, after «صوّر ورقة تانية»). It
+/// holds the hint then and shows it once the shell is back on top (F26 #5).
 class ScaffoldWithNavBar extends StatefulWidget {
   const ScaffoldWithNavBar({required this.navigationShell, super.key});
 
@@ -44,14 +46,24 @@ class ScaffoldWithNavBar extends StatefulWidget {
 class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
   late final UsageHintHolder _usageHint;
 
+  /// Whether the shell is the top route, so a SnackBar on it is seen.
+  bool _onTop = true;
+
   @override
   void initState() {
     super.initState();
     _usageHint = getIt<UsageHintHolder>();
     _usageHint.addListener(_showUsageSnackBar);
-    // Catch a hint set *before* initState (the router sets it synchronously
-    // before `context.go` triggers the shell rebuild).
-    WidgetsBinding.instance.addPostFrameCallback((_) => _showUsageSnackBar());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Depending on it brings this back each time a page is pushed over the
+    // shell or leaves it. Runs once after initState too, which catches a hint
+    // stored before the shell was built.
+    _onTop = ModalRoute.isCurrentOf(context) ?? true;
+    _showUsageSnackBar();
   }
 
   @override
@@ -61,6 +73,8 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
   }
 
   void _showUsageSnackBar() {
+    // Held, not consumed: shown once whatever covers the shell is gone.
+    if (!_onTop) return;
     final remaining = _usageHint.consume();
     if (remaining == null) return;
     // Schedule after the current frame so the Scaffold is fully built and
@@ -74,6 +88,10 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
           SnackBar(content: Text(s.homeUsageRemaining(remaining))),
         );
     });
+    // The hint can arrive with the app idle — it is read after the result
+    // page's exit animation ends — and a post-frame callback alone waits for
+    // whatever frame comes next, maybe the user's next touch.
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _goBranch(int index) {

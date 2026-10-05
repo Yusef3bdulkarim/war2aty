@@ -11,6 +11,7 @@ import 'package:war2aty/core/reminders/usecases/complete_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/delete_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/snooze_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/watch_reminder.dart';
+import 'package:war2aty/core/widgets/teal_top_bar.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/screens/reminder_details_screen.dart';
 
@@ -84,6 +85,26 @@ void main() {
 
       expect(find.text(ar.reminderDetailsTitle), findsOneWidget);
       expect(find.text('فاتورة الكهرباء'), findsOneWidget);
+    });
+
+    testWidgets('titles the page on the teal top bar (F26-T02)', (
+      tester,
+    ) async {
+      var closed = 0;
+      remindersRepository.emitReminder('r1', fakeReminder());
+      cubit.start('r1');
+
+      await pumpScreen(tester, onClose: () => closed++);
+
+      expect(
+        find.descendant(
+          of: find.byType(TealTopBar),
+          matching: find.text(ar.reminderDetailsTitle),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip(ar.analysisResultBackLabel));
+      expect(closed, 1);
     });
 
     testWidgets('shows complete/snooze only while pending', (tester) async {
