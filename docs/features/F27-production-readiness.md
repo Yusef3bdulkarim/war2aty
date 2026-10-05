@@ -198,7 +198,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
-| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **Both provider checks are blocked**: they need an anonymous token, and anonymous sign-ins are still disabled on `war2aty-prod`. See "T05 record". |
+| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **Mistral → Groq is proven** from the hosted runtime — the live suite passed 11/11 on staging and a pinned run returned a valid §30 body from `eu-central-1` itself. **Gemini is not run**: it needs `online_ocr_enabled` on, and no route to that write exists here (no psql, no staging DB password, service-role write refused by the permission classifier). Production still reports `external.anonymous_users = false`. See "T05 record". |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | TODO |
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
 | 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO |
@@ -966,7 +966,79 @@ Pinning does forgo Supabase's automatic regional fallback. That costs little
 here, because the database is in `eu-central-1` regardless — a regional outage
 takes the app out whether the function failed over or not.
 
-#### Still blocked: both provider checks
+#### Mistral → Groq: **reachable from the hosted runtime, including Frankfurt's**
+
+Run against **staging**, which is what this row asked for all along — it is the
+only project that can mint a token, since `war2aty-prod` still refuses (below).
+
+**The project's own live suite, 11/11 passed** (35 s total):
+
+```
+SUPABASE_URL=https://jecujrsvbmashkpobtsz.supabase.co SUPABASE_ANON_KEY=…   RUN_LIVE_ANALYSIS=1 deno test --allow-net --allow-env   supabase/tests/integration/endpoints.integration.test.ts
+```
+
+including `[integration][live] a real analysis returns a §30 body and counts one
+use` in **13 s** — a real analysis, a real provider answer, and the quota moving
+by exactly one.
+
+Then the same call again with the region pinned, to prove the **production
+runtime region** specifically:
+
+| Run | Ran in | Status | Time | Body |
+|---|---|---|---|---|
+| unpinned | `ap-south-1` | 200 | 11.7 s | `success`, 2 dates, 1 amount |
+| **pinned `eu-central-1`** | **`eu-central-1`** | **200** | **11.2 s** | `partial`, 1 date, 1 amount |
+
+So the providers answer from Frankfurt, which is the half of T05 that actually
+gates launch. Two things to read correctly: the `success` / `partial` difference
+is **model variance on the same fixture**, not a regional effect — `partial` is a
+valid §30 status and the model's output was never a contract; and the ~11 s is
+dominated by the AI call, so **the region pin barely moves total analysis time**.
+The pin earns its place on the database hops and the client-to-function leg, not
+here. Three real analyses were spent in total, each under a fresh anonymous user.
+
+#### Gemini / `ocr-document`: not run — the flag cannot be flipped from here
+
+`ocr-handler` throws `ocrUnavailable()` while `online_ocr_enabled` is false, so
+the OCR check needs the flag on. Flipping it needs a write to
+`app_runtime_config`, and **every route to that write is closed on this
+machine**:
+
+- `psql` is not installed.
+- There is no staging DB password locally (`supabase/.env` holds provider keys
+  only), and the CLI has no ad-hoc SQL command.
+- The service-role key over PostgREST was **refused by the permission
+  classifier** as a shared-resource modification. That is the right call and was
+  not pursued further.
+- On production the DB password *is* in hand — but production cannot mint a
+  token, so the test still could not run there.
+
+Net: production can flip the flag but not authenticate; staging can authenticate
+but not flip the flag. **The owner flipping `online_ocr_enabled` on staging (SQL
+editor or Table Editor) unblocks it in one step**, and the call is ready:
+`golden/Image2.jpg` (1489×2048, 449 KB) posted to `ocr-document` with
+`x-region: eu-central-1`, asserting only the §30b shape — `ocr_text` length,
+`detected_languages`, `candidates` keys — and never the extracted text. The flag
+goes straight back to false afterwards.
+
+#### And the blocker underneath it all: production still will not authenticate
+
+Re-verified again, and this time from GoTrue's own settings endpoint rather than
+inferred from a failure:
+
+| Project | `external.anonymous_users` |
+|---|---|
+| `war2aty-prod` (Frankfurt) | **`false`** |
+| `jecujrsvbmashkpobtsz` (staging) | `true` |
+
+That is the server reporting its own configuration, so it is not a key mismatch
+or a test artefact. `GET /auth/v1/settings` with the publishable key is the
+quickest way for the owner to check it themselves. Until it reads `true`,
+`ocr-document` and `analyze-document` on production cannot be exercised at all,
+which also keeps T08 waiting.
+
+**`online_ocr_enabled` was never flipped on either project.** Q12 is intact.
+
 
 `ocr-document` and `analyze-document` are `verify_jwt = true` and
 `require-user` extracts a user id, so both need a real anonymous token — which
@@ -983,12 +1055,4 @@ window for it, but it is only useful alongside a token, so the flag stayed
 `false` throughout and Q12 is intact. The approval still stands for when the
 OCR check can actually run.
 
-**What runs the moment sign-ins are on**, in one pass:
-`SUPABASE_URL=https://ivbpmzasxpphclundjyy.supabase.co SUPABASE_ANON_KEY=<the
-publishable key from config/prod.json> RUN_LIVE_ANALYSIS=1 deno test
---allow-net --allow-env supabase/tests` — the suite's own
-`[integration][live]` case mints an anonymous token as the app does, posts real
-OCR text, asserts the §30 shape without ever asserting the model's wording, and
-checks the quota moved by one. The Gemini half needs a hand-built call, because
-no integration test covers `ocr-document`: flag on, one image from `golden/`
-posted to the endpoint, shape asserted, flag back off.
+
