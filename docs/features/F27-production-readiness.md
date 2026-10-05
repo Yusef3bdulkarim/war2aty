@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 5 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI. **Phase 0 is complete, so the Phase 0 PR is now due (Q21) — and it is what gives CI its first live run.**
+- **Progress:** 5 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 measured production's live state and is **BLOCKED on three owner decisions**, the largest being that **production runs in Seoul while every user is in Egypt**.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -192,12 +192,12 @@ T19, T12 -> T23 and T24.
 |---|---|---|---|---|---|
 | 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. Q3 and Q10 answered 2026-10-05; **every question is now locked**. |
 | 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | **PARTLY DONE 2026-10-05:** all three PRs closed out per Q5 — #28 merged (`f9b7127`), #18 rebased and merged (`7805a56`), #19 closed as superseded with `11ad8b6` cherry-picked (`90efdc8`); gate green. Its other two acceptance items were **ruled on by the owner 2026-10-05 and deliberately moved out of T02**: `main`↔`develop` is deferred to **after T14**, and the branch/tag scheme stays **T25's** to write — see "T02 record". |
-| 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | **DONE 2026-10-05:** `.github/workflows/ci.yml`, two parallel jobs, all four checks, no secrets, `permissions: contents: read`. Every command re-run locally at this commit and green. **Not yet observed running** — nothing on a feature branch triggers it, so the Phase 0 PR is its first live run (see "T03 record"). |
+| 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | **DONE 2026-10-05:** `.github/workflows/ci.yml`, two parallel jobs, all four checks, no secrets, `permissions: contents: read`. Every command re-run locally at this commit and green. **Verified live on PR #29** (run `37277905375`, 2026-10-05): both jobs green on the first run — App 5m10s, Backend 16s, every step passing. |
 
 ### Phase 1: Backend
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
-| 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | TODO |
+| 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. Three decisions and the ready-to-run commands are in "T04 record". |
 | 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | TODO |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | TODO |
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
@@ -668,12 +668,13 @@ themselves — see below).
 
 **One thing CI cannot do yet, and one the owner should rule on:**
 
-- **CI has not been observed running.** Nothing triggers it on a feature
-  branch: it fires on pull requests and on `main`/`develop`. `workflow_dispatch`
-  would not help, because manual dispatch requires the workflow to already be on
-  the default branch, and `main` will not see it until the release merge. **The
-  Phase 0 PR is therefore the first live run** — which is also exactly when Q21
-  says to open it.
+- **CI's first live run passed.** ~~Nothing triggers it on a feature branch~~ —
+  resolved: PR #29 (opened 2026-10-05) triggered run `37277905375`, and both
+  jobs went green first time: **App 5m10s** (checkout, Flutter 3.41.9 from
+  cache, `pub get`, format, analyze, 2206 tests) and **Backend 16s**. The
+  workflow needed no correction after being written, and the gate verdict in CI
+  matched the local one exactly. One informational annotation, no action needed:
+  GitHub will migrate the `ubuntu-latest` label to Ubuntu 26 from 2026-10-19.
 - **`deno fmt --check` was deliberately left out**, and measuring why turned up
   something: it **fails today on 4 files**, entirely because of line endings
   (`Text differed by line endings`) — `analysis-provider.ts`,
@@ -681,3 +682,107 @@ themselves — see below).
   could be added as-is. So the deferred line-ending cleanup now has a concrete
   cost: it is what blocks the backend's formatting check from joining the gate.
   Neither check is in T03's acceptance, so neither was added.
+
+### T04 record (2026-10-05) — production state measured, three decisions owed
+
+The Supabase **MCP connector is still not available in this session** (the two
+Supabase MCP servers remain unauthorised here, and OAuth cannot run in a
+non-interactive session — a session restart is likely what picks up a link made
+in the claude.ai settings). But it turned out not to be needed: the **Supabase
+CLI on this machine is already authenticated**, and the Postgres port that was
+blocked on this network on 2026-09-06 (see `docs/TEST-BUILD-ROLLOUT.md`) is
+**open again**, so production could be inspected directly over both HTTPS and
+Postgres.
+
+#### Production's live state (Q8) — measured, not assumed
+
+| What | State |
+|---|---|
+| Project | `war2aty` / `jecujrsvbmashkpobtsz`, org `kejzeyfadlqnjhypvili`, **ACTIVE_HEALTHY**, Postgres 17.6 |
+| **Region** | **`ap-northeast-2` — Seoul.** See the region problem below. |
+| `health` | Responds `{"status":"ok"}` over HTTPS, no auth (`verify_jwt: false`) |
+| Functions | All four ACTIVE: `analyze-document` v9 (updated **2026-09-26**), `get-usage` v8, `health` v8, `ocr-document` v6 (all three updated **2026-08-16**) |
+| Migrations | **6 of 7 applied.** `20260929120000_online_ocr_flag.sql` — F20's — is **not applied** (`remote: ""`) |
+| Secrets | 18 present, including `GEMINI_API_KEY`/`GEMINI_MODEL`, `MISTRAL_*`, `GROQ_*`, `INSTALLATION_HASH_SALT`, `DAILY_ANALYSIS_LIMIT`, `MAX_OCR_CHARACTERS`, `ANALYSIS_SCHEMA_VERSION`, `AI_TIMEOUT_SECONDS`. **No Azure or Google secrets** — consistent with F20-T16 deleting them. Missing versus `.env.example`: `AI_ATTEMPT_TIMEOUT_SECONDS`, `MIN_FALLBACK_MS` |
+
+**This confirms B2 with dates rather than suspicion.** F20 completed on
+2026-09-30 (`6eb705c`); every deployed function predates it — `ocr-document`,
+the one F20 rewrote around Gemini, by six weeks. F20's migration was never
+applied, so `online_ocr_enabled` does not exist in `app_runtime_config`.
+Production is therefore pre-F20 on all three axes at once: code, schema and
+config. T08 is where that is fixed; nothing here changed production.
+
+**One gap left open deliberately.** The `app_runtime_config` row values
+(`daily_limit`, `online_ocr_enabled`, the global cap, `minimum_app_version`)
+are still unrecorded: reading them means a production data read, which this
+session is not permitted to do — the table also holds pseudonymous
+installation hashes. Q10 and Q12 both want those values. They need either the
+owner's explicit permission for a production read or a look at the dashboard.
+
+#### The region problem (the T04 "region decision", and it is bigger than T04 assumed)
+
+**Production serves Egypt from Seoul.** Cairo→Seoul is roughly 8,500 km, about
+230–280 ms round trip before any work is done; and every analysis is a chain of
+Edge Function → AI provider calls, so the user pays that distance more than
+once. The AI providers are US/EU-hosted, so Seoul is also the wrong side of the
+world from them — which is T05's measurement, but the direction is not in doubt.
+
+**A project's region cannot be changed.** The only fix is a new project. The
+closest regions the CLI offers — there is no Middle East or Africa one — are
+`eu-central-1` (Frankfurt), `eu-west-3` (Paris) and `eu-central-2` (Zurich);
+Egypt's international transit runs through Europe via the Alexandria landings,
+so any of them is roughly 60–80 ms. `ap-south-1` (Mumbai) is the next best at
+roughly 110–130 ms. **Recommended: `eu-central-1`.**
+
+**Now is the cheapest this will ever be.** The app has not launched: only
+testers hold it, local documents live on the device, and the only server-side
+state is usage counters and anonymous identities. After launch, moving means
+resetting every user's anonymous identity and quota.
+
+#### The three decisions T04 cannot make on its own
+
+1. **Fix the region, or keep Seoul?** Recommended: create the new project in
+   `eu-central-1` **as the new production**, and keep the existing Seoul project
+   **as staging** — it already carries the migrations, functions and secrets a
+   staging project needs, so this gets both deliverables from one move and
+   wastes nothing.
+2. **The free tier is full.** The org already holds **two** projects, which is
+   the free plan's limit: production, and `Yusef3bdulkarim's Project`
+   (`ernmfjskupxgopczarrx`, `ap-southeast-1`/Singapore, **INACTIVE** since
+   2026-08-11) — a leftover. Whatever is decided in (1), that leftover should go
+   first. **Deleting it needs the owner's say-so**, and a check that it holds
+   nothing wanted.
+3. **Which provider keys does staging use?** Under the no-paid-tiers rule
+   ([[war2aty-no-paid-tiers-ever]]), pointing staging at production's Gemini /
+   Mistral / Groq keys means staging traffic eats the same free quota the
+   launched app depends on. Either separate free-tier keys for staging, or keep
+   staging traffic deliberately tiny. This decides what goes into the staging
+   project's secrets.
+
+Creating a project is an account-level action with an irreversible region
+choice, so **nothing was created**. `config/staging.json` waits on (1) and (2),
+since it needs the new project's URL and publishable key.
+
+#### What is ready to run the moment those are answered
+
+`docs/TEST-BUILD-ROLLOUT.md` already records the sequence for standing up a
+fresh project, and it still holds: `supabase projects create <name> --org-id
+kejzeyfadlqnjhypvili --db-password <chosen> --region <chosen>`, then
+`supabase link --project-ref <ref>`, `supabase db push` (now possible from this
+machine again), `supabase functions deploy analyze-document ocr-document
+get-usage health --project-ref <ref>`, then `supabase secrets set --env-file
+supabase/.env --project-ref <ref>`, and finally set `online_ocr_enabled`
+deliberately — **off at launch**, per Q12. The DB password is a secret: it goes
+to the owner's password manager, never into the repo.
+
+**No staging flavor exists.** `Flavor` is `{dev, prod}` and
+`lib/core/env/app_environment.dart` says a staging flavor is deferred. None is
+needed: `AppEnvironment.prod()` reads both values from dart-defines with no
+defaults, so staging runs today as
+`flutter run --flavor prod -t lib/main_prod.dart
+--dart-define-from-file=config/staging.json`. The cost is that such a build
+carries the production `applicationId`, so it replaces the real app on a device
+rather than sitting beside it. A real `staging` flavor would fix that and is the
+better long-term answer, but it needs Android product flavors, an iOS scheme
+(unbuildable until there is a Mac, Q1/Q22) and an icon variant — so it is
+proposed, not assumed.
