@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 4 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); **two of its acceptance items are still open and await the owner's call** — see "T02 record". T03 (CI) is next.
+- **Progress:** 4 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 (CI) is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -191,7 +191,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. Q3 and Q10 answered 2026-10-05; **every question is now locked**. |
-| 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | **PARTLY DONE 2026-10-05:** all three PRs closed out per Q5 — #28 merged (`f9b7127`), #18 rebased and merged (`7805a56`), #19 closed as superseded with `11ad8b6` cherry-picked (`90efdc8`); gate green. The other two acceptance items (`main`↔`develop`, and the branch/tag scheme in T25's doc) are **held for the owner's decision** — see "T02 record". |
+| 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | **PARTLY DONE 2026-10-05:** all three PRs closed out per Q5 — #28 merged (`f9b7127`), #18 rebased and merged (`7805a56`), #19 closed as superseded with `11ad8b6` cherry-picked (`90efdc8`); gate green. Its other two acceptance items were **ruled on by the owner 2026-10-05 and deliberately moved out of T02**: `main`↔`develop` is deferred to **after T14**, and the branch/tag scheme stays **T25's** to write — see "T02 record". |
 | 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | TODO |
 
 ### Phase 1: Backend
@@ -211,7 +211,7 @@ T19, T12 -> T23 and T24.
 | 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | TODO |
 | 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | TODO |
 | 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | TODO |
-| 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) | **Owner's final name** (decision #2), P01 | BLOCKED |
+| 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | BLOCKED |
 
 ### Phase 3: Quality (takes over F12-T03 to T10)
 | # | ID | Task | Output / acceptance | Depends on | Status |
@@ -238,7 +238,7 @@ T19, T12 -> T23 and T24.
 ### Phase 6: Launch
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
-| 25 | F27-T25 | Release process document | `docs/RELEASE.md`: versioning (next build number above `+2`), changelog, tagging, `minimum_app_version` policy, rollback with the kill switches | T02, T09 | TODO |
+| 25 | F27-T25 | Release process document | `docs/RELEASE.md`: versioning (next build number above `+2`), changelog, tagging, `minimum_app_version` policy, rollback with the kill switches. **Owns the release-branch and tag scheme outright** (owner-approved 2026-10-05: T02 was not to pre-empt it), and with it the `develop` → `main` release merge that T14 unblocks. | T02, T09 | TODO |
 | 26 | F27-T26 | Production launch (owner) | Staged rollout (percentages written down); F20 app step and flag per Q12; first-72-hour watch per T09; launch report | all above | TODO |
 
 ## Exit DoD
@@ -584,7 +584,8 @@ merged code), `flutter test` **2206 passing, 0 failing**. The earlier count of
 2176 was measured before #28 and #18 landed; no test file was lost in either
 rebase (the file sets were diffed to confirm it).
 
-**Two acceptance items are deliberately left open for the owner.**
+**Two acceptance items were moved out of T02, with the owner's approval
+(2026-10-05): both recommendations below were accepted as written.**
 
 1. **`main` ↔ `develop` are still apart**, now 6 and 153 commits. The 6 on
    `main` are five old merge commits plus one real content commit, `1e14a5f`
@@ -592,16 +593,19 @@ rebase (the file sets were diffed to confirm it).
    `LICENSE`, `CONTRIBUTING.md`, `config/prod.json.example`, a `README.md`
    rewrite, `.gitignore` and `pubspec.yaml` cleanups. Merging `main` into
    `develop` conflicts in `README.md` and `supabase/.env.example`.
-   **Recommendation: don't do it now.** That `README.md` names the app
-   «ورقتي», which changes at T14, and its `supabase/.env.example` predates
-   F20 (it still lists providers that were deleted), so resolving it today means
-   resolving it again later. The clean moment is **after T14**, and the
-   direction is one release merge `develop` → `main` under the scheme T25
-   defines — recovering `LICENSE`, `CONTRIBUTING.md` and
-   `config/prod.json.example` as a separate small commit on `develop`.
+   **Deferred to after T14 — owner-approved 2026-10-05.** That `README.md`
+   names the app «ورقتي», which changes at T14, and its
+   `supabase/.env.example` predates F20 (it still lists providers that were
+   deleted), so resolving it today means resolving it again later. The work is
+   written into the **T14** row: recover `LICENSE`, `CONTRIBUTING.md` and
+   `config/prod.json.example` from `1e14a5f` as a separate small commit on
+   `develop`, rewrite the README for the new name, refresh
+   `supabase/.env.example`. The `develop` → `main` release merge itself then
+   happens under the scheme **T25** defines.
 2. **The release-branch and tag scheme** belongs in `docs/RELEASE.md`, which is
    T25's deliverable and does not exist yet. Writing it here would mean writing
    T25's doc before T09 (its other dependency) has decided anything.
+   **Owner-approved 2026-10-05: it stays T25's**, and the T25 row now says so.
 
 Nothing was deleted: the merged branches `feature/ui-polish-bars-snackbar` and
 `feature/offline-first-launch`, and the closed `feature/splash-startup-latency`,
