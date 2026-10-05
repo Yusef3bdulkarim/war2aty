@@ -43,6 +43,14 @@ Dio createApiClient({
       sendTimeout: connectTimeout,
       contentType: Headers.jsonContentType,
       validateStatus: (_) => true,
+      // Run the function next to its database rather than next to the
+      // caller — see [AppEnvironment.functionRegion]. Empty means
+      // unpinned, which is what the local stack and an unconfigured
+      // build get.
+      headers: {
+        if (environment.functionRegion.isNotEmpty)
+          'x-region': environment.functionRegion,
+      },
     ),
   );
 

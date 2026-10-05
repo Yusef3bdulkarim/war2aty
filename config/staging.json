@@ -1,4 +1,5 @@
 {
   "SUPABASE_URL": "https://jecujrsvbmashkpobtsz.supabase.co",
-  "SUPABASE_ANON_KEY": "sb_publishable_hyeP33fdPhgUynCC7SFVBQ_msx0FR4g"
+  "SUPABASE_ANON_KEY": "sb_publishable_hyeP33fdPhgUynCC7SFVBQ_msx0FR4g",
+  "SUPABASE_FUNCTION_REGION": "ap-northeast-2"
 }

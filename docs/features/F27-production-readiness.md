@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 6 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 is **done bar one dashboard switch**: production was rebuilt in `eu-central-1` (Frankfurt) as `war2aty-prod`, the old Seoul project became staging, and **anonymous sign-ins still have to be enabled on the new project** before the app can authenticate at all.
+- **Progress:** 6 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them; its two provider checks are **still blocked, because anonymous sign-ins are not actually enabled on `war2aty-prod`** — verified ten times over five minutes.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -198,7 +198,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
-| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | TODO |
+| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **Both provider checks are blocked**: they need an anonymous token, and anonymous sign-ins are still disabled on `war2aty-prod`. See "T05 record". |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | TODO |
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
 | 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO |
@@ -902,3 +902,93 @@ production `applicationId`.
 Nothing here touched T05's job: whether the providers are actually reachable
 from the Frankfurt runtime, and the function-region pin, are measured there —
 and the move to Frankfurt should help, since the providers are US/EU-hosted.
+
+### T05 record (2026-10-05) — the region half, and why the provider half is still blocked
+
+**Deviation, stated up front.** The row says "on staging". That wording predates
+T04: staging *is* the Seoul project now, so testing there would measure the
+wrong region and spend the same shared provider keys. T05 therefore targets the
+**new Frankfurt production**, which is where the evidence has to hold.
+
+#### The finding: Edge Functions do not run in the project's region
+
+This was not what T04 assumed, and it matters more than the project region does.
+
+`x-sb-edge-region` on an unpinned `health` call returned **`ap-south-1`
+(Mumbai)** — from *both* projects. Supabase runs Edge Functions at whichever
+edge region is nearest the caller and leaves the database where the project was
+created. So before this task, the shape was: client (Egypt) → function (Mumbai)
+→ database (Frankfurt), with every query inside the function crossing a
+continent it had no reason to cross.
+
+Sending `x-region: eu-central-1` moved execution to `eu-central-1`, confirmed
+by the same header. Measured from here, 7 samples each, median:
+
+| Configuration | Median | |
+|---|---|---|
+| Frankfurt project, **pinned `eu-central-1`** | **317 ms** | best |
+| Frankfurt project, unpinned (ran in Mumbai) | 379 ms | |
+| Seoul project, unpinned (ran in Mumbai) | 406 ms | |
+| Seoul project, pinned `ap-northeast-2` | 552 ms | worst |
+
+**This also qualifies T04's rationale honestly.** Moving the project to
+Frankfurt was right, but not quite for the reason given: because functions run
+near the caller either way, the move on its own did little for the
+function→database hop (Mumbai→Frankfurt is no shorter than Mumbai→Seoul). What
+the move *does* buy directly is the client-to-project paths — anonymous sign-in
+and token refresh go to GoTrue in the project's region, where Egypt→Frankfurt
+clearly beats Egypt→Seoul. **It is the pin that makes the move pay off for the
+functions**, and the last row above shows the alternative: had Seoul been kept
+and pinned, it would have been the worst of the four.
+
+**Caveats, so the numbers are not over-read.** They come from the dev machine,
+not an Egyptian mobile network; each sample opens a fresh TLS connection, so
+they are per-call figures including handshake rather than pure round trips; and
+`health` touches no database, so the 317-vs-379 gap is the network leg alone —
+the database leg can only improve further once the function is co-located with
+it. The four cases are measured identically, so the comparison holds even where
+the absolute numbers do not.
+
+#### What was changed
+
+`AppEnvironment` gained `functionRegion`, read from a
+`SUPABASE_FUNCTION_REGION` dart-define, and `createApiClient` sends it as
+`x-region` — **only when non-empty**, so the local stack and an unconfigured
+build send no header at all. The value travels per project in the config files
+(`eu-central-1` for production, `ap-northeast-2` for staging) rather than being
+hardcoded per flavor, because the correct value *is* the project's own region
+and staging runs through the same `main_prod.dart` entrypoint. A wrong value
+would be worse than none: it would separate the function from its database
+again. Four tests cover it: the field defaults to unpinned, carries what it is
+given, and the client sends the header exactly when a region is set.
+
+Pinning does forgo Supabase's automatic regional fallback. That costs little
+here, because the database is in `eu-central-1` regardless — a regional outage
+takes the app out whether the function failed over or not.
+
+#### Still blocked: both provider checks
+
+`ocr-document` and `analyze-document` are `verify_jwt = true` and
+`require-user` extracts a user id, so both need a real anonymous token — which
+is exactly what `war2aty-prod` will not issue. Re-verified **ten times across
+about five minutes**, including five attempts at 20-second intervals: every one
+returned `HTTP 422 anonymous_provider_disabled`. The same call against staging
+succeeds, so the key and the project are right and the setting simply is not on.
+A token file for the Management API does not exist on this machine (the CLI
+keeps its token in the Windows credential store), so the project's auth config
+could not be read directly to say more.
+
+**`online_ocr_enabled` was never flipped.** The owner approved a temporary
+window for it, but it is only useful alongside a token, so the flag stayed
+`false` throughout and Q12 is intact. The approval still stands for when the
+OCR check can actually run.
+
+**What runs the moment sign-ins are on**, in one pass:
+`SUPABASE_URL=https://ivbpmzasxpphclundjyy.supabase.co SUPABASE_ANON_KEY=<the
+publishable key from config/prod.json> RUN_LIVE_ANALYSIS=1 deno test
+--allow-net --allow-env supabase/tests` — the suite's own
+`[integration][live]` case mints an anonymous token as the app does, posts real
+OCR text, asserts the §30 shape without ever asserting the model's wording, and
+checks the quota moved by one. The Gemini half needs a hand-built call, because
+no integration test covers `ocr-document`: flag on, one image from `golden/`
+posted to the endpoint, shape asserted, flag back off.

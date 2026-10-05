@@ -18,6 +18,7 @@ final class AppEnvironment {
     required this.supabaseUrl,
     required this.supabaseAnonKey,
     this.appVersion = fallbackAppVersion,
+    this.functionRegion = '',
   });
 
   /// The `dev` flavor, pointed at the local Docker stack (F06-T01).
@@ -43,6 +44,9 @@ final class AppEnvironment {
           ? _dartDefineAnonKey
           : localStackAnonKey,
       appVersion: appVersion ?? fallbackAppVersion,
+      // The local stack has no edge regions to pin to; a dev build only
+      // sends this header when it is pointed at a hosted project.
+      functionRegion: _dartDefineFunctionRegion,
     );
   }
 
@@ -56,6 +60,7 @@ final class AppEnvironment {
       supabaseUrl: _dartDefineUrl,
       supabaseAnonKey: _dartDefineAnonKey,
       appVersion: appVersion ?? fallbackAppVersion,
+      functionRegion: _dartDefineFunctionRegion,
     );
   }
 
@@ -76,6 +81,23 @@ final class AppEnvironment {
   /// Supabase publishable ("anon") key — safe to embed in the client (§24).
   final String supabaseAnonKey;
 
+  /// Edge region to run the Edge Functions in, or `''` to leave the choice to
+  /// Supabase.
+  ///
+  /// Edge Functions are **not** served from the project's region: Supabase runs
+  /// them at whichever edge region is nearest the caller, while the database
+  /// stays where the project was created. Measured on 2026-10-05 (F27-T05), an
+  /// unpinned call from Egypt ran in `ap-south-1` (Mumbai) while the database
+  /// sat in `eu-central-1` — so every query the function made crossed a
+  /// continent for no reason. Pinning puts the function next to its data, and
+  /// measured 317 ms against 379 ms unpinned.
+  ///
+  /// It travels with the project, in `config/*.json` beside the URL and key,
+  /// because the right value *is* that project's own region: `eu-central-1` for
+  /// production, `ap-northeast-2` for staging. A wrong value is worse than none
+  /// — it separates the function from its database again.
+  final String functionRegion;
+
   /// Human-readable flavor name, e.g. `"dev"` / `"prod"`.
   String get name => flavor.name;
 
@@ -95,6 +117,10 @@ final class AppEnvironment {
   static const String _dartDefineUrl = String.fromEnvironment('SUPABASE_URL');
   static const String _dartDefineAnonKey = String.fromEnvironment(
     'SUPABASE_ANON_KEY',
+  );
+
+  static const String _dartDefineFunctionRegion = String.fromEnvironment(
+    'SUPABASE_FUNCTION_REGION',
   );
 
   /// Where the local stack lives, as seen from the device.
