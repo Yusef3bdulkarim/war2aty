@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 8 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database, and applied them everywhere **except production — that one push needs the owner**.
+- **Progress:** 8 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -200,7 +200,7 @@ T19, T12 -> T23 and T24.
 | 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
 | 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **DONE 2026-10-06, with the Gemini check deferred to T08 by the owner.** Region finding and pin shipped (`5a95392`). Mistral → Groq verified live **on production itself**: 11/11 integration tests, real analysis in **9 s**, quota counted — and earlier on staging pinned to `eu-central-1`. Gemini/`ocr-document` was not run: it needs `online_ocr_enabled` on, and no route to that write exists from here. See "T05 record". |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **DONE 2026-10-06** on the owner's ruling: attestation is **deferred indefinitely** ("for the future if needed"), not made a task. **One risk stands as a result: the cap does not protect Gemini, and nothing else does either** — so T26's flag flip inherits it. See "T06 record".
-| 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | **DONE bar one push, 2026-10-06.** Migration `20261006100000`: two purge functions behind two `pg_cron` jobs, plus a read-only accessor so the *schedule* is testable. **5 new integration tests, all passing against a real stack**, and the whole backend suite re-run live at **771 passed / 0 failed**. Applied to local and **staging**; **the production push was blocked by the permission classifier** — one command, for the owner. Size checked: 11 MB of 500 MB. See "T07 record". |
+| 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | **DONE bar one push, 2026-10-06.** Migration `20261006100000`: two purge functions behind two `pg_cron` jobs, plus a read-only accessor so the *schedule* is testable. **5 new integration tests, all passing against a real stack**, and the whole backend suite re-run live at **771 passed / 0 failed**. **DONE across all three environments 2026-10-06** — production applied with the owner's explicit permission and verified: 9/9 migrations, both jobs active, both purges executable. Size checked: 11 MB of 500 MB. See "T07 record". |
 | 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO — **also inherits T05's Gemini/`ocr-document` live check** (deferred by the owner 2026-10-06; see "Closing T05"). |
 | 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | TODO |
 
@@ -1292,20 +1292,40 @@ tokens, which is test traffic, not a year of real use — so it is recorded as
 something **T09 should watch** rather than guessed at. A revoked-token sweep is
 cheap to add later if monitoring shows it climbing.
 
-#### What is left: one push, and it needs the owner
+#### Applied everywhere, and verified rather than assumed
 
-The migration is applied to the **local stack** and to **staging** (verified:
-`20261006100000` shows as applied there). The **production push was refused by
-the permission classifier**, with no explanation given, and the refusal covers
-the outcome — so it was not retried by another route.
+The production push was initially refused by the permission classifier; the
+owner granted explicit permission for `supabase link` and `supabase db push`
+against `ivbpmzasxpphclundjyy`, and it was applied on **2026-10-06**. All three
+environments now carry the same schema, and the state was checked rather than
+inferred:
 
-It is one command, and the migration is already proven on two databases:
+| Check | Production | Staging |
+|---|---|---|
+| Migrations | **9/9 applied**, none missing | 9/9 |
+| `purge-old-analysis-attempts` | registered, `30 1 * * *`, **active** | same |
+| `purge-idle-anonymous-users` | registered, `0 2 * * *`, **active** | same |
+| `purge_old_analysis_attempts()` called | **0 rows** | 0 rows |
+| `purge_idle_anonymous_users()` called | **0 rows** | 0 rows |
+| `daily_limit` / `global_daily_call_cap` / `online_ocr_enabled` | `3` / `500` / `false` | identical |
 
-```
-supabase link --project-ref ivbpmzasxpphclundjyy
-supabase db push --linked
-```
+Two notes on reading that table. The schedules were read through
+`retention_jobs_report()` — `supabase db dump -s cron` is no use here, because
+`cron.job` is owned by the extension and `pg_dump` skips extension-owned
+tables, which is the second reason that accessor had to exist. And the **0-row
+results are the point, not a disappointment**: they prove each function
+executes end to end under `service_role` — the exact call that failed with
+42501 before the definer fix — while deleting nothing real. Production's data is
+a day old and staging's about two months, so both sit far inside a 90-day and a
+12-month window; anything other than 0 would have been alarming.
 
-**Note for whoever runs it:** the CLI is currently left **linked to staging**,
-not production, because the link in the blocked command never executed. The
-`link` above is therefore not optional.
+#### A gap closed on the way: T06's cap verified behaviourally
+
+Arming the cap in T06 changed the reserve path — every analysis now takes a
+global slot as well as a per-user one — and that had been configured but never
+exercised. So the live suite was run against production once more: **11 passed,
+0 failed**, real analysis in 9 s. The global counter then read
+`successful_count: 1, reserved_count: 0` for 2026-10-06, which is the whole
+mechanism confirmed in one line: reserve took a global slot, finalize released
+the reservation and counted the success. **The breaker is working, not merely
+set.**
