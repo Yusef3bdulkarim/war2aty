@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 6 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them; its two provider checks are **still blocked, because anonymous sign-ins are not actually enabled on `war2aty-prod`** — verified ten times over five minutes.
+- **Progress:** 7 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -198,10 +198,10 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
-| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **Mistral → Groq is proven** from the hosted runtime — the live suite passed 11/11 on staging and a pinned run returned a valid §30 body from `eu-central-1` itself. **Gemini is not run**: it needs `online_ocr_enabled` on, and no route to that write exists here (no psql, no staging DB password, service-role write refused by the permission classifier). Production still reports `external.anonymous_users = false`. See "T05 record". |
+| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **DONE 2026-10-06, with the Gemini check deferred to T08 by the owner.** Region finding and pin shipped (`5a95392`). Mistral → Groq verified live **on production itself**: 11/11 integration tests, real analysis in **9 s**, quota counted — and earlier on staging pinned to `eu-central-1`. Gemini/`ocr-document` was not run: it needs `online_ocr_enabled` on, and no route to that write exists from here. See "T05 record". |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | TODO |
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
-| 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO |
+| 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO — **also inherits T05's Gemini/`ocr-document` live check** (deferred by the owner 2026-10-06; see "Closing T05"). |
 | 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | TODO |
 
 ### Phase 2: App hardening
@@ -1055,4 +1055,34 @@ window for it, but it is only useful alongside a token, so the flag stayed
 `false` throughout and Q12 is intact. The approval still stands for when the
 OCR check can actually run.
 
+#### Closing T05 (2026-10-06): verified on production, Gemini deferred
 
+Anonymous sign-ins came on at last — confirmed the honest way, from GoTrue's own
+settings endpoint: `external.anonymous_users = true` on `war2aty-prod`.
+
+That made a better test possible than the row asked for, so it was taken: the
+live suite was re-run **against production itself**, not staging.
+
+```
+SUPABASE_URL=https://ivbpmzasxpphclundjyy.supabase.co SUPABASE_ANON_KEY=…   RUN_LIVE_ANALYSIS=1 deno test --allow-net --allow-env   supabase/tests/integration/endpoints.integration.test.ts
+```
+
+**11 passed, 0 failed (29 s)**, including `[integration][live]` in **9 s** —
+against 13 s on staging. That gap is consistent with Frankfurt being both nearer
+the caller and better placed for US/EU-hosted providers, though one sample each
+is not a benchmark.
+
+What this actually establishes, and it is more than T05 asked for: production's
+**own** secrets work, the Mistral → Groq chain answers from the production
+runtime, anonymous auth mints tokens, `get-usage` reports a fresh quota, and the
+quota counter moves by exactly one on a real analysis. Several of T08's
+questions are answered early as a side effect.
+
+**The Gemini / `ocr-document` check is deferred to T08 on the owner's
+instruction** (2026-10-06), since flipping `online_ocr_enabled` is not reachable
+from this machine. It is the one piece of T05's acceptance left unmet, and it is
+recorded as T08's inheritance rather than quietly dropped — **T08 must not flip
+`online_ocr_enabled` on for launch** (Q12 keeps it off; T26 flips it), so the
+check there is the same shape: flag on, one image, assert, flag off.
+
+**`online_ocr_enabled` is still `false` on both projects.** Q12 intact.
