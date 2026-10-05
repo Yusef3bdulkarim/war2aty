@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 8 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day with the maths written down, and found that **the cap does not cover Gemini at all**; its attestation half is **proposed, not built** — it needs the owner's Google Cloud.
+- **Progress:** 8 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database, and applied them everywhere **except production — that one push needs the owner**.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -199,8 +199,8 @@ T19, T12 -> T23 and T24.
 |---|---|---|---|---|---|
 | 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
 | 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **DONE 2026-10-06, with the Gemini check deferred to T08 by the owner.** Region finding and pin shipped (`5a95392`). Mistral → Groq verified live **on production itself**: 11/11 integration tests, real analysis in **9 s**, quota counted — and earlier on staging pinned to `eu-central-1`. Gemini/`ocr-document` was not run: it needs `online_ocr_enabled` on, and no route to that write exists from here. See "T05 record". |
-| 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **Attestation is proposed, not built**: Play Integrity needs the owner's Google Cloud project, and the plan's own rule is that owner tasks are prepared, not performed. **One new risk found: the cap does not protect Gemini.** See "T06 record". |
-| 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | TODO |
+| 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **DONE 2026-10-06** on the owner's ruling: attestation is **deferred indefinitely** ("for the future if needed"), not made a task. **One risk stands as a result: the cap does not protect Gemini, and nothing else does either** — so T26's flag flip inherits it. See "T06 record".
+| 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | **DONE bar one push, 2026-10-06.** Migration `20261006100000`: two purge functions behind two `pg_cron` jobs, plus a read-only accessor so the *schedule* is testable. **5 new integration tests, all passing against a real stack**, and the whole backend suite re-run live at **771 passed / 0 failed**. Applied to local and **staging**; **the production push was blocked by the permission classifier** — one command, for the owner. Size checked: 11 MB of 500 MB. See "T07 record". |
 | 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO — **also inherits T05's Gemini/`ocr-document` live check** (deferred by the owner 2026-10-06; see "Closing T05"). |
 | 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | TODO |
 
@@ -239,7 +239,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 25 | F27-T25 | Release process document | `docs/RELEASE.md`: versioning (next build number above `+2`), changelog, tagging, `minimum_app_version` policy, rollback with the kill switches. **Owns the release-branch and tag scheme outright** (owner-approved 2026-10-05: T02 was not to pre-empt it), and with it the `develop` → `main` release merge that T14 unblocks. | T02, T09 | TODO |
-| 26 | F27-T26 | Production launch (owner) | Staged rollout (percentages written down); F20 app step and flag per Q12; first-72-hour watch per T09; launch report | all above | TODO |
+| 26 | F27-T26 | Production launch (owner) | Staged rollout (percentages written down); F20 app step and flag per Q12; first-72-hour watch per T09; launch report | all above | TODO — **inherits T06's unprotected-OCR risk** (attestation deferred by the owner 2026-10-06): `ocr-document` takes no slot, so Gemini's 500/day has no counter in front of it. Decide with the owner before flipping the flag. |
 
 ## Exit DoD
 
@@ -1184,8 +1184,128 @@ It is **not built**, for two reasons that are not reluctance:
    Mac (Q1/Q22). Building that blind, inside a task whose other half was a
    one-line config change, would be the wrong shape.
 
-**Proposed: attestation becomes its own task** with the owner's console steps
-written out, placed before T26 (it is what makes flipping `online_ocr_enabled`
-safe) and sequenced after the Play Console work in T13/T21 that creates the
-linked Cloud project it depends on. That is a plan amendment, so it waits for
-the owner.
+**Owner's ruling, 2026-10-06: attestation is deferred** — "we can defer that
+for the future if needed" — and no task is created for it. T06 closes here.
+
+One consequence has to be carried rather than forgotten. The reason attestation
+was going to sit before T26 is that **nothing else protects Gemini's 500/day**:
+the global cap counts analysis calls only, and `ocr-document` takes no slot. So
+with attestation deferred, **T26 inherits the whole question**: flipping
+`online_ocr_enabled` on puts an uncounted, publicly reachable endpoint in front
+of a 500/day free quota, and a reinstall resets the only per-user limit there
+is. T26's options are then to add a counter to the OCR path, revive attestation,
+or flip the flag knowing a script can exhaust the day's OCR for everyone. That
+is T26's call to make with the owner, not a decision T06 can take on its own —
+it is recorded in T26's row so it cannot be missed.
+
+### T07 record (2026-10-06) — retention, tested against a real database
+
+#### What was built
+
+Migration **`20261006100000_data_retention_jobs.sql`**, enabling `pg_cron`
+(available on the free plan) and adding:
+
+| Object | Purpose |
+|---|---|
+| `purge_old_analysis_attempts(interval default '90 days')` | Q11's attempts window |
+| `purge_idle_anonymous_users(interval default '12 months')` | Q11's idle-identity window |
+| `retention_jobs_report()` | read-only view of the two schedules |
+| cron `purge-old-analysis-attempts` | `30 1 * * *` UTC |
+| cron `purge-idle-anonymous-users` | `0 2 * * *` UTC |
+
+**Functions rather than DELETEs inside the cron strings**, because a statement
+living in a job string cannot be called and therefore cannot be tested — the
+only way to learn whether the predicate is right would be to wait a day and
+look. The window is a parameter whose default *is* the policy, so a test can
+purge what it just inserted while the scheduled call keeps Q11's numbers in one
+place. Both return their row count, so a run is observable. This also matches
+how the schema already works (`expire_stale_reservations`).
+
+`retention_jobs_report()` exists because the functions existing is not the
+policy — **the schedule is**, and PostgREST exposes only `public`, so the `cron`
+schema is otherwise unreachable from a test. It returns two job names and their
+schedules, nothing more.
+
+01:30 and 02:00 UTC are 03:30 and 04:00 in Cairo (an hour later in summer), the
+quietest part of the day for an app used against office hours and bill
+deadlines, and staggered so the two never contend.
+
+#### The finding worth keeping: SECURITY DEFINER, not a grant
+
+The first run failed with `42501 permission denied for table users` —
+`service_role` has no DELETE on `auth.users`. Postgres helpfully suggests
+`GRANT SELECT, DELETE ON auth.users TO service_role`, and **taking that
+suggestion would have been the wrong fix**: it hands every Edge Function
+permanent delete rights over the entire users table in order to enable one
+nightly sweep. Both purges are `security definer` with a pinned `search_path`
+and every object fully qualified instead, which confines the privilege to a
+function whose predicate is fixed in its body — anonymous identities, idle
+beyond the window — and makes a cron run and a service-role call behave
+identically.
+
+#### Tested for real, not just written
+
+The local stack was already up, so this was validated properly rather than on
+faith:
+
+1. `supabase db reset` re-applied **all 9 migrations from scratch**, three times
+   across the iterations, which is also how the two bugs below were caught
+   before production saw them.
+2. **5 new integration tests, all passing** against the real database: the
+   90-day predicate in both directions (a 100-day row goes, a 10-day row
+   stays), the parameter genuinely driving the predicate, a brand-new user
+   surviving the idle purge (covering the `coalesce` branch for a null
+   `last_sign_in_at`), the **cascade** carrying a deleted user's attempts and
+   usage rows away, and both jobs being scheduled.
+3. The **whole backend suite re-run against the live stack: 771 passed, 0
+   failed** — 37 more tests actually executing than the usual self-skipping run.
+
+Two bugs found this way, both fixed in the migration before it left the machine:
+the `security definer` problem above, and a fixture that violated
+`analysis_attempts_completed_at_matches_status` by giving a terminal status no
+completion time.
+
+#### Database size: 11 MB of 500 MB
+
+`inspect db db-stats` on staging: **database 11 MB**, our own tables **24 kB**,
+indexes 104 kB. The 11 MB is almost entirely Postgres and Supabase system
+catalogue; the app's own footprint is negligible today.
+
+Steady state under Q3's 500/day, as arithmetic rather than hope:
+
+- `analysis_attempts` — 500/day × 90 days ≈ **45,000 rows**, a couple of hundred
+  bytes each with indexes, so roughly **10 MB** and then flat.
+- `analysis_usage_daily` — one row per user per day used; at 3 analyses per user
+  that is ~167 users/day, ~61,000 rows a year, a few MB, and the idle purge
+  cascades them away.
+- `global_analysis_usage_daily` — one row per day, ~365 a year. Left alone
+  deliberately; it will never matter.
+
+**The growth driver is the auth side, not ours.** Each install creates an
+anonymous `auth.users` row with identity, session and refresh-token children,
+and those rows are far fatter than our counters. The 12-month purge is exactly
+what bounds that, which is why Q11's second window matters more than its first.
+One thing it does *not* bound: `auth.refresh_tokens` for a user who stays
+**active**, since rotation writes a new row on each refresh and the idle purge
+never reaches them. Today's data cannot size that honestly — 39 users hold 59
+tokens, which is test traffic, not a year of real use — so it is recorded as
+something **T09 should watch** rather than guessed at. A revoked-token sweep is
+cheap to add later if monitoring shows it climbing.
+
+#### What is left: one push, and it needs the owner
+
+The migration is applied to the **local stack** and to **staging** (verified:
+`20261006100000` shows as applied there). The **production push was refused by
+the permission classifier**, with no explanation given, and the refusal covers
+the outcome — so it was not retried by another route.
+
+It is one command, and the migration is already proven on two databases:
+
+```
+supabase link --project-ref ivbpmzasxpphclundjyy
+supabase db push --linked
+```
+
+**Note for whoever runs it:** the CLI is currently left **linked to staging**,
+not production, because the link in the blocked command never executed. The
+`link` above is therefore not optional.
