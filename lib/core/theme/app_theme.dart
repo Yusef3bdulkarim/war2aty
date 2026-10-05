@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 import 'app_radii.dart';
+import 'app_spacing.dart';
 import 'app_typography.dart';
 
 /// Assembles [ThemeData] for the app from the Waraqti design tokens.
@@ -47,6 +48,28 @@ abstract final class AppTheme {
         elevation: 0,
         centerTitle: true,
         titleTextStyle: AppTypography.titleLarge.copyWith(color: c.ink),
+      ),
+      // Every SnackBar floats (F26 #3): clear of the screen's edges and of
+      // the nav bar, with rounded corners. Set here so no call site has to.
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        insetPadding: const EdgeInsets.fromLTRB(
+          AppSpacing.screenHorizontal,
+          0,
+          AppSpacing.screenHorizontal,
+          AppSpacing.lg,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.md),
+        ),
+        elevation: 6,
+        backgroundColor: c.ink,
+        contentTextStyle: AppTypography.bodyMedium.copyWith(
+          color: c.onBrand,
+          fontWeight: AppTypography.semiBold,
+          height: 1.5,
+        ),
+        actionTextColor: c.mint,
       ),
       dividerColor: c.border,
       elevatedButtonTheme: ElevatedButtonThemeData(

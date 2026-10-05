@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/core/widgets/teal_top_bar.dart';
 import 'package:war2aty/features/settings/presentation/screens/privacy_policy_screen.dart';
 
 import '../../../../support/pump_app.dart';
@@ -23,6 +24,18 @@ void main() {
     expect(find.text(ar.privacyPointTextOnly), findsOneWidget);
     expect(find.text(ar.privacyPointImageOptIn), findsOneWidget);
     expect(find.text(ar.privacyPointDeleteAnytime), findsOneWidget);
+  });
+
+  testWidgets('titles the page on the teal top bar (F26-T02)', (tester) async {
+    await pumpApp(tester, const PrivacyPolicyScreen());
+
+    expect(
+      find.descendant(
+        of: find.byType(TealTopBar),
+        matching: find.text(ar.settingsPrivacyPolicyLabel),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows no CTA — agreeing already happened on first run', (

@@ -302,46 +302,50 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
             return const _BackToHome();
           }
           final AnalysisSource source = OcrAnalysisSource(ocrExtraction);
-          return MultiBlocProvider(
-            providers: [
-              BlocProvider<AnalysisResultCubit>(
-                create: (_) =>
-                    getIt<AnalysisResultCubit>(param1: session, param2: source)
-                      ..analyze(),
-              ),
-              BlocProvider<SaveDocumentCubit>(
-                create: (_) => getIt<SaveDocumentCubit>(),
-              ),
-              BlocProvider<AudioReaderCubit>(
-                create: (_) => getIt<AudioReaderCubit>(),
-              ),
-            ],
-            child: SaveDocumentListener(
-              // Under both providers: the save reads what the analysis
-              // produced, and this is the only place that knows about both.
-              child: Builder(
-                builder: (context) => AnalysisResultScreen(
-                  onClose: () async {
-                    await _storeUsageHint();
-                    if (context.mounted) context.go(AppRoutes.home);
-                  },
-                  // See the `/ocr` route's `onRetake` above for why this is
-                  // `go(home)` + `push(capture)` rather than `pushReplacement`.
-                  onCaptureAnother: () {
-                    context.go(AppRoutes.home);
-                    context.push(AppRoutes.captureWith(CaptureSource.camera));
-                  },
-                  // Same shape as `onCaptureAnother`, into the gallery
-                  // (F23 #5).
-                  onPickFromGallery: () {
-                    context.go(AppRoutes.home);
-                    context.push(AppRoutes.captureWith(CaptureSource.gallery));
-                  },
-                  onSave: () => unawaited(_saveResult(context, session)),
-                  onCreateReminder: (date) =>
-                      _startReminderFromDate(context, date),
-                  // The way out of a declined analysis consent (F11-T02).
-                  onOpenSettings: () => context.go(AppRoutes.settings),
+          return _UsageHintOnLeave(
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<AnalysisResultCubit>(
+                  create: (_) => getIt<AnalysisResultCubit>(
+                    param1: session,
+                    param2: source,
+                  )..analyze(),
+                ),
+                BlocProvider<SaveDocumentCubit>(
+                  create: (_) => getIt<SaveDocumentCubit>(),
+                ),
+                BlocProvider<AudioReaderCubit>(
+                  create: (_) => getIt<AudioReaderCubit>(),
+                ),
+              ],
+              child: SaveDocumentListener(
+                // Under both providers: the save reads what the analysis
+                // produced, and this is the only place that knows about both.
+                child: Builder(
+                  builder: (context) => AnalysisResultScreen(
+                    // The remaining-analyses hint is stored by
+                    // `_UsageHintOnLeave` above, on this exit and every other.
+                    onClose: () => context.go(AppRoutes.home),
+                    // See the `/ocr` route's `onRetake` above for why this is
+                    // `go(home)` + `push(capture)` rather than `pushReplacement`.
+                    onCaptureAnother: () {
+                      context.go(AppRoutes.home);
+                      context.push(AppRoutes.captureWith(CaptureSource.camera));
+                    },
+                    // Same shape as `onCaptureAnother`, into the gallery
+                    // (F23 #5).
+                    onPickFromGallery: () {
+                      context.go(AppRoutes.home);
+                      context.push(
+                        AppRoutes.captureWith(CaptureSource.gallery),
+                      );
+                    },
+                    onSave: () => unawaited(_saveResult(context, session)),
+                    onCreateReminder: (date) =>
+                        _startReminderFromDate(context, date),
+                    // The way out of a declined analysis consent (F11-T02).
+                    onOpenSettings: () => context.go(AppRoutes.settings),
+                  ),
                 ),
               ),
             ),
@@ -703,13 +707,46 @@ void _startReminderFromDocumentDate(BuildContext context, AnalysisDate date) {
   );
 }
 
+/// Stores the remaining-analyses hint when the result route leaves the tree
+/// (F26-T04) — the back arrow, the system back, «صوّر ورقة تانية» / «اختار
+/// من المعرض», or the reminder flow ending on a tab. Hooking each exit
+/// instead is how all but the arrow came to be missed.
+///
+/// Entering drops a hint still held from an earlier analysis — say the shell
+/// was covered by the camera when it arrived — so a stale count never shows
+/// ahead of this one's.
+class _UsageHintOnLeave extends StatefulWidget {
+  const _UsageHintOnLeave({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_UsageHintOnLeave> createState() => _UsageHintOnLeaveState();
+}
+
+class _UsageHintOnLeaveState extends State<_UsageHintOnLeave> {
+  @override
+  void initState() {
+    super.initState();
+    getIt<UsageHintHolder>().clear();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_storeUsageHint());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 /// Reads today's cached quota and, when part of it has been used but some
 /// remains, stores the remaining count in [UsageHintHolder] so the nav shell
 /// can show it as a SnackBar.
 ///
-/// Called before navigating away from the result screen. The read is a local
-/// DB look-up (sub-millisecond), so the `await` does not delay the transition
-/// perceptibly.
+/// Called as the result route leaves the tree. The read is a local DB look-up
+/// (sub-millisecond), so the SnackBar follows the transition closely.
 Future<void> _storeUsageHint() async {
   final result = await getIt<GetDailyUsage>()();
   result.when(

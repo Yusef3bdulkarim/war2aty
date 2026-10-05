@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/reminders/reminder.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/time/cairo_day.dart';
-import '../../../../core/widgets/top_bar_icon_button.dart';
+import '../../../../core/widgets/teal_top_bar.dart';
 import '../cubit/reminder_form_cubit.dart';
 import '../cubit/reminder_form_state.dart';
 import '../widgets/notification_permission_sheet.dart';
@@ -19,11 +17,8 @@ import '../widgets/reminder_linked_document_row.dart';
 import '../widgets/reminder_text_field.dart';
 
 // From `Waraqti.dc.html` → `reminderCreate` / `manualReminder`, which share
-// this exact layout (F09-T02): a plain top bar, the form, a pinned save bar.
-const double _topBarTop = 56 - 52;
-const double _topBarBottom = 12;
-const double _topBarSide = AppSpacing.screenHorizontal;
-const double _topBarGap = 8;
+// this exact layout (F09-T02): the teal top bar (F26-T02), the form, a pinned
+// save bar.
 const double _pageSide = 18;
 const double _pageTop = 18;
 const double _pageBottom = 20;
@@ -132,7 +127,11 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
               ? const SizedBox.shrink()
               : Column(
                   children: [
-                    _TopBar(title: widget.screenTitle, onClose: widget.onClose),
+                    TealTopBar(
+                      title: widget.screenTitle,
+                      backTooltip: context.strings.actionBack,
+                      onBack: widget.onClose,
+                    ),
                     Expanded(
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.fromLTRB(
@@ -221,70 +220,6 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
       return null;
     }
     return cairoInstant(date.year, date.month, date.day, 10);
-  }
-}
-
-class _TopBar extends StatelessWidget {
-  const _TopBar({required this.title, this.onClose});
-
-  final String title;
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.card,
-        border: Border(bottom: BorderSide(color: colors.borderSoft)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            _topBarSide,
-            _topBarTop,
-            _topBarSide,
-            _topBarBottom,
-          ),
-          child: Row(
-            children: [
-              TopBarIconButton(
-                onPressed: onClose,
-                tooltip: strings.actionBack,
-                icon: Transform.flip(
-                  flipX: mirror,
-                  child: StrokeIcon(
-                    StrokeGlyph.arrowBack,
-                    color: colors.ink,
-                    strokeWidth: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.labelCard.copyWith(
-                      fontWeight: AppTypography.extraBold,
-                      color: colors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: _topBarGap),
-              const SizedBox.square(dimension: TopBarIconButton.dimension),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
