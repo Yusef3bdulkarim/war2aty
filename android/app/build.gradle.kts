@@ -10,6 +10,21 @@ plugins {
 // Load release signing properties if the file exists (CI / dev machine).
 // The file is git-ignored; its absence falls back to debug signing so
 // `flutter run --release` keeps working on machines without it.
+/// The ABIs `flutter build --target-platform` asked for, or `null` when it
+/// named none (then every ABI is kept).
+val flutterTargetAbis: List<String>? =
+    (project.findProperty("target-platform") as String?)
+        ?.split(",")
+        ?.mapNotNull {
+            when (it.trim()) {
+                "android-arm" -> "armeabi-v7a"
+                "android-arm64" -> "arm64-v8a"
+                "android-x64" -> "x86_64"
+                else -> null
+            }
+        }
+        ?.takeIf { it.isNotEmpty() }
+
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
@@ -39,6 +54,36 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // `--target-platform` limits Flutter's own engine libraries, but the
+        // plugins' native ones (Tesseract, OpenCV) arrive as prebuilt `.so`
+        // for every ABI and shipped regardless — ~10 MB of architectures the
+        // target device cannot run (F27-P02).
+        //
+        // Driven by that same flag rather than hard-coded on purpose: a build
+        // without it — the App Bundle for Play — keeps every ABI, so 32-bit
+        // devices are still served and Play splits per device itself. Pinning
+        // the filter here would quietly drop them from the listing.
+        flutterTargetAbis?.let { abis ->
+            ndk {
+                abiFilters.clear()
+                abiFilters.addAll(abis)
+            }
+        }
+    }
+
+    // `ndk.abiFilters` above is not enough on its own: the plugins' `.so` files
+    // arrive from their AARs and something downstream puts every ABI back, so
+    // the unwanted ones are dropped again here, at packaging, which runs last.
+    packaging {
+        jniLibs {
+            flutterTargetAbis?.let { abis ->
+                val everyAbi = listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+                for (unwanted in everyAbi - abis.toSet()) {
+                    excludes += "lib/$unwanted/**"
+                }
+            }
+        }
     }
 
     if (keystorePropertiesFile.exists()) {

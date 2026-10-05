@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Resources the shrinker cannot see a reference to.
+
+  `isShrinkResources` keeps only what it can trace from code and XML. The
+  reminder notification's small icon is named as a string from Dart
+  (`FlutterLocalNotificationsPort`, '@drawable/ic_stat_notify'), so nothing on
+  the Android side points at it and a release build dropped it entirely —
+  profile builds kept it, which is why this only shows up in a release APK
+  (F27-P02). Without this, a fired reminder has no icon to draw.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_notify" />
