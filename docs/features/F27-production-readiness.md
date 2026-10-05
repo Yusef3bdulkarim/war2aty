@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 2 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01 and P02 done and committed 2026-10-05; T01 is next and needs the owner's answers to the open questions.
+- **Progress:** 3 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02 and T01 done 2026-10-05; T02 is next (it merges or closes the three open PRs, per Q5).
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -118,34 +118,59 @@ start by checking it.
 - Consent gate, encrypted images, and the F12-T01/T02 accessibility and RTL audits.
 - `flutter analyze`: 0 errors, 0 warnings, 16 infos.
 
-## Open questions (answer before the task they gate)
+## Answers (locked by the owner, 2026-10-05) — F27-T01
 
-Q2 (Play account type) and Q16 (app name) are resolved by locked decisions #1 and
-#2. The rest are still open.
+Q2 and Q16's *process* were already settled by locked decisions #1 and #2.
+Everything below is now locked; the two still-open items are called out at the
+end and gate only their own tasks.
 
-| Q | Question | Gates |
+| Q | Answer | Gates |
 |---|---|---|
-| Q1 | Launch platforms: Android only first, or Android and iOS together? For iOS: a Mac and an Apple Developer membership? (Store fees read as outside the free-tier rule. Confirm.) | T23, T24 |
-| Q3 | Target launch date, and expected users or analyses per day? | T06, T09 |
-| Q4 | Egypt-only store availability? | T21 |
-| Q5 | Which open PRs go into the launch build: #18 (offline-first launch), #19 (splash latency), #28 (F26)? | T02 |
-| Q6 | Does the English UI ship (needs the LTR audit) or is it Arabic only? | T15 |
-| Q7 | Does F27 take over F12-T03 to T12, with F12 closed as superseded? | T01 |
-| Q8 | What's deployed in production now (pre-F20 or F20, which secrets)? Authorising the Supabase MCP lets me check. | T04, T08 |
-| Q9 | Create a second free project for staging? Move production out of Seoul (depends on T05)? | T04 |
-| Q10 | Is `global_daily_call_cap` set in production? Is CAPTCHA (Cloudflare Turnstile, free) or attestation (Play Integrity / App Attest) on anonymous sign-in acceptable? | T06 |
-| Q11 | How long to keep `analysis_attempts` rows and idle anonymous users? | T07 |
-| Q12 | `online_ocr_enabled` on at launch, or flipped later? | T08, T26 |
-| Q13 | Crash and error reporting: (a) our own Supabase table plus an Edge Function that only accepts allowed error codes (recommended); (b) Sentry free tier with scrubbing; (c) none? | T12 |
-| Q14 | Is the release keystore and its passwords backed up somewhere other than this machine? Has it signed anything already distributed? Enroll in Play App Signing (recommended)? | T13, T21 |
-| Q15 | Keep the package IDs `com.war2aty.app` / `.dev`, or change them with the rebrand? This is final after the first Play upload. | T13, T21 |
-| Q16 | Final app name (and any English name). **Owner supplies it before T14** (decision #2). | T14 |
-| Q17 | Developer of record (person or company), support email, and is GitHub Pages OK for hosting the policy pages? | T20 |
-| Q18 | A terms-of-use page with a "not legal/medical/financial advice" disclaimer? | T20 |
-| Q19 | Store graphics (screenshots, feature graphic): from the Waraqti design project, or to be designed? | T21 |
-| Q20 | Android backup: off completely (recommended), or settings-only? | T11 |
-| Q21 | PR timing for F27: per phase, or one at the end? | all |
-| Q22 | Which test phones are available (known: RMX2001, ELS NX9)? Is an iPhone available? | T18, T23 |
+| Q1 | **Android first.** iOS waits — see Q22: there is an iPhone but no Mac, and iOS cannot be built or signed without macOS. T23/T24 are **BLOCKED** until a Mac exists. | T23, T24 |
+| Q3 | **Still open** — see below. | T06, T09 |
+| Q4 | **Egypt only** on the store. | T21 |
+| Q5 | **Deal with all three PRs**: merge #28 (clean, 0 behind); rebase and merge #18 (offline launch, 141 behind, one trivial docs conflict); **close #19 as superseded by P01**, first cherry-picking `11ad8b6` (synchronous strings delegate), which is unrelated to the splash and still absent from `develop`. | T02 |
+| Q6 | **Both languages ship.** So the LTR/English audit in T15 is required, not optional, and the store listing is needed in Arabic *and* English (T21). | T15, T21 |
+| Q7 | **Yes — F12 is closed as superseded**, with three of its tasks carried over explicitly rather than lost (see "What F12 leaves behind"). | T01 |
+| Q8 | The owner authorises the Supabase connector; production's live state is inspected then. | T04, T08 |
+| Q9 | **Yes**, a second free project for staging. The region decision follows T05. | T04 |
+| Q10 | **Still open** — the question was unclear and is re-asked below. | T06 |
+| Q11 | Delegated. **`analysis_attempts`: 90 days. Idle anonymous users: 12 months.** The quota resets every Cairo day, so 90 days is far more than any quota decision needs while still showing an abuse pattern; 12 months keeps a returning user's identity without holding dormant rows for ever. | T07 |
+| Q12 | Delegated. **`online_ocr_enabled` stays OFF at launch**, flipped in T26 once T08 has verified production. Production is still pre-F20 and unverified (B2/Q8), so shipping it on would put every first user on an untested path; off means they get on-device OCR, which works today. | T08, T26 |
+| Q13 | Delegated. **(a) our own Supabase table behind an Edge Function that only accepts allowlisted error codes.** No third party ever sees user content, which Sentry could not guarantee without trusting its scrubbing; it also stays inside the free-tier rule. | T12 |
+| Q14 | **Enrol in Play App Signing.** Note the keystore question was only half answered: whether `war2aty-release.jks` is backed up anywhere other than this machine is still unknown. Enrolling makes a lost *upload* key recoverable, so this is no longer fatal — but until T13 it is still the only copy. | T13, T21 |
+| Q15 | **Package IDs stay** `com.war2aty.app` / `.dev`, even though the name changes. Final once the first Play upload happens. | T13, T21 |
+| Q16 | The name keeps its sound, with the digit "2" replaced by a letter. **The exact spelling is decided with the owner at T14** — pause there. | T14 |
+| Q17 | Developer of record: **a company**. Support email: the owner's personal address. Policy pages: **GitHub Pages, which I set up** in T20. | T20 |
+| Q18 | Decided together when T20 is reached. | T20 |
+| Q19 | Store graphics are not ready; done together when T21 is reached. | T21 |
+| Q20 | Delegated. **Android backup off completely.** The manifest never set `allowBackup`, so Android's default (on) applies today and the local database — document text, reminders — plus the encrypted images can be copied to the user's Google Drive. That contradicts what the privacy screen promises, and a restored backup would carry data whose key lives in secure storage and may not come back with it. | T11 |
+| Q21 | **A PR per phase.** | all |
+| Q22 | **RMX2001** (confirmed working), **ELS NX9**, and **an iPhone — but no Mac**. | T18, T23 |
+
+### Still open after this round
+
+| Q | What is needed | Gates |
+|---|---|---|
+| Q3 | A target launch date, and a rough expectation of users or analyses per day. Both free-tier limits (Supabase, the OCR and analysis providers) are sized against this number, so T06 cannot size abuse protection or capacity without it. | T06, T09 |
+| Q10 | Re-asked in plainer terms. Two separate things: (1) **`global_daily_call_cap`** — a ceiling in the backend on how many analyses the *whole app* may run in one day, so one abuser cannot burn the shared free quota for every user. Is one set in production today? (2) **Proof the caller is the real app** — anonymous sign-in is open to anyone holding the public key, so a script could mint identities. The cheap fix is **Play Integrity** (free, invisible to users, Android only). Is that acceptable? | T06 |
+
+### What F12 leaves behind (Q7)
+
+F12 is closed as superseded, but it is not a clean subset. Three of its tasks
+have no home in F27, so they are recorded here rather than quietly dropped:
+
+- **F12-T05 (performance profiling)** -> folded into **T18**. P01 already
+  profiled the launch path on a real phone; T18 extends that to the rest.
+- **F12-T06 (cache cleanup verification)** -> folded into **T16**, next to the
+  encryption and "no document content in logs" checks it belongs with.
+- **F12-T08 (OCR regression dataset)** -> **deliberately deferred past launch.**
+  A labelled set plus a runner and a recorded baseline is its own project, and
+  the OCR path has shipped and is in use. Deferring it is a conscious trade,
+  not an oversight: without it, an OCR regression is caught by hand.
+
+The rest map cleanly: T03/T04 -> T15, T07 -> T16, T09/T10 -> T17, T11 -> T13 and
+T19, T12 -> T23 and T24.
 
 ## Tasks
 
@@ -160,7 +185,7 @@ Q2 (Play account type) and Q16 (app name) are resolved by locked decisions #1 an
 ### Phase 0: Decisions and repo
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
-| 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | TODO |
+| 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. **Q3 and Q10 remain open** and gate T06/T09 only. |
 | 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | TODO |
 | 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | TODO |
 
