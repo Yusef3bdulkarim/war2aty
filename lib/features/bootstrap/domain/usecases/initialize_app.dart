@@ -33,6 +33,28 @@ final class BootstrapStep {
 
   /// `null` disables the bound. Only for steps that cannot block.
   final Duration? timeout;
+
+  /// Runs this step under its timeout, surviving one that misbehaves.
+  ///
+  /// [run] is *supposed* to return a `Result` rather than throw, but it is a
+  /// closure resolving dependencies — an unregistered service or a client that
+  /// failed to initialize throws out of it. Left uncaught, that escapes through
+  /// `BootstrapCubit.start()` and the splash screen never changes state: the
+  /// user sees a spinner forever, with no error and no retry. Catching here is
+  /// what makes the callers' "never throws" contract true rather than
+  /// aspirational.
+  Future<Result<void, AppFailure>> runGuarded() async {
+    try {
+      final pending = run();
+      return await (timeout == null ? pending : pending.timeout(timeout!));
+    } on TimeoutException {
+      return const Err(RequestTimeoutFailure());
+    } on Object {
+      // The caught object is deliberately dropped: it can quote whatever the
+      // step was working on, and launch runs before any redaction (§7, §51).
+      return const Err(LaunchFailure());
+    }
+  }
 }
 
 /// Runs the ordered launch sequence and reports progress.
@@ -57,7 +79,7 @@ final class InitializeApp {
       _currentStage = step.stage;
       onStage?.call(step.stage);
 
-      final result = await _run(step);
+      final result = await step.runGuarded();
 
       if (result case Err(:final failure)) {
         // Record the classified code either way. A critical failure is the one
@@ -70,29 +92,5 @@ final class InitializeApp {
     }
 
     return const Ok(null);
-  }
-
-  /// Runs one step under its timeout, and survives a step that misbehaves.
-  ///
-  /// [BootstrapStep.run] is *supposed* to return a `Result` rather than throw,
-  /// but it is a closure resolving dependencies — an unregistered service or a
-  /// client that failed to initialize throws out of it. Left uncaught, that
-  /// escapes through `BootstrapCubit.start()` and the splash screen never
-  /// changes state: the user sees a spinner forever, with no error and no
-  /// retry. Catching here is what makes this class's "never throws" contract
-  /// true rather than aspirational.
-  Future<Result<void, AppFailure>> _run(BootstrapStep step) async {
-    final timeout = step.timeout;
-
-    try {
-      final pending = step.run();
-      return await (timeout == null ? pending : pending.timeout(timeout));
-    } on TimeoutException {
-      return const Err(RequestTimeoutFailure());
-    } on Object {
-      // The caught object is deliberately dropped: it can quote whatever the
-      // step was working on, and launch runs before any redaction (§7, §51).
-      return const Err(LaunchFailure());
-    }
   }
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ system splash icon (F27-P01): deliberately empty. The system
+     splash cannot be turned off, and without an icon of its own it would show
+     the launcher icon. The animated Flutter splash right after it reveals the
+     mark, so this splash shows the teal alone and the mark appears only once. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+    <size
+        android:width="288dp"
+        android:height="288dp" />
+</shape>

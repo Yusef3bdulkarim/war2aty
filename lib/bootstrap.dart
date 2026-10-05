@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'app/di/service_locator.dart';
 import 'core/env/app_environment.dart';
+import 'features/bootstrap/presentation/screens/splash_screen.dart';
 
 /// Shared launch path for every flavor entrypoint.
 ///
@@ -16,6 +17,7 @@ import 'core/env/app_environment.dart';
 /// `AuthRepository`, and initializing it twice throws.
 Future<void> bootstrap(AppEnvironment env) async {
   WidgetsFlutterBinding.ensureInitialized();
+  _precacheSplashMark();
 
   final resolved = AppEnvironment(
     flavor: env.flavor,
@@ -79,4 +81,15 @@ Future<String> _readAppVersion(AppEnvironment env) async {
   } on Object {
     return env.appVersion;
   }
+}
+
+/// Starts decoding the splash mark (F27-P01) while Supabase and DI start up,
+/// so it is in the image cache by the splash's first frame instead of being
+/// decoded during its animation. Fire-and-forget: if it is not ready in time,
+/// the splash simply decodes it itself.
+void _precacheSplashMark() {
+  final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+  const AssetImage(
+    kBrandMarkAsset,
+  ).resolve(ImageConfiguration(devicePixelRatio: view?.devicePixelRatio ?? 1));
 }

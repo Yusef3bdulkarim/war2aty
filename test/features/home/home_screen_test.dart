@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -9,6 +10,7 @@ import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/widgets/skeleton.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
+import 'package:war2aty/features/home/presentation/cubit/home_state.dart';
 import 'package:war2aty/features/home/presentation/screens/home_screen.dart';
 import 'package:war2aty/features/home/presentation/widgets/home_greeting.dart';
 
@@ -203,6 +205,49 @@ void main() {
         tester.getSemantics(find.text(ar.homeGreetingTitle)),
         isSemantics(isHeader: true),
       );
+    });
+  });
+
+  group('launch reveal (F27-P01)', () {
+    test('Home has loaded only once every section has answered', () {
+      const loading = HomeState();
+      expect(loading.hasLoaded, isFalse);
+      expect(
+        loading.copyWith(usage: const UsageAvailable(null)).hasLoaded,
+        isFalse,
+      );
+      expect(
+        const HomeState(
+          usage: UsageAvailable(null),
+          reminder: ReminderAvailable(null),
+          documents: DocumentsUnavailable(LocalDatabaseFailure()),
+        ).hasLoaded,
+        isTrue,
+        reason: 'a section that failed has answered too',
+      );
+    });
+
+    testWidgets('reports its content once, when every section is in', (
+      tester,
+    ) async {
+      var reports = 0;
+      await pumpApp(
+        tester,
+        BlocProvider<HomeCubit>(
+          create: (_) => HomeCubit(
+            watchDailyUsage: WatchDailyUsage(usage),
+            watchRecentDocuments: WatchRecentDocuments(documents),
+            watchUpcomingReminder: WatchUpcomingReminder(reminders),
+          )..start(),
+          child: HomeScreen(onContentLoaded: () => reports++),
+        ),
+      );
+      expect(reports, 1);
+
+      // Later updates are just updates, not a second first load.
+      documents.emit([documentWith()]);
+      await tester.pumpAndSettle();
+      expect(reports, 1);
     });
   });
 }

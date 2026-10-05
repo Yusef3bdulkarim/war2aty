@@ -89,6 +89,9 @@ flutter:
 
   assets:
     - assets/app_icon.png
+    # Splash brand mark (F27-P01); the 2.0x/ and 3.0x/ variants are picked up
+    # automatically.
+    - assets/images/brand_mark.png
     - assets/tessdata_config.json
     - assets/tessdata/ara.traineddata
     - assets/tessdata/eng.traineddata

@@ -14,7 +14,6 @@ import 'package:war2aty/core/localization/en_strings.dart';
 /// drifted to 104 of 385 members, leaving most copy unchecked).
 final Map<String, String Function(AppStrings)> _accessors = {
   'appName': (s) => s.appName,
-  'appTagline': (s) => s.appTagline,
   'bootstrapErrorTitle': (s) => s.bootstrapErrorTitle,
   'bootstrapErrorMessage': (s) => s.bootstrapErrorMessage,
   'bootstrapStageSession': (s) => s.bootstrapStageSession,

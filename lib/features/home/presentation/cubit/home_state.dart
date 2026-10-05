@@ -159,6 +159,13 @@ final class HomeState {
   final ReminderSection reminder;
   final DocumentsSection documents;
 
+  /// Whether every section has had its first answer — data, or a failure it
+  /// shows as such. Until then at least one is still a placeholder.
+  bool get hasLoaded =>
+      usage is! UsageLoading &&
+      reminder is! ReminderLoading &&
+      documents is! DocumentsLoading;
+
   HomeState copyWith({
     UsageSection? usage,
     ReminderSection? reminder,

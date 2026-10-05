@@ -24,7 +24,12 @@ const double _pageBottom = 108;
 /// so this column stays a plain list: the screen never has to reason about
 /// which of them is currently showing.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({this.onScan, this.onPickImage, super.key});
+  const HomeScreen({
+    this.onScan,
+    this.onPickImage,
+    this.onContentLoaded,
+    super.key,
+  });
 
   /// Where the two scan actions lead — the router supplies both.
   ///
@@ -33,10 +38,24 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback? onScan;
   final VoidCallback? onPickImage;
 
+  /// Called once, when every section has had its first answer
+  /// ([HomeState.hasLoaded]). The launch reveal waits for it (F27-P01), so
+  /// Home appears whole instead of filling in under the user's eyes.
+  final VoidCallback? onContentLoaded;
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
+    return BlocListener<HomeCubit, HomeState>(
+      listenWhen: (previous, current) =>
+          !previous.hasLoaded && current.hasLoaded,
+      listener: (context, state) => onContentLoaded?.call(),
+      child: _buildScaffold(colors),
+    );
+  }
+
+  Widget _buildScaffold(AppColors colors) {
     return Scaffold(
       backgroundColor: colors.surface,
       // No AppBar: the design's Home leads with its own greeting instead.

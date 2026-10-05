@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -10,20 +14,55 @@ import '../../domain/entities/bootstrap_stage.dart';
 import '../cubit/bootstrap_cubit.dart';
 import '../cubit/bootstrap_state.dart';
 import '../splash_timing.dart';
-import '../widgets/paper_plane_logo.dart';
-import '../widgets/pulsing_dots.dart';
+import '../widgets/splash_hand_off.dart';
+
+/// The brand mark the splash draws (F27-P01), generated with every other icon
+/// by `tool/branding/generate_brand_assets.dart`.
+const String kBrandMarkAsset = 'assets/images/brand_mark.png';
+
+/// Side of the mark, in logical pixels.
+const double kSplashMarkSize = 128;
+
+/// Side of the soft glow behind it.
+const double kSplashGlowSize = 436;
+
+/// How long one breath of the resting mark takes.
+const Duration kSplashBreathPeriod = Duration(milliseconds: 3200);
+
+/// The two animated parts, so a test can pin them rather than guess which of
+/// the tree's transitions is the splash's own.
+@visibleForTesting
+const Key kSplashGlowKey = Key('splash.glow');
+@visibleForTesting
+const Key kSplashMarkKey = Key('splash.mark');
 
 /// Launch screen: brand splash while initializing, error state with retry if a
 /// critical step fails.
 ///
-/// The splash matches the Waraqti design (teal gradient). The mark itself is
-/// the animation: a folded paper dart glides in, unfolds into the page, and the
-/// magnifier drops onto it — see [PaperPlaneLogo] for the drawing and its own
-/// internal timeline. The screen only adds the copy underneath:
-///   0.75 → 0.85  app name slides up and fades in
-///   0.80 → 0.90  tagline slides up and fades in
-///   0.88 → 0.98  progress dots appear
-/// After the entrance, an ambient loop keeps the mark breathing.
+/// The owner-approved design of F27-P01 (HTML preview
+/// `tool/branding/splash_preview.html`, where it is option 3): the mark alone
+/// at the centre of the brand gradient over a soft glow, breathing gently.
+/// There is no text on screen; the app name and the launch stage are there for
+/// screen readers only.
+///
+/// The gradient and the glow never change, so each sits under its own repaint
+/// boundary; the only thing that moves is the mark, by opacity and scale.
+///
+/// That structure is deliberate but it is **not** what makes the launch
+/// smooth, and the record should not imply it does. An earlier version orbited
+/// painted rings around the mark; replacing them with this, and adding the
+/// boundaries, left the frame timing on the test phone unchanged (F27-P01).
+/// The few single frames a launch still misses come from the work going on
+/// around it — the network, the database, the notification plugin — not from
+/// what this screen draws.
+///
+/// The native splashes before it show the teal alone, so the mark appears once,
+/// here. Entrance, in seconds of the 1.8 s [kLogoEntranceDuration]:
+///   0.00 → 0.70  glow fades in
+///   0.10 → 0.75  mark fades in, scaling 0.90 → 1.0
+/// The mark then breathes for as long as the launch takes. Once it is done,
+/// [SplashHandOff] stills it, builds the app under the motionless splash, and
+/// only then fades it off.
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
@@ -70,87 +109,113 @@ class _AnimatedSplash extends StatefulWidget {
 
 class _AnimatedSplashState extends State<_AnimatedSplash>
     with TickerProviderStateMixin {
-  // ── Entrance (one-shot: flight, unfold, magnifier, copy) ──
+  // ── Entrance (one-shot): the glow, then the mark ──
   late final AnimationController _entrance = AnimationController(
     vsync: this,
     duration: kLogoEntranceDuration,
   );
 
-  // ── Ambient loop (starts after the entrance, drives the mark's breathing) ──
-  late final AnimationController _ambient = AnimationController(
+  // ── The resting breath, once the entrance has played ──
+  late final AnimationController _breath = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 3600),
+    duration: kSplashBreathPeriod,
   );
 
-  // ── Derived entrance curves ──
-  late final Animation<double> _nameFade = CurvedAnimation(
-    parent: _entrance,
-    curve: const Interval(0.75, 0.85, curve: Curves.easeOut),
-  );
+  // ── Derived entrance curves, in seconds of the entrance ──
+  late final Animation<double> _glowIn = _span(0, 0.70);
+  late final Animation<double> _markIn = _span(0.10, 0.75);
+  late final Animation<double> _markScale = Tween<double>(
+    begin: 0.90,
+    end: 1,
+  ).animate(_markIn);
 
-  late final Animation<double> _nameSlide = Tween<double>(begin: 24, end: 0)
-      .animate(
-        CurvedAnimation(
-          parent: _entrance,
-          curve: const Interval(0.75, 0.85, curve: Curves.easeOutCubic),
-        ),
-      );
-
-  late final Animation<double> _taglineFade = CurvedAnimation(
-    parent: _entrance,
-    curve: const Interval(0.80, 0.90, curve: Curves.easeOut),
-  );
-
-  late final Animation<double> _taglineSlide = Tween<double>(begin: 18, end: 0)
-      .animate(
-        CurvedAnimation(
-          parent: _entrance,
-          curve: const Interval(0.80, 0.90, curve: Curves.easeOutCubic),
-        ),
-      );
-
-  late final Animation<double> _dotsFade = CurvedAnimation(
-    parent: _entrance,
-    curve: const Interval(0.88, 0.98, curve: Curves.easeOut),
-  );
+  /// The entrance between [from] and [to] seconds, eased out.
+  Animation<double> _span(double from, double to) {
+    final total = kLogoEntranceDuration.inMicroseconds / 1e6;
+    return CurvedAnimation(
+      parent: _entrance,
+      curve: Interval(
+        (from / total).clamp(0, 1),
+        (to / total).clamp(0, 1),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _entrance.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _ambient.repeat();
-        widget.onEntranceFinished();
-      }
+      if (status == AnimationStatus.completed) widget.onEntranceFinished();
     });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final phases = SplashPhases.of(context);
+    if (phases.settle != _settle) {
+      _settle.removeStatusListener(_onSettleStatus);
+      _settle = phases.settle..addStatusListener(_onSettleStatus);
+    }
+    if (phases.exit != _exit) _exit = phases.exit;
+
     if (_started) return;
     _started = true;
 
-    // Under reduced motion, show the settled mark at once and release the
+    // Under reduced motion, show the settled frame at once and release the
     // launch immediately — the hold exists to protect the animation, so with no
-    // animation to protect it would just be six seconds of dead time. Keeps the
-    // ambient ticker idle too, rather than burning frames nobody sees.
-    if (MediaQuery.disableAnimationsOf(context)) {
+    // animation to protect it would just be dead time. Nothing breathes either.
+    _still = MediaQuery.disableAnimationsOf(context);
+    if (_still) {
       _entrance.value = 1;
       widget.onEntranceFinished();
     } else {
-      _entrance.forward();
+      // This build is the app's very first frame — the costliest it will ever
+      // have (~210 ms measured on a mid-range phone). Starting the animation
+      // after it keeps that stall on a still, plain teal screen, the same as
+      // the native splash before it, instead of a visible jump in the mark.
+      _afterFrames(2, () {
+        if (!mounted) return;
+        _entrance.forward();
+        _breath.repeat();
+      });
     }
+  }
+
+  /// [then] once [frames] frames have been drawn, asking for each.
+  static void _afterFrames(int frames, VoidCallback then) {
+    SchedulerBinding.instance
+      ..addPostFrameCallback(
+        (_) => frames <= 1 ? then() : _afterFrames(frames - 1, then),
+      )
+      ..ensureVisualUpdate();
   }
 
   /// `didChangeDependencies` runs again whenever an ancestor changes; the
   /// entrance must only ever be kicked off once.
   bool _started = false;
 
+  /// Reduced motion, read once with the entrance.
+  bool _still = false;
+
+  /// The hand-off's settle (see [SplashHandOff]): the breath fades out over it,
+  /// so nothing moves while the app is built under the splash.
+  Animation<double> _settle = kAlwaysDismissedAnimation;
+
+  /// Once at rest, stop breathing: no more frames until the reveal.
+  void _onSettleStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) _breath.stop();
+  }
+
+  /// The hand-off's reveal: the mark grows a little as the splash fades off.
+  Animation<double> _exit = kAlwaysDismissedAnimation;
+
   @override
   void dispose() {
+    _settle.removeStatusListener(_onSettleStatus);
+    _breath.dispose();
     _entrance.dispose();
-    _ambient.dispose();
     super.dispose();
   }
 
@@ -167,92 +232,127 @@ class _AnimatedSplashState extends State<_AnimatedSplash>
     };
   }
 
+  /// The mark's scale this frame: the entrance, the breath damped to nothing
+  /// across the settle, and the small growth of the reveal.
+  double get _scale {
+    final breath = _still
+        ? 0.0
+        : 0.015 * math.sin(2 * math.pi * _breath.value) * (1 - _settle.value);
+    final grow = _still ? 1.0 : 1 + 0.06 * _exit.value;
+    return _markScale.value * (1 + breath) * grow;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final s = context.strings;
     final stage = widget.state is BootstrapInProgress
         ? (widget.state as BootstrapInProgress).stage
         : null;
 
-    return Scaffold(
-      body: AnimatedBuilder(
-        animation: Listenable.merge([_entrance, _ambient]),
-        builder: (context, _) {
-          return DecoratedBox(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment(-0.35, -1),
-                end: Alignment(0.35, 1),
-                colors: [Color(0xFF0E7C86), Color(0xFF0A5C64)],
-              ),
+    // Light status-bar icons on the teal, until the splash leaves the tree.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        // Painted once: nothing above it animates its colours.
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(-0.35, -1),
+              end: Alignment(0.35, 1),
+              colors: [Color(0xFF0E7C86), Color(0xFF0A5C64)],
             ),
-            child: SizedBox.expand(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Spacer(flex: 3),
-
-                  // ── The animated mark ──
-                  PaperPlaneLogo(
-                    progress: _entrance.value,
-                    ambient: _ambient.value,
-                    size: 200,
+          ),
+          child: SizedBox.expand(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // ── The glow. Its own layer, so fading it in is a composite
+                // rather than a repaint of half the screen ──
+                // The boundary sits *above* the fade so the fade cannot dirty
+                // the layer it shares with the backdrop. (Structure, not a
+                // measured win: on the test phone the frame timing was the
+                // same either way — see the F27-P01 record.)
+                RepaintBoundary(
+                  child: FadeTransition(
+                    key: kSplashGlowKey,
+                    opacity: _glowIn,
+                    child: const RepaintBoundary(child: _Glow()),
                   ),
+                ),
 
-                  const SizedBox(height: 8),
-
-                  // ── App name ──
-                  Transform.translate(
-                    offset: Offset(0, _nameSlide.value),
-                    child: Opacity(
-                      opacity: _nameFade.value,
-                      child: Text(
-                        s.appName,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.displayLarge.copyWith(
-                          color: Colors.white,
-                          letterSpacing: -0.5,
-                        ),
+                // ── The mark, labelled with the app name: the one thing on
+                // screen, and the first thing a screen reader announces.
+                // Rebuilds a Transform and an Opacity per frame, never the
+                // image under them ──
+                RepaintBoundary(
+                  child: Semantics(
+                    label: context.strings.appName,
+                    image: true,
+                    child: AnimatedBuilder(
+                      animation: Listenable.merge([
+                        _entrance,
+                        _breath,
+                        _settle,
+                        _exit,
+                      ]),
+                      child: const RepaintBoundary(child: _BrandMark()),
+                      builder: (context, child) => Opacity(
+                        key: kSplashMarkKey,
+                        opacity: _markIn.value,
+                        child: Transform.scale(scale: _scale, child: child),
                       ),
                     ),
                   ),
+                ),
 
-                  const SizedBox(height: 14),
-
-                  // ── Tagline ──
-                  Transform.translate(
-                    offset: Offset(0, _taglineSlide.value),
-                    child: Opacity(
-                      opacity: _taglineFade.value,
-                      child: Text(
-                        s.appTagline,
-                        textAlign: TextAlign.center,
-                        style: AppTypography.bodyLarge.copyWith(
-                          color: Colors.white.withValues(alpha: 0.86),
-                          fontWeight: AppTypography.medium,
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const Spacer(flex: 2),
-
-                  // ── Pulsing dots ──
-                  Opacity(
-                    opacity: _dotsFade.value,
-                    child: Semantics(
-                      liveRegion: true,
-                      label: _stageLabel(context, stage),
-                      child: const PulsingDots(),
-                    ),
-                  ),
-
-                  const SizedBox(height: 60),
-                ],
-              ),
+                // ── Launch progress, for screen readers only ──
+                Semantics(
+                  container: true,
+                  liveRegion: true,
+                  label: _stageLabel(context, stage),
+                  child: const SizedBox.square(dimension: 1),
+                ),
+              ],
             ),
-          );
-        },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The soft glow behind the mark. Static: only its opacity ever changes.
+class _Glow extends StatelessWidget {
+  const _Glow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      dimension: kSplashGlowSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [Color(0x6B8CEBE1), Color(0x335AD2C8), Color(0x000E7C86)],
+            stops: [0, 0.463, 1],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The brand mark. Its pixels say nothing a screen reader needs — the label
+/// around it carries the app name.
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Image.asset(
+        kBrandMarkAsset,
+        width: kSplashMarkSize,
+        height: kSplashMarkSize,
       ),
     );
   }

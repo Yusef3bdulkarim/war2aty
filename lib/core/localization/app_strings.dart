@@ -7,9 +7,6 @@
 abstract interface class AppStrings {
   String get appName;
 
-  /// One-line promise shown under the app name on the splash screen.
-  String get appTagline;
-
   // Launch failure
   String get bootstrapErrorTitle;
   String get bootstrapErrorMessage;

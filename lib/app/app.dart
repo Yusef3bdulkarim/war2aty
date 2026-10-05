@@ -13,10 +13,12 @@ import '../core/theme/app_theme.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_state.dart';
 import '../features/bootstrap/presentation/screens/splash_screen.dart';
+import '../features/bootstrap/presentation/widgets/splash_hand_off.dart';
 import '../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../features/settings/presentation/cubit/settings_cubit.dart';
 import 'di/service_locator.dart';
+import 'launch_reveal.dart';
 import 'notifications/reminder_notification_opener.dart';
 import 'notifications/reminder_notification_taps.dart';
 
@@ -24,7 +26,8 @@ import 'notifications/reminder_notification_taps.dart';
 ///
 /// The app launches into [SplashScreen], which runs the ordered init sequence
 /// and offers a retry if a critical step fails. Only once launch succeeds does
-/// the router shell take over. Text direction follows the active locale
+/// the router shell take over, built under the splash, which [SplashHandOff]
+/// then fades off it. Text direction follows the active locale
 /// automatically (Arabic → RTL, English → LTR).
 class WaraqtiApp extends StatelessWidget {
   const WaraqtiApp({super.key});
@@ -75,9 +78,44 @@ class WaraqtiApp extends StatelessWidget {
                       // frame — no flash of the wrong screen. Until then the
                       // splash stays up.
                       final gate = context.watch<OnboardingCubit>().state;
-                      if (bootstrapState is BootstrapSuccess &&
-                          gate is! OnboardingUnknown) {
-                        return MaterialApp.router(
+                      final ready =
+                          bootstrapState is BootstrapSuccess &&
+                          gate is! OnboardingUnknown;
+
+                      // The app is built under the splash, which then fades
+                      // off it (F27-P01) — never a cut from one to the other.
+                      return SplashHandOff(
+                        isContentReady: () =>
+                            getIt<LaunchReveal>().contentReady,
+                        onRevealed: () {
+                          // Order matters: a notification tap that launched
+                          // the app opens as soon as the splash is gone,
+                          // before the housekeeping it no longer waits for.
+                          getIt<LaunchReveal>().markRevealed();
+                          context.read<BootstrapCubit>().finishLaunch();
+                        },
+                        app: ready
+                            ? MaterialApp.router(
+                                onGenerateTitle: (context) =>
+                                    context.strings.appName,
+                                debugShowCheckedModeBanner: false,
+                                theme: highContrast
+                                    ? AppTheme.highContrast()
+                                    : AppTheme.light(),
+                                locale: locale,
+                                supportedLocales:
+                                    AppLocalizations.supportedLocales,
+                                localizationsDelegates:
+                                    AppLocalizations.delegates,
+                                localeResolutionCallback:
+                                    AppLocalizations.resolve,
+                                routerConfig: getIt<GoRouter>(),
+                                builder: _withNotificationOpener(
+                                  _appBuilder(textSize, highContrast),
+                                ),
+                              )
+                            : null,
+                        splash: MaterialApp(
                           onGenerateTitle: (context) => context.strings.appName,
                           debugShowCheckedModeBanner: false,
                           theme: highContrast
@@ -87,25 +125,9 @@ class WaraqtiApp extends StatelessWidget {
                           supportedLocales: AppLocalizations.supportedLocales,
                           localizationsDelegates: AppLocalizations.delegates,
                           localeResolutionCallback: AppLocalizations.resolve,
-                          routerConfig: getIt<GoRouter>(),
-                          builder: _withNotificationOpener(
-                            _appBuilder(textSize, highContrast),
-                          ),
-                        );
-                      }
-
-                      return MaterialApp(
-                        onGenerateTitle: (context) => context.strings.appName,
-                        debugShowCheckedModeBanner: false,
-                        theme: highContrast
-                            ? AppTheme.highContrast()
-                            : AppTheme.light(),
-                        locale: locale,
-                        supportedLocales: AppLocalizations.supportedLocales,
-                        localizationsDelegates: AppLocalizations.delegates,
-                        localeResolutionCallback: AppLocalizations.resolve,
-                        home: const SplashScreen(),
-                        builder: _appBuilder(textSize, highContrast),
+                          home: const SplashScreen(),
+                          builder: _appBuilder(textSize, highContrast),
+                        ),
                       );
                     },
                   );
@@ -125,6 +147,7 @@ TransitionBuilder _withNotificationOpener(TransitionBuilder builder) =>
     (context, child) => ReminderNotificationOpener(
       taps: getIt<ReminderNotificationTaps>(),
       router: getIt<GoRouter>(),
+      revealed: getIt<LaunchReveal>().revealed,
       child: builder(context, child),
     );
 
