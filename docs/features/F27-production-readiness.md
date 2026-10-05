@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 3 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02 and T01 done 2026-10-05, and **every open question is now answered**. T02 is next (it merges or closes the three open PRs, per Q5) and runs in a fresh session.
+- **Progress:** 4 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); **two of its acceptance items are still open and await the owner's call** — see "T02 record". T03 (CI) is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -191,7 +191,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. Q3 and Q10 answered 2026-10-05; **every question is now locked**. |
-| 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | TODO |
+| 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | **PARTLY DONE 2026-10-05:** all three PRs closed out per Q5 — #28 merged (`f9b7127`), #18 rebased and merged (`7805a56`), #19 closed as superseded with `11ad8b6` cherry-picked (`90efdc8`); gate green. The other two acceptance items (`main`↔`develop`, and the branch/tag scheme in T25's doc) are **held for the owner's decision** — see "T02 record". |
 | 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | TODO |
 
 ### Phase 1: Backend
@@ -553,3 +553,58 @@ chose a PR per phase (Q21), and Phase 0 is T01–T03, so the PR opens once T03
 (CI) is done, not at T02.
 
 **Then stop** for the owner's approval, per the execution rule at the top.
+
+### T02 record (2026-10-05)
+
+**Done: all three open PRs closed out, exactly as Q5 directed.**
+
+The handover's measurements were re-taken first and matched to the commit:
+#28 6 ahead / 0 behind, clean; #18 4 ahead / 141 behind, conflicting in
+`docs/features/README.md` only; #19 4 ahead / 40 behind, clean.
+
+| PR | What happened | Result |
+|---|---|---|
+| #28 | Merged with a merge commit (the repo's existing style). Brought `docs/features/F26-bars-and-snackbar.md`, so **F26 is now in the index** and the "missing on purpose" note under the table is gone. | MERGED — `f9b7127` |
+| #18 | Rebased onto `develop`. The one conflict was the index table: `develop`'s side kept, the F19 row inserted in numeric order, total corrected, and F19's own critical-path sentence re-appended. The other three commits replayed clean — `lib/app/di/service_locator.dart` auto-merged across all 141 commits. Force-pushed with `--force-with-lease`, then merged. | MERGED — `7805a56` |
+| #19 | `11ad8b6` cherry-picked with `-x` onto `feature/production-readiness` first — authorship, message and provenance line intact. Verified still needed: `AppStringsDelegate.load` was still `async` on `develop`. Its import hunk conflicted (this branch has `dart:io` and already imported `app_localizations.dart`); resolved by keeping both and ordering per `directives_ordering`. Then closed, with the full rationale posted as a PR comment — including why the other two commits were dropped (they tune a 6 s entrance that is now 1.8 s and strip blurs and text the P01 splash no longer has). | CLOSED — cherry-pick is `90efdc8` |
+
+**Merging `develop` back into `feature/production-readiness`** took two
+resolutions worth recording, because both sides were right:
+
+- `docs/features/README.md` — F26 (from #28), F19 (from #18) and F27 (from T01)
+  all belong in the table; total is now **315 tasks across 25 features**.
+- `lib/app/di/service_locator.dart` — a doc-comment clash where
+  `_sessionBound` (F19, `develop`) and `_buildDeferredSteps` (P01, this branch)
+  each existed on one side only. Both kept; the comment is `develop`'s new
+  wording with this branch's `_buildDeferredSteps` sentence re-appended.
+
+**Gate: green.** `dart format .` clean (685 files, 0 changed), `flutter analyze`
+16 infos and no errors (the same 16 as before — all pre-existing, none in the
+merged code), `flutter test` **2206 passing, 0 failing**. The earlier count of
+2176 was measured before #28 and #18 landed; no test file was lost in either
+rebase (the file sets were diffed to confirm it).
+
+**Two acceptance items are deliberately left open for the owner.**
+
+1. **`main` ↔ `develop` are still apart**, now 6 and 153 commits. The 6 on
+   `main` are five old merge commits plus one real content commit, `1e14a5f`
+   ("professionalize repo for external review"), which `develop` never got:
+   `LICENSE`, `CONTRIBUTING.md`, `config/prod.json.example`, a `README.md`
+   rewrite, `.gitignore` and `pubspec.yaml` cleanups. Merging `main` into
+   `develop` conflicts in `README.md` and `supabase/.env.example`.
+   **Recommendation: don't do it now.** That `README.md` names the app
+   «ورقتي», which changes at T14, and its `supabase/.env.example` predates
+   F20 (it still lists providers that were deleted), so resolving it today means
+   resolving it again later. The clean moment is **after T14**, and the
+   direction is one release merge `develop` → `main` under the scheme T25
+   defines — recovering `LICENSE`, `CONTRIBUTING.md` and
+   `config/prod.json.example` as a separate small commit on `develop`.
+2. **The release-branch and tag scheme** belongs in `docs/RELEASE.md`, which is
+   T25's deliverable and does not exist yet. Writing it here would mean writing
+   T25's doc before T09 (its other dependency) has decided anything.
+
+Nothing was deleted: the merged branches `feature/ui-polish-bars-snackbar` and
+`feature/offline-first-launch`, and the closed `feature/splash-startup-latency`,
+all still exist on `origin`, matching how every earlier merged branch was left.
+
+**The Phase 0 PR is not opened yet** — per Q21 it opens once T03 (CI) is done.
