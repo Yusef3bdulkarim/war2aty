@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 3 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02 and T01 done 2026-10-05; T02 is next (it merges or closes the three open PRs, per Q5).
+- **Progress:** 3 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02 and T01 done 2026-10-05, and **every open question is now answered**. T02 is next (it merges or closes the three open PRs, per Q5) and runs in a fresh session.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -121,20 +121,20 @@ start by checking it.
 ## Answers (locked by the owner, 2026-10-05) — F27-T01
 
 Q2 and Q16's *process* were already settled by locked decisions #1 and #2.
-Everything below is now locked; the two still-open items are called out at the
-end and gate only their own tasks.
+Every question is locked. Q3 and Q10 came in a second round, after Q10 was
+re-asked in plainer terms, and are folded into the table below.
 
 | Q | Answer | Gates |
 |---|---|---|
 | Q1 | **Android first.** iOS waits — see Q22: there is an iPhone but no Mac, and iOS cannot be built or signed without macOS. T23/T24 are **BLOCKED** until a Mac exists. | T23, T24 |
-| Q3 | **Still open** — see below. | T06, T09 |
+| Q3 | **~500 analyses/users per day** at launch. T06 and T09 size the free tiers against that number. Date still unstated; capacity, not the calendar, is what those tasks need. | T06, T09 |
 | Q4 | **Egypt only** on the store. | T21 |
 | Q5 | **Deal with all three PRs**: merge #28 (clean, 0 behind); rebase and merge #18 (offline launch, 141 behind, one trivial docs conflict); **close #19 as superseded by P01**, first cherry-picking `11ad8b6` (synchronous strings delegate), which is unrelated to the splash and still absent from `develop`. | T02 |
 | Q6 | **Both languages ship.** So the LTR/English audit in T15 is required, not optional, and the store listing is needed in Arabic *and* English (T21). | T15, T21 |
 | Q7 | **Yes — F12 is closed as superseded**, with three of its tasks carried over explicitly rather than lost (see "What F12 leaves behind"). | T01 |
 | Q8 | The owner authorises the Supabase connector; production's live state is inspected then. | T04, T08 |
 | Q9 | **Yes**, a second free project for staging. The region decision follows T05. | T04 |
-| Q10 | **Still open** — the question was unclear and is re-asked below. | T06 |
+| Q10 | **Play Integrity is accepted** for proving the caller is the real app. Whether `global_daily_call_cap` is already set in production is checked directly once the owner authorises the Supabase connector (Q8). | T06 |
 | Q11 | Delegated. **`analysis_attempts`: 90 days. Idle anonymous users: 12 months.** The quota resets every Cairo day, so 90 days is far more than any quota decision needs while still showing an abuse pattern; 12 months keeps a returning user's identity without holding dormant rows for ever. | T07 |
 | Q12 | Delegated. **`online_ocr_enabled` stays OFF at launch**, flipped in T26 once T08 has verified production. Production is still pre-F20 and unverified (B2/Q8), so shipping it on would put every first user on an untested path; off means they get on-device OCR, which works today. | T08, T26 |
 | Q13 | Delegated. **(a) our own Supabase table behind an Edge Function that only accepts allowlisted error codes.** No third party ever sees user content, which Sentry could not guarantee without trusting its scrubbing; it also stays inside the free-tier rule. | T12 |
@@ -148,12 +148,17 @@ end and gate only their own tasks.
 | Q21 | **A PR per phase.** | all |
 | Q22 | **RMX2001** (confirmed working), **ELS NX9**, and **an iPhone — but no Mac**. | T18, T23 |
 
-### Still open after this round
+### Capacity note for T06 (from Q3)
 
-| Q | What is needed | Gates |
-|---|---|---|
-| Q3 | A target launch date, and a rough expectation of users or analyses per day. Both free-tier limits (Supabase, the OCR and analysis providers) are sized against this number, so T06 cannot size abuse protection or capacity without it. | T06, T09 |
-| Q10 | Re-asked in plainer terms. Two separate things: (1) **`global_daily_call_cap`** — a ceiling in the backend on how many analyses the *whole app* may run in one day, so one abuser cannot burn the shared free quota for every user. Is one set in production today? (2) **Proof the caller is the real app** — anonymous sign-in is open to anyone holding the public key, so a script could mint identities. The cheap fix is **Play Integrity** (free, invisible to users, Android only). Is that acceptable? | T06 |
+500 analyses a day is the number every free tier is now sized against, and the
+owner's standing constraint is that **no upstream service is ever paid for**.
+That makes the providers' *daily* ceilings the binding limit, not Supabase:
+each analysis costs one OCR call and one analysis call, on shared keys, so the
+whole user base draws on one free quota. **T06 must check 500/day against the
+current published free-tier limits of Gemini (OCR), Mistral and Groq
+(analysis), and against Supabase's Edge Function invocations**, and say plainly
+if any of them cannot carry it. Those limits change often enough that quoting
+numbers here would be worse than checking them at T06.
 
 ### What F12 leaves behind (Q7)
 
@@ -185,7 +190,7 @@ T19, T12 -> T23 and T24.
 ### Phase 0: Decisions and repo
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
-| 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. **Q3 and Q10 remain open** and gate T06/T09 only. |
+| 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. Q3 and Q10 answered 2026-10-05; **every question is now locked**. |
 | 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | TODO |
 | 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | TODO |
 
@@ -522,3 +527,29 @@ the owner's RMX2001.
 - **Backend caveat stands.** The APK points at production, which is still
   pre-F20 and unverified (B2, Q8), so online reading and analysis may fail
   until T08. That is the known backend gap, not an APK defect.
+
+### T02 handover (written 2026-10-05, for a fresh session)
+
+T02 runs in a new chat, so everything it needs is here rather than in a
+conversation it cannot see.
+
+**Scope (the owner's Q5 answer): deal with all three open PRs.**
+
+| PR | Branch | State as measured 2026-10-05 | What to do |
+|---|---|---|---|
+| #28 | `feature/ui-polish-bars-snackbar` | 6 commits ahead, **0 behind**, no conflicts | Merge. It also brings `docs/features/F26-bars-and-snackbar.md`, after which **F26 joins the index** and the note under the table in `docs/features/README.md` comes out. |
+| #18 | `feature/offline-first-launch` | 4 ahead, **141 behind**, one conflict — `docs/features/README.md` only | Rebase onto `develop`, resolve that docs conflict, merge. It touches `lib/app/di/service_locator.dart`, which auto-merges. |
+| #19 | `feature/splash-startup-latency` | 4 ahead, 40 behind, no conflicts | **Close as superseded by P01** — but first cherry-pick `11ad8b6` ("perf(localization): resolve the strings delegate synchronously"). Verified 2026-10-05: `AppStringsDelegate.load` is still `async` on this branch, so that commit is a real, splash-independent win. Its other two commits are dead: they tune a 6 s entrance that is now 1.8 s, and strip blurs and text the splash no longer has. |
+
+**Before merging anything**, re-measure those numbers — `develop` may have moved:
+`git fetch origin` then, per branch,
+`git rev-list --count origin/develop..origin/<branch>` and the reverse, plus
+`git merge-tree --write-tree origin/develop origin/<branch> | grep CONFLICT`.
+
+**Then:** `dart format .`, `flutter analyze` (expect the same 16 pre-existing
+infos as `develop`, no errors), `flutter test` (2176 passing as of T01). Commit
+per the one-commit-per-task rule, push, and **open the Phase 0 PR** — the owner
+chose a PR per phase (Q21), and Phase 0 is T01–T03, so the PR opens once T03
+(CI) is done, not at T02.
+
+**Then stop** for the owner's approval, per the execution rule at the top.
