@@ -1,0 +1,85 @@
+# The quality gate of CLAUDE.md §10, run by GitHub Actions instead of by hand on
+# one machine (F27-T03, audit finding H6). Actions is free for this public repo.
+name: CI
+
+on:
+  # Every pull request, whatever its base.
+  pull_request:
+  # And the integration branches after a merge, so a bad interaction between two
+  # separately-green PRs is caught even once no PR is open.
+  push:
+    branches: [main, develop]
+
+# Read-only, and deliberately secret-free: see the "no secrets" note on the
+# backend job. Nothing here builds, signs or deploys anything.
+permissions:
+  contents: read
+
+# A new push to the same branch supersedes the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: App (format, analyze, test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned to the version the project is developed against, so a new stable
+      # release cannot change this gate's verdict in the middle of a review.
+      # Upgrading is a deliberate edit here, matched with the dev machines.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.41.9
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Drift's generated sources are committed, so build_runner does not run
+      # here — see CLAUDE.md §B3.
+
+      # The three checks below are CLAUDE.md's gate, in its order. Each runs even
+      # after an earlier one has failed, so a single run reports every problem
+      # rather than only the first.
+      - name: dart format
+        if: ${{ !cancelled() }}
+        run: dart format --output=none --set-exit-if-changed .
+
+      # Errors and warnings fail the build. Infos do not: the project carries 16
+      # known ones, all in test files, and the F27 plan treats that as the
+      # accepted baseline (F27-T02). Dropping --no-fatal-infos makes the gate
+      # stricter and needs those 16 cleaned up first.
+      - name: flutter analyze
+        if: ${{ !cancelled() }}
+        run: flutter analyze --no-fatal-infos
+
+      # The GitHub reporter is already flutter test's default on Actions, so
+      # failures arrive as annotations on the diff.
+      - name: flutter test
+        if: ${{ !cancelled() }}
+        run: flutter test
+
+  backend:
+    name: Backend (deno test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.4
+
+      # No secrets, by construction: the unit tests run on injected fakes, and
+      # the integration tests under supabase/tests/integration/ skip themselves
+      # when SUPABASE_URL / SUPABASE_ANON_KEY are absent and no local stack is
+      # up (supabase/README.md § Tests). A bare run is green either way, so CI
+      # never needs a key — and the live-analysis test stays opt-in behind
+      # RUN_LIVE_ANALYSIS, which is never set here: it would spend real quota.
+      - name: deno test
+        run: deno test --allow-env --allow-net supabase/tests

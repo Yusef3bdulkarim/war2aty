@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 4 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 (CI) is next.
+- **Progress:** 5 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI. **Phase 0 is complete, so the Phase 0 PR is now due (Q21) — and it is what gives CI its first live run.**
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -89,7 +89,7 @@ start by checking it.
 | H3 | No staging environment. Production is the only hosted project. | T04 |
 | H4 | Free-plan Supabase: the project pauses after about 7 days without traffic; no backups or point-in-time restore; MAU and invocation caps. Anonymous users and `analysis_attempts` rows pile up with no cleanup. | T07, T09 |
 | H5 | The project is in Seoul (`ap-northeast-2`), about 8,000 km from users, and the region can't be changed. Moving is cheap only before launch. | T04 (with T05) |
-| H6 | No CI (`.github/workflows` doesn't exist). The gate and release builds run by hand on one machine. | T03 |
+| H6 | No CI (`.github/workflows` doesn't exist). The gate and release builds run by hand on one machine. | T03 — **the gate half is fixed** (`ci.yml`, 2026-10-05); release builds still run by hand on one machine, which is T13's. |
 | H7 | Release builds have no `--obfuscate --split-debug-info` and no archived symbols. If `key.properties` is missing, the release build quietly signs with the debug key. | T13 |
 | H8 | F12-T03 to T12 are still TODO: LTR, large text, performance, temp-file cleanup, security review, OCR regression set, integration tests, release builds. | T15–T18, T19, T23 |
 
@@ -192,7 +192,7 @@ T19, T12 -> T23 and T24.
 |---|---|---|---|---|---|
 | 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. Q3 and Q10 answered 2026-10-05; **every question is now locked**. |
 | 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | **PARTLY DONE 2026-10-05:** all three PRs closed out per Q5 — #28 merged (`f9b7127`), #18 rebased and merged (`7805a56`), #19 closed as superseded with `11ad8b6` cherry-picked (`90efdc8`); gate green. Its other two acceptance items were **ruled on by the owner 2026-10-05 and deliberately moved out of T02**: `main`↔`develop` is deferred to **after T14**, and the branch/tag scheme stays **T25's** to write — see "T02 record". |
-| 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | TODO |
+| 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | **DONE 2026-10-05:** `.github/workflows/ci.yml`, two parallel jobs, all four checks, no secrets, `permissions: contents: read`. Every command re-run locally at this commit and green. **Not yet observed running** — nothing on a feature branch triggers it, so the Phase 0 PR is its first live run (see "T03 record"). |
 
 ### Phase 1: Backend
 | # | ID | Task | Output / acceptance | Depends on | Status |
@@ -612,3 +612,72 @@ Nothing was deleted: the merged branches `feature/ui-polish-bars-snackbar` and
 all still exist on `origin`, matching how every earlier merged branch was left.
 
 **The Phase 0 PR is not opened yet** — per Q21 it opens once T03 (CI) is done.
+
+### T03 record (2026-10-05)
+
+**`.github/workflows/ci.yml`** — one workflow, two jobs that run in parallel:
+
+| Job | Steps |
+|---|---|
+| **App (format, analyze, test)** | `flutter pub get`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze --no-fatal-infos`, `flutter test` |
+| **Backend (deno test)** | `deno test --allow-env --allow-net supabase/tests` |
+
+Triggers: **every pull request**, whatever its base, plus pushes to `main` and
+`develop` so a bad interaction between two separately-green PRs is still caught
+once no PR is open. `permissions: contents: read`, and `concurrency` cancels a
+superseded run on the same branch.
+
+**Every command was re-run locally at this commit and exits 0:** format clean,
+analyze 16 infos / 0 errors, `flutter test` **2206 passed**, `deno test`
+**734 passed, 42 ignored** (the ignored ones are the integration tests skipping
+themselves — see below).
+
+**Findings worth keeping, each measured rather than assumed:**
+
+1. **`flutter analyze` exits 1 on infos alone.** Measured: with the project's 16
+   known infos and no errors, the bare command returns 1, so the obvious
+   workflow step would have failed on its first run. `--no-fatal-infos` returns
+   0 while **errors and warnings still fail** (both are fatal by default). This
+   matches the baseline the plan already treats as accepted (T02 handover). To
+   make the gate stricter, the 16 infos — all in test files — have to be
+   cleaned up first; that is a standalone decision, not T03's.
+2. **No secrets are needed, by construction.** The unit tests use injected
+   fakes; the integration tests under `supabase/tests/integration/` skip
+   themselves when `SUPABASE_URL` / `SUPABASE_ANON_KEY` are absent and no local
+   stack is up (`supabase/README.md` § Tests). `RUN_LIVE_ANALYSIS` is never set,
+   so no CI run can spend provider quota.
+3. **Versions are pinned** — Flutter `3.41.9` and Deno `2.9.4`, the versions the
+   project is developed against. A new stable release therefore cannot change
+   the gate's verdict mid-review; upgrading is a deliberate edit here. The
+   pinned Flutter also pins `dart format`, which is what makes the formatting
+   check reproducible at all.
+4. **Actions are pinned to major tags**, not commit SHAs. Acceptable here
+   because the workflow holds no secrets, has read-only permissions and
+   produces no artifact. **This stops being true at T13**: a release-build
+   workflow carries the signing key, and that one should pin by SHA.
+5. **The mixed line endings do not break CI.** `core.autocrlf=false` and there
+   is no `.gitattributes`, so a Linux runner checks out bytes identical to the
+   working tree, and `dart format` preserves each file's existing endings.
+   Introducing a `.gitattributes` would change this and must be done
+   deliberately, with the formatting check re-verified.
+6. **No `build_runner` step.** Drift's generated sources are committed
+   (`app_database.g.dart` and the two DAOs), per CLAUDE.md §B3.
+7. **Every bundled asset is committed**, including the two `tessdata`
+   traineddata files (1.4 MB and 4.1 MB), so `flutter test` needs no extra
+   fetch step.
+
+**One thing CI cannot do yet, and one the owner should rule on:**
+
+- **CI has not been observed running.** Nothing triggers it on a feature
+  branch: it fires on pull requests and on `main`/`develop`. `workflow_dispatch`
+  would not help, because manual dispatch requires the workflow to already be on
+  the default branch, and `main` will not see it until the release merge. **The
+  Phase 0 PR is therefore the first live run** — which is also exactly when Q21
+  says to open it.
+- **`deno fmt --check` was deliberately left out**, and measuring why turned up
+  something: it **fails today on 4 files**, entirely because of line endings
+  (`Text differed by line endings`) — `analysis-provider.ts`,
+  `openai-compatible-client.ts` and their two tests. `deno lint` is clean and
+  could be added as-is. So the deferred line-ending cleanup now has a concrete
+  cost: it is what blocks the backend's formatting check from joining the gate.
+  Neither check is in T03's acceptance, so neither was added.
