@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 8 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 is next.
+- **Progress:** 9 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -201,7 +201,7 @@ T19, T12 -> T23 and T24.
 | 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **DONE 2026-10-06, with the Gemini check deferred to T08 by the owner.** Region finding and pin shipped (`5a95392`). Mistral → Groq verified live **on production itself**: 11/11 integration tests, real analysis in **9 s**, quota counted — and earlier on staging pinned to `eu-central-1`. Gemini/`ocr-document` was not run: it needs `online_ocr_enabled` on, and no route to that write exists from here. See "T05 record". |
 | 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **DONE 2026-10-06** on the owner's ruling: attestation is **deferred indefinitely** ("for the future if needed"), not made a task. **One risk stands as a result: the cap does not protect Gemini, and nothing else does either** — so T26's flag flip inherits it. See "T06 record".
 | 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | **DONE bar one push, 2026-10-06.** Migration `20261006100000`: two purge functions behind two `pg_cron` jobs, plus a read-only accessor so the *schedule* is testable. **5 new integration tests, all passing against a real stack**, and the whole backend suite re-run live at **771 passed / 0 failed**. **DONE across all three environments 2026-10-06** — production applied with the owner's explicit permission and verified: 9/9 migrations, both jobs active, both purges executable. Size checked: 11 MB of 500 MB. See "T07 record". |
-| 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | TODO — **also inherits T05's Gemini/`ocr-document` live check** (deferred by the owner 2026-10-06; see "Closing T05"). |
+| 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | **DONE bar three owner console actions, 2026-10-06.** T04 had already performed the rollout itself by building production fresh, so secrets, the migration and the functions were verified rather than re-run; the flag is `false` per Q12. **T05's inherited Gemini check now passes on production** (200 from `eu-central-1`, 1,371 chars, flag restored). Local `.env` cleaned. Left for the owner: revoke the Azure and Google keys, and switch on Mistral's training opt-out — all three are console-only. See "T08 record". |
 | 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | TODO |
 
 ### Phase 2: App hardening
@@ -1329,3 +1329,92 @@ exercised. So the live suite was run against production once more: **11 passed,
 mechanism confirmed in one line: reserve took a global slot, finalize released
 the reservation and counted the success. **The breaker is working, not merely
 set.**
+
+### T08 record (2026-10-06) — the rollout had largely already happened
+
+T08 was written against a production project that was six weeks stale. T04
+replaced that project outright, building the new one from current `develop`, so
+most of this task's ordered steps were **already satisfied before it started**.
+What follows is each step verified rather than re-performed, plus the one real
+piece of work left in it.
+
+#### The ordered steps, checked live
+
+| Step | State |
+|---|---|
+| **Secrets** | 18 on production, the 11 app secrets plus Supabase's own. **No Azure or Google secret exists** — they were never created on this project |
+| **Migration `20260929120000`** | Applied. Production reports **9/9 migrations**, none missing |
+| **Functions** | All four ACTIVE with correct `verify_jwt`. **No commit has touched `supabase/functions/` since T04 deployed them** (`git log 620af9a..HEAD`), so the deployed code is current F20 code, confirmed rather than assumed |
+| **App** | T26's, not here |
+| **Flag per Q12** | `online_ocr_enabled = false` on production *and* staging, re-verified after the check below |
+
+B2 is therefore closed: the finding was that the rollout had never run and the
+deployed functions might be failing for want of deleted Azure secrets. The
+answer is that the project those functions ran on no longer exists.
+
+#### T05's inherited Gemini check — it passes
+
+Run on production with the owner's standing approval, flag flipped on and off
+inside a `try/finally` so it could not be left on:
+
+| | |
+|---|---|
+| Image | `golden/Image2.jpg`, 1489×2048, 449 KB |
+| Result | **HTTP 200**, ran in **`eu-central-1`**, 10.1 s |
+| Body | `schema_version` 2.0, `session_id` echoed, **1,371 characters** of text, `detected_languages: []` (the contract says always empty), candidates: **3 dates**, 0 amounts, 0 phones, 0 references, 0 times |
+| Flag afterwards | **`false`**, confirmed by a separate read, not just the restore call's return |
+
+Shape only was asserted and no extracted text was printed, per §7. This closes
+the last gap in T05: **both providers are now proven from the Frankfurt runtime**
+— Mistral → Groq on 2026-10-05, Gemini today. The pin works on the real
+production endpoint, not only on `health`.
+
+#### Local `.env` cleaned
+
+One stale line, and a misleading one: `# Azure AI Document Intelligence —
+primary OCR (required for online route)`, left orphaned above a key F20-T16 had
+deleted. It claimed a dead provider was both primary and required. Removed.
+
+Done as a **byte-level edit**: the file holds secrets, and it turns out to be
+mixed-encoding — that em dash was cp1252 inside an otherwise UTF-8 file, which
+is why it rendered as `�` when removed. Decoding and rewriting would have
+silently rewritten bytes elsewhere. All 11 keys are intact and still match
+production's 11 secret names exactly.
+
+The Azure mentions remaining in the codebase were checked and **deliberately
+kept**: five comments in `daily_usage.dart`, `daily_usage_dto.dart`,
+`analyze-handler.ts`, `analyze-response.ts` and `image-ocr-pipeline.ts` that
+explain what the flag used to be called and why a verification layer went away.
+Those are documentation of a migration, not stale configuration, and scrubbing
+them would delete the reason the current shape exists. `.env.example`'s Google
+references are to **Gemini's** console (`aistudio.google.com`), which is current.
+
+#### Left for the owner — three console actions, none reachable from here
+
+1. **Revoke the Azure Document Intelligence key.** The resource still exists in
+   the owner's Azure account with live keys, holding
+   `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`/`KEY` from F13-T03. Nothing uses them.
+   **Recommended: delete the resource**, not just rotate the key — an unused
+   resource with live credentials is a standing risk, and deleting it also
+   removes any chance of a charge. Azure portal → the Document Intelligence
+   (formerly Form Recognizer) resource → Delete.
+2. **Revoke the Google Document AI credentials** (the service account from
+   F13-T03). Google Cloud Console → IAM & Admin → Service Accounts → delete the
+   one created for Document AI, and disable the Document AI API if nothing else
+   uses the project. **Careful:** if that project is the same one that holds
+   `GEMINI_API_KEY`, delete only the Document AI service account and leave the
+   project and the Gemini key alone.
+3. **Switch on Mistral's training opt-out** — and it **is available on the free
+   tier**, which was the open question in D2. It is the **"Anonymous improvement
+   data" toggle in the Admin Console's Privacy menu**. Two details worth
+   knowing: on the free Experiment tier inputs and outputs go into training
+   **by default**, so this is opt-out rather than opt-in; and the API and Vibe
+   toggles are **separate**, so switching one off does not switch the other.
+
+**One thing enabling that opt-out does *not* license.** It does not make the
+privacy copy claim that nobody reads the text. CLAUDE.md §7 is explicit that the
+approved Arabic wording stands, and the reason is broader than Mistral: the text
+still goes to a third party, Groq is still a fallback, and the *image* goes to
+Gemini's free tier, whose terms permit retention and human review. Only moving
+**every** provider to a paid tier would justify revisiting that copy, and that
+is the owner's decision. `app_strings_test` enforces it either way.
