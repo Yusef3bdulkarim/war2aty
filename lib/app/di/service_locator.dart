@@ -60,6 +60,7 @@ import '../../core/documents/usecases/watch_documents.dart';
 import '../../core/documents/usecases/watch_recent_documents.dart';
 import '../../core/env/app_environment.dart';
 import '../../core/env/usecases/get_app_version.dart';
+import '../../core/error/app_failure.dart';
 import '../../core/identity/installation_id_provider.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
@@ -363,15 +364,47 @@ void _registerLaunch(AppEnvironment env) {
     );
 }
 
+/// How long launch waits for an identity before going ahead without one.
+///
+/// Deliberately shorter than [BootstrapStep.defaultTimeout], and deliberately
+/// applied *inside* the step: the orchestrator's own bound produces a
+/// `RequestTimeoutFailure` from outside the closure, which the step therefore
+/// cannot treat as tolerable. Without this, a phone on wifi that cannot reach
+/// the backend — a captive portal, a hotel network, a dev build pointed at a LAN
+/// that is not there — sat on the splash for the full 15 seconds and then showed
+/// the error screen anyway (F19).
+const Duration _sessionBound = Duration(seconds: 8);
+
 /// The ordered launch sequence.
 ///
-/// Only the session is critical — without an identity nothing else can run.
-/// Housekeeping steps are allowed to fail quietly rather than block the user
-/// behind an error screen.
+/// Only the session is critical, and only when the server actually answers:
+/// without an identity the analysis path cannot run, but every offline feature
+/// can, so connectivity alone must not hold the app shut. Housekeeping steps are
+/// allowed to fail quietly rather than block the user behind an error screen.
 List<BootstrapStep> _buildLaunchSteps() {
   return [
     BootstrapStep(BootstrapStage.session, () async {
-      final result = await getIt<EnsureActiveSession>()();
+      final result = await getIt<EnsureActiveSession>()().timeout(
+        _sessionBound,
+        onTimeout: () => const Err(NoInternetFailure()),
+      );
+
+      // Offline is not a launch failure (F19). Nothing outside this feature
+      // reads the session: the only consumer is the Dio interceptor, whose
+      // contract already allows "no token", and it mints one through
+      // `refreshSession` on the first 401 once there is a network. Blocking here
+      // cost the user exactly the features that need no network at all.
+      //
+      // A server that answers and *refuses* still aborts — that is a broken
+      // backend, and it must stay loud rather than degrade into a half-working
+      // app.
+      if (result case Err(failure: final NoInternetFailure failure)) {
+        // `InitializeApp` logs only what it aborts on, so without this line a
+        // session-less launch would leave no signal anywhere.
+        getIt<AppLogger>().failure(failure);
+        return const Ok(null);
+      }
+
       return result.map<void>((_) {});
     }),
     BootstrapStep(BootstrapStage.config, () async {
