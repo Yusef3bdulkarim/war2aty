@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 14 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 closed **H1**: the two global error handlers, a production sink, a new `report-error` Edge Function and `error_reports` table — **proved end to end on a real local stack** (a row written through the real function) with 809 backend tests green. The backend half is **deployed and verified on staging and production**; the app half ships with T13's release build. T13 closed **H7** (a prod release now fails without the real key instead of silently signing with the debug key, proved by moving the key aside), **M4** (0 fixture entries in the prod APK, 6 in dev) and **M8** (the crash dumps were a *native* OOM on a full machine, not a heap shortage — so the settings went **down**). T14 is **BLOCKED** on the owner's app name, so T15 is next.
+- **Progress:** 15 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 closed **H1**: the two global error handlers, a production sink, a new `report-error` Edge Function and `error_reports` table — **proved end to end on a real local stack** (a row written through the real function) with 809 backend tests green. The backend half is **deployed and verified on staging and production**; the app half ships with T13's release build. T13 closed **H7** (a prod release now fails without the real key instead of silently signing with the debug key, proved by moving the key aside), **M4** (0 fixture entries in the prod APK, 6 in dev) and **M8** (the crash dumps were a *native* OOM on a full machine, not a heap shortage — so the settings went **down**). T14 was unblocked by the owner **keeping the name as it is, digit included** (Q16 reversed): nothing was renamed, the English `appName` gained the brand it never carried, and the repo finally took `LICENSE`, `CONTRIBUTING.md`, `.editorconfig` and `config/prod.json.example` off `main` — with both recovered documents corrected, since each still named **Azure** and repeated a privacy claim F20-T24 retired. T15 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -31,13 +31,17 @@ Resolved with the owner on 2026-10-04.
    12-tester / 14-day closed-testing requirement for new personal accounts does
    **not** apply. A closed or internal track is optional, used only as a smoke test
    (T22). It doesn't gate production access.
-2. **The app name and the app icon will change.** *Amended 2026-10-04:* the
-   **icon** comes first, together with a new splash screen, in initial step
-   **P01**. The owner is supplying the image now. The **name** follows later in
-   **T14**, which stays BLOCKED until the owner sends it. Every task that shows the
-   name or icon (store listing T21, privacy policy T20, iOS display name T23) uses
-   the final values, never «ورقتي».
-   What the rename touches (inventory for T14):
+2. **The app icon changed; the name did not.** *Amended 2026-10-04:* the
+   **icon** came first, with a new splash screen, in initial step **P01**.
+   **Reversed by the owner 2026-10-06 (Q16): the name stays exactly as it is,
+   digit included** — «ورقتي» on the launcher and in the UI, **War2aty** as the
+   Latin brand, package IDs unchanged (Q15). So T14 renamed nothing; it
+   confirmed every surface, gave the **English** `appName` the brand it had
+   never carried, and guarded both. Every task that shows the name (store
+   listing T21, privacy policy T20, iOS display name T23) uses «ورقتي» /
+   War2aty, and the paragraph below is now a **verification** list rather than
+   a rename list — see "T14 record".
+   What the name touches (verified in T14):
    - Android: `manifestPlaceholders["appName"]` for `dev` and `prod` in
      `android/app/build.gradle.kts`; the `mipmap-*` launcher icons; a new adaptive
      icon (`mipmap-anydpi-v26`, with foreground, background and monochrome layers);
@@ -140,7 +144,7 @@ re-asked in plainer terms, and are folded into the table below.
 | Q13 | Delegated. **(a) our own Supabase table behind an Edge Function that only accepts allowlisted error codes.** No third party ever sees user content, which Sentry could not guarantee without trusting its scrubbing; it also stays inside the free-tier rule. | T12 |
 | Q14 | **Enrol in Play App Signing.** Note the keystore question was only half answered: whether `war2aty-release.jks` is backed up anywhere other than this machine is still unknown. Enrolling makes a lost *upload* key recoverable, so this is no longer fatal — but until T13 it is still the only copy. | T13, T21 |
 | Q15 | **Package IDs stay** `com.war2aty.app` / `.dev`, even though the name changes. Final once the first Play upload happens. | T13, T21 |
-| Q16 | The name keeps its sound, with the digit "2" replaced by a letter. **The exact spelling is decided with the owner at T14** — pause there. | T14 |
+| Q16 | ~~The name keeps its sound, with the digit "2" replaced by a letter.~~ **Reversed by the owner 2026-10-06: the name stays exactly as it is, digit included** — «ورقتي» / **War2aty**, package IDs unchanged (Q15). T14 therefore renamed nothing. | T14 |
 | Q17 | Developer of record: **a company**. Support email: the owner's personal address. Policy pages: **GitHub Pages, which I set up** in T20. | T20 |
 | Q18 | Decided together when T20 is reached. | T20 |
 | Q19 | Store graphics are not ready; done together when T21 is reached. | T21 |
@@ -211,7 +215,7 @@ T19, T12 -> T23 and T24.
 | 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | **DONE 2026-10-06:** `android:allowBackup="false"` **and** `res/xml/data_extraction_rules.xml` — both are needed, because at targetSdk 36 the attribute alone leaves device-to-device transfer on with some manufacturers. All nine domains excluded in both sections (these default to *including* what they do not name). Verified live on **RMX2001**: old build `ALLOW_BACKUP` + a backup Android really attempted, new build no flag and «Backup is not allowed»; the test transport was restored afterwards. Compiled APK re-read with `aapt2` (attribute and all 18 excludes present). 6-test guard added. **H2 closed.** The API 31+ half cannot be exercised on an Android 11 phone — carried to T18. |
 | 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | **DONE 2026-10-06, bar the deploy.** Both handlers installed in `bootstrap` and chained, never replaced; a new `LogCrashKind` gives an uncaught error a content-free code for the first time. `ErrorReportSink` replaces `NoopLogSink` in configured prod builds: failures only, fire-and-forget, 20/session, on a Dio with **no log interceptor** so reporting cannot log itself. New `report-error` function + `error_reports` table (RLS forced, no policies, **append-only** — no UPDATE grant), a closed 33-code allowlist, per-user ceiling of 100/day applied inside the insert, and a 90-day pg_cron purge. **28 Dart + 38 Deno tests**, incl. 11 integration against a real database and 4 against the real served function — a row verified in the table. A Dart test compares the Dart and TypeScript code lists so the two cannot drift. `docs/OPERATIONS.md` gained the queries an operator actually runs. **H1 closed.** `@code-reviewer` ran on it: **PASS, no blocking defects**, three LOW findings all fixed — the per-user ceiling was not race-safe (now a per-user advisory lock, overshoot reproduced without it), the two version columns had shape but no length bound, and the cross-language guard could read a comment as code. **Deployed and verified on staging and production the same day** (401 / 202 / 400 / 400 on both, row read back, all three retention jobs active, table unreadable with the publishable key; the production test row was deleted afterwards). |
 | 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | **DONE 2026-10-06.** **H7:** a prod release fails on a missing *or unusable* key, naming the reason, on all five prod-release tasks — verified by moving the key aside and back, and the built APK's certificate read with `apksigner` (`O=War2aty`, not `CN=Android Debug`); the dev fallback deliberately survives. **M4:** fixtures stripped from every prod variant and the hook fails loudly if Flutter renames the task — **0 entries in the prod APK, 6 in dev**. **M8:** the dumps were **native** OOMs on a machine with 835 MB free and 2 MB of page file, not heap shortage, so `-Xmx` went 3G→**2G** and the Kotlin daemon was folded in-process; a full release builds in 140 s. `tool/build_release.ps1` + `docs/BUILD.md` carry the flags that are silent when forgotten. 12-test guard. Also fixed T11's stale `minSdk` comment. **Not proved:** obfuscation cannot be shown by inspecting the binary (release AOT strips Dart names either way) and symbol **archival** has no home yet — both recorded, for T21/T26 and T25. `.aab` is T19's. |
-| 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | BLOCKED |
+| 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | **DONE 2026-10-06.** Q16 ruled: **the name stays «ورقتي» / War2aty, digit kept**, so no surface was renamed — verified across both launcher labels, both iOS name keys, `AppStrings`, the package IDs and the P01 icon. The one real change: the **English** `appName` carried no brand at all (`What Does My Paper Say?`), and it is the task-switcher title and the splash's screen-reader label — now `War2aty — What Does My Paper Say?`. Guarded in `app_strings_test` (brand present, and the rejected transliterations **Waraqti/Waraqty/Warqty** banned — the design file is literally `Waraqti.dc.html`) and in `native_permission_copy_test` (both launcher labels and both iOS keys, dev still distinct from prod). **T02's reconciliation done**: `LICENSE`, `CONTRIBUTING.md`, `.editorconfig`, `config/prod.json.example` recovered from `1e14a5f`; README rewritten from both versions. **Both recovered docs were wrong and were fixed** — each still named Azure, and each repeated the retired «images never leave the device / the model never sees the image» claims. `supabase/.env.example` needed nothing: this branch's copy is already post-F20. `WaraqtiApp` and `Waraqti.dc.html` left alone **deliberately** (internal identifier; real name of an external design file). |
 
 ### Phase 3: Quality (takes over F12-T03 to T10)
 | # | ID | Task | Output / acceptance | Depends on | Status |
@@ -2024,3 +2028,123 @@ path is still covered by the key gate, verified by a dry run.
 **Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
 warnings**, 18 pre-existing infos), `flutter test` **2,263 passed / 0 failed**
 (12 new). No backend change, so no `deno test`.
+
+### T14 record (2026-10-06) — the name stays, and the repo catches up
+
+**Q16, ruled by the owner 2026-10-06: keep the current name, digit included.**
+That reverses the earlier answer ("the name keeps its sound, with the digit 2
+replaced by a letter") and unblocks T14 by **confirming the status quo**:
+
+| Surface | Value | Changed? |
+|---|---|---|
+| Android launcher, prod | «ورقتي» | no |
+| Android launcher, dev | «ورقتي (Dev)» | no |
+| iOS `CFBundleDisplayName` / `CFBundleName` | «ورقتي» | no |
+| `AppStrings.appName`, Arabic | «ورقتي بتقول إيه؟» | no |
+| `AppStrings.appName`, English | `War2aty — What Does My Paper Say?` | **yes** |
+| Package IDs | `com.war2aty.app` / `.dev` | no (Q15) |
+| Icon, splash, `assets/app_icon.png` | from P01 | no |
+
+**The owner's message said "these exact names" without listing any**, so this
+proceeded on the only reading consistent with "keep the current name": Arabic
+«ورقتي» on the launcher and in the UI, **War2aty** as the Latin brand, package
+IDs untouched. A Latin launcher label was not considered seriously — the app is
+entirely Arabic and aimed partly at readers who struggle with text, so an
+English word under the icon would be the wrong first thing they meet. Flagged to
+the owner in the handover message rather than assumed silently.
+
+#### The one real change: English had no brand in it at all
+
+`appName` is not decoration. It is the **OS task-switcher title** and the
+**splash mark's screen-reader label** — the two places a user meets the app's
+name outside the icon. In Arabic it already carried it («ورقتي بتقول إيه؟»); in
+English it was `What Does My Paper Say?`, a faithful translation of the Arabic
+question with the product's name nowhere in it. With Q16 settled and English
+shipping (Q6), an English user — or an English screen reader — never heard the
+name. Now `War2aty — What Does My Paper Say?`, which keeps the tagline and adds
+the brand.
+
+#### Guards, because a name is exactly the kind of thing that drifts
+
+- `app_strings_test`: both languages' `appName` must carry the brand, and the
+  English one must not contain **Waraqti**, **Waraqty** or **Warqty** — the
+  transliterations this spelling was chosen over. That last check matters
+  because the design file itself is called `Waraqti.dc.html`, so the wrong
+  spelling is already in the repo and one copy-paste from the copy.
+- `native_permission_copy_test`: both launcher labels carry «ورقتي» **and stay
+  distinct** from each other (dev and prod must coexist on one device), and both
+  iOS name keys carry it too.
+
+#### A deliberate non-change: `WaraqtiApp` and `Waraqti.dc.html`
+
+The root widget is `WaraqtiApp`, and the design system is referenced throughout
+as `Waraqti.dc.html`. Both use the *other* transliteration of the same Arabic
+word, which the owner has now not chosen. Left alone:
+
+- `Waraqti.dc.html` is the **real name of an external artifact** — the Claude
+  Design file. Renaming references to it would make them wrong.
+- `WaraqtiApp` is an internal identifier with no user-visible surface. Renaming
+  it touches `app.dart`, `bootstrap.dart` and the widget tests for zero user
+  benefit, which is the kind of churn the change-discipline rule exists to stop.
+
+Recorded here so the inconsistency is a decision rather than an oversight, and
+so the next reader does not "fix" it.
+
+#### The reconciliation T02 deferred to this task
+
+T02 found `main` holding six commits `develop` never got, including `1e14a5f`
+("professionalize repo for external review"), and the owner approved deferring
+the recovery until the name was final. Done now:
+
+| File | Action |
+|---|---|
+| `LICENSE` | recovered from `1e14a5f` unchanged — all rights reserved, 2026 |
+| `CONTRIBUTING.md` | recovered **and corrected** (below) |
+| `config/prod.json.example` | recovered and brought up to the current shape |
+| `.editorconfig` | recovered — same commit, and leaving it behind guarantees a future conflict for nothing |
+| `README.md` | rewritten from both versions (below) |
+| `supabase/.env.example` | **nothing to do** — T02 expected it to predate F20, but the copy on this branch is already Mistral + Groq. `main`'s stale one was simply not taken. |
+
+**`CONTRIBUTING.md` could not be recovered as-is.** It still told contributors
+to write `fix(ocr): handle empty Azure response gracefully` — Azure was deleted
+in F20-T16 — and its privacy rules said "never store images on any server beyond
+the processing window", which is the claim F20-T24 retired: we store nothing,
+and the outside reader may retain. It now states what we actually guarantee and
+what we may not claim, names the current providers in the user-facing-text ban,
+pins the Flutter version CI uses, adds the `deno test` half of the gate with how
+to run the integration tests for real, and points at the **three test suites
+that enforce the privacy rules**, so a contributor learns the rails exist before
+tripping over them.
+
+**`README.md`: `main`'s was better structured and factually wrong; ours was
+accurate and thin.** `main`'s listed **Azure AI Document Intelligence** as the
+online OCR and **Groq** as the analysis provider, and its privacy section made
+both retired claims outright — "Images never leave the device permanently … No
+server stores it" and "The AI model never sees the image". For a public repo
+that is the same failure as B1, in the place most people read first.
+
+The merged README keeps `main`'s shape (badge row, About, project layout,
+backend section, documentation index) with this branch's facts, and adds what
+F27 built: the five endpoints, the kill switches, the retention windows, the
+free-tier-only constraint, `docs/BUILD.md` and `docs/OPERATIONS.md` in the index,
+and an honest **"what we guarantee" / "what we do not claim"** split in place of
+the old privacy list. Error reporting is described as what it is — a closed error
+code and an envelope, no stack traces, no content — so "no analytics, no
+tracking" is no longer quietly doing work it cannot do.
+
+Every number in it was counted rather than carried over: **2,263 Dart tests
+across 231 files, 812 Deno tests across 47**, 30 feature documents, Flutter
+3.41.9, Dart ^3.11.5. The old badges claimed Flutter 3.11 and "210 test files".
+
+`config/prod.json.example` gained `SUPABASE_FUNCTION_REGION` (T05's pin) with an
+**empty** value on purpose: empty means unpinned, so someone copying the file
+verbatim gets correct behaviour instead of being silently pinned to Frankfurt.
+`android/key.properties.example` now says that `storeFile` resolves relative to
+`android/app/` — the thing that cost a wrong turn in T13.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
+warnings**, 18 pre-existing infos), `flutter test` **2,266 passed / 0 failed**
+(3 new). No backend change, so no `deno test`.
+
+**Still T25's:** the `develop` → `main` release merge itself, which this task
+unblocks but does not perform.

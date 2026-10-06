@@ -522,6 +522,23 @@ void main() {
       expect(ar.actionCancel, isNot(en.actionCancel));
     });
 
+    test('the app name carries the brand in both languages (F27-T14)', () {
+      // Q16, ruled 2026-10-06: the name stays as it is, digit included —
+      // «ورقتي» in Arabic, War2aty in Latin. `appName` is the OS
+      // task-switcher title and the splash mark's screen-reader label, so it
+      // is where a user meets the name; a rename that missed one of these
+      // would leave the product calling itself two things.
+      expect(ar.appName, contains('ورقتي'));
+      expect(en.appName, contains('War2aty'));
+
+      // The spelling is the decision. These are the transliterations it was
+      // chosen over, and the design file's own name is one of them — so it
+      // must not leak into user-facing copy.
+      for (final wrong in const ['Waraqti', 'Waraqty', 'Warqty']) {
+        expect(en.appName, isNot(contains(wrong)));
+      }
+    });
+
     test('covers every AppStrings member', () {
       // Read from the interface's source, so a new string cannot slip past
       // the checks in this file by being left out of [_accessors].

@@ -147,6 +147,44 @@ void main() {
       }
     });
 
+    test('both launcher labels carry the brand (F27-T14)', () {
+      // Q16, ruled 2026-10-06: the name stays «ورقتي» / War2aty, digit
+      // included. The launcher label is the name's largest surface — it is
+      // what sits under the icon on the home screen — and the two flavors
+      // must agree on it while staying distinguishable on one device.
+      final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+      final labels = RegExp(
+        r'manifestPlaceholders\["appName"\]\s*=\s*"([^"]*)"',
+      ).allMatches(gradle).map((m) => m.group(1)!).toList();
+
+      for (final label in labels) {
+        expect(label, contains('ورقتي'), reason: label);
+      }
+      expect(
+        labels.toSet(),
+        hasLength(2),
+        reason: 'dev and prod must stay distinguishable on one device',
+      );
+    });
+
+    test('the iOS display name carries the same brand (F27-T14)', () {
+      final plist = File('ios/Runner/Info.plist').readAsStringSync();
+
+      for (final key in const ['CFBundleDisplayName', 'CFBundleName']) {
+        // Adjacent literals so the `\s*` stays raw while `$key` still
+        // interpolates — in a plain Dart string `\s` would collapse to `s`
+        // and quietly match nothing, which is how this first failed.
+        final value = RegExp(
+          '<key>$key</key>'
+          r'\s*'
+          '<string>([^<]*)</string>',
+        ).firstMatch(plist)?.group(1);
+
+        expect(value, isNotNull, reason: '$key is missing');
+        expect(value, contains('ورقتي'), reason: '$key: $value');
+      }
+    });
+
     test('no manifest comment claims the image stays on the device', () {
       // F27-M3: the comment above CAMERA said "the image never leaves the
       // device", untrue since F20. Users never read it, but the next reader
