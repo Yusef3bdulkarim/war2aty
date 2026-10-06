@@ -73,6 +73,10 @@ const MAX_HTTP_STATUS = 599;
  */
 const MAX_DURATION_MS = 600_000;
 
+/** Matches the column's own `length()` bounds, deliberately. */
+const MAX_APP_VERSION_LENGTH = 20;
+const MAX_SCHEMA_VERSION_LENGTH = 10;
+
 function asRecord(body: unknown): Record<string, unknown> {
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     throw ApiError.invalidRequest("The request body must be a JSON object.");
@@ -118,13 +122,24 @@ function optionalInteger(
   return value;
 }
 
+/**
+ * A bounded, shaped string. The length limit matters as much as the pattern:
+ * `^\d+\.\d+\.\d+$` happily matches a version with a thousand digits in it,
+ * which is not content but is not a version either. The matching bound is on
+ * the column (`length(app_version) <= 20`), so neither side can drift into
+ * accepting what the other refuses.
+ */
 function optionalPattern(
   value: unknown,
   pattern: RegExp,
+  maxLength: number,
   field: string,
 ): string | null {
   if (isAbsent(value)) return null;
-  if (typeof value !== "string" || !pattern.test(value)) {
+  if (
+    typeof value !== "string" || value.length > maxLength ||
+    !pattern.test(value)
+  ) {
     throw ApiError.invalidRequest(`\`${field}\` is malformed.`);
   }
   return value;
@@ -179,11 +194,13 @@ export function parseErrorReportRequest(body: unknown): ErrorReportRequest {
     appVersion: optionalPattern(
       record.app_version,
       APP_VERSION_PATTERN,
+      MAX_APP_VERSION_LENGTH,
       "app_version",
     ),
     schemaVersion: optionalPattern(
       record.schema_version,
       SCHEMA_VERSION_PATTERN,
+      MAX_SCHEMA_VERSION_LENGTH,
       "schema_version",
     ),
   };

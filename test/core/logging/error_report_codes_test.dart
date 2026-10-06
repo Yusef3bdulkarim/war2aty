@@ -17,9 +17,27 @@ import 'package:flutter_test/flutter_test.dart';
 /// technique as the native-config guard in `native_permission_copy_test`: the
 /// cheapest way to hold a contract that spans two languages in one repo.
 void main() {
+  /// Source with every comment line removed.
+  ///
+  /// Without this the extractors read comments as code: a doc comment that
+  /// mentions a code in the same quoting style — `// unlike 'INTERNAL_ERROR',
+  /// which is a server code` — would be extracted as if the app could report
+  /// it, and this guard would start demanding entries for codes that do not
+  /// exist. It would fail loudly rather than silently, but it would be failing
+  /// about the wrong thing, and a test nobody trusts is a test nobody keeps.
+  String withoutComments(String source) => source
+      .split('\n')
+      .where((line) {
+        final trimmed = line.trimLeft();
+        return !trimmed.startsWith('//') && !trimmed.startsWith('*');
+      })
+      .join('\n');
+
   /// Every code `errorCodeOf` can return, read from its source.
   Set<String> dartFailureCodes() {
-    final source = File('lib/core/logging/error_code.dart').readAsStringSync();
+    final source = withoutComments(
+      File('lib/core/logging/error_code.dart').readAsStringSync(),
+    );
 
     return RegExp(
       r"=>\s*'([A-Z][A-Z0-9_]*)'",
@@ -28,7 +46,9 @@ void main() {
 
   /// Every code `LogCrashKind` can produce.
   Set<String> dartCrashCodes() {
-    final source = File('lib/core/logging/log_event.dart').readAsStringSync();
+    final source = withoutComments(
+      File('lib/core/logging/log_event.dart').readAsStringSync(),
+    );
     final enumBody = RegExp(
       r'enum LogCrashKind \{(.*?)\n\}',
       dotAll: true,
@@ -43,9 +63,11 @@ void main() {
 
   /// Every code the Edge Function accepts.
   Set<String> serverAcceptedCodes() {
-    final source = File(
-      'supabase/functions/_shared/reports/error-report-codes.ts',
-    ).readAsStringSync();
+    final source = withoutComments(
+      File(
+        'supabase/functions/_shared/reports/error-report-codes.ts',
+      ).readAsStringSync(),
+    );
     final listBody = RegExp(
       r'REPORTABLE_ERROR_CODES = \[(.*?)\] as const',
       dotAll: true,
@@ -84,6 +106,22 @@ void main() {
       isEmpty,
       reason: 'these server codes match no AppFailure or LogCrashKind',
     );
+  });
+
+  test('a code-shaped comment is not read as a code', () {
+    // Guards the guard: this is the fragility the comment stripping removes.
+    const sample = """
+// unlike 'INTERNAL_ERROR', which is a server code
+/// see 'ANALYSIS_FAILED' for the server-side name
+ * "LEGACY_CODE" was retired
+  OcrFailure() => 'OCR',
+""";
+
+    final codes = RegExp(
+      r"=>\s*'([A-Z][A-Z0-9_]*)'",
+    ).allMatches(withoutComments(sample)).map((m) => m.group(1)!).toSet();
+
+    expect(codes, {'OCR'});
   });
 
   test('both crash kinds are covered', () {

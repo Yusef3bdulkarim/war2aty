@@ -159,3 +159,26 @@ Deno.test("accepts a major-only schema version", () => {
     "3",
   );
 });
+
+Deno.test("refuses a version that is shaped right but absurdly long", () => {
+  // The pattern alone matches a thousand-digit version. Not content, but not a
+  // version either — and the column's own `length()` check would refuse it, so
+  // accepting it here would mean a 500 instead of a 400.
+  assertRejects(
+    fullBody({ app_version: `1.0.${"9".repeat(40)}` }),
+    "over-long app version",
+  );
+  assertRejects(
+    fullBody({ schema_version: "9".repeat(20) }),
+    "over-long schema version",
+  );
+});
+
+Deno.test("accepts a version at the bound", () => {
+  const atBound = "100.100.1000000000";
+  assertEquals(atBound.length, 18);
+  assertEquals(
+    parseErrorReportRequest(fullBody({ app_version: atBound })).appVersion,
+    atBound,
+  );
+});

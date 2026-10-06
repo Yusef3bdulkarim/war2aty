@@ -209,7 +209,7 @@ T19, T12 -> T23 and T24.
 |---|---|---|---|---|---|
 | 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | **DONE 2026-10-06:** both `NS*UsageDescription` strings rewritten to mirror `privacyPointExtractText` (online send, possible retention and staff review, scoped «إحنا مابنحفظش الصورة», offline read on the phone) — **B1 closed**. New `test/app/native_permission_copy_test.dart`: 9 tests over **every** `…UsageDescription` key in the plist (so a future permission is covered automatically), the two Android `appName` labels, and all three manifests. **Negative-proved**: restoring the old wording fails it 2/9. Manifest comments corrected — **M3 closed** — and the stale claim is now itself a test. Gate green: 2,219 tests, analyze 0 errors / 0 warnings. |
 | 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | **DONE 2026-10-06:** `android:allowBackup="false"` **and** `res/xml/data_extraction_rules.xml` — both are needed, because at targetSdk 36 the attribute alone leaves device-to-device transfer on with some manufacturers. All nine domains excluded in both sections (these default to *including* what they do not name). Verified live on **RMX2001**: old build `ALLOW_BACKUP` + a backup Android really attempted, new build no flag and «Backup is not allowed»; the test transport was restored afterwards. Compiled APK re-read with `aapt2` (attribute and all 18 excludes present). 6-test guard added. **H2 closed.** The API 31+ half cannot be exercised on an Android 11 phone — carried to T18. |
-| 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | **DONE 2026-10-06, bar the deploy.** Both handlers installed in `bootstrap` and chained, never replaced; a new `LogCrashKind` gives an uncaught error a content-free code for the first time. `ErrorReportSink` replaces `NoopLogSink` in configured prod builds: failures only, fire-and-forget, 20/session, on a Dio with **no log interceptor** so reporting cannot log itself. New `report-error` function + `error_reports` table (RLS forced, no policies, **append-only** — no UPDATE grant), a closed 33-code allowlist, per-user ceiling of 100/day applied inside the insert, and a 90-day pg_cron purge. **28 Dart + 38 Deno tests**, incl. 11 integration against a real database and 4 against the real served function — a row verified in the table. A Dart test compares the Dart and TypeScript code lists so the two cannot drift. `docs/OPERATIONS.md` gained the queries an operator actually runs. **H1 closed.** Owed: deploy the migration + function to staging and production (owner permission). |
+| 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | **DONE 2026-10-06, bar the deploy.** Both handlers installed in `bootstrap` and chained, never replaced; a new `LogCrashKind` gives an uncaught error a content-free code for the first time. `ErrorReportSink` replaces `NoopLogSink` in configured prod builds: failures only, fire-and-forget, 20/session, on a Dio with **no log interceptor** so reporting cannot log itself. New `report-error` function + `error_reports` table (RLS forced, no policies, **append-only** — no UPDATE grant), a closed 33-code allowlist, per-user ceiling of 100/day applied inside the insert, and a 90-day pg_cron purge. **28 Dart + 38 Deno tests**, incl. 11 integration against a real database and 4 against the real served function — a row verified in the table. A Dart test compares the Dart and TypeScript code lists so the two cannot drift. `docs/OPERATIONS.md` gained the queries an operator actually runs. **H1 closed.** `@code-reviewer` ran on it: **PASS, no blocking defects**, three LOW findings all fixed — the per-user ceiling was not race-safe (now a per-user advisory lock, overshoot reproduced without it), the two version columns had shape but no length bound, and the cross-language guard could read a comment as code. Owed: deploy the migration + function to staging and production (owner permission). |
 | 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | TODO |
 | 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | BLOCKED |
 
@@ -1716,11 +1716,14 @@ broken build takes most often.
 - **Append-only.** `service_role` is granted select, insert and delete and
   deliberately **not** update: monitoring data that can be edited after the fact
   is not evidence of anything. Proved by a test that tries.
-- **A per-user ceiling of 100/day, inside the insert.** Counting in TypeScript
-  and then inserting would race with itself precisely when it matters — during a
-  crash loop. B3's lesson is that a write path with no ceiling on a public
-  project is a quota drain waiting to be found; the client's own 20/session
-  protects nobody, since a reinstall resets it.
+- **A per-user ceiling of 100/day, held by an advisory lock.** B3's lesson is
+  that a write path with no ceiling on a public project is a quota drain waiting
+  to be found; the client's own 20/session protects nobody, since a reinstall
+  resets it. **This is the one thing the review corrected** — see "What the
+  review changed" below: a count followed by an insert is a read-then-write, so
+  two concurrent calls could both read the same count and both insert. A
+  per-user `pg_advisory_xact_lock` now makes the ceiling exact, and the
+  overshoot is reproducible without it.
 - **202 even when the row is dropped.** The client is not misbehaving and has
   nothing to do differently; a 429 would only teach the sink to retry. The real
   outcome goes in the function's log line.
@@ -1796,7 +1799,49 @@ and one stale line in `docs/API_CONTRACT.md` that said "all three endpoints".
 A full §-level contract entry for `report-error` is **not** written — that doc is
 the numbered API spec and assigning it a § is the owner's call.
 
-**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
-warnings**, 18 pre-existing infos), `flutter test` **2,250 passed / 0 failed**,
-`deno test` **809 passed / 0 failed** against a live stack, `deno lint` clean
-over 105 files.
+#### What the review changed (@code-reviewer, 2026-10-06)
+
+Verdict **PASS, no blocking defects**, with three LOW findings. All three were
+acted on rather than noted — two were real, and one was a claim of mine that was
+not true of the code.
+
+**1. The ceiling was not race-safe, and I had said it was.** The review was
+right: `count` then `insert` inside one plpgsql function is still a
+read-then-write, and under READ COMMITTED two concurrent calls can both read the
+same count and both insert. My commit message and this record said the count
+happened "inside the same statement that inserts", which was simply wrong.
+
+Fixed with a per-user `pg_advisory_xact_lock(hashtext(p_user_id::text))`, held
+to end of transaction, so a user's own concurrent reports serialise and nobody
+else's wait. **Negative-proved**: with the lock removed, 10 concurrent calls
+against a cap of 3 recorded **4**; with it, exactly 3, and there is now an
+integration test that fires those 10 calls and asserts the cap exactly. The
+reviewer judged the overshoot harmless and said no code change was needed — but
+a one-line lock that makes the claim true is better than a caveat, especially in
+the one path that runs during a crash loop.
+
+**2. `app_version` and `schema_version` had shape but no length.** The dotted
+pattern matches a version with a thousand digits in it. Bounded now at 20 and 10
+characters **on both sides** — the CHECK constraint and the parser — so neither
+can drift into accepting what the other refuses, with tests at and past the
+bound.
+
+**3. The cross-language guard could read a comment as code.** A doc comment
+mentioning `'INTERNAL_ERROR'` in the same quoting style would have been
+extracted as a reportable code, and the guard would then have failed about a
+code that does not exist. It now strips comment lines before matching, and a
+test feeds it exactly that trap.
+
+Everything else the review checked came back clean, including the two things I
+most wanted challenged: the reporting loop is closed by **both** guards
+independently (it verified `AuthInterceptor` and `RequestIdInterceptor` log
+nothing, including the 401-replay path), and the DI has no cycle or
+use-before-registration. It also confirmed no driver or Postgres message can
+reach a client body or a log line, and found **no tests that pass for the wrong
+reason**.
+
+**Gate (after the review fixes):** `dart format .` (0 changed),
+`flutter analyze` (**0 errors, 0 warnings**, 18 pre-existing infos),
+`flutter test` **2,251 passed / 0 failed**, `deno test` **812 passed / 0
+failed** against a live stack including the real served function, `deno lint`
+clean over 105 files.

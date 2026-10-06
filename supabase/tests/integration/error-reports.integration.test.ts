@@ -183,6 +183,28 @@ Deno.test({
 });
 
 Deno.test({
+  name: "[integration] the ceiling holds under concurrent reports",
+  ignore: skip,
+  fn: async () => {
+    // The ceiling is a count followed by an insert, and under READ COMMITTED
+    // two callers could both read the same count and both insert — which is
+    // precisely what a crash loop produces. The per-user advisory lock in
+    // `record_error_report` is what makes this exact rather than approximate,
+    // and this test is what would notice if it were removed.
+    const client = serviceClient();
+    const userId = await newUser();
+
+    const outcomes = await Promise.all(
+      Array.from({ length: 10 }, () => record(client, userId, { p_daily_cap: 3 })),
+    );
+
+    const recorded = outcomes.filter((r) => r.data === "recorded").length;
+    assertEquals(recorded, 3, "exactly the cap, no overshoot");
+    assertEquals((await reportsFor(client, userId)).length, 3);
+  },
+});
+
+Deno.test({
   name: "[integration] the ceiling is per user, not global",
   ignore: skip,
   fn: async () => {
@@ -242,6 +264,10 @@ Deno.test({
       { p_duration_ms: -1 },
       { p_app_version: "1.0" },
       { p_schema_version: "two" },
+      // Shaped right, far too long: the column bounds the length as well as
+      // the pattern, so the API's own bound cannot drift past it.
+      { p_app_version: `1.0.${"9".repeat(40)}` },
+      { p_schema_version: "9".repeat(20) },
     ];
 
     for (const overrides of rejected) {

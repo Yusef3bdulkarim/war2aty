@@ -21,9 +21,16 @@
 -- reachable by every anonymous user (B3's lesson: a write path with no ceiling
 -- is a free-tier drain waiting to be found). The client has its own cap of 20
 -- per session, but a client-side limit protects nobody — a reinstall resets it
--- and a hostile caller ignores it. Counting here, inside the same statement
--- that inserts, is also the only version that does not race with itself when
--- two reports arrive at once.
+-- and a hostile caller ignores it.
+--
+-- Counting in TypeScript and then inserting would race with itself the moment
+-- two reports arrive at once, which is exactly what a crash loop does. Counting
+-- here is closer but still not enough on its own: `count` then `insert` inside
+-- one function is a read-then-write, and under READ COMMITTED two concurrent
+-- calls can both read the same count and both insert. Hence the per-user
+-- advisory lock below — held to the end of the transaction, taken on the user
+-- id, so a user's own reports serialise against each other and nobody else's
+-- wait.
 
 create table if not exists public.error_reports (
   id                  uuid        primary key default gen_random_uuid(),
@@ -55,10 +62,18 @@ create table if not exists public.error_reports (
     check (http_status is null or http_status between 100 and 599),
   constraint error_reports_duration_ms_valid
     check (duration_ms is null or duration_ms between 0 and 600000),
+  -- Shape AND length. The patterns alone allow an unbounded run of digits,
+  -- which is not content but is not a version either.
   constraint error_reports_app_version_shape
-    check (app_version is null or app_version ~ '^\d+\.\d+\.\d+$'),
+    check (
+      app_version is null
+      or (app_version ~ '^\d+\.\d+\.\d+$' and length(app_version) <= 20)
+    ),
   constraint error_reports_schema_version_shape
-    check (schema_version is null or schema_version ~ '^\d+(\.\d+)?$')
+    check (
+      schema_version is null
+      or (schema_version ~ '^\d+(\.\d+)?$' and length(schema_version) <= 10)
+    )
 );
 
 comment on table public.error_reports is
@@ -121,6 +136,11 @@ as $$
 declare
   v_today integer;
 begin
+  -- Serialises this user's concurrent reports, so the count below cannot be
+  -- read by two callers that then both insert. Per user, so one crash loop
+  -- never makes another user's report wait.
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text));
+
   select count(*)
     into v_today
     from public.error_reports r
