@@ -27,8 +27,16 @@
          without one must still be able to install it. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
+    <!-- F27-T11 (Q20, H2): backup and transfer are OFF. The SQLite database
+         holds the text of every analysed paper and its reminders, and saved
+         images are encrypted under a Keystore key that cannot be backed up —
+         so a restore would both expose the archive and hand back unreadable
+         images. `allowBackup="false"` alone is not enough at targetSdk 31+:
+         see `res/xml/data_extraction_rules.xml` for why both are set. -->
     <application
         android:label="${appName}"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

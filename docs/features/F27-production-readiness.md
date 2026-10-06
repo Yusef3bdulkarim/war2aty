@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 11 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 is next.
+- **Progress:** 12 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -208,7 +208,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | **DONE 2026-10-06:** both `NS*UsageDescription` strings rewritten to mirror `privacyPointExtractText` (online send, possible retention and staff review, scoped «إحنا مابنحفظش الصورة», offline read on the phone) — **B1 closed**. New `test/app/native_permission_copy_test.dart`: 9 tests over **every** `…UsageDescription` key in the plist (so a future permission is covered automatically), the two Android `appName` labels, and all three manifests. **Negative-proved**: restoring the old wording fails it 2/9. Manifest comments corrected — **M3 closed** — and the stale claim is now itself a test. Gate green: 2,219 tests, analyze 0 errors / 0 warnings. |
-| 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | TODO |
+| 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | **DONE 2026-10-06:** `android:allowBackup="false"` **and** `res/xml/data_extraction_rules.xml` — both are needed, because at targetSdk 36 the attribute alone leaves device-to-device transfer on with some manufacturers. All nine domains excluded in both sections (these default to *including* what they do not name). Verified live on **RMX2001**: old build `ALLOW_BACKUP` + a backup Android really attempted, new build no flag and «Backup is not allowed»; the test transport was restored afterwards. Compiled APK re-read with `aapt2` (attribute and all 18 excludes present). 6-test guard added. **H2 closed.** The API 31+ half cannot be exercised on an Android 11 phone — carried to T18. |
 | 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | TODO |
 | 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | TODO |
 | 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | BLOCKED |
@@ -1560,3 +1560,93 @@ test, in all three manifests.
 **Gate:** `dart format .` (0 changed), `flutter analyze` (18 infos, **0 errors, 0
 warnings**, none in the new file), `flutter test` — **2,219 passed, 0 failed**
 (9 new). No backend change, so no `deno test`.
+
+### T11 record (2026-10-06) — backup off, and proved off on the real phone
+
+**Q20 confirmed by the owner:** off completely. Two things were needed, not one.
+
+**`android:allowBackup="false"`** is the whole answer on Android 11 and lower.
+It is *not* the whole answer here: the app targets **API 36**, and for apps
+targeting API 31+ the attribute stops cloud backup while, on devices from some
+manufacturers, **leaving device-to-device transfer enabled**
+([`<application>`](https://developer.android.com/guide/topics/manifest/application-element),
+[Auto Backup](https://developer.android.com/identity/data/autobackup)). So
+`res/xml/data_extraction_rules.xml` ships with it, excluding **all nine domains
+in both `<cloud-backup>` and `<device-transfer>`** — those sections *include*
+everything they do not name, so a domain left out is a leak, not a no-op, and
+`root` alone would not have covered `database` or `sharedpref`.
+
+`<cross-platform-transfer>` (Android 16 QPR2+, Android → iOS) was deliberately
+left out: there is no counterpart app to receive anything while iOS is out of
+scope (Q1), and an element the parsers on Android 12–15 do not recognise risks
+invalidating the whole file — which would silently re-enable exactly what it
+prevents. Recorded in the file itself for T23/T24.
+
+#### Why off, in one line each
+
+- The SQLite database **is** the document archive: the extracted text of every
+  paper the user analysed — names, amounts, account numbers, court dates — plus
+  their reminders. Backed up, all of it lands in the user's Google account, which
+  no part of the privacy screen prepares them for.
+- A restored backup would be **broken anyway**: images are AES-256-GCM encrypted
+  under a key in `flutter_secure_storage`, i.e. the Android Keystore, which does
+  not leave the device. A restore returns ciphertext with no key and rows pointing
+  at files that can never be opened again. Off is both the private answer and the
+  correct one.
+
+#### Verified on the owner's phone, before and after
+
+The RMX2001 was connected, so this was not a desk check. The Google backup
+transport was active on it.
+
+| | `dumpsys package` flags | `bmgr backupnow com.war2aty.app.dev` |
+|---|---|---|
+| **Before** (installed build) | `[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]` | `Size quota exceeded` — Android **attempted** the backup |
+| **After** (this build) | `[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]` | `Backup is not allowed` |
+
+Two things worth keeping from that table. First, **H2 was real, not theoretical**:
+the previously installed build was eligible and the system tried to copy its data
+out. Second, the "before" run failed on *size* — the payload was big enough to
+blow the local transport's quota, which is the archive itself talking.
+
+The test ran on `com.android.localtransport/.LocalTransport`, switched in for the
+check **so that nothing was uploaded to the owner's Google account**, and the
+Google transport was switched back immediately afterwards (verified selected).
+Only the `.dev` package was touched; the prod build from P02 was left alone and
+nothing was uninstalled.
+
+**The compiled artefact was re-read rather than trusted.** `aapt2 dump xmltree`
+on `app-dev-debug.apk` shows `allowBackup=false` and the resolved
+`dataExtractionRules` reference in the binary manifest, and the compiled resource
+with all **18** excludes intact. The merged manifest was checked too, which is
+what rules out a plugin re-enabling backup through manifest merging.
+
+#### The one thing not verified live
+
+**RMX2001 is Android 11 (API 30), so it ignores `dataExtractionRules` entirely.**
+The D2D half is therefore verified three ways short of a device — the compiled
+resource in the APK, the merged manifest, and the guard — but not by an actual
+transfer. It needs an API 31+ phone; **carried to T18** (the ELS NX9, or any newer
+device), where a new-phone transfer can be watched. Per the owner's instruction
+device work stays on real hardware, so no emulator result stands in for it.
+
+#### The guard
+
+`test/app/android_backup_rules_test.dart`, 6 tests. These settings live in XML
+that no Dart code reads, so nothing in the suite would have noticed them being
+dropped by a merge, a Flutter template update, or a fresh `AndroidManifest.xml`
+copied over this one. It asserts the attribute, the rules reference, the absence
+of a contradicting `fullBackupContent`/`backupAgent`, every domain in **each**
+section separately, and that no `<include>` was ever added — letting data back out
+is the owner's call (Q20), not a code change.
+
+#### Noted in passing, for T13
+
+`android/app/build.gradle.kts:52` says «minSdk 23 is a locked project decision»,
+but the line below resolves `flutter.minSdkVersion`, which is **24** in Flutter
+3.41.9. The comment is stale rather than the build wrong; left for T13, which owns
+the build file.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0 warnings**,
+18 pre-existing infos), `flutter test` — **2,225 passed, 0 failed** (6 new). No
+backend change, so no `deno test`.

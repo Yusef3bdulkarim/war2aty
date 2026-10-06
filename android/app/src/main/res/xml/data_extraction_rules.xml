@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  F27-T11 · Android 12+ (API 31+) backup and transfer rules: nothing leaves.
+
+  `android:allowBackup="false"` on <application> is the whole answer on
+  Android 11 and lower. It is NOT the whole answer here: the app targets
+  API 36, and for apps targeting API 31+ `allowBackup="false"` stops
+  cloud backup (Google Drive) while, on devices from some manufacturers,
+  leaving device-to-device transfer enabled. Only these rules stop that,
+  so both the attribute and this file are needed.
+
+  Why off completely (Q20, H2 — owner's decision, 2026-10-06):
+
+  1. The local database is the real document archive. Drift/SQLite holds
+     the extracted text of every paper the user analysed — names, amounts,
+     account numbers, court dates — plus their reminders. Backing it up
+     copies all of it to the user's Google account, which no part of the
+     privacy screen prepares them for.
+  2. A restored backup would be broken anyway. Saved images are encrypted
+     with AES-256-GCM under a key held in `flutter_secure_storage`, which
+     is backed by the Android Keystore. Keystore material does not leave
+     the device, so a restore brings back ciphertext with no key: the
+     images become permanently unreadable, and the database rows point at
+     files that can never be opened again. Off is both the private answer
+     and the correct one.
+
+  Every domain is excluded explicitly. These sections default to
+  INCLUDING everything not named, so a missing domain is a leak, not a
+  no-op — hence all nine, in both sections, rather than `root` alone.
+
+  `<cross-platform-transfer>` (Android 16 QPR2+, Android -> iOS) is
+  deliberately absent: it has no counterpart app to receive anything
+  while iOS is out of scope (Q1), and an element the older parsers on
+  Android 12-15 do not recognise risks invalidating this whole file —
+  which would silently re-enable what it is here to prevent. Add it in
+  the task that ships iOS (T23/T24), on a device that can be tested.
+-->
+<data-extraction-rules>
+    <!-- Google Drive backup. -->
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="device_root" />
+        <exclude domain="device_file" />
+        <exclude domain="device_database" />
+        <exclude domain="device_sharedpref" />
+    </cloud-backup>
+    <!-- Device-to-device transfer (new phone setup). Same answer: the
+         encryption key cannot come with it, so transferred data would be
+         unreadable even if the privacy question did not settle it. -->
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+        <exclude domain="device_root" />
+        <exclude domain="device_file" />
+        <exclude domain="device_database" />
+        <exclude domain="device_sharedpref" />
+    </device-transfer>
+</data-extraction-rules>
