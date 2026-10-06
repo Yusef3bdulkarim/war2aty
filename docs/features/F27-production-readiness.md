@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 13 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 closed **H1**: the two global error handlers, a production sink, a new `report-error` Edge Function and `error_reports` table — **proved end to end on a real local stack** (a row written through the real function) with 809 backend tests green. The backend half is **deployed and verified on staging and production**; the app half ships with T13's release build. T13 is next.
+- **Progress:** 14 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 closed **H1**: the two global error handlers, a production sink, a new `report-error` Edge Function and `error_reports` table — **proved end to end on a real local stack** (a row written through the real function) with 809 backend tests green. The backend half is **deployed and verified on staging and production**; the app half ships with T13's release build. T13 closed **H7** (a prod release now fails without the real key instead of silently signing with the debug key, proved by moving the key aside), **M4** (0 fixture entries in the prod APK, 6 in dev) and **M8** (the crash dumps were a *native* OOM on a full machine, not a heap shortage — so the settings went **down**). T14 is **BLOCKED** on the owner's app name, so T15 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -210,7 +210,7 @@ T19, T12 -> T23 and T24.
 | 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | **DONE 2026-10-06:** both `NS*UsageDescription` strings rewritten to mirror `privacyPointExtractText` (online send, possible retention and staff review, scoped «إحنا مابنحفظش الصورة», offline read on the phone) — **B1 closed**. New `test/app/native_permission_copy_test.dart`: 9 tests over **every** `…UsageDescription` key in the plist (so a future permission is covered automatically), the two Android `appName` labels, and all three manifests. **Negative-proved**: restoring the old wording fails it 2/9. Manifest comments corrected — **M3 closed** — and the stale claim is now itself a test. Gate green: 2,219 tests, analyze 0 errors / 0 warnings. |
 | 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | **DONE 2026-10-06:** `android:allowBackup="false"` **and** `res/xml/data_extraction_rules.xml` — both are needed, because at targetSdk 36 the attribute alone leaves device-to-device transfer on with some manufacturers. All nine domains excluded in both sections (these default to *including* what they do not name). Verified live on **RMX2001**: old build `ALLOW_BACKUP` + a backup Android really attempted, new build no flag and «Backup is not allowed»; the test transport was restored afterwards. Compiled APK re-read with `aapt2` (attribute and all 18 excludes present). 6-test guard added. **H2 closed.** The API 31+ half cannot be exercised on an Android 11 phone — carried to T18. |
 | 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | **DONE 2026-10-06, bar the deploy.** Both handlers installed in `bootstrap` and chained, never replaced; a new `LogCrashKind` gives an uncaught error a content-free code for the first time. `ErrorReportSink` replaces `NoopLogSink` in configured prod builds: failures only, fire-and-forget, 20/session, on a Dio with **no log interceptor** so reporting cannot log itself. New `report-error` function + `error_reports` table (RLS forced, no policies, **append-only** — no UPDATE grant), a closed 33-code allowlist, per-user ceiling of 100/day applied inside the insert, and a 90-day pg_cron purge. **28 Dart + 38 Deno tests**, incl. 11 integration against a real database and 4 against the real served function — a row verified in the table. A Dart test compares the Dart and TypeScript code lists so the two cannot drift. `docs/OPERATIONS.md` gained the queries an operator actually runs. **H1 closed.** `@code-reviewer` ran on it: **PASS, no blocking defects**, three LOW findings all fixed — the per-user ceiling was not race-safe (now a per-user advisory lock, overshoot reproduced without it), the two version columns had shape but no length bound, and the cross-language guard could read a comment as code. **Deployed and verified on staging and production the same day** (401 / 202 / 400 / 400 on both, row read back, all three retention jobs active, table unreadable with the publishable key; the production test row was deleted afterwards). |
-| 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | TODO |
+| 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | **DONE 2026-10-06.** **H7:** a prod release fails on a missing *or unusable* key, naming the reason, on all five prod-release tasks — verified by moving the key aside and back, and the built APK's certificate read with `apksigner` (`O=War2aty`, not `CN=Android Debug`); the dev fallback deliberately survives. **M4:** fixtures stripped from every prod variant and the hook fails loudly if Flutter renames the task — **0 entries in the prod APK, 6 in dev**. **M8:** the dumps were **native** OOMs on a machine with 835 MB free and 2 MB of page file, not heap shortage, so `-Xmx` went 3G→**2G** and the Kotlin daemon was folded in-process; a full release builds in 140 s. `tool/build_release.ps1` + `docs/BUILD.md` carry the flags that are silent when forgotten. 12-test guard. Also fixed T11's stale `minSdk` comment. **Not proved:** obfuscation cannot be shown by inspecting the binary (release AOT strips Dart names either way) and symbol **archival** has no home yet — both recorded, for T21/T26 and T25. `.aab` is T19's. |
 | 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | BLOCKED |
 
 ### Phase 3: Quality (takes over F12-T03 to T10)
@@ -1864,3 +1864,163 @@ reason**.
 `flutter test` **2,251 passed / 0 failed**, `deno test` **812 passed / 0
 failed** against a live stack including the real served function, `deno lint`
 clean over 105 files.
+
+### T13 record (2026-10-06) — release builds that cannot lie about themselves
+
+Four findings, and each one failed *silently* before this, which is what made
+them worth the task.
+
+#### H7: a prod release signed itself with the debug key and said nothing
+
+`key.properties` is git-ignored, so it is absent on any machine that has not
+been set up — and the old code fell back to the debug signing config. The
+artifact installs, runs, looks correct, and is rejected by Play with a signature
+error; or it is handed to a tester and trusted. Nothing in the build output said
+a word.
+
+A prod release now **fails**, naming the reason:
+
+```
+A prod release build needs the real release key, and android/key.properties does not exist.
+```
+
+Three things about how it is done:
+
+- **It checks the key is usable, not merely present.** A `key.properties`
+  missing one of the four entries, or naming a keystore that is not there, fails
+  the same way with its own message.
+- **The dev fallback stays.** `flutter run --release` on the dev flavor is an
+  everyday thing on a machine with no keystore, and the dev app is a separate
+  `applicationId` that is never published. So the gate fires for prod only.
+- **It is checked on the task graph**, not at configuration time, so a machine
+  without the keystore can still run `flutter test`, open the project in an IDE,
+  and build anything that is not a prod release.
+
+**The first attempt was wrong, and the build said so.** Matching
+`task.name.contains("ProdRelease")` also matched the Flutter Gradle plugin's
+`compileFlutterBuildProdRelease` and `packJniLibsflutterBuildProdRelease`, which
+sit in **every** release graph, plus AGP's `preProdReleaseBuild` — so a *dev*
+release was refused too. Now matched by exact name against the five tasks that
+only a genuine prod release runs (`assembleProdRelease`, `bundleProdRelease`,
+`packageProdRelease`, `packageProdReleaseBundle`, `installProdRelease`).
+
+A second mistake worth recording because it failed for the *right* reason in the
+wrong way: the check first resolved `storeFile` against the root project, while
+the signing config resolves it from `android/app/`. The real keystore was
+rejected as missing. Both resolve it identically now.
+
+**Verified by doing it**, with the key moved aside and put back:
+
+| | Without the key | With the key |
+|---|---|---|
+| `assembleProdRelease` | **fails**, with the message | builds |
+| `bundleProdRelease` | **fails** | — (the `.aab` is T19's) |
+| `installProdRelease` | **fails** | — |
+| `assembleDevRelease` | **builds** (96.5 MB, debug-signed) | builds |
+
+And the artifact was checked rather than assumed: `apksigner verify
+--print-certs` on the prod APK reports `CN=Yusef Abdulkarim, O=War2aty, L=Cairo,
+C=EG` — the real certificate, not the debug key's `CN=Android Debug`.
+
+#### M4: the dev-only mock fixtures shipped in the prod bundle
+
+`assets/fixtures/analysis/` backs `MockAnalysisRemoteDataSource`, which is
+reachable only when `env.isDev && USE_MOCK_ANALYSIS` — so in a prod build those
+canned invoices and medical appointments were unreachable code *and* shipped
+anyway.
+
+pubspec has no per-flavor asset list, so they are deleted from the merged assets
+of every prod variant after the Flutter plugin copies them in. Deliberately not
+silent: if a Flutter upgrade renames `copyFlutterAssetsProd*`, the hook matches
+nothing and **the build fails** rather than quietly shipping them again.
+
+Measured on the real artifacts: **prod APK 0 fixture entries, dev APK 6.** Both
+halves matter — the dev one is what keeps the mock working.
+
+#### M8: the crash dumps said the opposite of what they looked like
+
+Three Gradle dumps sat in `android/`. The obvious reading is "the build needs
+more heap". Reading them says otherwise: every one is a **native** allocation
+failure (`malloc failed … Chunk::new`), with the machine at **835 MB free of
+16 GB** and the page file down to **2 MB available**, while the Gradle daemon's
+own working set peaked at **759 MB**. The build never ran out of Java heap. The
+machine ran out of memory, with Docker, an emulator and the IDE alongside.
+
+So raising `-Xmx` would have made it **worse** — a bigger Java heap reserves
+more address space and squeezes the native heap that failed. The settings went
+the other way: `-Xmx` 3G → **2G**, metaspace 1G → **512m**, code cache 512m →
+**256m**, and `kotlin.compiler.execution.strategy=in-process` removes a whole
+second JVM (this app has almost no Kotlin). `-XX:+HeapDumpOnOutOfMemoryError`
+was removed: it cannot fire on a native OOM, and when it does fire it writes a
+multi-gigabyte file on a machine that is already out of memory.
+
+Proved by use rather than by argument: a full obfuscated prod release APK built
+in **140 s** on 2G, and a dev release in 302 s. The three stale dumps are
+deleted, and `docs/BUILD.md` records the diagnosis so the next person does not
+"fix" it by raising the heap.
+
+#### Obfuscation, symbols, and one honest gap
+
+`--obfuscate --split-debug-info` now run through `tool/build_release.ps1`, which
+exists because a release build is a list of flags that are **silent when
+forgotten** — a missing `--dart-define-from-file` produces an app that launches
+and tells every user the service is unavailable. The script refuses
+`-Arm64Only` for an `.aab`, since Play splits per device itself and pinning one
+ABI would drop every 32-bit phone from the listing.
+
+**What is not proved:** that obfuscation changed the binary. Neither the
+obfuscated prod `libapp.so` nor the non-obfuscated dev one contains any Dart
+class name — `WaraqtiApp`, `AnalysisCubit`, `StructuredAppLogger`, by `strings`
+and by raw byte search — because Flutter's release AOT already strips them on
+this engine. So the usual check cannot tell the two apart. What *is* verified:
+the flags are accepted and the 5.2 MB mapping is produced per ABI. The
+`flutter symbolize` path needs a real obfuscated stack trace, and this app
+deliberately cannot produce one — F27-T12's reporting carries **no** stack
+traces (§7). The first will come from Play's own crash reporting, so T21/T26
+should verify symbolization then, while that build's symbols are still to hand.
+Recorded rather than glossed.
+
+**Where symbols are archived is also unsolved**: `build/` is git-ignored, so
+they sit on the machine that built the artifact and nowhere else — the same
+single point of failure as the keystore. A GitHub release asset on the version
+tag is the natural home and free on a public repo, which makes it T25's decision
+alongside the tagging scheme. Until then `docs/BUILD.md` says to copy them off
+by hand whenever a build is given to anyone.
+
+#### The guard
+
+`test/app/release_build_guards_test.dart`, 12 tests. None of this is Dart, so
+nothing else in the suite would notice it being deleted — and each piece fails
+silently when missing, which is the whole argument for guarding text from a
+test. It asserts the key gate and all five task names, the module-relative
+`storeFile` resolution, the deliberate dev fallback, the asset strip and its
+fail-loudly branch, the memory settings, the absence of the heap-dump flag, that
+the native diagnosis is written down, and that no `hs_err_pid*` dumps are left
+lying in the repo.
+
+One of its own assertions had to be made sharper: checking the whole
+`gradle.properties` for `HeapDumpOnOutOfMemoryError` failed on the **comment**
+explaining why the flag was removed. It now reads the `org.gradle.jvmargs` line
+alone — a guard that cannot tell a setting from an explanation of a setting is
+worse than none.
+
+#### Also fixed
+
+The stale `minSdk 23 is a locked project decision` comment flagged in T11:
+`flutter.minSdkVersion` is **24** in Flutter 3.41.9, and the comment now says
+where the number comes from instead of claiming a decision that was not there.
+
+#### Sizes, at `1.0.0+3`
+
+| Artifact | Size |
+|---|---|
+| prod APK, arm64 only, obfuscated | **34.9 MB** (was 36.5 MB at P02) |
+| dev APK, every ABI | 96.5 MB |
+
+The `.aab` was **not** built: T19 owns "signed `.aab` built and its size
+recorded", and the owner stopped that build here as out of scope. The bundle
+path is still covered by the key gate, verified by a dry run.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
+warnings**, 18 pre-existing infos), `flutter test` **2,263 passed / 0 failed**
+(12 new). No backend change, so no `deno test`.
