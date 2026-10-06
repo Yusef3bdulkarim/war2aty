@@ -1,10 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The user photographs a paper; the image never leaves the device. -->
+    <!-- The user photographs a paper. Offline the photo is read on the
+         device; online it is sent to the `ocr-document` Edge Function and on
+         to an outside reader (§7, F20) — so it does leave the device. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Required from F06-T14: the app calls Supabase Anonymous Auth and the
-         analysis Edge Function. Offline, only extracted text is ever sent;
-         online, the photo itself transits the Edge Function for secure
-         processing and is never stored server-side (§7, F13). -->
+         `ocr-document` / `analyze-document` Edge Functions. Offline, only the
+         extracted text is ever sent; online, the photo itself transits
+         `ocr-document` to an outside reader. We store neither the photo nor
+         the text on our servers, but the reader may retain the photo for a
+         while (§7, F20-T24). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+ (API 33) requires this as a runtime permission before any
          notification can show — requested once, right before the first

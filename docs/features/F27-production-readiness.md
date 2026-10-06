@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 10 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 is next.
+- **Progress:** 11 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -207,7 +207,7 @@ T19, T12 -> T23 and T24.
 ### Phase 2: App hardening
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
-| 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | TODO |
+| 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | **DONE 2026-10-06:** both `NS*UsageDescription` strings rewritten to mirror `privacyPointExtractText` (online send, possible retention and staff review, scoped «إحنا مابنحفظش الصورة», offline read on the phone) — **B1 closed**. New `test/app/native_permission_copy_test.dart`: 9 tests over **every** `…UsageDescription` key in the plist (so a future permission is covered automatically), the two Android `appName` labels, and all three manifests. **Negative-proved**: restoring the old wording fails it 2/9. Manifest comments corrected — **M3 closed** — and the stale claim is now itself a test. Gate green: 2,219 tests, analyze 0 errors / 0 warnings. |
 | 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | TODO |
 | 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | TODO |
 | 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | TODO |
@@ -1483,3 +1483,80 @@ addresses the pause but not the storage or invocation ceilings.
   the free plan. The latter is only survivable because every document lives on
   the user's phone and the server holds nothing but counters and anonymous
   identities — recorded as a standing reason never to put anything else there.
+
+### T10 record (2026-10-06) — the last false privacy claim, and a guard over native config
+
+**B1.** Both iOS permission prompts ended with «ومحدش بيشوف صورتها» — the exact
+claim F20-T24 retired for the image. They were the only place in shippable code
+where it survived (a repo-wide grep for the «محدش بيشوف» family now returns
+nothing outside `CLAUDE.md`, the F18/F20/F27 docs that record the audit, and the
+tests that ban it). They mattered more than their size: the camera prompt is the
+**first privacy copy a user ever reads**, shown before the onboarding screen that
+`app_strings_test` has been guarding since F18-T02.
+
+Both now mirror `privacyPointExtractText` clause for clause — online the photo
+goes to an outside service that reads the text from it, which **may keep it for a
+while and let its staff review it**; «إحنا مابنحفظش الصورة» with the subject
+stated, since §7 bans an unscoped "not saved"; offline it is read on the phone
+only. No provider is named.
+
+**One judgement call for the owner.** The honest wording is roughly 240
+characters, against the old 105. iOS shows it in full in the permission alert,
+but it is long for the audience this app is written for (the elderly, weak
+readers). The alternative is to drop the retention-and-review clause from the
+prompt and leave it to the onboarding screen — which would still be truthful, but
+would mean the *first* privacy copy a user sees is the incomplete one. I kept the
+full version. Shortening it is a one-line change in `Info.plist` plus the matching
+clause in the test.
+
+#### The guard: `test/app/native_permission_copy_test.dart`
+
+B1 existed because `app_strings_test` only covers `AppStrings`. Native config is
+copy too, and nothing read it. The new file reads `ios/Runner/Info.plist`, the
+three `AndroidManifest.xml` files and `android/app/build.gradle.kts` straight off
+disk, and applies the §7 rules to them:
+
+- It collects **every** `…UsageDescription` key by pattern, not a hand-written
+  list — so a microphone or location prompt added in T23 inherits all the checks
+  without anyone remembering this file exists. That is the specific failure mode
+  that produced B1.
+- No prompt may claim the photo goes unseen, that it «متتحفظش خالص», or that it
+  "never leaves" the device; any «مابنحفظش» must carry «إحنا».
+- The two photo prompts must positively state all five clauses — silence is a way
+  of being misleading too, so "say nothing" is not a way to pass.
+- A **drift test**: the clauses the plist mirrors are asserted against
+  `ArStrings.privacyPointExtractText`, so rewording the onboarding copy without
+  the plist fails here instead of leaving the two to disagree quietly.
+- No prompt and no launcher label may name a provider (same six names as
+  `app_strings_test`).
+
+**Negative-proved rather than assumed.** The old camera string was pasted back
+and the suite re-run: 7 passed, **2 failed** (the unseen-claim test and the
+what-really-happens test). Restored afterwards; the working tree holds only the
+new wording.
+
+#### M3, and why a comment got a test
+
+The `AndroidManifest.xml` comment above `CAMERA` said "the image never leaves the
+device" — true before F20, false since. No user reads it, so it is not a §7
+breach; it matters because **that comment is how a false claim comes back**: the
+next person writing permission copy reads the manifest first. Fixed, and the
+`INTERNET` comment with it (it still named F13 and the "analysis Edge Function",
+pre-dating `ocr-document`). Both now state the split plainly, including that the
+outside reader may retain the photo. The dead phrase is asserted against in the
+test, in all three manifests.
+
+#### Scope checks
+
+- **Android needs no copy change.** There is no `strings.xml` anywhere in
+  `android/app/src/main/res` (only `colors.xml` and the four `styles.xml`): the
+  runtime permission dialogs use Android's own text, the in-app rationale lives in
+  `AppStrings` (`cameraPermissionBody`, already clean), and the only copy the app
+  ships for Android is the two `appName` placeholders — now covered.
+- **`CFBundleDisplayName` / `CFBundleName` were left at «ورقتي» on purpose.** They
+  are T14's, per decision #2.
+- No `lib/` code changed, so no layer, DI or widget surface moved.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (18 infos, **0 errors, 0
+warnings**, none in the new file), `flutter test` — **2,219 passed, 0 failed**
+(9 new). No backend change, so no `deno test`.

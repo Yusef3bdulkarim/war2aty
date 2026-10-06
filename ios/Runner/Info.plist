@@ -26,10 +26,15 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<!-- F27-T10 / F20-T24: these two strings are user-facing privacy copy and
+	     obey CLAUDE.md §7 exactly like `AppStrings` does. They must not claim
+	     that nobody sees the photo, must not say it is "not saved" without
+	     scoping that to us, and must not name a provider. They mirror
+	     `privacyPointExtractText`; `native_permission_copy_test` enforces it. -->
 	<key>NSCameraUsageDescription</key>
-	<string>محتاجين الكاميرا علشان تقدر تصوّر الورقة وتفهم محتواها. بنقرا النص بمعالجة آمنة، ومحدش بيشوف صورتها.</string>
+	<string>محتاجين الكاميرا علشان تقدر تصوّر الورقة وتفهم محتواها. لما تكون متصل بالإنترنت، بنبعت صورة الورقة لخدمة خارجية تقرا النص منها، وممكن تحتفظ بيها فترة ويراجعها موظفين عندها؛ إحنا مابنحفظش الصورة. من غير إنترنت، الصورة بتتقري على موبايلك بس.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>محتاجين نوصل لصورك علشان تختار صورة الورقة اللي عايز تفهمها. بنقرا النص بمعالجة آمنة، ومحدش بيشوف صورتها.</string>
+	<string>محتاجين نوصل لصورك علشان تختار صورة الورقة اللي عايز تفهمها. لما تكون متصل بالإنترنت، بنبعت صورة الورقة لخدمة خارجية تقرا النص منها، وممكن تحتفظ بيها فترة ويراجعها موظفين عندها؛ إحنا مابنحفظش الصورة. من غير إنترنت، الصورة بتتقري على موبايلك بس.</string>
 	<!-- F06-T14: the dev flavor talks to the local stack over http://127.0.0.1.
 	     App Transport Security blocks plain HTTP by default. NSAllowsLocalNetworking
 	     permits loopback and local-network hosts ONLY — arbitrary HTTP stays
