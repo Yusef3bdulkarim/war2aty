@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
 - **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
-- **Progress:** 12 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 is next.
+- **Progress:** 13 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 closed **H1**: the two global error handlers, a production sink, a new `report-error` Edge Function and `error_reports` table — **proved end to end on a real local stack** (a row written through the real function) with 809 backend tests green. **Deployment to staging and production is owed and not done.** T13 is next.
 
 Everything between the current `develop` and a public store launch: environments,
 backend rollout, abuse protection, release builds and signing, branding,
@@ -209,7 +209,7 @@ T19, T12 -> T23 and T24.
 |---|---|---|---|---|---|
 | 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | **DONE 2026-10-06:** both `NS*UsageDescription` strings rewritten to mirror `privacyPointExtractText` (online send, possible retention and staff review, scoped «إحنا مابنحفظش الصورة», offline read on the phone) — **B1 closed**. New `test/app/native_permission_copy_test.dart`: 9 tests over **every** `…UsageDescription` key in the plist (so a future permission is covered automatically), the two Android `appName` labels, and all three manifests. **Negative-proved**: restoring the old wording fails it 2/9. Manifest comments corrected — **M3 closed** — and the stale claim is now itself a test. Gate green: 2,219 tests, analyze 0 errors / 0 warnings. |
 | 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | **DONE 2026-10-06:** `android:allowBackup="false"` **and** `res/xml/data_extraction_rules.xml` — both are needed, because at targetSdk 36 the attribute alone leaves device-to-device transfer on with some manufacturers. All nine domains excluded in both sections (these default to *including* what they do not name). Verified live on **RMX2001**: old build `ALLOW_BACKUP` + a backup Android really attempted, new build no flag and «Backup is not allowed»; the test transport was restored afterwards. Compiled APK re-read with `aapt2` (attribute and all 18 excludes present). 6-test guard added. **H2 closed.** The API 31+ half cannot be exercised on an Android 11 phone — carried to T18. |
-| 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | TODO |
+| 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | **DONE 2026-10-06, bar the deploy.** Both handlers installed in `bootstrap` and chained, never replaced; a new `LogCrashKind` gives an uncaught error a content-free code for the first time. `ErrorReportSink` replaces `NoopLogSink` in configured prod builds: failures only, fire-and-forget, 20/session, on a Dio with **no log interceptor** so reporting cannot log itself. New `report-error` function + `error_reports` table (RLS forced, no policies, **append-only** — no UPDATE grant), a closed 33-code allowlist, per-user ceiling of 100/day applied inside the insert, and a 90-day pg_cron purge. **28 Dart + 38 Deno tests**, incl. 11 integration against a real database and 4 against the real served function — a row verified in the table. A Dart test compares the Dart and TypeScript code lists so the two cannot drift. `docs/OPERATIONS.md` gained the queries an operator actually runs. **H1 closed.** Owed: deploy the migration + function to staging and production (owner permission). |
 | 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | TODO |
 | 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | BLOCKED |
 
@@ -1650,3 +1650,153 @@ the build file.
 **Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0 warnings**,
 18 pre-existing infos), `flutter test` — **2,225 passed, 0 failed** (6 new). No
 backend change, so no `deno test`.
+### T12 record (2026-10-06) — production can finally tell us it is broken
+
+**H1 was the whole of it:** production ran on `NoopLogSink`, and neither
+`FlutterError.onError` nor `PlatformDispatcher.onError` was set. A crash in the
+field produced nothing, anywhere, ever. Four pieces close it.
+
+#### 1. An uncaught error had no code to be logged as
+
+`AppLogger` can only log a `LogEvent`, and `LogEvent`'s only error field was an
+`AppFailure` — everything the app *anticipated*. A crash is the other kind, and
+there was no content-free way to name one.
+
+`LogCrashKind` adds exactly two: `UNCAUGHT_FLUTTER_ERROR` and
+`UNCAUGHT_PLATFORM_ERROR`, each with a fixed code, mapping into the existing
+`errorCode` field — so **the §51 allowlist did not have to grow**. What it
+deliberately does *not* carry is the exception's `toString()` or its stack: a
+parse or format error quotes the input it choked on, and on this app's paths
+that input is someone's document. The cost is stated plainly below.
+
+#### 2. Both handlers, chained rather than replaced
+
+`installGlobalErrorHandlers` keeps the previous handler and calls it, so the
+debug red screen, the console stack trace and `flutter_test`'s own handler all
+still work — a replacement would have silently disarmed test failures.
+`PlatformDispatcher.onError` returns `false`: reporting an error is not
+recovering from it, and claiming otherwise would swallow real defects. It
+returns an undo function, so tests install it without leaking into the next one.
+
+#### 3. The sink: four rules, each with a reason
+
+`ErrorReportSink` replaces `NoopLogSink` in a configured prod build.
+
+- **Only failures leave the device.** A record with no `errorCode` is dropped,
+  so volume tracks defects rather than usage.
+- **Never blocks, never throws.** `write` returns as soon as the request is
+  started; every error is swallowed, including a transport that throws
+  synchronously.
+- **Cannot recurse.** Reporting a failure can fail, and that failure would be
+  logged — which would report it. Two independent guards: records produced while
+  a send is in flight are dropped, **and** the sink's Dio is built with no
+  `ApiLogInterceptor` at all. `createApiClient`'s `logger` became optional for
+  exactly this one client.
+- **20 reports per session.** A crash loop emits thousands a minute; this is the
+  stop.
+
+An **unconfigured** prod build keeps `NoopLogSink` — there is no Supabase to
+authenticate against, so every report would be a doomed call on the path a
+broken build takes most often.
+
+#### 4. The backend: our own table, per Q13
+
+`report-error` (POST, `verify_jwt = true`) → `record_error_report` →
+`public.error_reports`.
+
+- **A closed 33-code allowlist** is the endpoint's whole security story: the
+  app's own codes plus the two crash kinds. An unknown code is a 400, never a
+  row.
+- **An unknown field is refused outright**, not ignored. That is the privacy
+  tripwire: a client that tries to attach a message, a stack or `ocr_text` fails
+  on the first call.
+- **No column could hold content.** Every one is a closed code, a uuid, a
+  bounded integer or a dotted version, with CHECK constraints as the second line
+  so even a direct service-role insert cannot park prose there.
+- **Append-only.** `service_role` is granted select, insert and delete and
+  deliberately **not** update: monitoring data that can be edited after the fact
+  is not evidence of anything. Proved by a test that tries.
+- **A per-user ceiling of 100/day, inside the insert.** Counting in TypeScript
+  and then inserting would race with itself precisely when it matters — during a
+  crash loop. B3's lesson is that a write path with no ceiling on a public
+  project is a quota drain waiting to be found; the client's own 20/session
+  protects nobody, since a reinstall resets it.
+- **202 even when the row is dropped.** The client is not misbehaving and has
+  nothing to do differently; a 429 would only teach the sink to retry. The real
+  outcome goes in the function's log line.
+- **90-day purge**, Q11's attempts window rather than a third number to
+  remember, as a third `pg_cron` job at 02:30 UTC. Deleting a user cascades
+  their reports away, so T07's idle-user purge needs no companion.
+
+#### Proved on a real stack, not just with fakes
+
+- **Dart: 28 tests** over the DTO, the sink, the handlers and the codes.
+- **Deno: 38** — 23 unit, 11 integration against a real database, 4 against the
+  **real served function**.
+- The live path was followed end to end: 401 without a token, 202 with a real
+  anonymous token, 400 for an unknown code and for an extra field — and then the
+  row **read back out of `error_reports`** to prove the service role really
+  wrote it from inside the function. Local stack reset to all 10 migrations
+  first; full backend suite **809 passed / 0 failed** live.
+- **A cross-language guard**: `error_report_codes_test.dart` reads the
+  TypeScript allowlist and compares it with the Dart source, both directions.
+  Without it, a new `AppFailure` would be reported by the app and refused by the
+  server with a 400 the sink swallows **by design** — the reports would simply
+  stop arriving, and the monitoring built to tell us things are broken would go
+  quiet about the newest failure. Same technique as T10's plist guard.
+
+#### One test of T07's had to change
+
+`retention.integration.test.ts` asserted the schedule report lists **exactly
+two** jobs. It now asserts three. Kept as an exact set rather than loosened to a
+superset: a job quietly dropping off that list is a table growing for ever with
+nobody watching.
+
+#### What this monitoring cannot do — stated, not buried
+
+- **No stack traces, no messages.** You learn *that* something broke, in which
+  stage, on which app version — never which line. That is Q13's shape, and §7 is
+  why: a third-party reporter could not be shown never to receive document
+  content, and "their scrubber probably catches it" is not a privacy model. If
+  the owner ever wants more, the honest next step is a bounded, shape-validated
+  top-frame identifier — a deliberate decision, not a quiet widening.
+- **Offline failures under-report.** A `NO_INTERNET` report needs the network to
+  send. Expect this table to understate exactly the failures that happen while
+  the user has no connection.
+- **A crash before sign-in is invisible.** The endpoint requires a JWT, because
+  an unauthenticated write path on a public repo is B3 all over again. A crash
+  before the anonymous session exists is lost — the right side to err on, and
+  recorded so nobody reads a quiet table as a healthy app.
+- **Nothing watches the table.** `docs/OPERATIONS.md` now carries the queries an
+  operator runs (what is breaking in the last 24 h, broken down by app version,
+  and §4.7 rewritten to start from them), but alerting is still manual. A
+  nightly digest query is the cheap next step and needs no new infrastructure.
+
+#### Not done: the deploy
+
+The migration and the function are **local only**. The app half ships with the
+next build, so the backend half must land first, and both are production writes
+needing the owner's permission (the T07 precedent):
+
+```
+supabase link --project-ref jecujrsvbmashkpobtsz   # staging first
+supabase db push
+supabase functions deploy report-error
+# then the same two against ivbpmzasxpphclundjyy (production)
+```
+
+No new secrets: the function uses `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY`, which both projects already have.
+
+#### Also updated
+
+`supabase/README.md` (the endpoint table was still "the three endpoints" and
+predated `ocr-document`; the new table and its append-only rule are documented),
+and one stale line in `docs/API_CONTRACT.md` that said "all three endpoints".
+A full §-level contract entry for `report-error` is **not** written — that doc is
+the numbered API spec and assigning it a § is the owner's call.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
+warnings**, 18 pre-existing infos), `flutter test` **2,250 passed / 0 failed**,
+`deno test` **809 passed / 0 failed** against a live stack, `deno lint` clean
+over 105 files.

@@ -209,11 +209,15 @@ Deno.test({
 });
 
 Deno.test({
-  name: "[integration] both retention jobs are scheduled",
+  name: "[integration] every retention job is scheduled",
   ignore: skip,
   fn: async () => {
     // The functions existing is not the policy; the schedule is. Read through a
     // service-role RPC because the `cron` schema is not exposed to PostgREST.
+    //
+    // Asserted as an exact set, not a superset: a job that quietly stops being
+    // listed here is a table growing for ever with nobody watching. F27-T12
+    // added the third (`error_reports`) and widened the report to match.
     const client = serviceClient();
     const { data, error } = await client.rpc("retention_jobs_report", {});
 
@@ -224,6 +228,7 @@ Deno.test({
     assertEquals(names, [
       "purge-idle-anonymous-users",
       "purge-old-analysis-attempts",
+      "purge-old-error-reports",
     ]);
   },
 });

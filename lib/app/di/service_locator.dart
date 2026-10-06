@@ -67,6 +67,8 @@ import '../../core/localization/locale_store.dart';
 import '../../core/localization/usecases/get_saved_locale.dart';
 import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/error_report_remote_data_source.dart';
+import '../../core/logging/error_report_sink.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
 import '../../core/permissions/notification_permission_repository.dart';
@@ -242,12 +244,44 @@ Future<void> configureDependencies(
 void _registerCore(AppEnvironment env) {
   getIt
     ..registerSingleton<AppEnvironment>(env)
-    // Logging is verbose in dev, silent in prod (privacy-first default).
-    ..registerLazySingleton<LogSink>(
-      () => env.isDev ? const DeveloperLogSink() : const NoopLogSink(),
-    )
+    // Verbose in dev; in prod, failures only and nothing else (F27-T12).
+    ..registerLazySingleton<LogSink>(() => _buildLogSink(env))
     ..registerLazySingleton<AppLogger>(() => StructuredAppLogger(getIt()))
     ..registerSingleton<RuntimeConfigStore>(RuntimeConfigStore());
+}
+
+/// Dev logs everything locally; prod reports failures to our own backend.
+///
+/// An **unconfigured** prod build gets [NoopLogSink]: there is no Supabase to
+/// authenticate against, so every report would be a doomed HTTP call on the
+/// exact path a broken build takes most often. Silence is the honest answer
+/// there — the build already tells the user the service is unavailable.
+///
+/// The sink's HTTP client is built here rather than resolved from `getIt`:
+/// it is deliberately a *different* client from the one every datasource
+/// shares, with no [ApiLogInterceptor] on it, because logging the error
+/// report would log the logging (F27-T12). It is also the reason this cannot
+/// be a `const` or a plain registration — the client needs the environment
+/// and the auth repository, and the auth repository must not need the sink.
+LogSink _buildLogSink(AppEnvironment env) {
+  if (env.isDev) return const DeveloperLogSink();
+  if (!env.isConfigured) return const NoopLogSink();
+
+  return ErrorReportSink(
+    EdgeFunctionErrorReportDataSource(
+      createApiClient(
+        environment: env,
+        accessToken: () async {
+          final session = await getIt<AuthRepository>().restoreSession();
+          return session.valueOrNull?.accessToken;
+        },
+        refreshSession: () async {
+          final refreshed = await getIt<AuthRepository>().refreshSession();
+          return refreshed.valueOrNull?.accessToken;
+        },
+      ),
+    ),
+  );
 }
 
 void _registerDatabase(AppDatabase? database) {

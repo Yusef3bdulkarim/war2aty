@@ -120,6 +120,57 @@ A day climbing toward `global_daily_call_cap` is the most useful early warning
 you have. A `reserved_count` that grows without becoming `successful_count`
 means requests are starting and not finishing.
 
+### What is breaking in the app (F27-T12)
+
+The app reports its own failures to `public.error_reports`: a closed error code,
+which stage it happened in, the app version, and the request id of the call that
+failed. **No stack traces, no messages, no document content** — the table has no
+column that could hold any (§7). So it tells you *that* something is broken and
+roughly where, never what was on the page.
+
+What is breaking, right now:
+
+```sql
+select error_code, count(*) as n, max(reported_at) as last_seen
+  from public.error_reports
+ where reported_at > now() - interval '24 hours'
+ group by error_code
+ order by n desc;
+```
+
+Reading the result:
+
+- **A code that was always there** is usually not a defect. `CAMERA_PERMISSION`,
+  `NO_INTERNET` and `DAILY_LIMIT_REACHED` are users meeting the app's own rules.
+- **`UNCAUGHT_FLUTTER_ERROR` / `UNCAUGHT_PLATFORM_ERROR` are different.** These
+  are crashes — code that did something nobody expected. A sudden appearance
+  after a release is the strongest signal in this table, and the response is
+  §4.7.
+- **A spike in one code after a release** names the stage to look at; break it
+  down by `app_version` to confirm the release is the cause:
+
+```sql
+select app_version, error_code, count(*)
+  from public.error_reports
+ where reported_at > now() - interval '48 hours'
+ group by app_version, error_code
+ order by 3 desc;
+```
+
+- **`request_id` ties a report to the server's own log line** for the same call.
+  Copy it into the function logs' search box to see our side of the failure.
+
+Two limits to know before you trust a count:
+
+- **The app sends at most 20 reports per run**, and stops reporting for the rest
+  of that session. A crash loop shows up as *a few* rows, not thousands.
+- **The server stops at 100 rows per user per day** and silently drops the rest,
+  so a single broken install cannot drown out everyone else's reports — or the
+  free tier.
+
+Rows are kept **90 days** and swept nightly (§3). Nothing can edit a row once
+written: the table has no `UPDATE` grant at all, not even for the service role.
+
 ### The upstream ceilings
 
 Limits as published on **2026-10-06**. They move — re-check before relying on a
@@ -190,9 +241,10 @@ select max(created_at) from public.analysis_attempts;
 select jobname, schedule, active from cron.job where jobname like 'purge-%';
 ```
 
-Both jobs should read `active = true`: `purge-old-analysis-attempts` at
-`30 1 * * *` and `purge-idle-anonymous-users` at `0 2 * * *`. Those are UTC, so
-03:30 and 04:00 in Cairo, an hour later in summer.
+All three jobs should read `active = true`: `purge-old-analysis-attempts` at
+`30 1 * * *`, `purge-idle-anonymous-users` at `0 2 * * *`, and
+`purge-old-error-reports` at `30 2 * * *` (F27-T12). Those are UTC, so 03:30,
+04:00 and 04:30 in Cairo, an hour later in summer.
 
 ### Keeping a project awake for nothing
 
@@ -223,7 +275,9 @@ ceilings in §2.
 
 **If a project has already paused:** restore it from the dashboard, then
 immediately re-check `cron.job`. If the purges are gone, re-apply
-`supabase/migrations/20261006100000_data_retention_jobs.sql` from the SQL Editor.
+`supabase/migrations/20261006100000_data_retention_jobs.sql` **and**
+`supabase/migrations/20261006150000_error_reports.sql` from the SQL Editor —
+the third job lives in the second file.
 
 ---
 
@@ -338,6 +392,20 @@ levers are what exists.
 
 ### 4.7 A release is broken
 
+**First, confirm it from the app's own reports** (§2), which is the only place a
+client-side break is visible at all:
+
+```sql
+select app_version, error_code, count(*)
+  from public.error_reports
+ where reported_at > now() - interval '24 hours'
+ group by app_version, error_code
+ order by 3 desc;
+```
+
+A code that appears only under the new `app_version` — and especially an
+`UNCAUGHT_*` one — is the release, not the backend.
+
 Raise `minimum_app_version` to the first good version. Clients below it get
 `400 UNSUPPORTED_APP_VERSION` and tell the user to update, instead of failing in
 whatever way the bug produces. It is a blunt instrument: it locks out everyone
@@ -347,8 +415,9 @@ who cannot update yet. See `docs/RELEASE.md`.
 
 ## 5. What this document cannot do yet
 
-- **No alerting.** Nothing tells you anything is wrong; F27-T12 adds the error
-  table that makes alerting possible.
+- **No alerting.** The error table exists (F27-T12, in §2) but nothing watches
+  it: you still have to look. A nightly query that mails you yesterday's top
+  codes is the cheap next step, and needs no new infrastructure.
 - **No backups on the free plan.** There is no point-in-time restore. What is in
   the database is all there is — survivable only because every document lives on
   the user's own phone and the server holds nothing but counters and anonymous

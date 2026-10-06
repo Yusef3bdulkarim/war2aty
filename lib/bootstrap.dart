@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'app/di/service_locator.dart';
 import 'core/env/app_environment.dart';
+import 'core/logging/global_error_handlers.dart';
 import 'features/bootstrap/presentation/screens/splash_screen.dart';
 
 /// Shared launch path for every flavor entrypoint.
@@ -34,6 +35,11 @@ Future<void> bootstrap(AppEnvironment env) async {
       : resolved;
 
   await configureDependencies(launchEnv);
+
+  // After DI, because it needs the logger; before `runApp`, so the first frame
+  // is already covered (F27-T12).
+  installGlobalErrorHandlers(getIt());
+
   runApp(const WaraqtiApp());
 }
 
