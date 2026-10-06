@@ -240,9 +240,16 @@ saves a paper with its picture, and decrypting **every time they open one**.
 
 **Fixed**: both the cipher calls now run inside `Isolate.run`. Reading the key
 stays outside, because secure storage is a platform channel and only the root
-isolate has one; the key bytes crossing into the isolate are the same bytes
-`DocumentEncryptionKeyStore` already holds in this process's memory, so nothing
-new is exposed. The encryptor's existing eight tests — round-trip, empty
+isolate has one.
+
+On the key: `Isolate.run` **copies** what the closure captures — being in the
+same isolate group does not mean a shared mutable heap — so a copy of the key
+bytes exists in a second isolate for the length of the call. That copy stays
+inside this process: no file, no log, no wire format, nothing a profiler or
+another app can reach that could not already reach the original. The copy is
+also the reason this trade only makes sense at page size — a few megabytes of
+memcpy against tens to hundreds of milliseconds of pure-Dart AES on a low-end
+phone. The encryptor's existing eight tests — round-trip, empty
 input, tampered tag, flipped body byte, short input, wrong key — all still
 pass unchanged, which is what matters for a change inside a cipher.
 

@@ -16,10 +16,11 @@ void main() {
       .toList();
 
   /// `class HomeScreen extends StatelessWidget` → `HomeScreen`. Only public
-  /// top-level screen widgets count: a `_SomethingPage` private to one file
-  /// is a part of its screen, not a route of its own.
+  /// top-level screen widgets count: a `_SomethingScreen` private to one file
+  /// is a part of its screen, not a route of its own, which is why the name
+  /// has to start with a capital rather than just any `\w`.
   final classPattern = RegExp(
-    r'^class (\w+Screen) extends (StatelessWidget|StatefulWidget)',
+    r'^class ([A-Z]\w*Screen) extends (StatelessWidget|StatefulWidget)',
     multiLine: true,
   );
 
