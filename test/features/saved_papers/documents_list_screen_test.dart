@@ -11,6 +11,7 @@ import 'package:war2aty/features/saved_papers/presentation/screens/documents_lis
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -28,6 +29,19 @@ void main() {
     create: (_) => DocumentsListCubit(WatchDocuments(repository))..start(),
     child: DocumentsListScreen(onScan: onScan, onOpenDocument: onOpenDocument),
   );
+
+  auditScreenLayout('DocumentsListScreen', (tester, locale, scaler) {
+    repository.emit([
+      documentWith(id: 'a', title: 'فاتورة كهرباء'),
+      documentWith(id: 'b', title: 'موعد الأشعة'),
+    ]);
+    return pumpApp(
+      tester,
+      screenUnderTest(),
+      locale: locale,
+      textScaler: scaler,
+    );
+  });
 
   group('DocumentsListScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {

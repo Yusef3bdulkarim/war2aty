@@ -165,5 +165,80 @@ void main() {
         const Err<AnalysisSession, AppFailure>(FileStorageFailure()),
       );
     });
+
+    // F27-T15: `deleteStaleSessions` only runs at launch, and Android can
+    // keep the process alive for days, so a new session has to clear the old
+    // one or every unsaved scan leaves its page image in the cache.
+    test('clears an earlier session before creating the new one', () async {
+      seedSession('yesterdays-scan');
+
+      final result = await storage.createSession(
+        CapturedPhoto(sourceImage.path),
+      );
+
+      expect(result.isOk, isTrue);
+      expect(
+        Directory(p.join(sessionsDir().path, 'yesterdays-scan')).existsSync(),
+        isFalse,
+      );
+      expect(sessionsDir().listSync().map((e) => p.basename(e.path)), [
+        'fixed-uuid',
+      ]);
+    });
+
+    test('a failed create still cleared what was there', () async {
+      seedSession('yesterdays-scan');
+
+      final result = await storage.createSession(
+        const CapturedPhoto('/nonexistent/photo.jpg'),
+      );
+
+      expect(result.isOk, isFalse);
+      expect(
+        Directory(p.join(sessionsDir().path, 'yesterdays-scan')).existsSync(),
+        isFalse,
+      );
+    });
+  });
+
+  group('deleteSession', () {
+    test('removes that session folder and its page image', () async {
+      seedSession('session-a');
+      seedSession('session-b');
+
+      await storage.deleteSession('session-a');
+
+      expect(
+        File(
+          p.join(sessionsDir().path, 'session-a', 'original.jpg'),
+        ).existsSync(),
+        isFalse,
+      );
+      expect(
+        Directory(p.join(sessionsDir().path, 'session-a')).existsSync(),
+        isFalse,
+      );
+      // Only the one it was asked about.
+      expect(
+        Directory(p.join(sessionsDir().path, 'session-b')).existsSync(),
+        isTrue,
+      );
+    });
+
+    test('is a no-op for a session that was already cleaned up', () async {
+      sessionsDir().createSync(recursive: true);
+
+      await expectLater(storage.deleteSession('never-existed'), completes);
+    });
+
+    test('swallows a filesystem failure rather than throwing', () async {
+      final broken = FileAnalysisSessionStorage(
+        cacheDirectory: () async => throw const FileSystemException('nope'),
+      );
+
+      // Called from `close()`, where there is nothing to report to and an
+      // exception would escape into the framework.
+      await expectLater(broken.deleteSession('session-a'), completes);
+    });
   });
 }

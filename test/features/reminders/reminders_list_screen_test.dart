@@ -13,6 +13,7 @@ import 'package:war2aty/features/reminders/presentation/screens/reminders_list_s
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -41,6 +42,19 @@ void main() {
       onOpenReminder: onOpenReminder,
     ),
   );
+
+  auditScreenLayout('RemindersListScreen', (tester, locale, scaler) {
+    repository.emit([
+      fakeReminder(alertTimes: [DateTime(2026, 8, 24, 10)]),
+      fakeReminder(id: 'r2', status: ReminderStatus.completed),
+    ]);
+    return pumpApp(
+      tester,
+      screenUnderTest(),
+      locale: locale,
+      textScaler: scaler,
+    );
+  });
 
   group('RemindersListScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {

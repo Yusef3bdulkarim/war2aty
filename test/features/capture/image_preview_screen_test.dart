@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
@@ -23,6 +24,7 @@ import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 const _strings = ArStrings();
 
@@ -37,6 +39,7 @@ Future<_Result> _pumpPreview(
   FakeUsageRepository? usage,
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
+  Locale locale = AppLocalizations.arabic,
   TextScaler? textScaler,
 }) async {
   final result = _Result();
@@ -79,6 +82,7 @@ Future<_Result> _pumpPreview(
       ),
     ),
     settle: false,
+    locale: locale,
     textScaler: textScaler,
   );
   await tester.pump();
@@ -86,6 +90,12 @@ Future<_Result> _pumpPreview(
 }
 
 void main() {
+  auditScreenLayout(
+    'ImagePreviewScreen',
+    (tester, locale, scaler) =>
+        _pumpPreview(tester, locale: locale, textScaler: scaler),
+  );
+
   group('ImagePreviewScreen', () {
     testWidgets('shows the title, hint and both actions', (tester) async {
       await _pumpPreview(tester);

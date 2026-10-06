@@ -17,6 +17,7 @@ import 'package:war2aty/features/bootstrap/presentation/splash_timing.dart';
 import 'package:war2aty/features/bootstrap/presentation/widgets/splash_hand_off.dart';
 
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -47,6 +48,7 @@ void main() {
     WidgetTester tester, {
     required List<BootstrapStep> steps,
     Locale locale = const Locale('ar'),
+    TextScaler? textScaler,
   }) async {
     final cubit = BootstrapCubit(InitializeApp(steps));
     addTearDown(cubit.close);
@@ -58,6 +60,7 @@ void main() {
         child: const SplashScreen(),
       ),
       locale: locale,
+      textScaler: textScaler,
       settle: false,
     );
     return cubit;
@@ -69,6 +72,16 @@ void main() {
     await tester.pump();
     await tester.pump();
   }
+
+  auditScreenLayout('SplashScreen', (tester, locale, scaler) async {
+    await pumpSplash(
+      tester,
+      steps: const [],
+      locale: locale,
+      textScaler: scaler,
+    );
+    await tester.pump();
+  });
 
   testWidgets('shows the mark over its glow, and no text at all', (
     tester,

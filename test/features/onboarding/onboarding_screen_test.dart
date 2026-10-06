@@ -8,10 +8,21 @@ import 'package:war2aty/features/onboarding/presentation/screens/onboarding_scre
 import 'package:war2aty/features/onboarding/presentation/widgets/primary_cta.dart';
 
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
   const en = EnStrings();
+
+  auditScreenLayout(
+    'OnboardingScreen',
+    (tester, locale, scaler) => pumpApp(
+      tester,
+      const OnboardingScreen(),
+      locale: locale,
+      textScaler: scaler,
+    ),
+  );
 
   group('OnboardingScreen', () {
     testWidgets('shows the heading, lead copy and all four kind cards', (

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
@@ -16,6 +17,7 @@ import 'package:war2aty/features/reminders/presentation/screens/reminder_form_sc
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -48,6 +50,8 @@ void main() {
     ReminderFormCubit cubit, {
     ValueChanged<Reminder>? onSaved,
     VoidCallback? onClose,
+    Locale locale = AppLocalizations.arabic,
+    TextScaler? textScaler,
   }) => pumpApp(
     tester,
     BlocProvider<ReminderFormCubit>.value(
@@ -58,7 +62,20 @@ void main() {
         onClose: onClose,
       ),
     ),
+    locale: locale,
+    textScaler: textScaler,
   );
+
+  auditScreenLayout('ReminderFormScreen', (tester, locale, scaler) async {
+    final cubit = ReminderFormCubit.manual(
+      createFromDocumentDate: createFromDocumentDate,
+      createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
+    );
+    addTearDown(cubit.close);
+    await pumpScreen(tester, cubit, locale: locale, textScaler: scaler);
+  });
 
   testWidgets('titles the page on the teal top bar (F26-T02)', (tester) async {
     var closed = 0;

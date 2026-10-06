@@ -17,6 +17,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/storage/usecases/discard_analysis_session.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/audio_mini_player_bar.dart';
@@ -48,6 +49,7 @@ import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
 
 import '../../../support/fakes.dart';
 import '../../../support/pump_app.dart';
+import '../../../support/ui_audit.dart';
 import '../analysis_fixtures.dart';
 
 const _strings = ArStrings();
@@ -100,6 +102,7 @@ void main() {
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
       getDailyUsage: GetDailyUsage(FakeUsageRepository()),
+      discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
     );
     tts = FakeTextToSpeechService();
     speedStore = FakeDefaultReadingSpeedStore();
@@ -145,6 +148,11 @@ void main() {
     textScaler: textScaler,
     settle: settle,
   );
+
+  auditScreenLayout('AnalysisResultScreen', (tester, locale, scaler) async {
+    await cubit.analyze();
+    await pumpScreen(tester, locale: locale, textScaler: scaler);
+  });
 
   group('AnalysisResultScreen', () {
     testWidgets('shows the progress page while the analysis runs', (

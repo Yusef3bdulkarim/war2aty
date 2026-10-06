@@ -30,9 +30,23 @@ abstract interface class AnalysisSessionStorage {
 
   /// Creates a new session directory, copies the processed image into it, and
   /// returns the session token that F04 picks up for OCR + analysis.
+  ///
+  /// Only one analysis is ever in flight, so this also clears whatever an
+  /// earlier one left behind — see [FileAnalysisSessionStorage.createSession].
   Future<Result<AnalysisSession, AppFailure>> createSession(
     CapturedPhoto photo,
   );
+
+  /// Deletes one session's folder, with its unencrypted page image.
+  ///
+  /// Called when that analysis is over — the result screen closing — so the
+  /// plaintext copy does not sit in the cache until the next launch (§7:
+  /// «تُحذف النسخة غير المشفّرة والملفات المؤقتة بعد الانتهاء»).
+  ///
+  /// Best-effort by contract: it returns nothing and never throws. A page the
+  /// user chose to save has already had this file moved into the encrypted
+  /// store, so the usual case is deleting a folder that is already empty.
+  Future<void> deleteSession(String sessionId);
 }
 
 /// Filesystem-backed [AnalysisSessionStorage].
@@ -65,10 +79,20 @@ final class FileAnalysisSessionStorage implements AnalysisSessionStorage {
     }
   }
 
+  /// Creates the new session's folder, after clearing any older one.
+  ///
+  /// The purge matters because [deleteStaleSessions] only runs at launch:
+  /// Android can keep the process alive for days, so without this a user who
+  /// scans three papers a day without ever saving the picture accumulated one
+  /// unencrypted page image per scan in the cache (F27-T15). Nothing can be
+  /// mid-analysis here — the capture flow creates the session before OCR and
+  /// clears both hand-off holders first — so every existing folder is from a
+  /// finished or abandoned run.
   @override
   Future<Result<AnalysisSession, AppFailure>> createSession(
     CapturedPhoto photo,
   ) async {
+    await deleteStaleSessions();
     try {
       final id = _generateId();
       final cache = await _cacheDirectory();
@@ -83,6 +107,21 @@ final class FileAnalysisSessionStorage implements AnalysisSessionStorage {
       return Ok(AnalysisSession(id: id, imagePath: dest));
     } on Object {
       return const Err(FileStorageFailure());
+    }
+  }
+
+  @override
+  Future<void> deleteSession(String sessionId) async {
+    try {
+      final cache = await _cacheDirectory();
+      final dir = Directory(
+        p.join(cache.path, kAnalysisSessionsDirName, sessionId),
+      );
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } on Object {
+      // Best-effort, matching `FileDocumentImageStore.delete`: a stray
+      // working file is cleaned up by the next `createSession` or the next
+      // launch, and is never worth surfacing to the user.
     }
   }
 }

@@ -106,6 +106,7 @@ import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/storage/usecases/discard_analysis_session.dart';
 import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_hint_holder.dart';
@@ -608,6 +609,9 @@ void _registerCapture() {
     ..registerFactory<CreateAnalysisSession>(
       () => CreateAnalysisSession(getIt()),
     )
+    ..registerFactory<DiscardAnalysisSession>(
+      () => DiscardAnalysisSession(getIt()),
+    )
     ..registerLazySingleton<CaptureFileCleanup>(IOCaptureFileCleanup.new)
     ..registerFactory<CleanupCaptureFiles>(() => CleanupCaptureFiles(getIt()))
     ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
@@ -731,6 +735,7 @@ void _registerAnalysis(AppEnvironment env) {
         buildResult: getIt(),
         syncDailyUsage: getIt(),
         getDailyUsage: getIt(),
+        discardSession: getIt(),
       ),
     )
     // The OCR review screen (F14) — reuses `ExtractCandidates`, already

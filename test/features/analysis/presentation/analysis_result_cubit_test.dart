@@ -8,6 +8,7 @@ import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/storage/usecases/discard_analysis_session.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
@@ -87,11 +88,56 @@ void main() {
     buildResult: const BuildAnalysisResult(),
     syncDailyUsage: SyncDailyUsage(usageRepository),
     getDailyUsage: GetDailyUsage(usageRepository),
+    discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
   );
 
   group('AnalysisResultCubit', () {
     test('starts analyzing', () {
       expect(buildCubit().state, const AnalysisResultAnalyzing());
+    });
+
+    // F27-T15 (§7): the result screen is where the scan ends, so the
+    // unencrypted working copy must not survive it. Before this, the folder
+    // sat in the cache until the next cold launch.
+    group('the working files of a finished scan', () {
+      test('are deleted when the screen closes', () async {
+        final storage = FakeAnalysisSessionStorage();
+        final cubit = AnalysisResultCubit(
+          session: _session,
+          source: const OcrAnalysisSource(_extraction),
+          getAnalysisConsent: GetAnalysisConsent(consentStore),
+          analyzeDocument: AnalyzeDocument(repository),
+          buildResult: const BuildAnalysisResult(),
+          syncDailyUsage: SyncDailyUsage(usageRepository),
+          getDailyUsage: GetDailyUsage(usageRepository),
+          discardSession: DiscardAnalysisSession(storage),
+        );
+
+        expect(storage.deleted, isEmpty);
+        await cubit.close();
+
+        expect(storage.deleted, [_session.id]);
+      });
+
+      test('are deleted even when the analysis never finished', () async {
+        final storage = FakeAnalysisSessionStorage();
+        repository.answer = const Err(AnalysisServiceFailure());
+        final cubit = AnalysisResultCubit(
+          session: _session,
+          source: const OcrAnalysisSource(_extraction),
+          getAnalysisConsent: GetAnalysisConsent(consentStore),
+          analyzeDocument: AnalyzeDocument(repository),
+          buildResult: const BuildAnalysisResult(),
+          syncDailyUsage: SyncDailyUsage(usageRepository),
+          getDailyUsage: GetDailyUsage(usageRepository),
+          discardSession: DiscardAnalysisSession(storage),
+        );
+
+        await cubit.analyze();
+        await cubit.close();
+
+        expect(storage.deleted, [_session.id]);
+      });
     });
 
     test('sends the session id, the extraction and the languages — and '
@@ -280,6 +326,7 @@ void main() {
           buildResult: const BuildAnalysisResult(),
           syncDailyUsage: SyncDailyUsage(usage),
           getDailyUsage: GetDailyUsage(usage),
+          discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
         );
         final states = <Object>[];
         final subscription = cubit.stream.listen(states.add);

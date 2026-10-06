@@ -14,6 +14,7 @@ import 'package:war2aty/features/onboarding/presentation/widgets/primary_cta.dar
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -47,6 +48,12 @@ void main() {
       textScaler: textScaler,
     );
   }
+
+  auditScreenLayout(
+    'PrivacyScreen',
+    (tester, locale, scaler) =>
+        pumpPrivacy(tester, locale: locale, textScaler: scaler),
+  );
 
   group('PrivacyScreen', () {
     testWidgets('states all four privacy promises', (tester) async {

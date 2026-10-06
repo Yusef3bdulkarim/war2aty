@@ -34,6 +34,7 @@ import 'package:war2aty/features/saved_papers/presentation/screens/document_deta
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -103,6 +104,12 @@ void main() {
     textScaler: textScaler,
     settle: settle,
   );
+
+  auditScreenLayout('DocumentDetailsScreen', (tester, locale, scaler) {
+    repository.emitDocument(savedDocumentWith(title: 'فاتورة كهرباء'));
+    cubit.start();
+    return pumpScreen(tester, locale: locale, textScaler: scaler);
+  });
 
   group('DocumentDetailsScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {

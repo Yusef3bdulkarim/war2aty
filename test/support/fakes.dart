@@ -869,8 +869,14 @@ final class FakeAnalysisSessionStorage implements AnalysisSessionStorage {
   int createCount = 0;
   CapturedPhoto? lastPhoto;
 
+  /// Every session id [deleteSession] was asked to remove, in order.
+  final List<String> deleted = [];
+
   @override
   Future<Result<int, AppFailure>> deleteStaleSessions() async => const Ok(0);
+
+  @override
+  Future<void> deleteSession(String sessionId) async => deleted.add(sessionId);
 
   @override
   Future<Result<AnalysisSession, AppFailure>> createSession(

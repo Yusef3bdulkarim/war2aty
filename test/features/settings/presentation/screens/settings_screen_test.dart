@@ -48,6 +48,7 @@ import 'package:war2aty/features/settings/presentation/screens/settings_screen.d
 
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
+import '../../../../support/ui_audit.dart';
 
 // F11-T01/T02/T03/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the
 // analysis consent toggle, the processing-mode picker, the language switch,
@@ -194,6 +195,12 @@ void main() {
       textScaler: textScaler,
     );
   }
+
+  auditScreenLayout(
+    'SettingsScreen',
+    (tester, locale, scaler) =>
+        pumpScreen(tester, locale: locale, textScaler: scaler),
+  );
 
   group('the loading skeleton (perceived-hang fix)', () {
     testWidgets(

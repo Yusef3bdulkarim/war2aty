@@ -44,6 +44,7 @@ import 'package:war2aty/features/ocr/domain/usecases/extract_document_text.dart'
 
 import '../../../support/fakes.dart';
 import '../../../support/pump_app.dart';
+import '../../../support/ui_audit.dart';
 
 const _ar = ArStrings();
 const _en = EnStrings();
@@ -154,6 +155,14 @@ void main() {
     locale: locale,
     textScaler: textScaler,
   );
+
+  auditScreenLayout('OcrReviewScreen', (tester, locale, scaler) async {
+    cubit = OcrReviewCubit.offline(
+      session: _session,
+      extractCandidates: _extractCandidates(),
+    )..loadOffline(_extraction);
+    await pumpScreen(tester, locale: locale, textScaler: scaler);
+  });
 
   group('OcrReviewScreen quality banners (F20-T23)', () {
     testWidgets('the online fallback shows its own banner, not the offline '

@@ -17,6 +17,7 @@ import 'package:war2aty/features/reminders/presentation/screens/reminder_details
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 // F09-T12: «تفاصيل التذكير».
 void main() {
@@ -66,6 +67,18 @@ void main() {
     textScaler: textScaler,
     settle: settle,
   );
+
+  auditScreenLayout('ReminderDetailsScreen', (tester, locale, scaler) {
+    remindersRepository.emitReminder(
+      'r1',
+      fakeReminder(
+        description: 'ملاحظة تفصيلية عن الفاتورة وطريقة السداد',
+        alertTimes: [DateTime(2026, 8, 24, 10)],
+      ),
+    );
+    cubit.start('r1');
+    return pumpScreen(tester, locale: locale, textScaler: scaler);
+  });
 
   group('ReminderDetailsScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {

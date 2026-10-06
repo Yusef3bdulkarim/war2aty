@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
@@ -217,11 +218,15 @@ class _DraggableCropOverlayState extends State<DraggableCropOverlay> {
       _HandleType.right => (right - inset, (top + bottom) / 2),
     };
 
+    // Through `AppStrings`, not inline: these were the app's only hardcoded
+    // Arabic left in a widget, so an English user's screen reader read the
+    // four handles in Arabic (F27-T15).
+    final strings = context.strings;
     final semanticLabel = switch (type) {
-      _HandleType.top => 'مقبض القص أعلى',
-      _HandleType.bottom => 'مقبض القص أسفل',
-      _HandleType.left => 'مقبض القص يسار',
-      _HandleType.right => 'مقبض القص يمين',
+      _HandleType.top => strings.previewCropHandleTop,
+      _HandleType.bottom => strings.previewCropHandleBottom,
+      _HandleType.left => strings.previewCropHandleLeft,
+      _HandleType.right => strings.previewCropHandleRight,
     };
 
     final isHorizontal = type == _HandleType.top || type == _HandleType.bottom;

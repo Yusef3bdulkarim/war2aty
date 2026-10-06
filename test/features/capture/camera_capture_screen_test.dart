@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/navigation/app_route_observer.dart';
 import 'package:war2aty/core/widgets/teal_top_bar.dart';
@@ -23,6 +24,7 @@ import 'package:war2aty/features/capture/presentation/screens/camera_capture_scr
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 const _strings = ArStrings();
 const _flashButton = ValueKey('camera-flash-button');
@@ -43,6 +45,7 @@ CameraCaptureCubit _cubitFor(FakeCameraService camera) => CameraCaptureCubit(
 Future<_Result> _pumpViewfinder(
   WidgetTester tester,
   FakeCameraService camera, {
+  Locale locale = AppLocalizations.arabic,
   TextScaler? textScaler,
   List<NavigatorObserver> navigatorObservers = const [],
 }) async {
@@ -61,6 +64,7 @@ Future<_Result> _pumpViewfinder(
       ),
     ),
     settle: false,
+    locale: locale,
     textScaler: textScaler,
     navigatorObservers: navigatorObservers,
   );
@@ -80,6 +84,16 @@ double _opacityOf(WidgetTester tester, String text) => tester
     .opacity;
 
 void main() {
+  auditScreenLayout(
+    'CameraCaptureScreen',
+    (tester, locale, scaler) => _pumpViewfinder(
+      tester,
+      FakeCameraService(),
+      locale: locale,
+      textScaler: scaler,
+    ),
+  );
+
   group('CameraCaptureScreen', () {
     testWidgets('once ready: the teal bar, the feed and the capsule — photos, '
         'shutter, flash (F24)', (tester) async {

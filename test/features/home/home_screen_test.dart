@@ -16,6 +16,7 @@ import 'package:war2aty/features/home/presentation/widgets/home_greeting.dart';
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -44,6 +45,12 @@ void main() {
       watchUpcomingReminder: WatchUpcomingReminder(reminders),
     )..start(),
     child: const HomeScreen(),
+  );
+
+  auditScreenLayout(
+    'HomeScreen',
+    (tester, locale, scaler) =>
+        pumpApp(tester, homeUnderTest(), locale: locale, textScaler: scaler),
   );
 
   group('HomeScreen', () {

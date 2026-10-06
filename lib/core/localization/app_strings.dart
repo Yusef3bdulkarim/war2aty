@@ -142,6 +142,14 @@ abstract interface class AppStrings {
   /// Accessibility label for the rotate button.
   String get previewRotateLabel;
 
+  /// Accessibility labels for the four crop handles. The edges are physical
+  /// — the handle that moves the top of the crop box is "top" in either
+  /// direction — so these are not mirrored, only translated.
+  String get previewCropHandleTop;
+  String get previewCropHandleBottom;
+  String get previewCropHandleLeft;
+  String get previewCropHandleRight;
+
   /// Announced while the confirmed image is being prepared.
   String get previewProcessing;
 

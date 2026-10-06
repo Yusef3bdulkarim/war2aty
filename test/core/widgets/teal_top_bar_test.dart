@@ -5,6 +5,7 @@ import 'package:war2aty/core/theme/app_colors.dart';
 import 'package:war2aty/core/widgets/teal_top_bar.dart';
 
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 const _back = 'رجوع';
 const _heading = 'نتيجة التحليل';
@@ -106,6 +107,10 @@ void main() {
     });
 
     testWidgets('a title grows the bar at a large text scale', (tester) async {
+      // A phone's width is what makes a long title wrap at ×2; the test
+      // window's 800 dp does not, now that Cairo's real metrics apply
+      // (F27-T15).
+      setAuditSurface(tester);
       await pumpApp(
         tester,
         const MediaQuery(

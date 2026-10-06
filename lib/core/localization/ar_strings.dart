@@ -230,6 +230,18 @@ final class ArStrings implements AppStrings {
   String get previewRotateLabel => 'تدوير الصورة';
 
   @override
+  String get previewCropHandleTop => 'مقبض القص أعلى';
+
+  @override
+  String get previewCropHandleBottom => 'مقبض القص أسفل';
+
+  @override
+  String get previewCropHandleLeft => 'مقبض القص يسار';
+
+  @override
+  String get previewCropHandleRight => 'مقبض القص يمين';
+
+  @override
   String get previewProcessing => 'بنجهّز الصورة…';
 
   @override

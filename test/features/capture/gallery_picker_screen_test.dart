@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/navigation/app_route_observer.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
@@ -12,12 +13,14 @@ import 'package:war2aty/features/capture/presentation/screens/gallery_picker_scr
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 const _strings = ArStrings();
 
 Future<_Result> _pumpPicker(
   WidgetTester tester,
   FakeImagePickerService picker, {
+  Locale locale = AppLocalizations.arabic,
   TextScaler? textScaler,
 }) async {
   final result = _Result();
@@ -37,6 +40,7 @@ Future<_Result> _pumpPicker(
     ),
     // The wait state shows a spinner that never settles.
     settle: false,
+    locale: locale,
     textScaler: textScaler,
   );
   // Let pick()'s result resolve.
@@ -46,6 +50,16 @@ Future<_Result> _pumpPicker(
 }
 
 void main() {
+  auditScreenLayout(
+    'GalleryPickerScreen',
+    (tester, locale, scaler) => _pumpPicker(
+      tester,
+      FakeImagePickerService(),
+      locale: locale,
+      textScaler: scaler,
+    ),
+  );
+
   group('GalleryPickerScreen', () {
     testWidgets('a chosen photo is handed back', (tester) async {
       const picked = CapturedPhoto('/tmp/bill.jpg');

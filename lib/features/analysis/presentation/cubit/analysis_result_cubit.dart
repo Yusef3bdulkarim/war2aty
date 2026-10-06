@@ -7,6 +7,7 @@ import '../../../../core/documents/usecases/build_analysis_result.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/storage/analysis_session.dart';
+import '../../../../core/storage/usecases/discard_analysis_session.dart';
 import '../../../../core/usage/usecases/get_daily_usage.dart';
 import '../../../../core/usage/usecases/sync_daily_usage.dart';
 import '../../domain/entities/analysis_request.dart';
@@ -26,6 +27,8 @@ import 'analysis_result_state.dart';
 ///   slot without polling or client-side decrementing.
 /// - [GetDailyUsage] — reads the cached daily limit, only when the limit is
 ///   what stopped the analysis, so its page can name the number (F23 #14).
+/// - [DiscardAnalysisSession] — deletes the session's working files when this
+///   screen closes, which is where the scan actually ends (F27-T15).
 ///
 /// What leaves the phone is decided by [AnalysisRequest], which has no field
 /// for the image or its path: every analysis is text, whichever route read
@@ -40,6 +43,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
     required BuildAnalysisResult buildResult,
     required SyncDailyUsage syncDailyUsage,
     required GetDailyUsage getDailyUsage,
+    required DiscardAnalysisSession discardSession,
   }) : _session = session,
        _source = source,
        _getAnalysisConsent = getAnalysisConsent,
@@ -47,6 +51,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
        _buildResult = buildResult,
        _syncDailyUsage = syncDailyUsage,
        _getDailyUsage = getDailyUsage,
+       _discardSession = discardSession,
        super(const AnalysisResultAnalyzing());
 
   final AnalysisSession _session;
@@ -56,6 +61,7 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
   final BuildAnalysisResult _buildResult;
   final SyncDailyUsage _syncDailyUsage;
   final GetDailyUsage _getDailyUsage;
+  final DiscardAnalysisSession _discardSession;
 
   /// Runs the analysis. Called once when the screen mounts, and again by the
   /// retry on the failure view.
@@ -127,4 +133,22 @@ final class AnalysisResultCubit extends Cubit<AnalysisResultState> {
     Ok(:final value) => value?.dailyLimit,
     Err() => null,
   };
+
+  /// Deletes the session's working files on the way out.
+  ///
+  /// The result screen is the end of the scan: whatever the user did here —
+  /// saved the paper with its picture, saved the result only, or saved
+  /// nothing — the unencrypted copy under `analysis_sessions/` has no reader
+  /// left, and §7 says it must not outlive the flow that made it. A
+  /// save-with-image has already moved that file into the encrypted store, so
+  /// this usually removes an empty folder.
+  ///
+  /// Fire-and-forget, like the usage sync above: `close()` must not wait on
+  /// the filesystem, and the deletion cannot fail in a way anyone could act
+  /// on.
+  @override
+  Future<void> close() {
+    unawaited(_discardSession(_session.id));
+    return super.close();
+  }
 }
