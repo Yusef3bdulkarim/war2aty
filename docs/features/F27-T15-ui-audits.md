@@ -17,7 +17,9 @@ disk — through the code that owns them.
 > row is the task definition and because both turned up real defects. What it
 > deliberately did **not** do is the part that needs a phone in hand: no
 > profile was recorded on a device, and the cleanup fix has not been watched
-> on a real filesystem. Those stay with T18 and T16.
+> on a real filesystem. **The owner confirmed on 2026-10-07 that both stay with
+> T18 and T16**, as the Q7 mapping says — and that the OS text-scale decision
+> in §1 should be acted on, which it now has been.
 
 ---
 
@@ -144,15 +146,49 @@ rather than asserted:
   observation, not a defect, and the row's shape comes from the approved
   design. Noted here rather than redesigned unilaterally — the same call
   F12-T01 made about `AppColors.light`'s two contrast gaps.
-- **The app replaces the OS text scaler rather than respecting it.**
-  `_appBuilder` sets `MediaQuery.textScaler` from the user's own `TextSize`
-  (`core/accessibility/text_size.dart`), unconditionally. A user who has set
-  200 % in Android's accessibility settings gets 100 % inside this app until
-  they find the in-app setting, and the app's own ceiling is 1.5. That is
-  deliberate and documented (F11-T05: the UI is tuned for that range), and the
-  sweep now proves 2.0 is safe on every screen — so honouring the OS setting,
-  or taking the larger of the two, is now a smaller change than it was. **An
-  owner decision, not a bug**; no behaviour was changed here.
+### Fixed on the owner's instruction, after the audit
+
+**The app ignored the OS text-size setting.** `_appBuilder` replaced
+`MediaQuery.textScaler` with the user's own `TextSize` unconditionally, so
+someone who had set 200 % in Android's accessibility settings got **100 %**
+inside this app until they found the in-app control — the system setting they
+rely on everywhere else did nothing here, and the app's own ceiling was 1.5.
+That was deliberate and documented (F11-T05: the UI was tuned for that range),
+which is why the audit first recorded it as an owner decision rather than
+changing it. The owner then said to proceed.
+
+New `resolveTextScaler` (`core/accessibility/text_size.dart`) takes **the
+larger of the OS's scale and the in-app choice, capped at `kMaxTextScale` =
+2.0**:
+
+- *larger of the two*, rather than simply deferring to the OS, so that picking
+  a size in-app can never quietly **shrink** text for someone whose phone is
+  already set above 150 %. Nobody ends up with less than they had.
+- *capped at 2.0* because that is the number §1's sweep actually underwrites —
+  every screen, both languages, phone-sized. `kMaxTextScale`'s doc comment says
+  so, and says to extend `kAuditTextScales` first if it is ever raised. This is
+  the one place in the task where the sweep stopped being a regression gate and
+  became the licence to ship a behaviour change.
+- the OS factor is sampled at a **14 px body size**, not at 1 px: from Android
+  14 the platform curve is non-linear, and `scale(1)` of a non-linear curve
+  says nothing useful about what body text will do. A `_NonLinearScaler` fake
+  pins that.
+
+**Tests**: nine in
+[`text_size_test.dart`](../../test/core/accessibility/text_size_test.dart) over
+the resolver — the OS winning, the choice winning, never shrinking below the
+OS value for any pairing, the cap, a floor of 1.0 for a platform reporting
+less, and the non-linear sample — and three in `shell_test.dart` that drive the
+**real** `WaraqtiApp` through `platformDispatcher.textScaleFactorTestValue` and
+read what the tree below the builder sees. Those three were mutation-checked
+against the old one-liner: the first two failed with `Actual: <1.0>`, which is
+precisely the bug.
+
+**One consequence worth knowing.** On a phone already at or above 200 %, all
+three in-app options now render identically, so the control will look inert to
+that user. Nothing is wrong, but the settings screen says nothing about the
+phone's own setting feeding into this. Copy for that is a design question, not
+one to invent here.
 
 ---
 

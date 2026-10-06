@@ -11,6 +11,7 @@ import 'package:war2aty/app/notifications/reminder_notification_taps.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/app/shell/scaffold_with_nav_bar.dart';
 import 'package:war2aty/core/accessibility/high_contrast_cubit.dart';
+import 'package:war2aty/core/accessibility/text_size.dart';
 import 'package:war2aty/core/accessibility/text_size_cubit.dart';
 import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
@@ -236,6 +237,51 @@ void main() {
   /// The design's bar is custom-drawn, so it is found by its shell widget
   /// rather than by Material's [NavigationBar].
   Finder navBar() => find.byType(ScaffoldWithNavBar);
+
+  // F27-T15: the app replaces the root `MediaQuery.textScaler` with its own,
+  // and used to do so unconditionally -- so a phone set to 200 % in Android's
+  // accessibility settings rendered this app at 100 %. `resolveTextScaler` is
+  // unit-tested next to `TextSize`; this is the wiring, through the real app.
+  group('the OS text size reaches the tree (F27-T15)', () {
+    /// The scaler every screen below the app builder actually sees.
+    double effectiveScale(WidgetTester tester) =>
+        MediaQuery.textScalerOf(
+          tester.element(find.byType(ScaffoldWithNavBar)),
+        ).scale(14) /
+        14;
+
+    testWidgets('a phone set larger than the in-app choice wins', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await pumpShell(tester);
+
+      // `TextSize.normal` is what the fake store answers, so before this the
+      // tree saw 1.0 here however large the phone's setting was.
+      expect(effectiveScale(tester), closeTo(2, 0.0001));
+    });
+
+    testWidgets('a phone past the audited ceiling is capped, not obeyed', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await pumpShell(tester);
+
+      expect(effectiveScale(tester), closeTo(kMaxTextScale, 0.0001));
+    });
+
+    testWidgets('a phone at its default still renders at the design size', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      expect(effectiveScale(tester), closeTo(1, 0.0001));
+    });
+  });
 
   testWidgets('boots to a 4-tab shell in Arabic (RTL)', (tester) async {
     await pumpShell(tester);

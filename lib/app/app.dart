@@ -154,9 +154,11 @@ TransitionBuilder _withNotificationOpener(TransitionBuilder builder) =>
 /// Returns the [MaterialApp.builder] that applies the user's [TextSize]
 /// (F11-T05) and active [AppColors] palette (F11-T06).
 ///
-/// [TextSize.normal] still passes through — the builder replaces the
-/// [MediaQuery.textScaler] with the user's choice regardless, so the app
-/// controls its own scaling rather than inheriting the OS's. [AppColorsScope]
+/// The scaler is [resolveTextScaler]'s: the larger of the OS's text size and
+/// the user's choice, capped at [kMaxTextScale]. [TextSize.normal] still goes
+/// through it, because "normal" means "don't add anything of our own", not
+/// "ignore the phone's accessibility settings" — which is what this builder
+/// used to do (F27-T15). [AppColorsScope]
 /// is installed here too, above every route, so [AppColors.of] resolves
 /// [highContrast] anywhere in the tree — the same reach [MediaQuery] already
 /// has.
@@ -173,7 +175,12 @@ TransitionBuilder _appBuilder(TextSize textSize, bool highContrast) {
       child: AppColorsScope(
         colors: colors,
         child: MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: textSize.scaler),
+          data: MediaQuery.of(context).copyWith(
+            textScaler: resolveTextScaler(
+              MediaQuery.textScalerOf(context),
+              textSize,
+            ),
+          ),
           child: child!,
         ),
       ),
