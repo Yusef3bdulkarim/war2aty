@@ -314,7 +314,7 @@ A4, A5 and the whole ELS-NX9 column are **unreached** (see below).
 Each classified **blocking launch** / **fix now** / **owner's call** / **record
 and accept**; each fix carries a test that reproduces it.
 
-### D-1 · «القراءة تمت بدون إنترنت» is shown to users who have internet — **FIXED in `+5`**
+### D-1 · «القراءة تمت بدون إنترنت» is shown to users who have internet — **FIXED** (copy in `+5`, icon in `+6`)
 
 Reported by the owner from B: the review screen said the reading might be less
 accurate *because it was done without internet*, on a phone that was online —
@@ -478,7 +478,7 @@ Measured contrast ratios, so the decision is made on numbers rather than taste:
 | Pair | `#0E7C86` (brand) | `#0A5C64` (today's high contrast) |
 |---|---|---|
 | on white — buttons, brand text on `bgBase` | **4.95 : 1** — passes AA for normal text | 7.70 : 1 |
-| on `surfaceTeal` `#E4F1F2` — brand text on a tinted card | **4.28 : 1** — passes AA for *large* text, just under the 4.5 for small text | 6.66 : 1 |
+| on the teal card surface — brand text on a tint | **4.28 : 1** here (and **4.45 : 1** in light, whose `surfaceTeal` is lighter) — passes AA for *large* text, just under the 4.5 for small | 6.66 : 1 |
 
 So keeping the brand colour is safe everywhere it sits on white, and slips
 slightly under AA only for **small** brand-coloured text on the pale teal
@@ -487,14 +487,43 @@ is now `#0E7C86`, identical to `light`. `brandDeep` was deliberately left at
 `#063E44`: it is the far end of gradients and pressed states, never the brand's
 own colour, so the decision does not reach it.
 
-Worth correcting one thing from the report above: the 4.28:1 pair is **not a
-new gap**. The light palette already reads exactly that for brand text on
-`surfaceTeal`, so high contrast now matches normal mode there instead of
-improving on it — it does not fall below anything the app does not already do.
-Two tests pin this, in the idiom the file already uses for known gaps: one
-asserts the two palettes share the brand colour, the other that the teal-surface
-ratio is the same in both and never drops below 4.2. The existing
+**Corrected after `@code-reviewer`, 2026-10-07.** Two statements made here
+earlier were wrong, and the guard that was supposed to hold them was worse:
+
+- I wrote that the light palette "already reads exactly" 4.28:1 for this pair.
+  It does not. Light reads **4.45:1**, high contrast **4.28:1**, because the two
+  palettes do **not** share `surfaceTeal` (`#EEF4F5` in light, `#E4F1F2` here).
+- The test asserting "the same in both palettes" fed `highContrast.surfaceTeal`
+  to **both** sides, so it compared a value with itself. The review caught the
+  tautology; checking it turned up the wrong surface underneath.
+
+What is actually true, and now pinned to the measured numbers: this pair misses
+AA for small text in **both** palettes (4.45 light, 4.28 here), so D-4 gives up
+a lift high contrast used to provide rather than opening a new gap — and the
+test now asserts both ratios, that high contrast reads *lower* than light (if
+that ever inverts, one of the surfaces moved), and a 4.2 floor. The
 `onBrand`-on-`brandPrimary` AA assertion still passes at 4.95:1.
+
+## Review
+
+`/flutter-code-review` ran on the working tree, and `@code-reviewer` on the
+commit: **PASS — no blocking or major findings.** Both of its minor items were
+real and both are fixed:
+
+1. The high-contrast contrast test was **tautological** — it compared the same
+   value with itself. Fixing it exposed that the claim beside it was also wrong;
+   see D-4 above.
+2. The Arabic word-boundary lookahead covered letters (U+0621–U+064A) but not
+   tashkeel, so a vowelled «النتُ» could have slipped past. The class now runs
+   to U+0652.
+
+It independently confirmed the things most worth confirming: the new copy and
+icon are truthful in **all three** on-device cases and in the online-fallback
+case; the faster fade breaks no timing assumption in `SplashHandOff`, the
+breath, the settle, the exit or reduced motion, because `kLogoEntranceDuration`
+and the completion callback are untouched; `_retintToBrand` is order-correct
+(the symbol is lifted against the original field) and safe at zero span; and the
+icon swap costs nothing in RTL or Large Text.
 
 ## Closed early — owner's decision, 2026-10-07
 

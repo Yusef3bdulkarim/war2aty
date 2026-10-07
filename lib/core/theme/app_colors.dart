@@ -185,8 +185,11 @@ final class AppColors {
     // finding D-4): high contrast must not recolour the brand. It still clears
     // WCAG AA against [onBrand] (4.95:1), which is what the buttons need; the
     // one pair it does not improve is small brand-coloured text on the pale
-    // teal surfaces, where it now reads exactly as it does in [light]. Both
-    // ratios are pinned in `test/core/theme/contrast_test.dart`.
+    // teal surfaces: 4.28:1 here against 4.45:1 in [light], because this
+    // palette's [surfaceTeal] is a little deeper. That pair misses AA for
+    // small text in **both** palettes, so the decision gives up a lift high
+    // contrast used to provide rather than opening a new gap. Every ratio is
+    // pinned in `test/core/theme/contrast_test.dart`.
     brandPrimary: Color(0xFF0E7C86),
     // Deliberately still deeper than [light]'s: this token is the far end of
     // gradients and pressed states, never the brand's own colour, so the

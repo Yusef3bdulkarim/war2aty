@@ -699,7 +699,9 @@ void main() {
     final arBlamesConnection = <RegExp>[
       RegExp('إنترنت'),
       RegExp('انترنت'),
-      RegExp(r'النت(?![ء-ي])'),
+      // U+0621-U+064A are the letters, U+064B-U+0652 the tashkeel, so a
+      // vowelled «النتُ» cannot slip past the word boundary either.
+      RegExp(r'النت(?![ء-ْ])'),
       RegExp('اتصال'),
       RegExp('أوفلاين'),
     ];

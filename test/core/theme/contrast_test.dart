@@ -157,27 +157,37 @@ void main() {
       expect(c.brandPrimary, AppColors.light.brandPrimary);
     });
 
-    test('KNOWN GAP: brand text on the teal surfaces reads as it does in light '
-        '(~4.28:1), not better', () {
-      final ratio = _contrastRatio(c.brandPrimary, c.surfaceTeal);
+    test('KNOWN GAP: brand text on the teal surface misses AA for small text '
+        'in both palettes (4.28:1 here, 4.45:1 in light)', () {
+      // The first version of this test asserted that the ratio here is the
+      // same as in `light`. It was tautological *and* wrong: it fed
+      // `highContrast.surfaceTeal` to both sides, and the two palettes do not
+      // share that surface (#E4F1F2 here, #EEF4F5 in light). The honest
+      // numbers are below, and they are what D-4 costs: the pair already sits
+      // just under AA in light, and high contrast no longer lifts it out.
+      final here = _contrastRatio(c.brandPrimary, c.surfaceTeal);
+      final inLight = _contrastRatio(
+        AppColors.light.brandPrimary,
+        AppColors.light.surfaceTeal,
+      );
+
+      expect(here, closeTo(4.28, 0.01));
+      expect(inLight, closeTo(4.45, 0.01));
       expect(
-        ratio,
-        closeTo(
-          _contrastRatio(AppColors.light.brandPrimary, c.surfaceTeal),
-          0.01,
-        ),
+        here,
+        lessThan(inLight),
         reason:
-            'the point of D-4 is that high contrast leaves the brand colour '
-            'alone, so this pair must read the same in both palettes',
+            'this palette uses a deeper teal surface, so the same brand colour '
+            'reads slightly lower here than in light — if that ever inverts, '
+            'one of the two surfaces moved',
       );
       expect(
-        ratio,
+        here,
         greaterThanOrEqualTo(4.2),
         reason:
-            'clears AA for large text and UI (3:1) but not the 4.5 for small '
-            'text: brand-coloured small text on a teal tint is the one place '
-            'high contrast no longer helps. A change that makes it worse is '
-            'a regression, not a trade-off.',
+            'clears AA for large text and UI components (3:1) but not the 4.5 '
+            'for small text. A change that makes it worse is a regression, '
+            'not a trade-off.',
       );
     });
   });
