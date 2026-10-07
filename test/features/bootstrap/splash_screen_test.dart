@@ -221,7 +221,9 @@ void main() {
     expect(markOpacity(tester), 0);
 
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    // 150 ms into the 300 ms fade (F27-T18 D-2), so this still catches the
+    // mark mid-appearance rather than already settled.
+    await tester.pump(const Duration(milliseconds: 150));
     expect(markOpacity(tester), inExclusiveRange(0, 1));
   });
 
@@ -235,15 +237,34 @@ void main() {
     expect(markOpacity(tester), 0);
     expect(markScale(tester), 0.90);
 
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 150));
     expect(markOpacity(tester), inExclusiveRange(0, 1));
     expect(markScale(tester), inExclusiveRange(0.90, 1.1));
 
-    // Settled by 0.75 s, well inside the 1.8 s entrance — full size, give or
-    // take the breath it has already taken up.
-    await tester.pump(const Duration(milliseconds: 400));
+    // Settled by 0.30 s (F27-T18 D-2, was 0.75 s), a fifth of the way into the
+    // 1.8 s entrance — full size, give or take the breath it has taken up.
+    await tester.pump(const Duration(milliseconds: 160));
     expect(markOpacity(tester), 1);
     expect(markScale(tester), closeTo(1, 0.02));
+  });
+
+  testWidgets('the mark is solid well before a third of the entrance', (
+    tester,
+  ) async {
+    // The regression this pins is the one the owner saw on the phone (F27-T18
+    // D-2): a mark that is still fading at half a second reads as a blank
+    // teal screen, because everything before it — the native splash and the
+    // app's own first frame — is plain teal too. Restoring the old
+    // 0.10 → 0.75 s fade fails this.
+    await pumpSplash(tester, steps: const []);
+    await startEntrance(tester);
+
+    await tester.pump(const Duration(milliseconds: 320));
+    expect(
+      markOpacity(tester),
+      1,
+      reason: 'the mark must be fully visible within 320 ms of the entrance',
+    );
   });
 
   testWidgets('paints every frame, and keeps breathing after the entrance', (

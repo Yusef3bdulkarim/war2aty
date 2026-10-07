@@ -757,7 +757,8 @@ final class EnStrings implements AppStrings {
 
   @override
   String get ocrOfflineQualityWarning =>
-      'Results may be less accurate because the scan was done offline';
+      'We read the paper on your phone, so results may be less accurate — '
+      'check the text';
   @override
   String get ocrOnlineFallbackWarning =>
       "Online reading isn't available right now, so we read the paper on "

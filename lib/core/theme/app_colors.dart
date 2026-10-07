@@ -181,7 +181,16 @@ final class AppColors {
   /// semantic colors for readability (WCAG-AA). Derived from the palette; the
   /// design does not ship a dedicated high-contrast comp.
   static const AppColors highContrast = AppColors(
-    brandPrimary: Color(0xFF0A5C64),
+    // The brand teal, unchanged from [light] — the owner's decision (F27-T18,
+    // finding D-4): high contrast must not recolour the brand. It still clears
+    // WCAG AA against [onBrand] (4.95:1), which is what the buttons need; the
+    // one pair it does not improve is small brand-coloured text on the pale
+    // teal surfaces, where it now reads exactly as it does in [light]. Both
+    // ratios are pinned in `test/core/theme/contrast_test.dart`.
+    brandPrimary: Color(0xFF0E7C86),
+    // Deliberately still deeper than [light]'s: this token is the far end of
+    // gradients and pressed states, never the brand's own colour, so the
+    // decision above does not reach it.
     brandDeep: Color(0xFF063E44),
     onBrand: Color(0xFFFFFFFF),
     ink: Color(0xFF0B1417),

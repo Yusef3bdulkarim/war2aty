@@ -148,5 +148,37 @@ void main() {
       );
       expect(_contrastRatio(c.error, c.errorTint), greaterThanOrEqualTo(4.5));
     });
+
+    // F27-T18 finding D-4: the owner saw high contrast recolour the brand on
+    // the phone and ruled that it must not. So `brandPrimary` is now the same
+    // teal in both palettes, and these two tests are what that costs and what
+    // it keeps.
+    test('brandPrimary is the brand teal, exactly as in the light palette', () {
+      expect(c.brandPrimary, AppColors.light.brandPrimary);
+    });
+
+    test('KNOWN GAP: brand text on the teal surfaces reads as it does in light '
+        '(~4.28:1), not better', () {
+      final ratio = _contrastRatio(c.brandPrimary, c.surfaceTeal);
+      expect(
+        ratio,
+        closeTo(
+          _contrastRatio(AppColors.light.brandPrimary, c.surfaceTeal),
+          0.01,
+        ),
+        reason:
+            'the point of D-4 is that high contrast leaves the brand colour '
+            'alone, so this pair must read the same in both palettes',
+      );
+      expect(
+        ratio,
+        greaterThanOrEqualTo(4.2),
+        reason:
+            'clears AA for large text and UI (3:1) but not the 4.5 for small '
+            'text: brand-coloured small text on a teal tint is the one place '
+            'high contrast no longer helps. A change that makes it worse is '
+            'a regression, not a trade-off.',
+      );
+    });
   });
 }

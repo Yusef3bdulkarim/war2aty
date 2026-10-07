@@ -59,7 +59,9 @@ const Key kSplashMarkKey = Key('splash.mark');
 /// The native splashes before it show the teal alone, so the mark appears once,
 /// here. Entrance, in seconds of the 1.8 s [kLogoEntranceDuration]:
 ///   0.00 → 0.70  glow fades in
-///   0.10 → 0.75  mark fades in, scaling 0.90 → 1.0
+///   0.00 → 0.30  mark fades in, scaling 0.90 → 1.0 (F27-T18 D-2: this was
+///                0.10 → 0.75, which on a phone read as a second of blank
+///                teal before the mark arrived)
 /// The mark then breathes for as long as the launch takes. Once it is done,
 /// [SplashHandOff] stills it, builds the app under the motionless splash, and
 /// only then fades it off.
@@ -123,7 +125,15 @@ class _AnimatedSplashState extends State<_AnimatedSplash>
 
   // ── Derived entrance curves, in seconds of the entrance ──
   late final Animation<double> _glowIn = _span(0, 0.70);
-  late final Animation<double> _markIn = _span(0.10, 0.75);
+  // F27-T18 finding D-2. This used to be `_span(0.10, 0.75)`, and on a real
+  // phone that read as a second of blank teal: the native splash shows no mark,
+  // the app's first frame lands at ~440 ms and is itself still mark-free, and
+  // only then did a 650 ms fade start — so the mark was not solid until
+  // ~1.2 s after the tap. Nothing was slow; the two deliberate choices simply
+  // stacked. Bringing the fade forward removes most of the wait and keeps the
+  // part that earns it: the entrance still starts two frames late, so the
+  // first frame's cost lands on a still screen rather than jumping the mark.
+  late final Animation<double> _markIn = _span(0, 0.30);
   late final Animation<double> _markScale = Tween<double>(
     begin: 0.90,
     end: 1,

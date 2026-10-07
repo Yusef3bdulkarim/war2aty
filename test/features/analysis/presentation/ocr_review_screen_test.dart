@@ -175,7 +175,7 @@ void main() {
       expect(find.text(_ar.ocrOnlineFallbackWarning), findsOneWidget);
       expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
       expect(find.text(_ar.ocrOfflineQualityWarning), findsNothing);
-      expect(find.byIcon(Icons.wifi_off), findsNothing);
+      expect(find.byIcon(Icons.smartphone), findsNothing);
       expect(find.text(_ar.ocrOnlineReviewTitle), findsOneWidget);
       expect(find.text(_ar.ocrOnlineAnalyze), findsOneWidget);
     });
@@ -199,9 +199,33 @@ void main() {
       await pumpScreen(tester);
 
       expect(find.text(_ar.ocrOfflineQualityWarning), findsOneWidget);
-      expect(find.byIcon(Icons.wifi_off), findsOneWidget);
+      expect(find.byIcon(Icons.smartphone), findsOneWidget);
       expect(find.text(_ar.ocrOnlineFallbackWarning), findsNothing);
       expect(find.text(_ar.ocrContinue), findsOneWidget);
+    });
+
+    testWidgets('the offline banner shows no connectivity icon either', (
+      tester,
+    ) async {
+      // F27-T18 D-1, second half: the words stopped blaming the user's
+      // connection but the icon had not, and an icon is read before any text
+      // is. The on-device route is the launch default while the user is
+      // online, so none of these may appear on it.
+      cubit = OcrReviewCubit.offline(
+        session: _session,
+        extractCandidates: _extractCandidates(),
+      )..loadOffline(_extraction);
+
+      await pumpScreen(tester);
+
+      for (final icon in const [
+        Icons.wifi_off,
+        Icons.signal_wifi_off,
+        Icons.cloud_off,
+        Icons.signal_wifi_connected_no_internet_4,
+      ]) {
+        expect(find.byIcon(icon), findsNothing);
+      }
     });
 
     testWidgets('the fallback banner reads right to left in Arabic', (

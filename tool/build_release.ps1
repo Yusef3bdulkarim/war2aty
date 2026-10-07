@@ -55,7 +55,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 Push-Location $repo
 
 try {
-    # `version: 1.0.0+3` in pubspec.yaml. The symbols directory is named after
+    # `version: <name>+<build>` in pubspec.yaml. The symbols directory is named after
     # it, so a crash from a known build has exactly one mapping to look in.
     $versionLine = Select-String -Path 'pubspec.yaml' -Pattern '^version:\s*(.+)$' |
         Select-Object -First 1

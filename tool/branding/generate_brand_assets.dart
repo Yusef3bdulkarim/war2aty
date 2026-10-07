@@ -46,6 +46,12 @@ const double _splashMarkDp = 128;
 const _Rgb _devTop = (r: 222, g: 145, b: 38);
 const _Rgb _devBottom = (r: 168, g: 96, b: 10);
 
+/// The brand teal ramp — the same pair the Flutter splash gradient uses
+/// (`#0E7C86` -> `#0A5C64`). The prod icon's background is mapped onto it; see
+/// [_retintToBrand].
+const _Rgb _brandTop = (r: 14, g: 124, b: 134);
+const _Rgb _brandBottom = (r: 10, g: 92, b: 100);
+
 typedef _Rgb = ({double r, double g, double b});
 
 Future<void> main(List<String> args) async {
@@ -89,6 +95,7 @@ final class _Extraction {
     required this.originX,
     required this.originY,
     required this.background,
+    required this.sourceBackground,
     required this.symbol,
     required this.tile,
     required this.symbolBox,
@@ -101,7 +108,10 @@ final class _Extraction {
     final y0 = bounds.top + (bounds.height - side) ~/ 2;
 
     final bg = _BackgroundModel.estimate(src, x0, y0, side);
-    final background = img.Image(width: side, height: side);
+    // The mockup's own teal, kept because the symbol can only be lifted off
+    // the background it was actually drawn on. The shipped background is this
+    // field re-tinted — see [_retintToBrand].
+    final sourceBackground = img.Image(width: side, height: side);
     final symbol = img.Image(width: side, height: side, numChannels: 4);
 
     // The symbol never touches the tile's edge; ignoring a margin keeps the
@@ -110,7 +120,7 @@ final class _Extraction {
     for (var y = 0; y < side; y++) {
       for (var x = 0; x < side; x++) {
         final b = bg.at(x.toDouble(), y.toDouble());
-        background.setPixelRgb(x, y, b.r, b.g, b.b);
+        sourceBackground.setPixelRgb(x, y, b.r, b.g, b.b);
         if (x < margin || y < margin || x >= side - margin) continue;
         if (y >= side - margin) continue;
         final p = src.getPixel(x0 + x, y0 + y);
@@ -131,11 +141,13 @@ final class _Extraction {
       }
     }
 
+    final background = _retintToBrand(sourceBackground);
     return _Extraction._(
       side: side,
       originX: x0,
       originY: y0,
       background: background,
+      sourceBackground: sourceBackground,
       symbol: symbol,
       tile: _composite(background, symbol),
       symbolBox: _opaqueBox(symbol),
@@ -146,8 +158,12 @@ final class _Extraction {
   final int originX;
   final int originY;
 
-  /// The tile's background alone, side × side, opaque.
+  /// The tile's background alone, side × side, opaque — on the brand ramp.
   final img.Image background;
+
+  /// The same field before [_retintToBrand]: the mockup's own teal. Kept only
+  /// so the preview can show the two side by side.
+  final img.Image sourceBackground;
 
   /// The symbol alone on transparency, side × side, in tile coordinates.
   final img.Image symbol;
@@ -211,6 +227,46 @@ math.Rectangle<int> _findTile(img.Image src) {
     }
   }
   return math.Rectangle<int>(left, top!, right + 1 - left, bottom! + 1 - top);
+}
+
+/// Maps a background field onto the brand teal ramp, keeping its shading.
+///
+/// F27-T18 finding D-3. P01 lifted this icon out of the owner's mockup, so its
+/// background was the mockup's own gradient (about `#035763` -> `#023742`) —
+/// darker and greener than the `#0E7C86` / `#0A5C64` every teal surface in the
+/// app uses. On a launcher, next to the app's own splash, it read as a
+/// different colour, which is what the owner reported.
+///
+/// Re-tinting by luminance rather than replacing the field with a flat
+/// gradient keeps what the mockup actually drew: the vertical falloff and the
+/// soft glow behind the symbol survive, and only the hue and depth move. The
+/// darkest pixel lands on [_brandBottom], the brightest on [_brandTop], so the
+/// tile's dominant colour becomes the brand teal and matches the splash the
+/// launch animation paints a moment later.
+img.Image _retintToBrand(img.Image field) {
+  double luma(img.Pixel p) => 0.299 * p.r + 0.587 * p.g + 0.114 * p.b;
+
+  var lo = double.infinity;
+  var hi = -double.infinity;
+  for (final p in field) {
+    final l = luma(p);
+    if (l < lo) lo = l;
+    if (l > hi) hi = l;
+  }
+  // A field with no shading at all would divide by zero; it maps to the deep
+  // end, which is the safe direction for a background.
+  final span = hi - lo < 1 ? 1.0 : hi - lo;
+
+  final out = img.Image(width: field.width, height: field.height);
+  for (final p in field) {
+    final c = _lerp(
+      _brandBottom,
+      _brandTop,
+      ((luma(p) - lo) / span).clamp(0.0, 1.0),
+    );
+    out.setPixelRgb(p.x, p.y, c.r, c.g, c.b);
+  }
+  return out;
 }
 
 /// The tile background as a smooth 2D field, sampled on a coarse grid from the
@@ -714,6 +770,29 @@ void _writePreview(_Extraction art, img.Image devTile) {
   final mark = _resize(art.squareSymbol, 384, 384);
   img.compositeImage(splash, mark, dstX: (w - 384) ~/ 2, dstY: (h - 384) ~/ 2);
   _save('$dir/4_splash.png', splash);
+
+  // 5b. D-3 before/after: the mockup's own teal against the brand ramp, with
+  // the app's splash gradient between them as the reference both are judged
+  // against.
+  final retint = img.Image(width: 3 * (n + 24) + 24, height: n + 48);
+  img.fill(retint, color: light);
+  final before = _masked(
+    _resize(_composite(art.sourceBackground, art.symbol), n, n),
+    0.2,
+  );
+  final after = _masked(_resize(art.tile, n, n), 0.2);
+  final reference = img.Image(width: n, height: n);
+  for (final p in reference) {
+    final c = _lerp(_brandTop, _brandBottom, p.y / n);
+    p
+      ..r = c.r
+      ..g = c.g
+      ..b = c.b;
+  }
+  for (final (i, tile) in [before, after, _masked(reference, 0.2)].indexed) {
+    img.compositeImage(retint, tile, dstX: 24 + i * (n + 24), dstY: 24);
+  }
+  _save('$dir/6_brand_retint_before_after.png', retint);
 
   // 5. The 48 dp icon at mdpi, blown up 6× with no smoothing: what a
   // low-density phone actually has to work with.
