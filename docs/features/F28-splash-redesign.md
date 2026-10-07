@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 3 / 9 DONE
+- **Progress:** 4 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -103,7 +103,7 @@ Resolved with the owner on 2026-10-08.
 | 1 | F28-T01 | Feature doc, branch, stale-branch cleanup | this doc + `README.md` row; PR #29 merged to `develop`; `feature/splash-redesign` cut from `develop`; three stale branches deleted | DONE 2026-10-08 |
 | 2 | F28-T02 | Purge the old splash | as planned, plus a test file the coverage guard required — see "T02 record" | DONE 2026-10-08 |
 | 3 | F28-T03 | **Design → owner decision** | three concepts proposed and all three discarded; the screen is the background colour and the icon — see "T03 record" | DONE 2026-10-08 |
-| 4 | F28-T04 | A sharper mark | upscale + sharpen in `generate_brand_assets.dart`; regenerated 1×/2×/3× plus every native splash size | |
+| 4 | F28-T04 | A sharper mark | unsharp mask in `_resize`; every splash mark regenerated, +49–62 % edge contrast — see "T04 record" | DONE 2026-10-08 |
 | 5 | F28-T05 | Native splash carries the mark | Android pre-12 (light + night), API 31+ `values-v31` / `values-night-v31`, the exit-animation listener in `MainActivity`, iOS `LaunchImage` + storyboard (written blind) | |
 | 6 | F28-T06 | The Flutter splash | the mark at 128 dp on `kLaunchBackground`, centred, full opacity, static — and a test that it matches the native splash | |
 | 7 | F28-T07 | The new hand-off | replaces `SplashHandOff` / `LaunchReveal`; ~500 ms floor, capped content gate, reveal fade, reduced-motion path | |
@@ -216,6 +216,67 @@ something, and there is nothing left to animate without reopening decision 2.
 three concepts that are now void, and a preview of rejected designs sitting in
 `tool/branding/` next to the P01 one would mislead whoever opens it next. It
 remains in history at commit `8de449d` if it is ever wanted.
+
+## T04 record (2026-10-08)
+
+The mark is now the only thing on the launch screen (decision 1), so its
+softness was the only visual flaw left anywhere in the launch.
+
+**Why it was soft, measured rather than assumed.** The generator prints its own
+numbers: `tile 448px at (288, 56); symbol box Rectangle (67, 64) 314 x 323`. So
+`squareSymbol` is about **355 px**, and from it the pipeline asks for 384 px at
+3x (a 1.08x enlargement) and 512 px at Android xxxhdpi (1.44x). There is no
+better source — `assets/branding/icon.jpg` is the owner's 1024x559 mockup, and
+the owner confirmed on 2026-10-08 that none is coming.
+
+**What was done.** `cubic` is already the sharpest interpolation the `image`
+package has, so the gain had to come from after the resample. `_resize` gained
+an optional unsharp mask (`sharpen`, default **0**), applied on the
+premultiplied pixels before alpha is divided back out, with blur radius 1 — the
+narrowest available, which keeps any halo inside a pixel of the edge. It
+sharpens alpha along with colour, because a light symbol on flat teal is read
+mostly by its silhouette, and the silhouette lives in alpha.
+
+`_markSharpen = 0.55`. Measured as variance-of-the-Laplacian on both luminance
+and alpha:
+
+| asset | luminance | alpha |
+|---|---|---|
+| 1x (128 px) | +62 % | +62 % |
+| 2x (256 px) | +49 % | +49 % |
+| 3x (384 px) | +51 % | +51 % |
+
+The number was then checked by eye against the two things it could have broken,
+on the real `#0A6C76`: no dark ringing where the white document meets the teal,
+and the ring's deliberate soft outer fade still soft rather than hardened into
+a line. At 1x the gain is the most visible — the document's rules and the check
+mark go from mushy to legible.
+
+**Nothing else moved.** `sharpen` defaults to 0, so every launcher and app-icon
+target resampled byte-for-byte identically; `git status` after regenerating
+listed only the splash marks. That was the point of putting the default at 0
+rather than sharpening all enlargements: the launcher and iOS icons are
+owner-approved from P01 and are not this task's to change. The same helper
+would improve the iOS 1024 px icon, which P01 recorded as a 2.3x enlargement —
+left alone deliberately, and noted here for T23.
+
+**New files, for F28-T05 to wire up.** The mark now exists as native bitmaps,
+all from the one `_splashMarkDp = 128` so the four layers cannot drift:
+
+- `android/app/src/main/res/drawable-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/splash_mark.png`
+  (128/192/256/384/512 px, **392 KB** across all five);
+- `ios/.../LaunchImage.imageset/LaunchImage{,@2x,@3x}.png` (128/256/384 px),
+  replacing the 1x1 transparent placeholders that made the iOS launch screen
+  show the teal alone.
+
+**Size, stated rather than buried.** A universal APK carries all five Android
+densities: **+392 KB on ~34.9 MB, about +1.1 %**. An App Bundle would ship one.
+Dropping `xxxhdpi` alone would save 181 KB at the cost of a softer mark on 4x
+devices — not done, because the owner has not asked to trade the thing this
+task just fixed for 0.5 % of the download.
+
+**Gate:** format 0 changed, analyze **0 errors / 0 warnings** (18 standing
+infos), **2,417 tests** green.
 
 ## Deleted branches (F28-T01)
 

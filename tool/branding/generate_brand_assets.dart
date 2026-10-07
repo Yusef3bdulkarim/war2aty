@@ -37,9 +37,23 @@ const Map<String, double> _densities = {
   'xxxhdpi': 4,
 };
 
-/// Side of the Flutter splash mark, in logical pixels (`kSplashMarkSize`). The
-/// native splashes show the teal alone, so they need no mark of their own.
+/// Side of the splash mark, in logical pixels.
+///
+/// One number for four targets, because they all have to agree: the Flutter
+/// splash (`kSplashMarkSize`), the Android pre-12 bitmap, the Android 12+
+/// splash icon, and the iOS `LaunchImage`. The native splash now carries the
+/// mark (F28, reversing P01) and Flutter's first frame has to match it
+/// exactly, so a mark drawn at a different size in any one of them shows up
+/// as a jump at the handover.
 const double _splashMarkDp = 128;
+
+/// How hard the splash mark is sharpened after resampling. See [_resize].
+///
+/// 0.55 was chosen by measuring, not by eye alone: it is the point where edge
+/// contrast recovers without the ring's deliberate outer fade hardening into a
+/// visible line. Raising it dulls that fade into an edge; lowering it leaves
+/// the 3x mark as soft as it was.
+const double _markSharpen = 0.55;
 
 /// Background of the dev flavor's icon: the brand warning amber, so a dev
 /// build can never be mistaken for the real app on a home screen.
@@ -74,6 +88,7 @@ Future<void> main(List<String> args) async {
   _writeAndroid(art, devBackground, devTile);
   _writeIos(art);
   _writeFlutter(art);
+  _writeNativeSplash(art);
   _writeAppIconAsset(art);
 
   if (args.contains('--preview')) _writePreview(art, devTile);
@@ -445,7 +460,19 @@ img.Image _composite(img.Image under, img.Image over) {
 
 /// Resizes with premultiplied alpha, so transparent pixels' colour never
 /// bleeds into the edges. Box-averages when shrinking, bicubic when growing.
-img.Image _resize(img.Image src, int width, int height) {
+///
+/// [sharpen] applies an unsharp mask to the result, 0 for none (the default,
+/// so every icon target is untouched by F28-T04). The splash mark asks for it
+/// because there is no better source than the owner's 1024x559 mockup — the
+/// symbol in it is only about 315 px tall, so the mark at 3x and the Android
+/// xxxhdpi bitmap are both enlargements, and cubic is the sharpest
+/// interpolation this package has. Sharpening cannot invent detail; it
+/// restores the edge contrast the enlargement cost.
+///
+/// It runs on the premultiplied pixels, before alpha is divided back out, and
+/// it sharpens alpha with the colour: the mark is a light symbol on flat teal,
+/// so most of what reads as "sharp" is the silhouette, which lives in alpha.
+img.Image _resize(img.Image src, int width, int height, {double sharpen = 0}) {
   final shrinking = width <= src.width;
   final interpolation = shrinking
       ? img.Interpolation.average
@@ -469,6 +496,20 @@ img.Image _resize(img.Image src, int width, int height) {
     height: height,
     interpolation: interpolation,
   );
+  if (sharpen > 0) {
+    // Radius 1: the smallest the blur supports, which keeps the halo inside
+    // one pixel of the edge. A wider radius on a 128-384 px mark reads as a
+    // glow around the symbol rather than as focus.
+    final blurred = img.gaussianBlur(resized.clone(), radius: 1);
+    for (final p in resized) {
+      final b = blurred.getPixel(p.x, p.y);
+      p
+        ..r = (p.r + (p.r - b.r) * sharpen).clamp(0, 255)
+        ..g = (p.g + (p.g - b.g) * sharpen).clamp(0, 255)
+        ..b = (p.b + (p.b - b.b) * sharpen).clamp(0, 255)
+        ..a = (p.a + (p.a - b.a) * sharpen).clamp(0, 255);
+    }
+  }
   for (final p in resized) {
     final a = p.a / 255;
     if (a <= 0) {
@@ -648,7 +689,39 @@ void _writeFlutter(_Extraction art) {
     final px = (_splashMarkDp * scale).round();
     _save(
       'assets/images/${folder}brand_mark.png',
-      _resize(art.squareSymbol, px, px),
+      _resize(art.squareSymbol, px, px, sharpen: _markSharpen),
+    );
+  }
+}
+
+/// The same mark again, as native bitmaps, so the system splash can draw it
+/// before Flutter exists (F28-T05 wires these up).
+///
+/// This is what reverses P01: the native splashes used to show the teal alone
+/// so the mark would appear once, in the Flutter animation. The cost was that
+/// nothing was on screen for the ~440 ms before Flutter's first frame, which
+/// is engine and VM startup and cannot be shortened from Dart. Drawing the
+/// same mark, at the same size, in the layer that is already on screen at
+/// ~100 ms removes the wait instead of hiding it.
+void _writeNativeSplash(_Extraction art) {
+  const android = 'android/app/src/main/res';
+  for (final MapEntry(key: bucket, value: scale) in _densities.entries) {
+    final px = (_splashMarkDp * scale).round();
+    _save(
+      '$android/drawable-$bucket/splash_mark.png',
+      _resize(art.squareSymbol, px, px, sharpen: _markSharpen),
+    );
+  }
+
+  // iOS: the storyboard centres `LaunchImage` at its natural size, so these
+  // are 1x/2x/3x of the same 128 pt. They were 1x1 transparent placeholders,
+  // which is how the iOS launch screen came to show the teal alone.
+  const launch = 'ios/Runner/Assets.xcassets/LaunchImage.imageset';
+  for (final (suffix, scale) in [('', 1), ('@2x', 2), ('@3x', 3)]) {
+    final px = (_splashMarkDp * scale).round();
+    _save(
+      '$launch/LaunchImage$suffix.png',
+      _resize(art.squareSymbol, px, px, sharpen: _markSharpen),
     );
   }
 }
