@@ -12,23 +12,26 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_state.dart';
-import '../features/bootstrap/presentation/screens/splash_screen.dart';
-import '../features/bootstrap/presentation/widgets/splash_hand_off.dart';
+import '../features/bootstrap/presentation/screens/launch_screen.dart';
 import '../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../features/settings/presentation/cubit/settings_cubit.dart';
 import 'di/service_locator.dart';
-import 'launch_reveal.dart';
 import 'notifications/reminder_notification_opener.dart';
 import 'notifications/reminder_notification_taps.dart';
 
 /// Root widget.
 ///
-/// The app launches into [SplashScreen], which runs the ordered init sequence
-/// and offers a retry if a critical step fails. Only once launch succeeds does
-/// the router shell take over, built under the splash, which [SplashHandOff]
-/// then fades off it. Text direction follows the active locale
-/// automatically (Arabic → RTL, English → LTR).
+/// The app launches into [LaunchScreen], which shows the launch frame while the
+/// ordered init sequence runs and offers a retry if a critical step fails. Once
+/// launch succeeds the router shell replaces it. Text direction follows the
+/// active locale automatically (Arabic → RTL, English → LTR).
+///
+/// **F28-T02:** the swap from the launch screen to the router app is a plain
+/// cut. The hand-off that used to build the app under an opaque splash and fade
+/// the splash off it is deleted, and F28-T07 rebuilds it — so between those two
+/// tasks the launch ends in a visible cut, which is the defect the old hand-off
+/// existed to prevent. It is recorded here rather than left to be rediscovered.
 class WaraqtiApp extends StatelessWidget {
   const WaraqtiApp({super.key});
 
@@ -76,46 +79,14 @@ class WaraqtiApp extends StatelessWidget {
                       // The router is built only once the first-run flag is
                       // known, so its redirect resolves on the very first
                       // frame — no flash of the wrong screen. Until then the
-                      // splash stays up.
+                      // launch screen stays up.
                       final gate = context.watch<OnboardingCubit>().state;
                       final ready =
                           bootstrapState is BootstrapSuccess &&
                           gate is! OnboardingUnknown;
 
-                      // The app is built under the splash, which then fades
-                      // off it (F27-P01) — never a cut from one to the other.
-                      return SplashHandOff(
-                        isContentReady: () =>
-                            getIt<LaunchReveal>().contentReady,
-                        onRevealed: () {
-                          // Order matters: a notification tap that launched
-                          // the app opens as soon as the splash is gone,
-                          // before the housekeeping it no longer waits for.
-                          getIt<LaunchReveal>().markRevealed();
-                          context.read<BootstrapCubit>().finishLaunch();
-                        },
-                        app: ready
-                            ? MaterialApp.router(
-                                onGenerateTitle: (context) =>
-                                    context.strings.appName,
-                                debugShowCheckedModeBanner: false,
-                                theme: highContrast
-                                    ? AppTheme.highContrast()
-                                    : AppTheme.light(),
-                                locale: locale,
-                                supportedLocales:
-                                    AppLocalizations.supportedLocales,
-                                localizationsDelegates:
-                                    AppLocalizations.delegates,
-                                localeResolutionCallback:
-                                    AppLocalizations.resolve,
-                                routerConfig: getIt<GoRouter>(),
-                                builder: _withNotificationOpener(
-                                  _appBuilder(textSize, highContrast),
-                                ),
-                              )
-                            : null,
-                        splash: MaterialApp(
+                      if (!ready) {
+                        return MaterialApp(
                           onGenerateTitle: (context) => context.strings.appName,
                           debugShowCheckedModeBanner: false,
                           theme: highContrast
@@ -125,8 +96,31 @@ class WaraqtiApp extends StatelessWidget {
                           supportedLocales: AppLocalizations.supportedLocales,
                           localizationsDelegates: AppLocalizations.delegates,
                           localeResolutionCallback: AppLocalizations.resolve,
-                          home: const SplashScreen(),
+                          home: const LaunchScreen(),
                           builder: _appBuilder(textSize, highContrast),
+                        );
+                      }
+
+                      // The deferred launch steps used to run once the splash
+                      // had faded off, so they could not stutter the fade
+                      // (F27-P01). With no fade left to protect, the equivalent
+                      // moment is the app's own first frame; F28-T07 puts them
+                      // back behind the new reveal.
+                      return _FinishLaunchOnMounted(
+                        child: MaterialApp.router(
+                          onGenerateTitle: (context) => context.strings.appName,
+                          debugShowCheckedModeBanner: false,
+                          theme: highContrast
+                              ? AppTheme.highContrast()
+                              : AppTheme.light(),
+                          locale: locale,
+                          supportedLocales: AppLocalizations.supportedLocales,
+                          localizationsDelegates: AppLocalizations.delegates,
+                          localeResolutionCallback: AppLocalizations.resolve,
+                          routerConfig: getIt<GoRouter>(),
+                          builder: _withNotificationOpener(
+                            _appBuilder(textSize, highContrast),
+                          ),
                         ),
                       );
                     },
@@ -143,13 +137,47 @@ class WaraqtiApp extends StatelessWidget {
 
 /// Wraps [builder] so a reminder notification tap opens that reminder
 /// (F25-T04) — only on the router's app, the one that can navigate.
+///
+/// No `revealed` gate while F28 is in flight: that gate held a tap back until
+/// the splash had faded, so the reminder's page never slid in under the fade.
+/// There is no fade between T02 and T07, and this app is only built once launch
+/// is done, so opening straight away is correct rather than merely tolerable.
+/// T07 passes the new mechanism's signal back in.
 TransitionBuilder _withNotificationOpener(TransitionBuilder builder) =>
     (context, child) => ReminderNotificationOpener(
       taps: getIt<ReminderNotificationTaps>(),
       router: getIt<GoRouter>(),
-      revealed: getIt<LaunchReveal>().revealed,
       child: builder(context, child),
     );
+
+/// Runs the deferred launch steps once, after the app's first frame.
+///
+/// Interim (F28-T02): a stand-in for the reveal that used to trigger them. It
+/// is a widget rather than a call in `build` because the steps must not run
+/// during a build, and because mounting is the one event that happens exactly
+/// once however often the tree above it rebuilds.
+class _FinishLaunchOnMounted extends StatefulWidget {
+  const _FinishLaunchOnMounted({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FinishLaunchOnMounted> createState() => _FinishLaunchOnMountedState();
+}
+
+class _FinishLaunchOnMountedState extends State<_FinishLaunchOnMounted> {
+  @override
+  void initState() {
+    super.initState();
+    final cubit = context.read<BootstrapCubit>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) cubit.finishLaunch();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 /// Returns the [MaterialApp.builder] that applies the user's [TextSize]
 /// (F11-T05) and active [AppColors] palette (F11-T06).

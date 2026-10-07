@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 1 / 9 DONE
+- **Progress:** 2 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -96,7 +96,7 @@ Resolved with the owner on 2026-10-08.
 | # | ID | Task | Output | Status |
 |---|---|---|---|---|
 | 1 | F28-T01 | Feature doc, branch, stale-branch cleanup | this doc + `README.md` row; PR #29 merged to `develop`; `feature/splash-redesign` cut from `develop`; three stale branches deleted | DONE 2026-10-08 |
-| 2 | F28-T02 | Purge the old splash | `splash_screen.dart`, `splash_timing.dart`, `splash_hand_off.dart`, `launch_reveal.dart` and both test files deleted; splash wiring stripped from `app.dart`, `service_locator.dart`, `bootstrap_cubit.dart`, `app_router.dart`; `_LaunchError` extracted to its own file, visually unchanged; app still builds and launches on a plain placeholder; gate green | |
+| 2 | F28-T02 | Purge the old splash | as planned, plus a test file the coverage guard required — see "T02 record" | DONE 2026-10-08 |
 | 3 | F28-T03 | **Design: 3 variants → owner approval gate** | HTML preview in `tool/branding/`, three completely different concepts, brand colours, logo only, each with its own motion idea; written design plan reviewed for genericness before any code (per `frontend-design`) | |
 | 4 | F28-T04 | A sharper mark | upscale + sharpen in `generate_brand_assets.dart`; regenerated 1×/2×/3× plus every native splash size | |
 | 5 | F28-T05 | Native splash carries the mark | Android pre-12 (light + night), API 31+ `values-v31` / `values-night-v31`, the exit-animation listener in `MainActivity`, iOS `LaunchImage` + storyboard (written blind) | |
@@ -104,6 +104,59 @@ Resolved with the owner on 2026-10-08.
 | 7 | F28-T07 | The new hand-off | replaces `SplashHandOff` / `LaunchReveal`; ~500 ms floor, capped content gate, reveal fade, reduced-motion path | |
 | 8 | F28-T08 | Tests + gate + device verification | new test suite (seam guard, timing guard, reduced motion, error state, RTL + large text); `dart format` / `flutter analyze` / `flutter test`; installed on the RMX2001 with `am start -W` numbers recorded here | |
 | 9 | F28-T09 | Review and close | `/flutter-code-review` → `@code-reviewer` → `/explain-feature`; F27-T18's D-2 note updated to point here; PR | |
+
+## T02 record (2026-10-08)
+
+**Deleted** (6 files): `splash_screen.dart`, `splash_timing.dart`,
+`splash_hand_off.dart`, `launch_reveal.dart`, `splash_screen_test.dart`,
+`splash_hand_off_test.dart`. The `presentation/widgets/` directory went with
+them — it held nothing else.
+
+**Added**: `launch_error_screen.dart` (the old `_LaunchError`, moved out
+unchanged) and `launch_screen.dart`, the interim host that switches on
+`BootstrapState` and draws a flat frame. The flat colour is now a named
+constant, `kLaunchBackground` (`#0A6C76`), because T05 and T06 both have to
+agree with it exactly or the handover becomes visible — it is the one value
+Android's `splash_bg`, `windowSplashScreenBackground`, the iOS storyboard and
+Flutter's first frame all have to share.
+
+**Unwired, deliberately left in place for T07** — each of these was a real
+mechanism, and the notes say so where they used to be rather than in this file
+alone:
+
+| What | Where it was | What it did | State now |
+|---|---|---|---|
+| `splashEntranceTimeout` / `splashEntranceFinished` | `BootstrapCubit` | held `BootstrapSuccess` back until the splash's entrance had played out | gone; nothing paces the launch |
+| `LaunchReveal.contentReady` | router → `HomeScreen.onContentLoaded` | let the splash reveal Home whole instead of mid-skeleton | `onContentLoaded` survives on the screens, unwired |
+| `LaunchReveal.revealed` | `ReminderNotificationOpener` | held a tapped reminder back so its page did not slide in under the fade | not passed; the parameter was already optional, so no API churn |
+| `finishLaunch()` after the reveal | `app.dart` | ran the deferred launch steps once nothing was animating | moved to `_FinishLaunchOnMounted`, a post-frame call on the app's first frame |
+| `_precacheSplashMark` | `bootstrap.dart` | decoded the mark before the splash's first frame | gone with the asset constant it referenced |
+
+**The launch now ends in a visible cut.** That is the defect the old hand-off
+existed to prevent, and it is back between T02 and T07 by design rather than by
+oversight. It is recorded in `app.dart`'s own doc comment so it cannot be
+mistaken for the finished behaviour.
+
+**One thing the plan did not anticipate.** `ui_audit_coverage_test` failed: it
+enumerates every screen in the app and refuses any without an
+`auditScreenLayout` entry, so the two new screens had to be covered before the
+gate could go green. `launch_screen_test.dart` (23 tests) does that and carries
+over what the purge preserved rather than what it removed — the state switch,
+the failure's retry, the app-name label, the stage live region, the light
+status-bar icons, and an assertion that the frame is exactly
+`kLaunchBackground`. Nothing about how the launch *looks* is tested; T06 brings
+the design and T08 the suite that pins it.
+
+Worth knowing for anyone writing tests against this screen: the old splash's
+live-region test passed with a single `pump()` because its animation controller
+always had a frame pending. A screen with nothing moving has no such frame, so
+the stage reaches the cubit during the first pump and the rebuild lands on the
+next one — two pumps, and the test says why.
+
+**Gate:** `dart format` 0 changed (707 files), `flutter analyze` **0 errors /
+0 warnings** (18 infos, the standing baseline), `flutter test` **2,417 passed**.
+`flutter build apk --flavor dev --debug` succeeds, so the app still compiles for
+a device as well as for the test VM.
 
 ## Deleted branches (F28-T01)
 

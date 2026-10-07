@@ -8,7 +8,6 @@ import 'core/env/app_environment.dart';
 import 'core/logging/global_error_handlers.dart';
 import 'core/storage/flutter_secure_storage_service.dart';
 import 'core/storage/secure_session_local_storage.dart';
-import 'features/bootstrap/presentation/screens/splash_screen.dart';
 
 /// Shared launch path for every flavor entrypoint.
 ///
@@ -20,7 +19,6 @@ import 'features/bootstrap/presentation/screens/splash_screen.dart';
 /// `AuthRepository`, and initializing it twice throws.
 Future<void> bootstrap(AppEnvironment env) async {
   WidgetsFlutterBinding.ensureInitialized();
-  _precacheSplashMark();
 
   final resolved = AppEnvironment(
     flavor: env.flavor,
@@ -99,13 +97,9 @@ Future<String> _readAppVersion(AppEnvironment env) async {
   }
 }
 
-/// Starts decoding the splash mark (F27-P01) while Supabase and DI start up,
-/// so it is in the image cache by the splash's first frame instead of being
-/// decoded during its animation. Fire-and-forget: if it is not ready in time,
-/// the splash simply decodes it itself.
-void _precacheSplashMark() {
-  final view = WidgetsBinding.instance.platformDispatcher.implicitView;
-  const AssetImage(
-    kBrandMarkAsset,
-  ).resolve(ImageConfiguration(devicePixelRatio: view?.devicePixelRatio ?? 1));
-}
+// F28-T02 removed `_precacheSplashMark`, which started decoding the splash mark
+// here so it was in the image cache by the splash's first frame rather than
+// being decoded during its animation. It referenced the deleted splash screen's
+// asset constant. F28-T06 needs the same trick for whatever the new splash
+// draws, and the native splash in F28-T05 removes most of the urgency: the mark
+// is already on screen before Flutter starts.

@@ -146,7 +146,6 @@ import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/finish_launch.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
-import '../../features/bootstrap/presentation/splash_timing.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/dart_image_quality_service.dart';
 import '../../features/capture/data/services/image_package_cropper.dart';
@@ -211,7 +210,6 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
-import '../launch_reveal.dart';
 import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
@@ -394,14 +392,9 @@ void _registerLaunch(AppEnvironment env) {
       () => FinishLaunch(_buildDeferredSteps(), logger: getIt()),
     )
     ..registerFactory<BootstrapCubit>(
-      // Hold the splash until its entrance animation reports itself finished,
-      // so the mark is never cut off mid-flight on a fast start. The duration
-      // here is only the escape hatch if that report never arrives.
-      () => BootstrapCubit(
-        getIt(),
-        splashEntranceTimeout: kLogoEntranceDuration * 2,
-        finishLaunch: getIt(),
-      ),
+      // F28-T02: the launch no longer waits for a splash entrance animation to
+      // report itself finished. F28-T07 decides what, if anything, holds it.
+      () => BootstrapCubit(getIt(), finishLaunch: getIt()),
     );
 }
 
@@ -1065,11 +1058,10 @@ void _registerSettings() {
 }
 
 void _registerRouting() {
-  getIt
-    // F27-P01. App-scoped: the first screen reports its content here, the
-    // splash hand-off and the notification opener read it.
-    ..registerLazySingleton<LaunchReveal>(LaunchReveal.new)
-    ..registerLazySingleton<GoRouter>(
-      () => createAppRouter(onboardingGate: getIt(), launchReveal: getIt()),
-    );
+  // F28-T02: `LaunchReveal` is gone with the rest of the old hand-off, so the
+  // router no longer reports when the first screen has its content. F28-T07
+  // registers whatever replaces it.
+  getIt.registerLazySingleton<GoRouter>(
+    () => createAppRouter(onboardingGate: getIt()),
+  );
 }

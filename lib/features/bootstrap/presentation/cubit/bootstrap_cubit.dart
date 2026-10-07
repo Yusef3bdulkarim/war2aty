@@ -6,45 +6,24 @@ import '../../domain/usecases/finish_launch.dart';
 import '../../domain/usecases/initialize_app.dart';
 import 'bootstrap_state.dart';
 
-/// Drives the launch sequence and exposes it to the splash screen.
+/// Drives the launch sequence and exposes it to the launch screen.
 ///
 /// Depends on use cases only — no repositories, no BuildContext.
 final class BootstrapCubit extends Cubit<BootstrapState> {
-  BootstrapCubit(
-    this._initializeApp, {
-    this.splashEntranceTimeout,
-    FinishLaunch? finishLaunch,
-  }) : _finishLaunch = finishLaunch,
-       super(const BootstrapInitial());
+  BootstrapCubit(this._initializeApp, {FinishLaunch? finishLaunch})
+    : _finishLaunch = finishLaunch,
+      super(const BootstrapInitial());
 
   final InitializeApp _initializeApp;
 
-  /// The housekeeping that runs once the splash is gone (F27-P01). `null`
-  /// where there is none — tests, and any host without a splash.
+  /// The housekeeping that runs once the app is up (F27-P01). `null` where
+  /// there is none — tests, and any host that never calls [finishLaunch].
   final FinishLaunch? _finishLaunch;
-
-  /// How long a successful launch will wait for the splash to report that its
-  /// entrance animation has played out, before handing off anyway.
-  ///
-  /// `null` (the default) hands off as soon as initialization finishes — what
-  /// tests and any host without a splash want. It is only a safety net: the
-  /// hand-off normally happens the moment [splashEntranceFinished] is called.
-  final Duration? splashEntranceTimeout;
-
-  Completer<void>? _splashEntrance;
-  bool _splashEntranceDone = false;
 
   /// Runs (or re-runs, on retry) the launch sequence.
   Future<void> start() async {
     if (isClosed) return;
     emit(const BootstrapInProgress());
-
-    // Nothing to wait for if the entrance has already played — under reduced
-    // motion it reports before this even runs, and on a retry the user has
-    // watched it once already.
-    final entrance = splashEntranceTimeout == null || _splashEntranceDone
-        ? null
-        : (_splashEntrance = Completer<void>());
 
     final result = await _initializeApp(
       onStage: (stage) {
@@ -54,35 +33,16 @@ final class BootstrapCubit extends Cubit<BootstrapState> {
 
     if (isClosed) return;
 
-    final next = result.when(
-      ok: (_) => const BootstrapSuccess(),
-      err: BootstrapFailure.new,
+    emit(
+      result.when(
+        ok: (_) => const BootstrapSuccess(),
+        err: BootstrapFailure.new,
+      ),
     );
-
-    // A failure needs the user's attention now; only success waits.
-    if (next is BootstrapSuccess && entrance != null) {
-      await entrance.future.timeout(splashEntranceTimeout!, onTimeout: () {});
-      if (isClosed) return;
-    }
-
-    emit(next);
   }
 
-  /// Called by the splash once its entrance animation has played out.
-  ///
-  /// The wait is driven from here rather than by a timer started in [start]
-  /// because the two clocks do not line up: on a cold start the first frame can
-  /// land seconds after launch, and a timer started here would run out that
-  /// much sooner than the animation, cutting it off mid-flight.
-  /// Safe to call before [start], after it, or more than once.
-  void splashEntranceFinished() {
-    _splashEntranceDone = true;
-    final entrance = _splashEntrance;
-    if (entrance != null && !entrance.isCompleted) entrance.complete();
-  }
-
-  /// Called once the splash has faded off the app, to run the launch work that
-  /// was held back so it could not stutter the animation (F27-P01).
+  /// Called once the app is up, to run the launch work that was held back so it
+  /// could not stutter the launch animation (F27-P01).
   ///
   /// Emits nothing: every deferred step is non-critical, the user is already
   /// on the first screen, and a failure there is logged, not shown.

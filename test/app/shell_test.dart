@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
-import 'package:war2aty/app/launch_reveal.dart';
 import 'package:war2aty/app/notifications/reminder_notification_taps.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/app/shell/scaffold_with_nav_bar.dart';
@@ -223,9 +222,8 @@ void main() {
       ..registerLazySingleton<ReminderNotificationTaps>(
         ReminderNotificationTaps.new,
       )
-      ..registerLazySingleton<LaunchReveal>(LaunchReveal.new)
       ..registerLazySingleton<GoRouter>(
-        () => createAppRouter(onboardingGate: getIt(), launchReveal: getIt()),
+        () => createAppRouter(onboardingGate: getIt()),
       );
     await tester.pumpWidget(const WaraqtiApp());
     await tester.pumpAndSettle();
