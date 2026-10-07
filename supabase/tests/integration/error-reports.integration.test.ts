@@ -353,13 +353,72 @@ Deno.test({
     assertEquals((await reportsFor(client, userId)).length, 1);
 
     // T07's idle-user purge is what will do this in production; the point is
-    // that it needs no companion cleanup for this new table.
-    const { error } = await client.rpc("purge_idle_anonymous_users", {
-      p_idle_for: "00:00:00",
-    });
+    // that it needs no companion cleanup for this new table. Asserted by
+    // deleting the user directly, which is the event the purge causes —
+    // F27-T16 floored the purge's window at 30 days, so the zero window this
+    // used to pass is no longer expressible.
+    const { error } = await client.auth.admin.deleteUser(userId);
     assertEquals(error, null);
 
     assertEquals(await reportsFor(client, userId), []);
+  },
+});
+
+Deno.test({
+  name: "[integration] F27-T16: the daily cap cannot be raised by the caller",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const userId = await newUser();
+
+    // p_daily_cap used to be taken as given, so 2147483647 disabled the flood
+    // guard this function exists to provide. It is now a ceiling the caller may
+    // only lower, so a huge value is clamped back to 100 and the 101st report
+    // is refused.
+    for (let i = 0; i < 100; i++) {
+      const { data, error } = await client.rpc("record_error_report", {
+        p_user_id: userId,
+        p_error_code: "LOCAL_DATABASE",
+        p_daily_cap: 2147483647,
+      });
+      assertEquals(error, null);
+      assertEquals(data, "recorded", `report ${i + 1} must be recorded`);
+    }
+
+    const { data, error } = await client.rpc("record_error_report", {
+      p_user_id: userId,
+      p_error_code: "LOCAL_DATABASE",
+      p_daily_cap: 2147483647,
+    });
+    assertEquals(error, null);
+    assertEquals(
+      data,
+      "rate_limited",
+      "the 101st report must be refused despite the caller asking for more",
+    );
+    assertEquals((await reportsFor(client, userId)).length, 100);
+  },
+});
+
+Deno.test({
+  name: "[integration] F27-T16: a client role may not record a report at all",
+  ignore: skip,
+  fn: async () => {
+    // record_error_report is SECURITY DEFINER and takes both the user id and
+    // the ceiling from its caller, so reaching it with the publishable key
+    // meant forging monitoring rows against real users. Asserting the code,
+    // not just that an error came back.
+    const anon = createClient(supabaseUrl!, anonKey!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { error } = await anon.rpc("record_error_report", {
+      p_user_id: crypto.randomUUID(),
+      p_error_code: "LOCAL_DATABASE",
+      p_daily_cap: 2147483647,
+    });
+    assert(error !== null, "the publishable key must be refused");
+    assertEquals(error.code, "42501");
   },
 });
 

@@ -6,6 +6,8 @@ import 'app/app.dart';
 import 'app/di/service_locator.dart';
 import 'core/env/app_environment.dart';
 import 'core/logging/global_error_handlers.dart';
+import 'core/storage/flutter_secure_storage_service.dart';
+import 'core/storage/secure_session_local_storage.dart';
 import 'features/bootstrap/presentation/screens/splash_screen.dart';
 
 /// Shared launch path for every flavor entrypoint.
@@ -59,6 +61,14 @@ Future<AppEnvironment> _initializeSupabase(AppEnvironment env) async {
       // interchangeably; both names describe the one key §24 permits in the
       // client.
       publishableKey: env.supabaseAnonKey,
+      // F27-T16: without this the SDK installs `SharedPreferencesLocalStorage`
+      // and the session — access JWT and long-lived refresh token — is written
+      // to plain `SharedPreferences`, while `SecureStorageKeys.session` claimed
+      // it must stay encrypted. Constructed directly rather than resolved from
+      // `get_it`, because this runs before `configureDependencies`.
+      authOptions: const FlutterAuthClientOptions(
+        localStorage: SecureSessionLocalStorage(FlutterSecureStorageService()),
+      ),
     ).timeout(const Duration(seconds: 15));
 
     return env;

@@ -132,18 +132,57 @@ Deno.test({
   fn: async () => {
     const client = serviceClient();
     const userId = await newUser();
+    const past = crypto.randomUUID();
+    const inside = crypto.randomUUID();
+
+    await addAttempt(client, userId, past, daysAgo(20));
+    await addAttempt(client, userId, inside, daysAgo(5));
+
+    // 10 days reaches rows the 90-day default never would, which is what
+    // proves the interval is really the predicate. It used to be shown with a
+    // zero window; F27-T16 floored the window at 7 days precisely so that
+    // "everything" is no longer expressible, so the proof now straddles a
+    // boundary the caller chose instead.
+    const { error } = await client.rpc("purge_old_analysis_attempts", {
+      p_older_than: "10 days",
+    });
+    assertEquals(error, null);
+    assertEquals(
+      await attemptExists(client, past),
+      false,
+      "a 20-day-old attempt is inside a 10-day window",
+    );
+    assertEquals(
+      await attemptExists(client, inside),
+      true,
+      "a 5-day-old attempt is outside it",
+    );
+  },
+});
+
+Deno.test({
+  name:
+    "[integration] F27-T16: the attempts window cannot be widened to everything",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const userId = await newUser();
     const justNow = crypto.randomUUID();
 
     await addAttempt(client, userId, justNow, new Date().toISOString());
 
-    // A zero window means "everything", which is how the first test's fixtures
-    // would be swept up too — proving the interval is really the predicate and
-    // not a hardcoded 90 days the parameter cannot reach.
-    const { error } = await client.rpc("purge_old_analysis_attempts", {
+    // The call that used to mean "delete the whole table". The floor turns it
+    // into 7 days, so a row created this second has to survive it.
+    const { data, error } = await client.rpc("purge_old_analysis_attempts", {
       p_older_than: "00:00:00",
     });
     assertEquals(error, null);
-    assertEquals(await attemptExists(client, justNow), false);
+    assertEquals(data, 0, "a zero window must now match nothing");
+    assertEquals(
+      await attemptExists(client, justNow),
+      true,
+      "a brand-new attempt must survive a zero window",
+    );
   },
 });
 
@@ -166,7 +205,7 @@ Deno.test({
 });
 
 Deno.test({
-  name: "[integration] the idle-user purge cascades to attempts and usage",
+  name: "[integration] deleting an anonymous user cascades attempts and usage",
   ignore: skip,
   fn: async () => {
     const client = serviceClient();
@@ -183,11 +222,13 @@ Deno.test({
       });
     assertEquals(usageError, null);
 
-    // A zero idle window deletes every anonymous user, this one included, which
-    // is what lets the cascade be observed without waiting a year.
-    const { error } = await client.rpc("purge_idle_anonymous_users", {
-      p_idle_for: "00:00:00",
-    });
+    // What the purge relies on is the `on delete cascade` on both tables, so
+    // that is what this asserts — by deleting the user directly. It used to go
+    // through the purge with a zero idle window; F27-T16 floored that window at
+    // 30 days, and back-dating `auth.users` is not reachable over PostgREST.
+    // Deleting the user is the same event the purge causes, without needing a
+    // window that no longer exists.
+    const { error } = await client.auth.admin.deleteUser(userId);
     assertEquals(error, null);
 
     assertEquals(
@@ -205,6 +246,67 @@ Deno.test({
       null,
       "the deleted user's usage rows must cascade away",
     );
+  },
+});
+
+Deno.test({
+  name:
+    "[integration] F27-T16: the idle window cannot be widened to the user base",
+  ignore: skip,
+  fn: async () => {
+    const client = serviceClient();
+    const userId = await newUser();
+
+    // The request that was a one-call wipe of every anonymous user before
+    // F27-T16 floored the window at 30 days.
+    const { data, error } = await client.rpc("purge_idle_anonymous_users", {
+      p_idle_for: "00:00:00",
+    });
+    assertEquals(error, null);
+    assertEquals(data, 0, "a zero idle window must now match nobody");
+
+    const { data: still } = await client.auth.admin.getUserById(userId);
+    assert(
+      still.user !== null,
+      "a brand-new anonymous user must survive a zero idle window",
+    );
+  },
+});
+
+Deno.test({
+  name:
+    "[integration] F27-T16: no client role may execute the retention functions",
+  ignore: skip,
+  fn: async () => {
+    // The defect this pins: every migration revoked EXECUTE from the PUBLIC
+    // pseudo-role only, while a hosted project also grants it to `anon` and
+    // `authenticated` through the schema's default privileges — so these were
+    // callable with the publishable key that ships in the APK.
+    //
+    // It asserts the error *code*, not merely that an error came back: a
+    // SECURITY INVOKER function fails on a missing table grant too, so
+    // `error !== null` would pass for the wrong reason and keep passing if the
+    // EXECUTE grant came back.
+    const anon = createClient(supabaseUrl!, anonKey!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const calls: [string, Record<string, unknown>][] = [
+      ["purge_old_analysis_attempts", { p_older_than: "90 days" }],
+      ["purge_idle_anonymous_users", { p_idle_for: "12 months" }],
+      ["purge_old_error_reports", { p_older_than: "90 days" }],
+      ["retention_jobs_report", {}],
+    ];
+
+    for (const [name, args] of calls) {
+      const { error } = await anon.rpc(name, args);
+      assert(error !== null, `${name} must refuse the publishable key`);
+      assertEquals(
+        error.code,
+        "42501",
+        `${name} must refuse with permission denied, not ${error.code}`,
+      );
+    }
   },
 });
 
