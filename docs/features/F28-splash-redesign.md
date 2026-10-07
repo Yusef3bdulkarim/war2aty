@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 2 / 9 DONE
+- **Progress:** 3 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -41,11 +41,14 @@ only way to the logo appearing at ~100 ms is to put it in the native splash.
 
 Resolved with the owner on 2026-10-08.
 
-1. **The concept is replaced, not revised.** Three completely different design
-   variants are proposed as an HTML preview and one is chosen. The old
-   `feature/animated-splash` concept ("paper dart flies in and opens into the
-   logo") was deliberately **not** consulted — the owner ruled the idea must be
-   new, so that branch was deleted unexamined (SHA recorded below).
+1. **There is no concept. The screen is the background colour and the icon.**
+   Settled by the owner on 2026-10-08, after three concepts were proposed and
+   all three were discarded: *"no additional frames, lines, or background
+   patterns whatsoever... only the background color and the icon, with nothing
+   else added."* This **supersedes** the brief's original call for a subtle
+   geometric pattern, and it is the instruction that governs. The old
+   `feature/animated-splash` concept was likewise never consulted, and its
+   branch was deleted unexamined (SHA recorded below).
 2. **The native splash carries the mark** on all three paths, reversing P01's
    decision to show the teal alone. The handover is built as a **pixel-identical
    frame**: Flutter's first frame draws the same mark at the same size, in the
@@ -60,10 +63,12 @@ Resolved with the owner on 2026-10-08.
    (`splashScreen.setOnExitAnimationListener { it.remove() }`, guarded by
    `SDK_INT >= 31`) or it fades/scales its icon out and reintroduces the jump.
    **No new dependency** — the platform API, not `androidx.core:core-splashscreen`.
-4. **Background comes in after the handover (owner chose option B).** The native
-   splash can only show a flat colour, so the Flutter splash starts flat and
-   fades its background in over ~300 ms. There is no visible seam, and the
-   design is free to use a pattern the native layer cannot draw.
+4. **Nothing arrives after the handover.** The earlier plan had the Flutter
+   splash start flat and fade a background in over ~300 ms, so the design could
+   use a pattern the native layer cannot draw. Decision 1 removed the pattern,
+   so that mechanism is removed with it: the Flutter splash is the same flat
+   colour and the same mark, and it simply stays that way. This makes the
+   pixel-identical handover trivially true rather than carefully arranged.
 5. **No text on screen.** Logo only. The app name stays a `Semantics` label, as
    it is today — it is the screen-reader label and the task-switcher title
    (F27-T14).
@@ -97,10 +102,10 @@ Resolved with the owner on 2026-10-08.
 |---|---|---|---|---|
 | 1 | F28-T01 | Feature doc, branch, stale-branch cleanup | this doc + `README.md` row; PR #29 merged to `develop`; `feature/splash-redesign` cut from `develop`; three stale branches deleted | DONE 2026-10-08 |
 | 2 | F28-T02 | Purge the old splash | as planned, plus a test file the coverage guard required — see "T02 record" | DONE 2026-10-08 |
-| 3 | F28-T03 | **Design: 3 variants → owner approval gate** | `tool/branding/splash_preview_v2.html` — see "T03 record" | **AWAITING THE OWNER'S PICK** |
+| 3 | F28-T03 | **Design → owner decision** | three concepts proposed and all three discarded; the screen is the background colour and the icon — see "T03 record" | DONE 2026-10-08 |
 | 4 | F28-T04 | A sharper mark | upscale + sharpen in `generate_brand_assets.dart`; regenerated 1×/2×/3× plus every native splash size | |
 | 5 | F28-T05 | Native splash carries the mark | Android pre-12 (light + night), API 31+ `values-v31` / `values-night-v31`, the exit-animation listener in `MainActivity`, iOS `LaunchImage` + storyboard (written blind) | |
-| 6 | F28-T06 | The new Flutter splash | the approved variant; first frame pixel-matches the native splash; background fades in; the new idle animation | |
+| 6 | F28-T06 | The Flutter splash | the mark at 128 dp on `kLaunchBackground`, centred, full opacity, static — and a test that it matches the native splash | |
 | 7 | F28-T07 | The new hand-off | replaces `SplashHandOff` / `LaunchReveal`; ~500 ms floor, capped content gate, reveal fade, reduced-motion path | |
 | 8 | F28-T08 | Tests + gate + device verification | new test suite (seam guard, timing guard, reduced motion, error state, RTL + large text); `dart format` / `flutter analyze` / `flutter test`; installed on the RMX2001 with `am start -W` numbers recorded here | |
 | 9 | F28-T09 | Review and close | `/flutter-code-review` → `@code-reviewer` → `/explain-feature`; F27-T18's D-2 note updated to point here; PR | |
@@ -158,79 +163,59 @@ next one — two pumps, and the test says why.
 `flutter build apk --flavor dev --debug` succeeds, so the app still compiles for
 a device as well as for the test VM.
 
-## T03 record (2026-10-08) — awaiting the owner's pick
+## T03 record (2026-10-08) — three concepts proposed, all three discarded
 
-Preview: **`tool/branding/splash_preview_v2.html`** (open in a browser). Replay,
-0.5x / 0.25x, a reduced-motion switch, and a **Hold frame 0** button. It also
-shows the handover proof: the system splash and Flutter's first frame side by
-side, identical.
+Three were built and shown as a live preview: hairlines grouped like a printed
+form drawing in right-to-left, a letter folded in three for an envelope, and the
+diagonal security lattice printed into official paper. The owner discarded all
+three and settled the screen directly:
 
-### The constraint that shaped all three
+> no additional frames, lines, or background patterns whatsoever... only the
+> background color and the icon, with nothing else added.
 
-Decision 2 says Flutter's first frame must match the native splash exactly. That
-rules out the obvious splash move — a logo that fades or scales in — because the
-logo is already on screen, drawn by the system, before Flutter exists. So in all
-three concepts **the mark never moves and never fades**. It is the fixed point,
-and the paper world assembles around it. Only the background arrives, once.
+This **supersedes the original brief**, which asked for a subtle geometric
+pattern and said to avoid a flat colour. The later instruction governs, and it
+is recorded here because the two read as contradictory to anyone coming to this
+file cold.
 
-### Palette: five brand values, nothing else
+### The settled specification
 
-| Token | Hex | Role |
-|---|---|---|
-| `launch` | `#0A6C76` | the handover colour; frame 0, and the floor of every concept |
-| `near` | `#0E7C86` | brand teal |
-| `far` | `#0A5C64` | deep teal |
-| `recess` | `#04454E` | the icon's own darker ground (P01 lifted it from the owner's artwork) |
-| `mint` | `#34D0B4` | only ever a hairline, only ever at low alpha |
+| | |
+|---|---|
+| Background | solid `kLaunchBackground` `#0A6C76`, full bleed |
+| Mark | `brand_mark.png`, 128 dp, centred, full opacity |
+| Everything else | nothing — no gradient, no glow, no pattern, no lines, no frame, no text |
+| Motion | none |
+| Status bar | light icons on the teal |
+| Reduced motion | no separate path needed: nothing moves in either case |
 
-**Type: none.** The splash carries no text by decision 5, so there is no
-typeface to choose. The preview's own chrome uses Cairo loaded from
-`assets/fonts/` rather than Google Fonts, so the file works offline.
+**Motion reads as none.** The owner asked earlier for "elegant animations", and
+this instruction does not mention motion either way. It resolves to a still
+screen for two reasons rather than by preference: the only thing left on screen
+is the mark, and animating the mark is precisely what decision 2 forbids, since
+the system has already drawn it before Flutter starts. A still screen is also
+the strict reading of "nothing else added". If the owner wants a subtle moment
+after all, it is a small addition to T06 — but it would have to animate
+something, and there is nothing left to animate without reopening decision 2.
 
-### The three
+### What this simplifies
 
-Each is a different *kind* of geometry, not three versions of one idea.
+- The ~300 ms background fade (old decision 4) is gone, and with it the only
+  part of the Flutter splash that had to be choreographed.
+- T06 shrinks to drawing one image on one colour. `_LaunchFrame` from T02
+  already paints that colour; T06 adds the mark.
+- The pixel-identical handover stops being something to arrange carefully and
+  becomes true by construction: both layers are one flat colour and one centred
+  image, from one constant and one asset.
+- **T04 matters more, not less.** The mark is now the only thing on the screen,
+  so its softness is the only visual flaw left anywhere in the launch.
 
-| | Concept | Geometry | The one moment |
-|---|---|---|---|
-| A | **«السطور»** Ruled lines | 1D — horizontal hairlines, grouped as a real form groups them, breaking around the mark | the rules draw in **from the right leftward**, the direction these users read |
-| B | **«الطيّة»** The fold | 2D — a letter folded in three for an envelope, flat planes, no gradient | the two outer bands take the light; the middle band, where the mark sits, never changes at all |
-| C | **«الشبكة»** The watermark | texture — the fine diagonal security lattice printed into official paper | it resolves into focus once, easing from very slightly oversized to exact |
+### What was removed
 
-### What the review pass changed
-
-The plan was written, then checked against the brief for anything that was a
-default rather than a choice. Three things failed that check, and two of them
-only became obvious once the page was rendered and looked at:
-
-1. **Evenly spaced rules in A** — hairline rules are on `frontend-design`'s list
-   of generated-page tells. Fixed by grouping them irregularly, the way a form
-   does, so the rhythm carries information instead of decorating.
-2. **B was four quarters.** Rendered, it read as four hard colour blocks with a
-   seam running straight behind the logo — not paper. Rebuilt as three bands
-   (a letter folded for an envelope, which is how these papers are actually
-   carried), with the value steps cut to a few percent and the middle band left
-   at exactly the handover colour, so nothing ever changes behind the mark.
-3. **C was the boxed grid of a bill.** Rendered, the outlined boxes read as a
-   **loading skeleton** — the worst possible association for a splash, since it
-   suggests the app is stuck. Replaced outright with the security lattice, which
-   is also a different kind of geometry from A and B rather than a third
-   rectilinear one.
-
-Two further notes, from `ui-ux-pro-max`:
-
-- Its database flags **continuous decorative animation** ("use for loading
-  indicators only") and **more than 1–2 animated elements per view**. The old
-  splash's infinitely breathing mark was exactly the first case. Every concept
-  here plays **one finite moment and then stops**.
-- Motion-duration guidance there explicitly warns against treating any single
-  figure as universal, so the three differ (~900 / ~800 / ~920 ms) according to
-  what each one is doing rather than sharing one number.
-
-### Deliberately not in the preview
-
-How the splash *leaves*. The exit is F28-T07's, and showing a guess at it would
-invite judging something that has not been designed.
+`tool/branding/splash_preview_v2.html` is deleted rather than kept. It renders
+three concepts that are now void, and a preview of rejected designs sitting in
+`tool/branding/` next to the P01 one would mislead whoever opens it next. It
+remains in history at commit `8de449d` if it is ever wanted.
 
 ## Deleted branches (F28-T01)
 
@@ -260,7 +245,11 @@ unmerged; the owner authorised deleting each one.
 
 - The logo is on screen from the system starting window (~100 ms), and there is
   **no visible change** when Flutter takes over.
-- No flat-colour-only stretch at any point in the launch.
+- The launch is **one unchanging image** from the system starting window
+  until Home: the same colour, the same mark, in the same place. The
+  original brief forbade a flat colour here; decision 1 reversed that, and
+  the test of success is now that nothing on screen changes at all until
+  the app itself appears.
 - Cold start to Home is materially faster than the ~3.2 s floor it replaces.
 - Nothing of the old splash remains: no `SplashHandOff`, no `LaunchReveal`, no
   `splash_timing.dart`, no gradient-and-glow screen.
