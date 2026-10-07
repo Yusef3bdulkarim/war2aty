@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/presentation/widgets/draggable_crop_overlay.dart';
 
@@ -71,13 +72,17 @@ Future<void> _pumpLetterboxed(
   await tester.pump();
 }
 
-// ── Arabic accessibility labels for the 4 interactive edge handles ──
-const _top = 'مقبض القص أعلى';
-const _bottom = 'مقبض القص أسفل';
-const _left = 'مقبض القص يسار';
-const _right = 'مقبض القص يمين';
+// ── Accessibility labels for the 4 interactive edge handles ──
+// Read from `AppStrings` rather than written out again: they were hardcoded
+// Arabic in the widget until F27-T15 moved them into both languages, and a
+// copy here would stop catching the English side.
+const _strings = ArStrings();
+final _top = _strings.previewCropHandleTop;
+final _bottom = _strings.previewCropHandleBottom;
+final _left = _strings.previewCropHandleLeft;
+final _right = _strings.previewCropHandleRight;
 
-const _edgeLabels = [_top, _bottom, _left, _right];
+final _edgeLabels = [_top, _bottom, _left, _right];
 
 void main() {
   group('DraggableCropOverlay', () {

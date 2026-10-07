@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_radii.dart';
 import '../theme/app_shadows.dart';
 import '../theme/app_typography.dart';
+import 'forward_chevron.dart';
 
 // From `Waraqti.dc.html` → the settings screen's card sections (`الخصوصية`
 // and every section after it). One shared shape for all of them.
@@ -159,11 +160,7 @@ class SettingsValueRow extends StatelessWidget {
                   ],
                 ),
               ),
-              StrokeIcon(
-                StrokeGlyph.chevronForward,
-                color: colors.textMuted,
-                size: 16,
-              ),
+              ForwardChevron(color: colors.textMuted),
             ],
           ),
         ),
@@ -351,11 +348,7 @@ class SettingsLinkRow extends StatelessWidget {
                   ),
                 ),
               ),
-              StrokeIcon(
-                StrokeGlyph.chevronForward,
-                color: colors.textMuted,
-                size: 16,
-              ),
+              ForwardChevron(color: colors.textMuted),
             ],
           ),
         ),
@@ -405,11 +398,7 @@ class SettingsNavRow extends StatelessWidget {
                   ),
                 ),
               ),
-              StrokeIcon(
-                StrokeGlyph.chevronForward,
-                color: colors.textMuted,
-                size: 16,
-              ),
+              ForwardChevron(color: colors.textMuted),
             ],
           ),
         ),

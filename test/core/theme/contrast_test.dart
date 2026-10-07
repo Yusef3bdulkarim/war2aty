@@ -148,5 +148,47 @@ void main() {
       );
       expect(_contrastRatio(c.error, c.errorTint), greaterThanOrEqualTo(4.5));
     });
+
+    // F27-T18 finding D-4: the owner saw high contrast recolour the brand on
+    // the phone and ruled that it must not. So `brandPrimary` is now the same
+    // teal in both palettes, and these two tests are what that costs and what
+    // it keeps.
+    test('brandPrimary is the brand teal, exactly as in the light palette', () {
+      expect(c.brandPrimary, AppColors.light.brandPrimary);
+    });
+
+    test('KNOWN GAP: brand text on the teal surface misses AA for small text '
+        'in both palettes (4.28:1 here, 4.45:1 in light)', () {
+      // The first version of this test asserted that the ratio here is the
+      // same as in `light`. It was tautological *and* wrong: it fed
+      // `highContrast.surfaceTeal` to both sides, and the two palettes do not
+      // share that surface (#E4F1F2 here, #EEF4F5 in light). The honest
+      // numbers are below, and they are what D-4 costs: the pair already sits
+      // just under AA in light, and high contrast no longer lifts it out.
+      final here = _contrastRatio(c.brandPrimary, c.surfaceTeal);
+      final inLight = _contrastRatio(
+        AppColors.light.brandPrimary,
+        AppColors.light.surfaceTeal,
+      );
+
+      expect(here, closeTo(4.28, 0.01));
+      expect(inLight, closeTo(4.45, 0.01));
+      expect(
+        here,
+        lessThan(inLight),
+        reason:
+            'this palette uses a deeper teal surface, so the same brand colour '
+            'reads slightly lower here than in light — if that ever inverts, '
+            'one of the two surfaces moved',
+      );
+      expect(
+        here,
+        greaterThanOrEqualTo(4.2),
+        reason:
+            'clears AA for large text and UI components (3:1) but not the 4.5 '
+            'for small text. A change that makes it worse is a regression, '
+            'not a trade-off.',
+      );
+    });
   });
 }

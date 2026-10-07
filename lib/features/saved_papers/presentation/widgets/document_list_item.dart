@@ -12,6 +12,7 @@ import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/time/document_date_label.dart';
+import '../../../../core/widgets/forward_chevron.dart';
 
 // From `Waraqti.dc.html` → `isDocuments`, the saved-document row.
 const double _cardPadding = 16;
@@ -117,8 +118,7 @@ class DocumentListItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  StrokeIcon(
-                    StrokeGlyph.chevronForward,
+                  ForwardChevron(
                     color: colors.borderStrong,
                     size: 18,
                     strokeWidth: 2.2,

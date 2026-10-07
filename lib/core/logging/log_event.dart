@@ -8,6 +8,32 @@ enum LogStage { capture, ocr, analyze, save }
 /// Outcome of an analysis attempt.
 enum LogResultStatus { success, partial, failure }
 
+/// An error that is not an [AppFailure] — a defect rather than a handled
+/// outcome (F27-T12).
+///
+/// `AppFailure` covers everything the app anticipated: no network, OCR gave
+/// nothing, the daily limit is spent. An uncaught error is the other kind —
+/// something the code did not expect — and before this existed there was no
+/// content-free way to log one, which is why production reported nothing at
+/// all (F27-H1).
+///
+/// A closed set with a fixed code each, exactly like [errorCodeOf]. The
+/// exception's own `toString()` and stack trace are deliberately **not**
+/// carried: a parse or format error quotes the input it choked on, and on this
+/// app's paths that input is the text of someone's document.
+enum LogCrashKind {
+  /// `FlutterError.onError` — a framework or widget-tree error.
+  flutterFramework('UNCAUGHT_FLUTTER_ERROR'),
+
+  /// `PlatformDispatcher.onError` — an unhandled async error.
+  platformDispatcher('UNCAUGHT_PLATFORM_ERROR');
+
+  const LogCrashKind(this.code);
+
+  /// The stable log code, in the same shape as [errorCodeOf]'s values.
+  final String code;
+}
+
 /// Coarse OCR confidence band — never the raw score, never the text.
 ///
 /// Distinct from the analysis feature's `ConfidenceBand`, which grades a single
@@ -60,9 +86,14 @@ final class LogEvent {
     this.ocrConfidenceBand,
     this.resultStatus,
     this.failure,
+    this.crash,
     this.appVersion,
     this.schemaVersion,
-  });
+  }) : assert(
+         failure == null || crash == null,
+         'a record is either a handled failure or an uncaught error, '
+         'not both — they would compete for the one errorCode field',
+       );
 
   /// Generated UUID for one analysis session — an identifier, not content.
   final String? analysisSessionId;
@@ -82,6 +113,9 @@ final class LogEvent {
   /// The failure that occurred; only its stable code is logged, never its data.
   final AppFailure? failure;
 
+  /// Set instead of [failure] when the record is an uncaught error (F27-T12).
+  final LogCrashKind? crash;
+
   final String? appVersion;
   final String? schemaVersion;
 
@@ -98,6 +132,7 @@ final class LogEvent {
         'ocrConfidenceBand': ocrConfidenceBand!.name,
       if (resultStatus != null) 'resultStatus': resultStatus!.name,
       if (failure != null) 'errorCode': errorCodeOf(failure!),
+      if (crash != null) 'errorCode': crash!.code,
       'appVersion': ?appVersion,
       'schemaVersion': ?schemaVersion,
     };

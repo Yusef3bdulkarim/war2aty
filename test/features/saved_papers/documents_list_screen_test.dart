@@ -11,6 +11,7 @@ import 'package:war2aty/features/saved_papers/presentation/screens/documents_lis
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
@@ -29,9 +30,27 @@ void main() {
     child: DocumentsListScreen(onScan: onScan, onOpenDocument: onOpenDocument),
   );
 
+  auditScreenLayout('DocumentsListScreen', (tester, locale, scaler) {
+    repository.emit([
+      documentWith(id: 'a', title: 'فاتورة كهرباء'),
+      documentWith(id: 'b', title: 'موعد الأشعة'),
+    ]);
+    return pumpApp(
+      tester,
+      screenUnderTest(),
+      locale: locale,
+      textScaler: scaler,
+    );
+  });
+
   group('DocumentsListScreen', () {
     testWidgets('shows a spinner before the database answers', (tester) async {
-      await pumpApp(tester, screenUnderTest(), settle: false);
+      await pumpApp(
+        tester,
+        screenUnderTest(),
+        settle: false,
+        framesAfterMount: 0,
+      );
 
       // The heading text lives in the nav shell tab, not this screen.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

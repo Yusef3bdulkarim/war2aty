@@ -9,4 +9,6 @@
 storePassword=<your store password>
 keyPassword=<your key password>
 keyAlias=war2aty
-storeFile=<path to your .jks file, e.g. /Users/you/war2aty-release.jks>
+# Resolved relative to android/app/, NOT the repo root — the same way the
+# signing config resolves it. A bare filename means android/app/<name>.
+storeFile=war2aty-release.jks

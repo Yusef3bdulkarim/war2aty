@@ -15,6 +15,7 @@ import 'package:war2aty/core/widgets/caveat_badge.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
 
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 const _strings = ArStrings();
 
@@ -402,6 +403,10 @@ void main() {
 
     testWidgets('drops a long value under its label', (tester) async {
       const long = 'شركة شمال القاهرة لتوزيع الكهرباء — قطاع مدينة نصر';
+      // On a phone, not on the test window's 800 dp: the row only has to
+      // drop the value when the two really do not fit, and at 800 dp with
+      // Cairo's own metrics they do (F27-T15).
+      setAuditSurface(tester);
       await pumpCard(
         tester,
         items: [_item(label: 'الجهة', value: long)],

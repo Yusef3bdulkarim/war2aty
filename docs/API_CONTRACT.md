@@ -923,7 +923,8 @@ not liveness.
 
 ### Shared behaviour
 
-All three endpoints:
+Every endpoint (`analyze-document`, `ocr-document`, `get-usage`, `report-error`,
+`health`):
 
 - accept `x-request-id` (a uuid) and **echo it** on every response, success or
   error. The same id keys `analysis_attempts`, so reusing one on a retry cannot

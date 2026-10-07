@@ -2,18 +2,26 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/usecases/finish_launch.dart';
 import '../../domain/usecases/initialize_app.dart';
 import 'bootstrap_state.dart';
 
 /// Drives the launch sequence and exposes it to the splash screen.
 ///
-/// Depends on the [InitializeApp] use case only — no repositories, no
-/// BuildContext.
+/// Depends on use cases only — no repositories, no BuildContext.
 final class BootstrapCubit extends Cubit<BootstrapState> {
-  BootstrapCubit(this._initializeApp, {this.splashEntranceTimeout})
-    : super(const BootstrapInitial());
+  BootstrapCubit(
+    this._initializeApp, {
+    this.splashEntranceTimeout,
+    FinishLaunch? finishLaunch,
+  }) : _finishLaunch = finishLaunch,
+       super(const BootstrapInitial());
 
   final InitializeApp _initializeApp;
+
+  /// The housekeeping that runs once the splash is gone (F27-P01). `null`
+  /// where there is none — tests, and any host without a splash.
+  final FinishLaunch? _finishLaunch;
 
   /// How long a successful launch will wait for the splash to report that its
   /// entrance animation has played out, before handing off anyway.
@@ -72,4 +80,11 @@ final class BootstrapCubit extends Cubit<BootstrapState> {
     final entrance = _splashEntrance;
     if (entrance != null && !entrance.isCompleted) entrance.complete();
   }
+
+  /// Called once the splash has faded off the app, to run the launch work that
+  /// was held back so it could not stutter the animation (F27-P01).
+  ///
+  /// Emits nothing: every deferred step is non-critical, the user is already
+  /// on the first screen, and a failure there is logged, not shown.
+  Future<void> finishLaunch() async => _finishLaunch?.call();
 }

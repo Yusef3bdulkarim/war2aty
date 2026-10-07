@@ -20,10 +20,12 @@ final class EnStrings implements AppStrings {
   const EnStrings();
 
   @override
-  String get appName => 'What Does My Paper Say?';
-
-  @override
-  String get appTagline => 'Snap the paper and see what matters.';
+  // The brand is «ورقتي» / War2aty, with the digit kept — owner's ruling on
+  // Q16, 2026-10-06 (F27-T14). The English string carries the name as well as
+  // the translated question: it is the OS task-switcher title and the splash
+  // mark's screen-reader label, so for an English user it was the one place
+  // the product's actual name could be heard, and it was missing.
+  String get appName => 'War2aty — What Does My Paper Say?';
 
   @override
   String get bootstrapErrorTitle => 'We couldn\'t start';
@@ -231,6 +233,18 @@ final class EnStrings implements AppStrings {
 
   @override
   String get previewRotateLabel => 'Rotate the photo';
+
+  @override
+  String get previewCropHandleTop => 'Crop handle, top';
+
+  @override
+  String get previewCropHandleBottom => 'Crop handle, bottom';
+
+  @override
+  String get previewCropHandleLeft => 'Crop handle, left';
+
+  @override
+  String get previewCropHandleRight => 'Crop handle, right';
 
   @override
   String get previewProcessing => 'Preparing the photo…';
@@ -743,7 +757,8 @@ final class EnStrings implements AppStrings {
 
   @override
   String get ocrOfflineQualityWarning =>
-      'Results may be less accurate because the scan was done offline';
+      'We read the paper on your phone, so results may be less accurate — '
+      'check the text';
   @override
   String get ocrOnlineFallbackWarning =>
       "Online reading isn't available right now, so we read the paper on "

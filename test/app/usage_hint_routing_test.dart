@@ -21,6 +21,7 @@ import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/storage/usecases/discard_analysis_session.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
 import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
@@ -133,6 +134,7 @@ void main() {
           buildResult: const BuildAnalysisResult(),
           syncDailyUsage: SyncDailyUsage(usage),
           getDailyUsage: GetDailyUsage(usage),
+          discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
         ),
       )
       ..registerFactory<SaveDocumentCubit>(() {

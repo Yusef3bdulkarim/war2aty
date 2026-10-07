@@ -5,9 +5,22 @@ import 'package:war2aty/features/reminders/presentation/screens/reminder_success
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
+import '../../support/ui_audit.dart';
 
 void main() {
   const ar = ArStrings();
+
+  auditScreenLayout(
+    'ReminderSuccessScreen',
+    (tester, locale, scaler) => pumpApp(
+      tester,
+      ReminderSuccessScreen(
+        reminder: fakeReminder(alertTimes: [DateTime.utc(2026, 8, 24, 8)]),
+      ),
+      locale: locale,
+      textScaler: scaler,
+    ),
+  );
 
   testWidgets('shows the confirmation, the title and the first alert', (
     tester,

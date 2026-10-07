@@ -13,6 +13,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/storage/usecases/discard_analysis_session.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/widgets/teal_top_bar.dart';
@@ -98,6 +99,7 @@ void main() {
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
       getDailyUsage: GetDailyUsage(FakeUsageRepository()),
+      discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
     );
     tts = FakeTextToSpeechService();
     audioReaderCubit = AudioReaderCubit(
@@ -390,6 +392,7 @@ void main() {
         buildResult: const BuildAnalysisResult(),
         syncDailyUsage: SyncDailyUsage(usage),
         getDailyUsage: GetDailyUsage(usage),
+        discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
       );
       addTearDown(limitCubit.close);
       repository.answer = Err(failure);
@@ -804,6 +807,7 @@ void main() {
         buildResult: const BuildAnalysisResult(),
         syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),
         getDailyUsage: GetDailyUsage(FakeUsageRepository()),
+        discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
       );
       addTearDown(emptyCubit.close);
       repository.answer = const Err(failure);
@@ -864,6 +868,7 @@ void main() {
         buildResult: const BuildAnalysisResult(),
         syncDailyUsage: SyncDailyUsage(cache),
         getDailyUsage: GetDailyUsage(cache),
+        discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
       );
       addTearDown(emptyCubit.close);
       if (consentDeclined) await consentStore.writeConsent(false);

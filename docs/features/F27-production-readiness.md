@@ -1,0 +1,2150 @@
+# F27 · Production readiness
+
+- **Branch:** `feature/production-readiness`, to be cut from `develop` (not created yet) · **Milestone:** M9 (launch)
+- **Depends on:** all shipped features (F00–F26) · **Supersedes:** the open F12 tasks (T03–T12), once the owner confirms Q7
+- **Progress:** 19 / 28 DONE (2 initial steps + 26 tasks) · **Plan LOCKED 2026-10-04, amended the same day with the initial steps P01–P02.** P01, P02, T01 and T02 done 2026-10-05, and **every open question is now answered**. T02 closed out all three open PRs (Q5); its other two acceptance items were **ruled on by the owner and moved to T14 and T25** — see "T02 record". T03 added CI, **now verified green on PR #29** (the Phase 0 PR, open against `develop`). T04 rebuilt production in `eu-central-1` (Frankfurt) as `war2aty-prod` and made the old Seoul project staging. T05 found that **Edge Functions do not run in the project's region** and pinned them, and verified Mistral → Groq live **on production itself** (11/11, real analysis in 9 s). Its Gemini check is **deferred to T08** by the owner. T06 armed the global cap at 500/day and found that **the cap does not cover Gemini at all** (attestation deferred by the owner, so T26 inherits it). T07 built the retention jobs, proved them against a real database and **applied them to all three environments**, verified live. T08 found most of its own work already done by T04, **completed the Gemini check T05 left behind**, and reduced to **three owner console actions**. T09 wrote `docs/OPERATIONS.md` and turned up a **dead kill switch** and a **paused-project trap that silently kills the retention jobs**. T10 closed **B1** (the banned «محدش بيشوف صورتها» claim in both iOS permission prompts) and **M3** (the stale manifest comment), and put the §7 copy rules under a test that reads the native config off disk — proved by re-running it against the old wording. T11 turned backup and transfer off and **proved it on the owner’s own phone**, before and after: `ALLOW_BACKUP` present and a backup actually attempted, then gone and «Backup is not allowed» — **H2 closed**, with one half of it unverifiable on an Android 11 device. T12 closed **H1**: the two global error handlers, a production sink, a new `report-error` Edge Function and `error_reports` table — **proved end to end on a real local stack** (a row written through the real function) with 809 backend tests green. The backend half is **deployed and verified on staging and production**; the app half ships with T13's release build. T13 closed **H7** (a prod release now fails without the real key instead of silently signing with the debug key, proved by moving the key aside), **M4** (0 fixture entries in the prod APK, 6 in dev) and **M8** (the crash dumps were a *native* OOM on a full machine, not a heap shortage — so the settings went **down**). T14 was unblocked by the owner **keeping the name as it is, digit included** (Q16 reversed): nothing was renamed, the English `appName` gained the brand it never carried, and the repo finally took `LICENSE`, `CONTRIBUTING.md`, `.editorconfig` and `config/prod.json.example` off `main` — with both recovered documents corrected, since each still named **Azure** and repeated a privacy claim F20-T24 retired. T15 found that **the whole test suite had been measuring the wrong font** — Flutter's placeholder, ~2.3× wider than Cairo — so every large-text check in the project was checking a font the app never ships; with Cairo loaded and a new 108-test sweep over every screen at phone size in both languages, it fixed a screen that ran off the bottom, four chevrons that pointed backwards in English, two CPU-bound paths that ran on the UI isolate (including **every open of a saved paper**), and an **unencrypted page image that outlived its scan**. T16 ran `/security-review` plus the manual checks and found **a HIGH that was live on production**: every `SECURITY DEFINER` function in `public` was callable by anyone holding the publishable key, including one that deleted **the entire user base** in a single unauthenticated request — because the migrations only ever revoked from `public`, and because `supabase db reset` applies migrations as a role under which the local stack **cannot exhibit the bug**. Fixed in two layers, verified non-destructively, and deployed to staging then production. Everything else came back clean, all 191 Dart dependencies are advisory-free, the three Low findings were fixed, and F12-T06 was finally watched on a real phone. T17 built the project's **first** test of the app rather than of its parts: a harness that boots the real DI graph, router, database and HTTP client with fakes only at the platform and network edges, and 13 journeys over it — the invoice path end to end (including the reminder **linked** to the paper saved a step earlier, and an alert reaching the OS) and six failure paths. It also turned up **four environment traps no existing test had hit**, including that **the online route cannot run inside `testWidgets` at all** (real I/O + a real isolate), which is why no widget test had ever driven it past the review screen. Mutation-proved against a real privacy regression. T18 put the shipping artefact on a real phone for the first time since P02 and **found four defects no test here could have caught** — the worst of them a review banner that blamed the user's internet while they were online, which at launch (Q12) would have been *every* user — then fixed all four with guards. It also proved T11's backup refusal and T16's permission removals on the **prod package on the phone** rather than on the APK. **The owner closed it early**, so its headline item — **reminder delivery under OEM battery savers (M6)** — never ran, and nor did the device performance profile (F12-T05, with F22-T09 folded in); both are recorded as open rather than marked done. **T19 is next**, and the owner has asked for a **dedicated splash task** as well.
+
+Everything between the current `develop` and a public store launch: environments,
+backend rollout, abuse protection, release builds and signing, branding,
+monitoring, compliance, store listings, and the launch itself. It comes out of the
+production-readiness audit of 2026-10-04 (summarised below).
+
+## Execution rule (owner, 2026-10-04): binding for every task
+
+1. **One task at a time.** Nothing moves from one task to the next on its own.
+2. After each task: mark its row DONE here (with what was done, deviations and
+   evidence), then send the owner a **detailed progress report**, then **STOP and
+   wait for explicit approval** before starting the next task.
+3. Tasks marked **(owner)** need the owner's accounts or consoles (Supabase
+   dashboard, Play Console, Apple, provider consoles). For those, I prepare exact
+   steps, the owner runs them, and I verify where I can.
+4. The usual gate applies to every task that touches code: `dart format .`,
+   `flutter analyze`, `flutter test` (plus `deno test` for server changes), then
+   `/flutter-code-review`, with `@code-reviewer` offered before a PR.
+5. Git: one commit per task, pushed after each. PR timing is still open (Q21).
+
+## Locked decisions
+
+Resolved with the owner on 2026-10-04.
+
+1. **The Google Play account is an Organization (company) account.** The
+   12-tester / 14-day closed-testing requirement for new personal accounts does
+   **not** apply. A closed or internal track is optional, used only as a smoke test
+   (T22). It doesn't gate production access.
+2. **The app icon changed; the name did not.** *Amended 2026-10-04:* the
+   **icon** came first, with a new splash screen, in initial step **P01**.
+   **Reversed by the owner 2026-10-06 (Q16): the name stays exactly as it is,
+   digit included** — «ورقتي» on the launcher and in the UI, **War2aty** as the
+   Latin brand, package IDs unchanged (Q15). So T14 renamed nothing; it
+   confirmed every surface, gave the **English** `appName` the brand it had
+   never carried, and guarded both. Every task that shows the name (store
+   listing T21, privacy policy T20, iOS display name T23) uses «ورقتي» /
+   War2aty, and the paragraph below is now a **verification** list rather than
+   a rename list — see "T14 record".
+   What the name touches (verified in T14):
+   - Android: `manifestPlaceholders["appName"]` for `dev` and `prod` in
+     `android/app/build.gradle.kts`; the `mipmap-*` launcher icons; a new adaptive
+     icon (`mipmap-anydpi-v26`, with foreground, background and monochrome layers);
+     the splash.
+   - iOS: `CFBundleDisplayName` / `CFBundleName` in `ios/Runner/Info.plist`;
+     `AppIcon.appiconset` (1024 px source); `LaunchImage`.
+   - Flutter: `assets/app_icon.png`, any brand name inside `AppStrings` (ar + en)
+     and the in-app splash or onboarding, plus `app_strings_test`.
+   - Outside the app: store listings, privacy policy and terms pages, README.
+   - **The package IDs (`com.war2aty.app`, `.dev`) are a separate decision (Q15).**
+     They can't change after the first Play upload, so Q15 must be answered before
+     T21 even if the visible name changes.
+3. **Standing constraints, unchanged:**
+   - **Free tier only** for every upstream service, never a paid tier. Capacity is
+     handled by free-tier management and graceful degradation.
+   - No Firebase.
+   - The privacy copy rules in CLAUDE.md §7 (F18-T02 / F20-T24): no text claims that
+     nobody sees the image or the text, and no text names a provider.
+   - The F20 production order: **secrets → migration → functions → app → flag**,
+     each step only with the owner's confirmation.
+4. **Two initial steps run before Phase 0** (owner, 2026-10-04): P01 (new icon and
+   splash), then P02 (a production release APK the owner installs and tests on
+   their phone). The execution rule applies to them too: P01, report, stop, wait
+   for approval; then P02, report, stop, wait for approval; only then T01. P01
+   goes first so the test APK carries the new icon. The owner can swap the order.
+
+## Audit summary (2026-10-04)
+
+Repo-only audit. The Supabase MCP was not authorised, so the hosted project's live
+state (deployed functions, secrets, config values) is **unverified**. T04 and T08
+start by checking it.
+
+### Blockers
+| # | Finding | Fixed in |
+|---|---|---|
+| B1 | iOS `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` say «ومحدش بيشوف صورتها», a claim F20-T24 bans. `app_strings_test` doesn't cover native permission prompts. | T10 |
+| B2 | The F20 production rollout hasn't run. The Azure and Google secrets are gone from production, so the deployed functions may be failing today. Key revocation and the Mistral training opt-out (D2) are still open. | T08 |
+| B3 | `global_daily_call_cap` fails open (unlimited when unset). The repo is public, so the production URL and publishable key are public, and anonymous sign-in is on. A script can drain the shared free AI quotas for every user, and a reinstall resets the per-install limit. | T06 |
+| B4 | No public privacy-policy URL. The in-app screen exists, but both stores need a URL. Play Data safety and Apple's App Privacy labels haven't been filled in. | T20, T21, T24 |
+| B5 | The L1–L8 live checks ran on the local stack from Egypt. Gemini's free tier has region restrictions, and the hosted Edge runtime runs in a Supabase region. Unverified. | T05 |
+| B6 | Play's 16 KB memory-page requirement (apps targeting Android 15+). The Tesseract plugin ships native `.so` files. Unverified. | T19 |
+| B7 | iOS has never been built. No `Podfile` (and so no `permission_handler` settings for unused permissions); the flavor setup needs manual Xcode steps (`ios/FLAVORS.md`); no Apple developer team; no `PrivacyInfo.xcprivacy`; `TARGETED_DEVICE_FAMILY = "1,2"` adds iPad, against the no-tablet rule. **Applies only if iOS is in launch scope (Q1).** | T23, T24 |
+
+### High
+| # | Finding | Fixed in |
+|---|---|---|
+| H1 | No production monitoring: production uses `NoopLogSink`, there's no crash reporting, and no `FlutterError.onError` / `PlatformDispatcher.onError`. | T12 |
+| H2 | Android `allowBackup` is on by default. The Drift DB goes to Google Drive backup, the secure-storage keys don't restore, so encrypted images become unreadable after a restore, and the backup is a privacy exposure. | T11 |
+| H3 | No staging environment. Production is the only hosted project. | T04 |
+| H4 | Free-plan Supabase: the project pauses after about 7 days without traffic; no backups or point-in-time restore; MAU and invocation caps. Anonymous users and `analysis_attempts` rows pile up with no cleanup. | T07, T09 |
+| H5 | The project is in Seoul (`ap-northeast-2`), about 8,000 km from users, and the region can't be changed. Moving is cheap only before launch. | T04 (with T05) |
+| H6 | No CI (`.github/workflows` doesn't exist). The gate and release builds run by hand on one machine. | T03 — **the gate half is fixed** (`ci.yml`, 2026-10-05); release builds still run by hand on one machine, which is T13's. |
+| H7 | Release builds have no `--obfuscate --split-debug-info` and no archived symbols. If `key.properties` is missing, the release build quietly signs with the debug key. | T13 |
+| H8 | F12-T03 to T12 are still TODO: LTR, large text, performance, temp-file cleanup, security review, OCR regression set, integration tests, release builds. | T15–T18, T19, T23 — **the first four are closed by T15** (LTR, large text, the UI-isolate half of performance, temp/session files); the on-device cleanup check was done in T16. **F12-T05's device-measured profile was T18's and was not taken** — T18 closed early, so it is still open, along with T15's two recorded residuals |
+
+### Medium / Low
+| # | Finding | Fixed in |
+|---|---|---|
+| M1 | Android has only old-style PNG launcher icons, with no adaptive or monochrome icon, and dev and prod share one icon. No `values-v31` (the Android 12+ system splash runs before the teal one). | P01 |
+| M2 | Testers already hold `1.0.0+2`, and there's no versioning or tagging scheme. | T25 |
+| M3 | A stale `AndroidManifest.xml` comment says "the image never leaves the device", which is wrong since F20 (users never see it). | T10 |
+| M4 | The dev-only mock fixtures (`assets/fixtures/analysis/`) ship in the prod bundle. | T13 |
+| M5 | No terms of use and no "not legal/medical/financial advice" disclaimer. | T20 |
+| M6 | OEM battery-saver handling for reminders was deferred from F25 and needs a check on several real phones. | T18 — **NOT DONE.** T18 was closed early by the owner before its E block ran, so this has now been deferred twice (F25 → T18 → ?) and is **unverified on any phone**. It needs an owner decision on where it goes; `F27-T18-device-pass.md` carries the ready-made matrix and one live observation to start from |
+| M7 | Repo state: `develop` is 141 commits ahead of `main`, `main` has 6 commits that `develop` lacks (e.g. `1e14a5f`), and PRs #18, #19 and #28 are open. | T02 |
+| M8 | Three Gradle out-of-memory crash dumps (`android/hs_err_pid*.log`), a sign that release builds may be fragile. | T13 |
+
+### Already in good shape (keep)
+- The logger only allows a fixed list of fields.
+- Secrets live in Supabase only; a pattern scan of the full git history found no leaked keys.
+- RLS is forced on the usage tables with no policies.
+- `verify_jwt` is on for every function except `health`.
+- Plain HTTP is allowed only to loopback/local hosts on both platforms.
+- Android release builds use R8 with keep rules.
+- The app is locked to portrait.
+- An unconfigured prod build degrades gracefully instead of crashing.
+- Kill switches exist: `analysis_enabled`, `online_ocr_enabled`, `maintenance_message`, `minimum_app_version`, `daily_limit`.
+- Consent gate, encrypted images, and the F12-T01/T02 accessibility and RTL audits.
+- `flutter analyze`: 0 errors, 0 warnings, 16 infos.
+
+## Answers (locked by the owner, 2026-10-05) — F27-T01
+
+Q2 and Q16's *process* were already settled by locked decisions #1 and #2.
+Every question is locked. Q3 and Q10 came in a second round, after Q10 was
+re-asked in plainer terms, and are folded into the table below.
+
+| Q | Answer | Gates |
+|---|---|---|
+| Q1 | **Android first.** iOS waits — see Q22: there is an iPhone but no Mac, and iOS cannot be built or signed without macOS. T23/T24 are **BLOCKED** until a Mac exists. | T23, T24 |
+| Q3 | **~500 analyses/users per day** at launch. T06 and T09 size the free tiers against that number. Date still unstated; capacity, not the calendar, is what those tasks need. | T06, T09 |
+| Q4 | **Egypt only** on the store. | T21 |
+| Q5 | **Deal with all three PRs**: merge #28 (clean, 0 behind); rebase and merge #18 (offline launch, 141 behind, one trivial docs conflict); **close #19 as superseded by P01**, first cherry-picking `11ad8b6` (synchronous strings delegate), which is unrelated to the splash and still absent from `develop`. | T02 |
+| Q6 | **Both languages ship.** So the LTR/English audit in T15 is required, not optional, and the store listing is needed in Arabic *and* English (T21). | T15, T21 |
+| Q7 | **Yes — F12 is closed as superseded**, with three of its tasks carried over explicitly rather than lost (see "What F12 leaves behind"). | T01 |
+| Q8 | The owner authorises the Supabase connector; production's live state is inspected then. | T04, T08 |
+| Q9 | **Yes**, a second free project for staging. The region decision follows T05. | T04 |
+| Q10 | **Play Integrity is accepted** for proving the caller is the real app. Whether `global_daily_call_cap` is already set in production is checked directly once the owner authorises the Supabase connector (Q8). | T06 |
+| Q11 | Delegated. **`analysis_attempts`: 90 days. Idle anonymous users: 12 months.** The quota resets every Cairo day, so 90 days is far more than any quota decision needs while still showing an abuse pattern; 12 months keeps a returning user's identity without holding dormant rows for ever. | T07 |
+| Q12 | Delegated. **`online_ocr_enabled` stays OFF at launch**, flipped in T26 once T08 has verified production. Production is still pre-F20 and unverified (B2/Q8), so shipping it on would put every first user on an untested path; off means they get on-device OCR, which works today. | T08, T26 |
+| Q13 | Delegated. **(a) our own Supabase table behind an Edge Function that only accepts allowlisted error codes.** No third party ever sees user content, which Sentry could not guarantee without trusting its scrubbing; it also stays inside the free-tier rule. | T12 |
+| Q14 | **Enrol in Play App Signing.** Note the keystore question was only half answered: whether `war2aty-release.jks` is backed up anywhere other than this machine is still unknown. Enrolling makes a lost *upload* key recoverable, so this is no longer fatal — but until T13 it is still the only copy. | T13, T21 |
+| Q15 | **Package IDs stay** `com.war2aty.app` / `.dev`, even though the name changes. Final once the first Play upload happens. | T13, T21 |
+| Q16 | ~~The name keeps its sound, with the digit "2" replaced by a letter.~~ **Reversed by the owner 2026-10-06: the name stays exactly as it is, digit included** — «ورقتي» / **War2aty**, package IDs unchanged (Q15). T14 therefore renamed nothing. | T14 |
+| Q17 | Developer of record: **a company**. Support email: the owner's personal address. Policy pages: **GitHub Pages, which I set up** in T20. | T20 |
+| Q18 | Decided together when T20 is reached. | T20 |
+| Q19 | Store graphics are not ready; done together when T21 is reached. | T21 |
+| Q20 | Delegated. **Android backup off completely.** The manifest never set `allowBackup`, so Android's default (on) applies today and the local database — document text, reminders — plus the encrypted images can be copied to the user's Google Drive. That contradicts what the privacy screen promises, and a restored backup would carry data whose key lives in secure storage and may not come back with it. | T11 |
+| Q21 | **A PR per phase.** | all |
+| Q22 | **RMX2001** (confirmed working), **ELS NX9**, and **an iPhone — but no Mac**. | T18, T23 |
+
+### Capacity note for T06 (from Q3)
+
+500 analyses a day is the number every free tier is now sized against, and the
+owner's standing constraint is that **no upstream service is ever paid for**.
+That makes the providers' *daily* ceilings the binding limit, not Supabase:
+each analysis costs one OCR call and one analysis call, on shared keys, so the
+whole user base draws on one free quota. **T06 must check 500/day against the
+current published free-tier limits of Gemini (OCR), Mistral and Groq
+(analysis), and against Supabase's Edge Function invocations**, and say plainly
+if any of them cannot carry it. Those limits change often enough that quoting
+numbers here would be worse than checking them at T06.
+
+### What F12 leaves behind (Q7)
+
+F12 is closed as superseded, but it is not a clean subset. Three of its tasks
+have no home in F27, so they are recorded here rather than quietly dropped:
+
+- **F12-T05 (performance profiling)** -> folded into **T18**. P01 already
+  profiled the launch path on a real phone; T18 extends that to the rest.
+- **F12-T06 (cache cleanup verification)** -> folded into **T16**, next to the
+  encryption and "no document content in logs" checks it belongs with.
+- **F12-T08 (OCR regression dataset)** -> **deliberately deferred past launch.**
+  A labelled set plus a runner and a recorded baseline is its own project, and
+  the OCR path has shipped and is in use. Deferring it is a conscious trade,
+  not an oversight: without it, an OCR regression is caught by hand.
+
+The rest map cleanly: T03/T04 -> T15, T07 -> T16, T09/T10 -> T17, T11 -> T13 and
+T19, T12 -> T23 and T24.
+
+## Tasks
+
+`(owner)` = the owner runs it in their own console; I prepare and verify.
+
+### Initial steps (before Phase 0), added 2026-10-04
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| P1 | F27-P01 | **New app icon and splash screen** | **Input:** the owner's icon image (ideally a square PNG of at least 1024×1024; transparent background, or a flat background colour stated). **Scope:** (1) Android launcher: legacy `mipmap-*` PNGs, round icon, and an **adaptive icon** (`mipmap-anydpi-v26`, with foreground inside the 66% safe zone, background, and a **monochrome** layer for Android 13+ themed icons); the dev flavor gets a visibly marked variant so dev and prod are easy to tell apart. (2) iOS `AppIcon.appiconset`, with a 1024 px source and no alpha. (3) **Splash:** Android before 12 (`launch_background.xml`, light and night); Android 12+ through a new `values-v31` / `values-night-v31` (`windowSplashScreenBackground` and the icon); iOS `LaunchScreen` / `LaunchImage`; the Flutter-side splash and `assets/app_icon.png` wherever the app shows the icon. (4) **Colour adjustments:** splash background and any icon-adjacent colours tuned to the new icon. Any change to the app-wide palette (CLAUDE.md design tokens) is proposed with a preview and **applied only with the owner's approval**. **Tooling:** either a dev-only generator (`flutter_launcher_icons` / `flutter_native_splash`, which needs the dependency rule's justification) or a hand-written generator script. Chosen at task start with the owner. **Branch:** `feature/production-readiness`, cut from `develop` here instead of at T01. **Acceptance:** sharp icon on the launcher at every density; the themed icon works; the splash shows the new icon in light and dark on Android 11, 12+ and iOS; no white flash; gate green; checked on the owner's phone. **Icon received 2026-10-04 (chat preview):** a deep-teal rounded square with a gradient (close to the brand Deep teal `#0A5C64`), a silver ring, a white document with a check mark, and above it a "network brain" with gold-highlighted nodes. Notes for the task: (a) the preview is a **mockup** (icon on a phone background, drop shadow, 1024×559), so it can't be the source; (b) the network's thin lines and small nodes will blur at launcher size (48 dp) and in the monochrome layer, so a simplified small-size version may be needed (proposed to the owner, never applied on my own); (c) the teal background suits the splash, and the brand palette probably needs no change. | The owner's icon (`assets/branding/icon.jpg`) | DONE 2026-10-05: approved by the owner and committed (904bcb7); the on-phone look is still the owner's to confirm from the P02 APK (see "P01 record") |
+| P2 | F27-P02 | **Production release APK for the owner's phone** | `flutter build apk --flavor prod --release -t lib/main_prod.dart --dart-define-from-file=config/prod.json --target-platform android-arm64`, **signed with the release key** (`android/key.properties`), build number bumped above `+2`. Built from the branch state agreed at task start (default: `develop` + P01). **Report:** the APK path, size, version, SHA-256, install steps, and a smoke check (launch, icon, splash, capture → on-device OCR). **Known limits (written into the report):** (a) earlier tester APKs were signed with the debug key, so this one **won't install over them**: uninstall first (local data is lost); (b) the APK talks to the **production** backend, whose state is unverified and still pre-F20 (B2, Q8), so online reading and analysis may fail until T08. That's a backend gap, not an APK defect. If the owner prefers, the analysis check waits for T08. | P01 | DONE 2026-10-05: APK built, signed, installed and smoke-checked on the owner's phone (see "P02 record"); camera→OCR pass left to the owner |
+
+### Phase 0: Decisions and repo
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 1 | F27-T01 | Lock the answers | Every open question answered here; F12 marked superseded (if Q7 = yes); the features index lists F27 (the branch already exists from P01) | P02 | DONE 2026-10-05: 20 of 22 answered and locked (see "Answers"); F12 closed as superseded and the index updated. Q3 and Q10 answered 2026-10-05; **every question is now locked**. |
+| 2 | F27-T02 | Repo cleanup and release branching | PRs #18, #19 and #28 merged or closed per Q5; `main` and `develop` back in line; release-branch and tag scheme written in T25's doc | T01 | **PARTLY DONE 2026-10-05:** all three PRs closed out per Q5 — #28 merged (`f9b7127`), #18 rebased and merged (`7805a56`), #19 closed as superseded with `11ad8b6` cherry-picked (`90efdc8`); gate green. Its other two acceptance items were **ruled on by the owner 2026-10-05 and deliberately moved out of T02**: `main`↔`develop` is deferred to **after T14**, and the branch/tag scheme stays **T25's** to write — see "T02 record". |
+| 3 | F27-T03 | CI (GitHub Actions, free for public repos) | Every PR runs `dart format --set-exit-if-changed`, `flutter analyze`, `flutter test`, and `deno test` for `supabase/`; no secrets in CI | T02 | **DONE 2026-10-05:** `.github/workflows/ci.yml`, two parallel jobs, all four checks, no secrets, `permissions: contents: read`. Every command re-run locally at this commit and green. **Verified live on PR #29** (run `37277905375`, 2026-10-05): both jobs green on the first run — App 5m10s, Backend 16s, every step passing. |
+
+### Phase 1: Backend
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 4 | F27-T04 | Staging project and region decision (owner) | Production's live state recorded (Q8); a free staging project with all migrations and functions; `config/staging.json`; a region decision written down | T01 | **BLOCKED 2026-10-05 — owner decisions owed.** Production's live state **is** recorded and confirms B2 with dates (pre-F20 code, schema and config); the CLI was already authenticated, so the MCP connector was not needed. Nothing was created: the region choice is irreversible, the free tier's 2 projects are both taken, and **production sits in `ap-northeast-2` (Seoul) serving Egypt**. All three decisions were approved by the owner on 2026-10-05 and carried out: Singapore leftover deleted, **`war2aty-prod` created in `eu-central-1`** with all 7 migrations, all 4 functions and all 11 secrets, Seoul demoted to staging and brought up to the same code, `config/prod.json` repointed and `config/staging.json` added. **One owner step remains — enable anonymous sign-ins on the new project** (verified disabled: `anonymous_provider_disabled`), plus renaming Seoul to `war2aty-staging` and separate staging provider keys. See "T04 record (continued)". |
+| 5 | F27-T05 | Provider reachability from the hosted runtime | `ocr-document` (Gemini) and `analyze-document` (Mistral → Groq) succeed from the hosted Edge runtime on staging; function region pinned if needed; evidence recorded | T04 | **PARTLY DONE 2026-10-05.** The region half is **done and was the surprise**: Edge Functions run at the edge region nearest the *caller*, not in the project's region, so an unpinned call from Egypt executed in `ap-south-1` while the database sat in `eu-central-1`. Now pinned via `x-region`, carried per project in `config/*.json`; 317 ms against 379 ms unpinned. **DONE 2026-10-06, with the Gemini check deferred to T08 by the owner.** Region finding and pin shipped (`5a95392`). Mistral → Groq verified live **on production itself**: 11/11 integration tests, real analysis in **9 s**, quota counted — and earlier on staging pinned to `eu-central-1`. Gemini/`ocr-document` was not run: it needs `online_ocr_enabled` on, and no route to that write exists from here. See "T05 record". |
+| 6 | F27-T06 | Abuse protection and capacity | `global_daily_call_cap` set to fit the free quotas (documented maths); anonymous sign-in rate limits checked; CAPTCHA or attestation per Q10; server tests | T05 | **PARTLY DONE 2026-10-06.** Cap **armed at 500/day** on both projects via migration `20261006090000`, maths in its header, regression test added — closes B3 for the analysis providers. Rate limits checked (30/hour/IP by default). **DONE 2026-10-06** on the owner's ruling: attestation is **deferred indefinitely** ("for the future if needed"), not made a task. **One risk stands as a result: the cap does not protect Gemini, and nothing else does either** — so T26's flag flip inherits it. See "T06 record".
+| 7 | F27-T07 | Data retention | `pg_cron` jobs clean up old `analysis_attempts` rows and idle anonymous users per Q11; migration plus tests; database size checked | T04 | **DONE bar one push, 2026-10-06.** Migration `20261006100000`: two purge functions behind two `pg_cron` jobs, plus a read-only accessor so the *schedule* is testable. **5 new integration tests, all passing against a real stack**, and the whole backend suite re-run live at **771 passed / 0 failed**. **DONE across all three environments 2026-10-06** — production applied with the owner's explicit permission and verified: 9/9 migrations, both jobs active, both purges executable. Size checked: 11 MB of 500 MB. See "T07 record". |
+| 8 | F27-T08 | F20 production rollout (owner) | In order: secrets → migration `20260929120000` → functions → (app at T26) → flag per Q12. Azure and Google keys revoked; Mistral training opt-out on; local `.env` cleaned; each step checked live | T05, T06 | **DONE bar three owner console actions, 2026-10-06.** T04 had already performed the rollout itself by building production fresh, so secrets, the migration and the functions were verified rather than re-run; the flag is `false` per Q12. **T05's inherited Gemini check now passes on production** (200 from `eu-central-1`, 1,371 chars, flag restored). Local `.env` cleaned. Left for the owner: revoke the Azure and Google keys, and switch on Mistral's training opt-out — all three are console-only. See "T08 record". |
+| 9 | F27-T09 | Operations runbook | `docs/OPERATIONS.md`: how to use each kill switch, how to watch free-tier quotas (Gemini, Mistral, Groq, Supabase), how to avoid the inactivity pause, incident steps | T08 | **DONE 2026-10-06:** `docs/OPERATIONS.md` — every switch with its fail direction, the quota ceilings with the two that cannot carry launch, the inactivity pause and its effect on pg_cron, and seven incident runbooks. Two findings: **`maintenance_message` is dead end-to-end**, and **a paused project kills the retention jobs permanently**. See "T09 record". |
+
+### Phase 2: App hardening
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 10 | F27-T10 | Privacy copy in native permission prompts | iOS permission strings reworded per CLAUDE.md §7; a test guard covering `Info.plist` (and any Android-visible copy); manifest comment fixed | T01 | **DONE 2026-10-06:** both `NS*UsageDescription` strings rewritten to mirror `privacyPointExtractText` (online send, possible retention and staff review, scoped «إحنا مابنحفظش الصورة», offline read on the phone) — **B1 closed**. New `test/app/native_permission_copy_test.dart`: 9 tests over **every** `…UsageDescription` key in the plist (so a future permission is covered automatically), the two Android `appName` labels, and all three manifests. **Negative-proved**: restoring the old wording fails it 2/9. Manifest comments corrected — **M3 closed** — and the stale claim is now itself a test. Gate green: 2,219 tests, analyze 0 errors / 0 warnings. |
+| 11 | F27-T11 | Android backup rules | `dataExtractionRules` / `fullBackupContent` (or `allowBackup="false"`) per Q20; checked with `adb shell bmgr` | T01 | **DONE 2026-10-06:** `android:allowBackup="false"` **and** `res/xml/data_extraction_rules.xml` — both are needed, because at targetSdk 36 the attribute alone leaves device-to-device transfer on with some manufacturers. All nine domains excluded in both sections (these default to *including* what they do not name). Verified live on **RMX2001**: old build `ALLOW_BACKUP` + a backup Android really attempted, new build no flag and «Backup is not allowed»; the test transport was restored afterwards. Compiled APK re-read with `aapt2` (attribute and all 18 excludes present). 6-test guard added. **H2 closed.** The API 31+ half cannot be exercised on an Android 11 phone — carried to T18. |
+| 12 | F27-T12 | Error handling and production monitoring | `FlutterError.onError` + `PlatformDispatcher.onError` routed to the logger; a production sink per Q13 that only sends allowed fields, never content; tests | T01, T04 | **DONE 2026-10-06, bar the deploy.** Both handlers installed in `bootstrap` and chained, never replaced; a new `LogCrashKind` gives an uncaught error a content-free code for the first time. `ErrorReportSink` replaces `NoopLogSink` in configured prod builds: failures only, fire-and-forget, 20/session, on a Dio with **no log interceptor** so reporting cannot log itself. New `report-error` function + `error_reports` table (RLS forced, no policies, **append-only** — no UPDATE grant), a closed 33-code allowlist, per-user ceiling of 100/day applied inside the insert, and a 90-day pg_cron purge. **28 Dart + 38 Deno tests**, incl. 11 integration against a real database and 4 against the real served function — a row verified in the table. A Dart test compares the Dart and TypeScript code lists so the two cannot drift. `docs/OPERATIONS.md` gained the queries an operator actually runs. **H1 closed.** `@code-reviewer` ran on it: **PASS, no blocking defects**, three LOW findings all fixed — the per-user ceiling was not race-safe (now a per-user advisory lock, overshoot reproduced without it), the two version columns had shape but no length bound, and the cross-language guard could read a comment as code. **Deployed and verified on staging and production the same day** (401 / 202 / 400 / 400 on both, row read back, all three retention jobs active, table unreadable with the publishable key; the production test row was deleted afterwards). |
+| 13 | F27-T13 | Release build hardening | A prod release **fails** without a release key; `--obfuscate --split-debug-info` with symbols archived; mock fixtures out of the prod bundle; Gradle memory settings fixed; documented build commands | T01 | **DONE 2026-10-06.** **H7:** a prod release fails on a missing *or unusable* key, naming the reason, on all five prod-release tasks — verified by moving the key aside and back, and the built APK's certificate read with `apksigner` (`O=War2aty`, not `CN=Android Debug`); the dev fallback deliberately survives. **M4:** fixtures stripped from every prod variant and the hook fails loudly if Flutter renames the task — **0 entries in the prod APK, 6 in dev**. **M8:** the dumps were **native** OOMs on a machine with 835 MB free and 2 MB of page file, not heap shortage, so `-Xmx` went 3G→**2G** and the Kotlin daemon was folded in-process; a full release builds in 140 s. `tool/build_release.ps1` + `docs/BUILD.md` carry the flags that are silent when forgotten. 12-test guard. Also fixed T11's stale `minSdk` comment. **Not proved:** obfuscation cannot be shown by inspecting the binary (release AOT strips Dart names either way) and symbol **archival** has no home yet — both recorded, for T21/T26 and T25. `.aab` is T19's. |
+| 14 | F27-T14 | Branding: new app name | Applies the name part of decision #2's inventory: `appName` placeholders (dev + prod), iOS `CFBundleDisplayName` / `CFBundleName`, any brand name in `AppStrings` (ar + en) and the Flutter splash or onboarding, `app_strings_test`, README. Also anything P01 left for later. (The icon and splash are done in P01.) **Also carries the `main`↔`develop` reconciliation deferred from T02** (owner-approved 2026-10-05): once the name is final, recover `LICENSE`, `CONTRIBUTING.md` and `config/prod.json.example` from `main`'s `1e14a5f` onto `develop`, rewrite that README for the new name, and refresh `supabase/.env.example` to post-F20 providers — see "T02 record". | **Owner's final name** (decision #2), P01 | **DONE 2026-10-06.** Q16 ruled: **the name stays «ورقتي» / War2aty, digit kept**, so no surface was renamed — verified across both launcher labels, both iOS name keys, `AppStrings`, the package IDs and the P01 icon. The one real change: the **English** `appName` carried no brand at all (`What Does My Paper Say?`), and it is the task-switcher title and the splash's screen-reader label — now `War2aty — What Does My Paper Say?`. Guarded in `app_strings_test` (brand present, and the rejected transliterations **Waraqti/Waraqty/Warqty** banned — the design file is literally `Waraqti.dc.html`) and in `native_permission_copy_test` (both launcher labels and both iOS keys, dev still distinct from prod). **T02's reconciliation done**: `LICENSE`, `CONTRIBUTING.md`, `.editorconfig`, `config/prod.json.example` recovered from `1e14a5f`; README rewritten from both versions. **Both recovered docs were wrong and were fixed** — each still named Azure, and each repeated the retired «images never leave the device / the model never sees the image» claims. `supabase/.env.example` needed nothing: this branch's copy is already post-F20. `WaraqtiApp` and `Waraqti.dc.html` left alone **deliberately** (internal identifier; real name of an external design file). |
+
+### Phase 3: Quality (takes over F12-T03 to T10)
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 15 | F27-T15 | UI audits | Large text with no overflow; LTR audit if English ships (Q6); performance profile on a low-end phone (heavy work off the UI thread); temp and session files reliably removed | T10–T13 | **DONE 2026-10-07.** Full record in [`docs/features/F27-T15-ui-audits.md`](F27-T15-ui-audits.md). **The first finding was the method itself: every widget test in the project measured Flutter's placeholder font, ~2.3× wider than Cairo** (121 px vs 288 px for one caption string), so the suite's large-text checks were testing a font the app never ships — Cairo is now loaded in `flutter_test_config.dart`, and exactly **two** of 2,266 tests depended on the old metrics. New sweep `test/support/ui_audit.dart`: **every screen × ar/en × ×1.0/1.5/2.0 on a 360×640 phone = 108 tests**, because `flutter_test`'s default 800×600 window is wider than any phone and could not see horizontal overflow at all. A coverage guard reads the screens off disk so a new one cannot skip it (mutation-checked) — it found **`OcrProcessingScreen` had no test file at all**, now written. **Fixed:** `ReminderSuccessScreen` ran 84 px off the bottom at ×2 (now scrolls); **four chevrons pointed backwards in English** on the settings rows and every saved-paper card (one shared `ForwardChevron` + a grep guard); the crop handles' four hardcoded Arabic screen-reader labels (now in both languages); **AES-256-GCM and the page image's base64 both ran on the UI isolate** (pure-Dart `cryptography`, no Flutter plugin — so every save *and every open* of a saved paper froze the frame), now in `Isolate.run`; and **the unencrypted page image outlived its scan** — `analysis_sessions/{id}/processed.jpg` was only cleared at launch, so an unsaved scan left one copy per scan in the cache for as long as Android kept the process alive (new `DiscardAnalysisSession` on the result screen's close, plus a purge when the next session is created). **Then fixed on the owner's ruling 2026-10-07: the app ignored the OS text-size setting entirely** — 200 % in Android's accessibility settings rendered as 100 % here until the user found the in-app control. `resolveTextScaler` now takes the larger of the OS scale and the in-app choice, capped at `kMaxTextScale` = 2.0 (the scale the sweep underwrites), sampling a possibly non-linear platform curve at a 14 px body size; 12 tests, three of them driving the real app and mutation-checked against the old one-liner. **Recorded, not changed:** `SettingsStatusRow` gets cramped before it breaks, Dio still serialises the 5 MB body on the UI isolate, and on a phone already at 200 % the in-app size control now looks inert (copy for that is a design question). **Not done, deliberately:** no profile on a device and no on-device check of the cleanup — **the owner confirmed 2026-10-07 that both stay with T18 and T16** per Q7. `@code-reviewer` ran on it: **PASS, no blocking defects**; its two LOW items needed no action, but the pass did surface that the encryptor's comment mis-stated how `Isolate.run` moves memory (it copies, it does not share — the security conclusion is unchanged) and that the coverage guard's regex did not match its own doc comment. Both corrected in `3a817e0`. Gate: 2,405 tests green (+139), analyze 0 errors / 0 warnings. |
+| 16 | F27-T16 | Security review | `/security-review` plus manual checks: encryption, logs, secure storage, network config, dependency audit (`flutter pub outdated`, Deno deps); findings fixed or accepted in writing | T12, T13 | **DONE 2026-10-07.** Full record in [`docs/features/F27-T16-security-review.md`](F27-T16-security-review.md). **Found a HIGH that was live on production and staging: every `SECURITY DEFINER` function in `public` was callable by anyone holding the publishable key** — the migrations only ever wrote `revoke execute ... from public`, which does not touch the `anon`/`authenticated` grants a hosted project installs by default. `purge_idle_anonymous_users` takes its window from the caller, so `{"p_idle_for":"00:00:00"}` was **a one-request delete of the entire user base** (attempts, usage and error_reports following by cascade); the sibling purges wiped the abuse ledger and all error telemetry, and `record_error_report` let monitoring rows be forged against real users with the flood cap disabled. **Why nothing caught it:** `pg_default_acl` holds two function entries for `public` — granted by `supabase_admin` (`anon=X`) and by `postgres` (`postgres=X`) — and which applies depends on **which role creates the function**. `supabase db reset` runs as `postgres`, so the local stack *cannot exhibit the bug*; the platform runs as `supabase_admin`, so hosted was open. The existing guard asserted only `error != null` on SECURITY INVOKER RPCs and passed for the wrong reason. Proved non-destructively with the read-only `retention_jobs_report()`: **prod 200, staging 200, local 42501** — the destructive functions were never called on a hosted project. **Fixed** by `20261007000000_restrict_function_execute.sql` in two layers: `revoke execute ... from public, anon, authenticated` on all nine functions, **and** arguments that cannot widen the blast radius (windows floored at 30/7 days, `p_daily_cap` clamped to 100, `p_user_id` must be `auth.uid()`), so a future grant regression is embarrassing rather than catastrophic. The migration **asserts its own postcondition** and raises, because the whole defect was a local result saying nothing about production. Fix reproduced-then-verified locally first; the clamp proven by calling the zero window against a real user who survived; triggers proven still to fire; the live `report-error` function proven still 202 on staging **before** production was touched. **Applied to staging then production** with the owner's approval — all five functions now `42501` to the publishable key on both, `service_role` intact, all three cron jobs active. **Everything else came back clean** (no High/Medium across Edge Functions, DB, Flutter client, native/build): AES-GCM correct with a fresh per-encryption nonce, the logger allowlist unable to leak document content by construction, no stack trace can leave the device, no TLS bypass, no committed secret in tree or history, no deep links, only two exported components. **Dependency audit: all 191 Dart packages clean against OSV** (method validated against known-vulnerable packages); `cryptography` is current, and `flutter_secure_storage` 10.3.1 already has the 10.0.0 security rework. **Three Lows fixed** per the owner: `RECORD_AUDIO` + an *uncapped* `READ_EXTERNAL_STORAGE` were reaching the prod APK from camerax (now `tools:node="remove"` + a guard test); the GoTrue session with its refresh token sat in plain `SharedPreferences` while `SecureStorageKeys.session` claimed otherwise (now `SecureSessionLocalStorage`); and the iOS keychain default was not `ThisDeviceOnly`, so the document key would have ridden an encrypted backup to another device (now `first_unlock_this_device`). **F12-T06 done on the RMX2001**: session created at `analysis_sessions/{id}/processed.jpg`, camera temp deleted, **session gone within 2 s of leaving the result screen**, an abandoned scan's folder persisting but **purged by the next scan** — bounded at one session. Phone left clean. **Recorded, not changed:** the backend has **no lockfile** (`"lock": false` + an unpinned `npm:@supabase/supabase-js@2`, set incidentally in F06 `fdbcdab`) — pin it; `resetOnError: true` silently wipes secure storage on a Keystore error; `ocr-document` is still unprotected; the model's own `status` decides whether a quota slot is consumed. Gate: 2,418 app tests green (+13), 803 backend green against a real stack, analyze 0 errors / 0 warnings. |
+| 17 | F27-T17 | Integration tests | Invoice path (capture → OCR → analyze → result → reminder → save → home) and the failure paths (timeout, OCR fallback, limit reached) | T15 | **DONE 2026-10-07.** Full record in [`docs/features/F27-T17-integration-tests.md`](F27-T17-integration-tests.md). 2,418 tests existed and every one tested a *part* — **nothing tested the app**: no test had ever walked the journey from a tap on Home to a row in the database. New harness `test/support/app_harness.dart` boots the shipped app over the **real** `configureDependencies` graph, router, cubits, repositories, Drift database (real migrations), scheduler, DTOs, validators, mappers and the app's own Dio **with all its interceptors**, and fakes only the two edges: the platform (camera, Tesseract, `image` package, notifications, TTS, permissions, connectivity, secure storage) and the network — one `HttpClientAdapter` (`FakeEdgeFunctions`) that serves `get-usage`, `ocr-document` and `analyze-document` with real wire JSON (the bundled `invoice.json` fixture), **holds the quota as state so a successful analysis consumes a slot as the server does**, and records every request body so §7 can be asserted *negatively*. **13 tests**: the on-device journey end to end (capture → read → analyze → result → save → reminder → Home, asserting the saved row, the reminder **linked to it**, an alert actually scheduled through the real scheduler, and Home's count being the one the journey earned), the online journey (the image goes to `ocr-document` with **exactly** the §29b fields and nothing else, Tesseract never runs, and the analyze request carries **no image**), and six failure paths — timeout (**no slot consumed**, retry on the **same session id** succeeds), OCR fallback (the phone reads the page **exactly once**, warning shown, analysis carries on from the device text), an online failure **outside** F20 §1's allowlist (Tesseract never runs), limit reached (429 → the limit named **from the cached quota**), no connection, and a declined consent (**`analyze-document` never called**). **Four environment findings, all new ground**: a Drift stream's first value never arrives inside `testWidgets` (`Timer.run` + a fake clock = a **hang**, not a failure — the first run sat for nine minutes); the app's own teardown leaves a Drift timer pending, so every journey failed on «A Timer is still pending» until `AppHarness.dispose()` unmounted inside the body; **the online route cannot run under `FakeAsync` at all** (real file I/O + `Isolate.run` for the base64), which is why no widget test had ever driven it past the review screen — `settleWithIo` interleaves real time and waits for the repeating wait animation to stop; and the save SnackBar covers the action bar for 3 s, so the next tap silently missed. Mutation-proved: ignoring the save mode in `_saveResult` (so «النتيجة فقط» would keep the picture) **fails the journey**; reverted, `lib/` clean. Three consecutive runs, 13/13 each. `@code-reviewer` ran on it: **PASS, no blocking defect** — it verified the three environment claims independently and found no leakage between tests; its three items were all applied (the journey's deadline was resolved twice from `DateTime.now()`, which a run across local midnight would have failed on — now resolved once per boot; the limit test now uses a **non-default** limit so the page cannot pass by naming a number that happens to match; and one mis-describing comment). **Recorded, not changed:** `CameraCaptureCubit`'s factory builds `PlatformCameraService()` **inside the closure**, so it is the one dependency a test cannot reach through DI — the harness re-wires that single cubit. No gallery-route journey yet; F12-T08's OCR dataset stays deferred (nothing here reads a real page). Gate: 2,431 tests green (+13), analyze 0 errors / 0 warnings. |
+| 18 | F27-T18 | Pass on several real phones | Release build on every available phone (Q22); reminder delivery under OEM battery savers; findings fixed | T14, T17 | **DONE 2026-10-07 — closed early by the owner, with its headline item not run.** Full record in [`docs/features/F27-T18-device-pass.md`](F27-T18-device-pass.md). The shipping artefact ran on a real phone for the first time since P02: `1.0.0+4` installed **over** `+3`, which made the upgrade a before/after and proved **T11 and T16 on the prod package** rather than on the APK — `ALLOW_BACKUP` gone, a backup **actually refused** by the system with the owner's own Google transport still selected, and `RECORD_AUDIO` / `READ_EXTERNAL_STORAGE` absent where `+3` had them. The invoice journey ran end to end in a release build (R8, shrinking, obfuscation) against production, and the production flag state was confirmed **by behaviour** rather than by reading the table. **Four defects only a phone could show, all fixed and guarded (`+6`): D-1** — the review banner told users «القراءة تمت بدون إنترنت» while they were online, because `DecideAnalysisRoute` routes on-device for three reasons and **the launch default (Q12) is one of them**, so *every* user would have been told something false about their own phone; the copy now says where the page was read and never why, and its **icon** (still `wifi_off` after the words changed) is now a phone. Its guard caught a trap of its own: «فالنتيجة» contains «النت», so the banned terms are regexes with «النت» matched as a whole word, and a test proves the guard still catches the wording it replaced. **D-2** — ~1 s of flat teal before the mark, root-caused with numbers (native splash carries no mark by P01's design; first frame at **~440 ms**; the mark then faded 0.10→0.75 s, so it was solid only at ~1.2 s); the fade is now 0→0.30 s. **D-3** — the icon's teal was the mockup's, not the brand's; `_retintToBrand` maps the extracted field onto the brand ramp **by luminance**, so the gradient and the glow survive, and the **palette was deliberately left alone** (owner left the scope call to me). **D-4** — high contrast no longer recolours the brand. **Not run, and not papered over:** the **E block — reminders under OEM battery savers (M6) — never ran**, so M6 is still unverified on any phone; so are the **device performance profile (F12-T05)** with **F22-T09** folded into it, the failure paths, F16-T10's three paper cases, and the whole **ELS-NX9** column (owner connected one phone). Measurement notes for whoever resumes: ColorOS denies the shell `screenrecord`, `dumpsys gfxinfo` cannot see Flutter frames at all, and SurfaceFlinger's clock differs from `/proc/uptime` by the phone's suspend time. **Q1 answered (b)**: no staging pass, so the online route reaches T26 never having run in a release build on hardware. **Q2 answered (b)**. The owner also asked for a **dedicated splash task** after F27-T18. `@code-reviewer` ran on the commit: **PASS, no blocking or major findings**, and both of its minor items were real and are fixed — the high-contrast contrast test was **tautological** (it fed the same surface to both sides), and fixing it exposed that the claim beside it was wrong too: the two palettes do **not** share `surfaceTeal`, so the pair reads **4.28:1** under high contrast against **4.45:1** in light, missing AA for small text in *both* rather than being identical. The Arabic word-boundary lookahead also now covers tashkeel. Gate: 2,439 tests green (+8), analyze 0 errors / 0 warnings; CI green on the pushed commit. |
+
+### Phase 4: Android release
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 19 | F27-T19 | Play compliance build | Target SDK meets Play's current requirement; 16 KB page alignment checked for every native `.so`; permission list reviewed; signed `.aab` built and its size recorded | T13, T14 | TODO |
+| 20 | F27-T20 | Privacy policy and terms | Arabic privacy policy (wording consistent with §7) and terms per Q18, at a public URL (Q17); linked from the in-app screen; support contact | T01, T14 | TODO |
+| 21 | F27-T21 | Play Console setup (owner) | App created with the final package ID (Q15); Play App Signing; Data safety form; content rating; target audience; Arabic store listing, screenshots, feature graphic and 512 px icon with the final branding | T19, T20 | TODO |
+| 22 | F27-T22 | Internal or closed track smoke test (optional) | Not a Play requirement (decision #1). One internal-track build installed from Play on real phones; blocking findings fixed | T21 | TODO |
+
+### Phase 5: iOS (only if Q1 includes iOS)
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 23 | F27-T23 | iOS build setup (Mac) | Flavors and schemes per `ios/FLAVORS.md`; `Podfile` with `permission_handler` settings; iPhone only; Tesseract builds on iOS; display name from decision #2 | T10, T14 | TODO |
+| 24 | F27-T24 | iOS compliance and TestFlight (owner) | `PrivacyInfo.xcprivacy`; App Privacy labels; signing; TestFlight build; App Store listing and review submission | T20, T23 | TODO |
+
+### Phase 6: Launch
+| # | ID | Task | Output / acceptance | Depends on | Status |
+|---|---|---|---|---|---|
+| 25 | F27-T25 | Release process document | `docs/RELEASE.md`: versioning (next build number above `+2`), changelog, tagging, `minimum_app_version` policy, rollback with the kill switches. **Owns the release-branch and tag scheme outright** (owner-approved 2026-10-05: T02 was not to pre-empt it), and with it the `develop` → `main` release merge that T14 unblocks. | T02, T09 | TODO |
+| 26 | F27-T26 | Production launch (owner) | Staged rollout (percentages written down); F20 app step and flag per Q12; first-72-hour watch per T09; launch report | all above | TODO — **inherits T06's unprotected-OCR risk** (attestation deferred by the owner 2026-10-06): `ocr-document` takes no slot, so Gemini's 500/day has no counter in front of it. Decide with the owner before flipping the flag. |
+
+## Exit DoD
+
+- Every blocker B1–B7 (B7 only if iOS is in scope) is fixed and its evidence
+  recorded in its task row.
+- The production backend runs F20, with a capacity cap, abuse protection, data
+  retention and a runbook. A staging project exists.
+- The app ships with the final name and icon, signed with the release key (Play
+  App Signing), obfuscated with symbols archived, and with privacy-safe
+  production monitoring.
+- No user-visible text, store listing or privacy-policy page breaks CLAUDE.md §7.
+- A real-device pass of the release build is complete; the store listing is live
+  on Play (and the App Store if in scope); the rollout and rollback steps are
+  written down.
+
+## Notes
+
+### P01 record (2026-10-04)
+
+- **Source:** `assets/branding/icon.jpg` is the owner's mockup (1024×559 JPG,
+  with the icon tile about 448 px inside it), not a clean artwork file. No
+  better source exists yet, so the icon is lifted out of the mockup:
+  - `tool/branding/generate_brand_assets.dart` (Dart, using the `image`
+    package the app already depends on, so **no new dependency**) finds the
+    tile, models its background in 2D (the vertical gradient from about
+    `#035763` to `#023742`, plus the soft glow behind the symbol), and separates
+    the symbol from it with colour-to-alpha;
+  - it then writes every target. Re-run with
+    `dart run tool/branding/generate_brand_assets.dart --preview` once a better
+    source arrives; `--source <path>` takes any file.
+  - `--preview` writes review images to `build/branding-preview/` (git-ignored).
+- **Android:**
+  - adaptive icon (`mipmap-anydpi-v26`): background, foreground and monochrome
+    layers at every density. The tile maps onto the 72 dp visible area, so the
+    symbol keeps the source's proportions inside the 66 dp safe zone;
+  - legacy `ic_launcher` and `ic_launcher_round` icons, with
+    `android:roundIcon` added to the manifest;
+  - **dev flavor:** `src/dev/res` overrides only the background (brand amber)
+    and the legacy icons, so a dev build is unmistakable on a home screen.
+- **Animated splash (owner-approved 2026-10-04 from an HTML preview; the ring
+  design below was replaced on 2026-10-05 — see "the last 4–6 dropped frames".
+  The preview, now `tool/branding/splash_preview.html`, shows all three
+  candidates with the approved one marked):**
+  - **Native splashes show the teal alone, no mark**, so the mark appears
+    once, in the Flutter animation:
+    - before Android 12: `launch_background.xml` (unchanged);
+    - Android 12+: `values-v31` / `values-night-v31` with
+      `windowSplashScreenBackground` and a transparent `splash_icon.xml`,
+      because the system splash would otherwise show the launcher icon;
+    - iOS: `LaunchImage` and the storyboard unchanged.
+  - **Flutter splash:** the mark alone at the centre (128 dp) on the brand
+    gradient. A soft radial glow (0–0.7 s); the mark fades in from 0.90 to full
+    scale (0.10–0.75 s); three rings fade in at 0.25 / 0.40 / 0.55 s. The rings
+    turn (inner and outer clockwise at 30 and 14 °/s, middle counter-clockwise
+    at 22 °/s) and pulse ±25 % on a 2.4 s cycle, out of phase, for as long as
+    the launch takes. Drawn by `SplashRingsPainter`, which repaints through a
+    `repaint` listenable, so frames never rebuild widgets.
+  - **No text on screen.** The app name, tagline and loading dots are removed;
+    `PulsingDots`, its test and the now-unused `appTagline` string are deleted.
+    The app name labels the mark, and the launch stage is a live region, for
+    screen readers only.
+  - **`kLogoEntranceDuration`: 6 s → 1.8 s** (approved timing). This overlaps
+    open PR #19, which also changes it (Q5).
+  - **Reduced motion:** the settled frame at once, with still rings and no
+    ticking clock.
+  - Tests pin all of this: no text; the mark's label and the live region; fade
+    and scale; centred at 128; rings still turning after the entrance; reduced
+    motion leaves no frame scheduled. Mutation-checked: removing the live
+    region, or starting the clock under reduced motion, each fails a test.
+- **The old `PaperPlaneLogo`** (an animated drawing of the *old* icon) is
+  deleted.
+- **Smooth hand-off to the app (owner chose option A, 2026-10-04).** The owner
+  saw the splash cut to Home. Cause: `app.dart` swapped the splash's
+  `MaterialApp` for the router's in one frame, with no transition, and Home's
+  costliest first frame happened in full view. Now `SplashHandOff`
+  (`bootstrap/presentation/widgets/splash_hand_off.dart`):
+  - mounts the router app **under** the still-opaque splash and lets
+    **2 frames** through, so Home's first build and paint happen out of sight;
+  - then plays a **400 ms exit**: the splash fades out while the mark grows
+    1.0 → 1.06 and the rings spread 15 % (via the `SplashExit` inherited
+    animation). Then the splash leaves the tree;
+  - keeps both layers mounted throughout (keyed), so the splash animation never
+    restarts and Home is never rebuilt;
+  - ignores touches and screen readers from the start of the exit;
+  - under reduced motion, uses a plain 150 ms fade;
+  - uses `RepaintBoundary`s, so the ticking splash never repaints Home.
+
+  The splash sets light status-bar icons, which switch to Home's dark ones
+  only once it leaves. Tests: `splash_hand_off_test` (7) plus 3 more in
+  `splash_screen_test`. Mutation-checked: letting the splash take touches, or
+  stay visible to screen readers, during its exit each fails a test.
+- **Launch work off the UI thread.** `tzdata.initializeTimeZones()` decoded
+  the whole timezone database synchronously on the UI isolate, in the
+  "reminders" launch step, i.e. during the splash animation. It now runs in
+  `Isolate.run`, and only `Africa/Cairo` (the one zone the app uses) is added
+  to the main isolate's database. The database already ran on a background
+  isolate (`driftDatabase`). The splash mark is also pre-decoded in
+  `bootstrap()`.
+- **Notification small icon (regression fix).** P01 made `@mipmap/ic_launcher`
+  an adaptive icon, and notifications used it as their small icon. Android
+  draws that from alpha only, and an adaptive icon there breaks notifications
+  on Android 8.0. The generator now writes a white silhouette,
+  `drawable-*/ic_stat_notify.png` (24 dp), used by
+  `FlutterLocalNotificationsPort`.
+- **"Settle, then reveal" (owner approved 2026-10-04), measured on the RMX2001.**
+  The owner saw the rings freeze just before Home. Measured setup: profile
+  build, prod flavor, Impeller on OpenGL ES, 60 Hz; frame-gap probe, now
+  removed. Findings, and the fix for each:
+  - **Home's first build (~55 ms) and its rebuild with data (~65–100 ms)**
+    landed while the rings turned, which was the freeze. Now `SplashHandOff`:
+    1. **settles** the rings to a stop (350 ms, speed eases out as `(1−p)²`,
+       then the clock stops);
+    2. **mounts the app under the motionless splash**, waiting frame by frame
+       until Home reports its content (`HomeState.hasLoaded`, via
+       `LaunchReveal`; static first-run pages report at once; 600 ms cap);
+    3. only then **reveals**.
+  - **The app's very first frame (~210 ms)** fell on the entrance's first
+    frames, so the mark jumped. The entrance now starts 2 frames later, on a
+    still teal screen identical to the native splash.
+  - **Tabs:** go_router already builds only the Home branch at launch
+    (`preload: false`). Locked in by a test.
+  - **Data reads** were already on a background isolate (Drift), so they
+    were not deferred: deferring would have revealed a half-loaded Home.
+    Deferred instead: opening the reminder a notification tap launched the app
+    for (`ReminderNotificationOpener` waits for `LaunchReveal.revealed`).
+  - **Tried and dropped:** pre-warming the fade's opacity layer (0.99
+    opacity). It made no measurable difference.
+  - **Results (4 cold starts):**
+
+    | Phase | Before | After |
+    |---|---|---|
+    | Hand-off | 3–5 dropped frames, worst 63–99 ms (visible freeze) | settle: 0 dropped; Home's long frames happen hidden (still screen); fade: 1–2 single dropped frames of 30–40 ms |
+    | Entrance | 210 ms jump at its start | jump gone; 3–6 single drops of 26–59 ms remain, timed with the `reminders` and `usage` launch steps |
+
+- **Deferred housekeeping (owner approved option A, 2026-10-05).** The launch
+  sequence is split in two:
+  - **blocking** (`InitializeApp`, unchanged shape): `session`, `config`, and a
+    `reminders` step trimmed to setup only. That setup cannot move: it loads
+    the IANA data every Cairo-day reading needs (`core/time/cairo_day.dart`,
+    which both usage repositories call as Home builds), and no notification may
+    be scheduled before the plugin and its channel exist. It also still reports
+    the launch tap (F25-T04) before the router mounts;
+  - **deferred** (`FinishLaunch`, new use case): `cleanup`, the reminder
+    `reconcile`, and the usage `syncUsage`. `BootstrapCubit.finishLaunch()`
+    runs them from the hand-off's `onRevealed`, after `LaunchReveal` is marked
+    so a launch notification still opens first. It runs once per app start,
+    logs non-critical failures, and never throws.
+
+  `BootstrapStep.runGuarded()` was extracted so both runners share one timeout
+  and never-throws guard. Tests: 5 for `FinishLaunch`, 2 on the cubit, and one
+  in `shell_test` that boots the real app and proves the wiring; all three are
+  mutation-checked.
+  - **Results (4 cold starts, same setup):**
+
+    | Window | Before option A | After |
+    |---|---|---|
+    | Reveal fade (visible) | 1–2 drops | **0–1 drop** (one 33–35 ms frame) |
+    | Settle (visible) | 0 drops | **0 drops** |
+    | Housekeeping | inside the splash | runs entirely **after** the reveal ends |
+    | Raster per frame | median 17.0 ms, 60 % over budget | **median 7.6 ms, 32 % over** |
+
+- **The 160–230 ms stall: found and fixed (2026-10-05).** It was *not* a
+  garbage collection, as first assumed. Diagnosing it needed an instrument that
+  could tell the two possible causes apart: an 8 ms periodic timer on the UI
+  isolate alongside the frame callbacks. If the timer stalls across the gap the
+  isolate was blocked; if it keeps ticking, frames merely were not delivered.
+  - **It blocked the UI isolate** (the timer stalled 154–216 ms with it), and
+    marks around each launch stage put it exactly between `config` and
+    `reminders`: the **`config` step**, the app's first HTTPS request, paying
+    for the TLS and certificate setup every later request reuses. RSS grew
+    ~12 MB across it.
+  - **Fix:** `config` moved to `_buildDeferredSteps`, first in the list.
+    Nothing on the first screen needs it: the client reads
+    `RuntimeConfigStore` in exactly one place — the stub usage repository of an
+    *unconfigured* build, lazily, at analysis time — and it starts on
+    `RuntimeConfig.defaults`. A configured build never reads it at all
+    (`analysisEnabled` and the quota come from the usage response). So the
+    first HTTPS request now happens on a Home that is already still.
+  - **Verified: 9 cold starts** (4 after a fresh install, then 5 more without
+    reinstalling). In every one the isolate is **never blocked while the
+    animation runs**, and the worst gap is a single frame, 34–51 ms.
+- **The last 4–6 dropped frames are not the splash's drawing — proven, not
+  argued (2026-10-05).** The owner replaced the ring design to be rid of them,
+  choosing **option 3, the still mark** (preview
+  `build/branding-preview/splash-options.html`): the mark alone over a static
+  gradient and glow, breathing, with no orbiting elements at all. Measured on
+  the same phone, four cold starts: **still 5–6 dropped single frames, worst
+  34–38 ms** — the same as the rings. Adding repaint boundaries above the
+  animated parts changed nothing either (5 dropped, 34–38 ms).
+  - **So the design was never the cause.** A screen drawing almost nothing
+    misses as many frames as one orbiting seven glowing nodes.
+  - **An earlier reading here was wrong and is corrected:** "raster median
+    16.9 ms against a 16.7 ms budget" was read as the scene being too
+    expensive. It is not a cost — `rasterDuration` includes waiting for the
+    next vsync and the buffer swap, so a figure that tracks the frame period
+    is what *keeping up* looks like. The variant comparison that seemed to
+    indict the node halos (5.5 ms against 16.9 ms) was run-to-run noise: the
+    same figure swung 7.6–16.9 ms across builds of near-identical code.
+  - **What they actually are:** single missed frames while the launch does its
+    real work next door — the session request, opening the database, the
+    notification plugin and its isolate — on a budget chipset. Dart is idle
+    across every one of them, so nothing in the splash can prevent them.
+  - **Open for the owner:** accept them (they are one missed frame each,
+    during launch), or trim what still runs before the first screen. Keeping
+    the ring design would have cost nothing in smoothness either, so the choice
+    between the two is purely a design one.
+- **One launch is still slow, by design of the measurement:** the first start
+  straight after `adb install` shows a ~184 ms stall while Android optimizes
+  the freshly written app. Play delivers pre-optimized artifacts, so a real
+  install does not reproduce it; every later cold start is clean.
+- **Also tried and reverted:** approximating the node halos with stepped fills
+  instead of a radial gradient, to cut shader allocation. Measured: raster
+  unchanged (16.9 ms), because the cost is the translucent fill area, not the
+  shader. Reverted.
+  - **Tried and dropped:** building the app widget (and so resolving the
+    router) only in the still phase, on the theory that it caused the 160 ms
+    stall. Measured: no effect. Reverted rather than kept as unmeasured
+    complexity.
+- **Colours:** no change to the app palette. The splash keeps the brand teal
+  gradient (`#0E7C86` → `#0A5C64`) and `splash_bg` (`#0A6C76`). The icon's own
+  background is darker (`#035763` → `#023742`) and is kept as the owner drew
+  it.
+- **iOS:** generated on Windows and not built. Checking it needs a Mac (T23).
+  The iPad icon sizes are still generated; T23 decides on iPhone-only.
+- **Known limits, for the owner:**
+  - **Resolution:** the symbol's source is about 315 px tall. Android launcher
+    icons need at most about 290 px, so they're sharp. The Flutter splash
+    mark at 3x (384 px) is upscaled about 1.2× and the iOS 1024 px icon about
+    2.3×, so both are slightly soft. **A square 1024 px or larger source, or SVG, fixes it with
+    one re-run.** Needed before the App Store submission (T24) and wanted for the
+    Play 512 px store icon (T21).
+  - **Small sizes:** at 36–48 dp the network's lines and nodes merge into a
+    texture. A simplified small-size variant (fewer, larger nodes) was proposed
+    to the owner and **not applied**.
+- `assets/app_icon.png` (bundled but referenced nowhere in the code) was
+  regenerated from the new icon so no old branding remains.
+
+### P02 record (2026-10-05)
+
+Release APK built from `feature/production-readiness` (= `develop` + P01), the
+plan's default, with the command P02 specifies. Installed and smoke-checked on
+the owner's RMX2001.
+
+- **The APK.** `build/app/outputs/flutter-apk/app-prod-release.apk`,
+  version 1.0.0 (build 3, up from +2), 36.5 MB,
+  SHA-256 `d18b2eb160caa444cee3b8639d62c869af818c2661a952142e517a9349b2b53c`.
+  Signed with the release key `war2aty` (cert SHA-256
+  `8B:72:40:7C:…:79:14:03`, CN=Yusef Abdulkarim, O=War2aty, valid to 2054),
+  **v2 scheme**, verified with `apksigner`. v1 is absent and does not matter:
+  `minSdk` is 24, and v1 is only needed below API 24.
+- **A release-only bug P02 caught.** `isShrinkResources` deleted
+  `drawable/ic_stat_notify` from the APK: the notification small icon is named
+  from Dart as a string (`'@drawable/ic_stat_notify'`), so nothing on the
+  Android side references it and the shrinker could not see it. Profile builds
+  keep it, so no earlier device test could have found this — a fired reminder
+  would have had no icon. Fixed with the standard keep rule,
+  `android/app/src/main/res/raw/keep.xml`; the icon is back at all five
+  densities. It is the only resource named this way (checked across `lib/`).
+- **Size: 54.7 MB → 36.5 MB.** `--target-platform` only limits Flutter's own
+  engine, so the plugins' native libraries (Tesseract, OpenCV) shipped for
+  three ABIs. `android/app/build.gradle.kts` now reads the same
+  `target-platform` property Flutter passes and excludes the other ABIs at
+  packaging time. Deliberately driven by that flag rather than pinned to
+  arm64: a build that names no platform — the App Bundle for Play — keeps
+  every ABI, so 32-bit devices are still served and Play splits per device
+  itself. `ndk.abiFilters` alone was not enough (something downstream re-adds
+  the ABIs), hence the `packaging.jniLibs` exclusion, which runs last.
+  `assets/app_icon.png` was also dropped from the bundle (204 KB): it is the
+  512 px store-listing icon the generator keeps in step, and nothing loads it
+  at runtime. The file stays in the repo for the listing.
+- **Smoke check (passed).** Uninstall was required and the device's local data
+  was lost, as the task warned — the old install was debug-signed
+  (`f8b346a4`), the new one is not (`4dd75bbb`). Installed clean,
+  `versionCode=3`. Cold launch: native teal → the splash's mark over its glow,
+  light status-bar icons, no text → Home in Arabic RTL with the 4-tab shell,
+  dark status-bar icons, correct empty state for a fresh install. The
+  reminders tab opens with its own empty state, so lazy tab building works in
+  a minified build too. **No exceptions or errors in logcat**, and nothing was
+  broken by R8 or resource shrinking.
+- **Left to the owner:** the camera → on-device OCR pass needs a real page in
+  front of the lens, so it cannot be driven from here. The launcher icon's
+  look on the home screen is also the owner's to confirm; it is verified
+  *present* (adaptive icon resolving at every density, with the monochrome
+  layer for themed icons).
+- **Backend caveat stands.** The APK points at production, which is still
+  pre-F20 and unverified (B2, Q8), so online reading and analysis may fail
+  until T08. That is the known backend gap, not an APK defect.
+
+### T02 handover (written 2026-10-05, for a fresh session)
+
+T02 runs in a new chat, so everything it needs is here rather than in a
+conversation it cannot see.
+
+**Scope (the owner's Q5 answer): deal with all three open PRs.**
+
+| PR | Branch | State as measured 2026-10-05 | What to do |
+|---|---|---|---|
+| #28 | `feature/ui-polish-bars-snackbar` | 6 commits ahead, **0 behind**, no conflicts | Merge. It also brings `docs/features/F26-bars-and-snackbar.md`, after which **F26 joins the index** and the note under the table in `docs/features/README.md` comes out. |
+| #18 | `feature/offline-first-launch` | 4 ahead, **141 behind**, one conflict — `docs/features/README.md` only | Rebase onto `develop`, resolve that docs conflict, merge. It touches `lib/app/di/service_locator.dart`, which auto-merges. |
+| #19 | `feature/splash-startup-latency` | 4 ahead, 40 behind, no conflicts | **Close as superseded by P01** — but first cherry-pick `11ad8b6` ("perf(localization): resolve the strings delegate synchronously"). Verified 2026-10-05: `AppStringsDelegate.load` is still `async` on this branch, so that commit is a real, splash-independent win. Its other two commits are dead: they tune a 6 s entrance that is now 1.8 s, and strip blurs and text the splash no longer has. |
+
+**Before merging anything**, re-measure those numbers — `develop` may have moved:
+`git fetch origin` then, per branch,
+`git rev-list --count origin/develop..origin/<branch>` and the reverse, plus
+`git merge-tree --write-tree origin/develop origin/<branch> | grep CONFLICT`.
+
+**Then:** `dart format .`, `flutter analyze` (expect the same 16 pre-existing
+infos as `develop`, no errors), `flutter test` (2176 passing as of T01). Commit
+per the one-commit-per-task rule, push, and **open the Phase 0 PR** — the owner
+chose a PR per phase (Q21), and Phase 0 is T01–T03, so the PR opens once T03
+(CI) is done, not at T02.
+
+**Then stop** for the owner's approval, per the execution rule at the top.
+
+### T02 record (2026-10-05)
+
+**Done: all three open PRs closed out, exactly as Q5 directed.**
+
+The handover's measurements were re-taken first and matched to the commit:
+#28 6 ahead / 0 behind, clean; #18 4 ahead / 141 behind, conflicting in
+`docs/features/README.md` only; #19 4 ahead / 40 behind, clean.
+
+| PR | What happened | Result |
+|---|---|---|
+| #28 | Merged with a merge commit (the repo's existing style). Brought `docs/features/F26-bars-and-snackbar.md`, so **F26 is now in the index** and the "missing on purpose" note under the table is gone. | MERGED — `f9b7127` |
+| #18 | Rebased onto `develop`. The one conflict was the index table: `develop`'s side kept, the F19 row inserted in numeric order, total corrected, and F19's own critical-path sentence re-appended. The other three commits replayed clean — `lib/app/di/service_locator.dart` auto-merged across all 141 commits. Force-pushed with `--force-with-lease`, then merged. | MERGED — `7805a56` |
+| #19 | `11ad8b6` cherry-picked with `-x` onto `feature/production-readiness` first — authorship, message and provenance line intact. Verified still needed: `AppStringsDelegate.load` was still `async` on `develop`. Its import hunk conflicted (this branch has `dart:io` and already imported `app_localizations.dart`); resolved by keeping both and ordering per `directives_ordering`. Then closed, with the full rationale posted as a PR comment — including why the other two commits were dropped (they tune a 6 s entrance that is now 1.8 s and strip blurs and text the P01 splash no longer has). | CLOSED — cherry-pick is `90efdc8` |
+
+**Merging `develop` back into `feature/production-readiness`** took two
+resolutions worth recording, because both sides were right:
+
+- `docs/features/README.md` — F26 (from #28), F19 (from #18) and F27 (from T01)
+  all belong in the table; total is now **315 tasks across 25 features**.
+- `lib/app/di/service_locator.dart` — a doc-comment clash where
+  `_sessionBound` (F19, `develop`) and `_buildDeferredSteps` (P01, this branch)
+  each existed on one side only. Both kept; the comment is `develop`'s new
+  wording with this branch's `_buildDeferredSteps` sentence re-appended.
+
+**Gate: green.** `dart format .` clean (685 files, 0 changed), `flutter analyze`
+16 infos and no errors (the same 16 as before — all pre-existing, none in the
+merged code), `flutter test` **2206 passing, 0 failing**. The earlier count of
+2176 was measured before #28 and #18 landed; no test file was lost in either
+rebase (the file sets were diffed to confirm it).
+
+**Two acceptance items were moved out of T02, with the owner's approval
+(2026-10-05): both recommendations below were accepted as written.**
+
+1. **`main` ↔ `develop` are still apart**, now 6 and 153 commits. The 6 on
+   `main` are five old merge commits plus one real content commit, `1e14a5f`
+   ("professionalize repo for external review"), which `develop` never got:
+   `LICENSE`, `CONTRIBUTING.md`, `config/prod.json.example`, a `README.md`
+   rewrite, `.gitignore` and `pubspec.yaml` cleanups. Merging `main` into
+   `develop` conflicts in `README.md` and `supabase/.env.example`.
+   **Deferred to after T14 — owner-approved 2026-10-05.** That `README.md`
+   names the app «ورقتي», which changes at T14, and its
+   `supabase/.env.example` predates F20 (it still lists providers that were
+   deleted), so resolving it today means resolving it again later. The work is
+   written into the **T14** row: recover `LICENSE`, `CONTRIBUTING.md` and
+   `config/prod.json.example` from `1e14a5f` as a separate small commit on
+   `develop`, rewrite the README for the new name, refresh
+   `supabase/.env.example`. The `develop` → `main` release merge itself then
+   happens under the scheme **T25** defines.
+2. **The release-branch and tag scheme** belongs in `docs/RELEASE.md`, which is
+   T25's deliverable and does not exist yet. Writing it here would mean writing
+   T25's doc before T09 (its other dependency) has decided anything.
+   **Owner-approved 2026-10-05: it stays T25's**, and the T25 row now says so.
+
+Nothing was deleted: the merged branches `feature/ui-polish-bars-snackbar` and
+`feature/offline-first-launch`, and the closed `feature/splash-startup-latency`,
+all still exist on `origin`, matching how every earlier merged branch was left.
+
+**The Phase 0 PR is not opened yet** — per Q21 it opens once T03 (CI) is done.
+
+### T03 record (2026-10-05)
+
+**`.github/workflows/ci.yml`** — one workflow, two jobs that run in parallel:
+
+| Job | Steps |
+|---|---|
+| **App (format, analyze, test)** | `flutter pub get`, then `dart format --output=none --set-exit-if-changed .`, `flutter analyze --no-fatal-infos`, `flutter test` |
+| **Backend (deno test)** | `deno test --allow-env --allow-net supabase/tests` |
+
+Triggers: **every pull request**, whatever its base, plus pushes to `main` and
+`develop` so a bad interaction between two separately-green PRs is still caught
+once no PR is open. `permissions: contents: read`, and `concurrency` cancels a
+superseded run on the same branch.
+
+**Every command was re-run locally at this commit and exits 0:** format clean,
+analyze 16 infos / 0 errors, `flutter test` **2206 passed**, `deno test`
+**734 passed, 42 ignored** (the ignored ones are the integration tests skipping
+themselves — see below).
+
+**Findings worth keeping, each measured rather than assumed:**
+
+1. **`flutter analyze` exits 1 on infos alone.** Measured: with the project's 16
+   known infos and no errors, the bare command returns 1, so the obvious
+   workflow step would have failed on its first run. `--no-fatal-infos` returns
+   0 while **errors and warnings still fail** (both are fatal by default). This
+   matches the baseline the plan already treats as accepted (T02 handover). To
+   make the gate stricter, the 16 infos — all in test files — have to be
+   cleaned up first; that is a standalone decision, not T03's.
+2. **No secrets are needed, by construction.** The unit tests use injected
+   fakes; the integration tests under `supabase/tests/integration/` skip
+   themselves when `SUPABASE_URL` / `SUPABASE_ANON_KEY` are absent and no local
+   stack is up (`supabase/README.md` § Tests). `RUN_LIVE_ANALYSIS` is never set,
+   so no CI run can spend provider quota.
+3. **Versions are pinned** — Flutter `3.41.9` and Deno `2.9.4`, the versions the
+   project is developed against. A new stable release therefore cannot change
+   the gate's verdict mid-review; upgrading is a deliberate edit here. The
+   pinned Flutter also pins `dart format`, which is what makes the formatting
+   check reproducible at all.
+4. **Actions are pinned to major tags**, not commit SHAs. Acceptable here
+   because the workflow holds no secrets, has read-only permissions and
+   produces no artifact. **This stops being true at T13**: a release-build
+   workflow carries the signing key, and that one should pin by SHA.
+5. **The mixed line endings do not break CI.** `core.autocrlf=false` and there
+   is no `.gitattributes`, so a Linux runner checks out bytes identical to the
+   working tree, and `dart format` preserves each file's existing endings.
+   Introducing a `.gitattributes` would change this and must be done
+   deliberately, with the formatting check re-verified.
+6. **No `build_runner` step.** Drift's generated sources are committed
+   (`app_database.g.dart` and the two DAOs), per CLAUDE.md §B3.
+7. **Every bundled asset is committed**, including the two `tessdata`
+   traineddata files (1.4 MB and 4.1 MB), so `flutter test` needs no extra
+   fetch step.
+
+**One thing CI cannot do yet, and one the owner should rule on:**
+
+- **CI's first live run passed.** ~~Nothing triggers it on a feature branch~~ —
+  resolved: PR #29 (opened 2026-10-05) triggered run `37277905375`, and both
+  jobs went green first time: **App 5m10s** (checkout, Flutter 3.41.9 from
+  cache, `pub get`, format, analyze, 2206 tests) and **Backend 16s**. The
+  workflow needed no correction after being written, and the gate verdict in CI
+  matched the local one exactly. One informational annotation, no action needed:
+  GitHub will migrate the `ubuntu-latest` label to Ubuntu 26 from 2026-10-19.
+- **`deno fmt --check` was deliberately left out**, and measuring why turned up
+  something: it **fails today on 4 files**, entirely because of line endings
+  (`Text differed by line endings`) — `analysis-provider.ts`,
+  `openai-compatible-client.ts` and their two tests. `deno lint` is clean and
+  could be added as-is. So the deferred line-ending cleanup now has a concrete
+  cost: it is what blocks the backend's formatting check from joining the gate.
+  Neither check is in T03's acceptance, so neither was added.
+
+### T04 record (2026-10-05) — production state measured, three decisions owed
+
+The Supabase **MCP connector is still not available in this session** (the two
+Supabase MCP servers remain unauthorised here, and OAuth cannot run in a
+non-interactive session — a session restart is likely what picks up a link made
+in the claude.ai settings). But it turned out not to be needed: the **Supabase
+CLI on this machine is already authenticated**, and the Postgres port that was
+blocked on this network on 2026-09-06 (see `docs/TEST-BUILD-ROLLOUT.md`) is
+**open again**, so production could be inspected directly over both HTTPS and
+Postgres.
+
+#### Production's live state (Q8) — measured, not assumed
+
+| What | State |
+|---|---|
+| Project | `war2aty` / `jecujrsvbmashkpobtsz`, org `kejzeyfadlqnjhypvili`, **ACTIVE_HEALTHY**, Postgres 17.6 |
+| **Region** | **`ap-northeast-2` — Seoul.** See the region problem below. |
+| `health` | Responds `{"status":"ok"}` over HTTPS, no auth (`verify_jwt: false`) |
+| Functions | All four ACTIVE: `analyze-document` v9 (updated **2026-09-26**), `get-usage` v8, `health` v8, `ocr-document` v6 (all three updated **2026-08-16**) |
+| Migrations | **6 of 7 applied.** `20260929120000_online_ocr_flag.sql` — F20's — is **not applied** (`remote: ""`) |
+| Secrets | 18 present, including `GEMINI_API_KEY`/`GEMINI_MODEL`, `MISTRAL_*`, `GROQ_*`, `INSTALLATION_HASH_SALT`, `DAILY_ANALYSIS_LIMIT`, `MAX_OCR_CHARACTERS`, `ANALYSIS_SCHEMA_VERSION`, `AI_TIMEOUT_SECONDS`. **No Azure or Google secrets** — consistent with F20-T16 deleting them. Missing versus `.env.example`: `AI_ATTEMPT_TIMEOUT_SECONDS`, `MIN_FALLBACK_MS` |
+
+**This confirms B2 with dates rather than suspicion.** F20 completed on
+2026-09-30 (`6eb705c`); every deployed function predates it — `ocr-document`,
+the one F20 rewrote around Gemini, by six weeks. F20's migration was never
+applied, so `online_ocr_enabled` does not exist in `app_runtime_config`.
+Production is therefore pre-F20 on all three axes at once: code, schema and
+config. T08 is where that is fixed; nothing here changed production.
+
+**One gap left open deliberately.** The `app_runtime_config` row values
+(`daily_limit`, `online_ocr_enabled`, the global cap, `minimum_app_version`)
+are still unrecorded: reading them means a production data read, which this
+session is not permitted to do — the table also holds pseudonymous
+installation hashes. Q10 and Q12 both want those values. They need either the
+owner's explicit permission for a production read or a look at the dashboard.
+
+#### The region problem (the T04 "region decision", and it is bigger than T04 assumed)
+
+**Production serves Egypt from Seoul.** Cairo→Seoul is roughly 8,500 km, about
+230–280 ms round trip before any work is done; and every analysis is a chain of
+Edge Function → AI provider calls, so the user pays that distance more than
+once. The AI providers are US/EU-hosted, so Seoul is also the wrong side of the
+world from them — which is T05's measurement, but the direction is not in doubt.
+
+**A project's region cannot be changed.** The only fix is a new project. The
+closest regions the CLI offers — there is no Middle East or Africa one — are
+`eu-central-1` (Frankfurt), `eu-west-3` (Paris) and `eu-central-2` (Zurich);
+Egypt's international transit runs through Europe via the Alexandria landings,
+so any of them is roughly 60–80 ms. `ap-south-1` (Mumbai) is the next best at
+roughly 110–130 ms. **Recommended: `eu-central-1`.**
+
+**Now is the cheapest this will ever be.** The app has not launched: only
+testers hold it, local documents live on the device, and the only server-side
+state is usage counters and anonymous identities. After launch, moving means
+resetting every user's anonymous identity and quota.
+
+#### The three decisions T04 cannot make on its own
+
+1. **Fix the region, or keep Seoul?** Recommended: create the new project in
+   `eu-central-1` **as the new production**, and keep the existing Seoul project
+   **as staging** — it already carries the migrations, functions and secrets a
+   staging project needs, so this gets both deliverables from one move and
+   wastes nothing.
+2. **The free tier is full.** The org already holds **two** projects, which is
+   the free plan's limit: production, and `Yusef3bdulkarim's Project`
+   (`ernmfjskupxgopczarrx`, `ap-southeast-1`/Singapore, **INACTIVE** since
+   2026-08-11) — a leftover. Whatever is decided in (1), that leftover should go
+   first. **Deleting it needs the owner's say-so**, and a check that it holds
+   nothing wanted.
+3. **Which provider keys does staging use?** Under the no-paid-tiers rule
+   ([[war2aty-no-paid-tiers-ever]]), pointing staging at production's Gemini /
+   Mistral / Groq keys means staging traffic eats the same free quota the
+   launched app depends on. Either separate free-tier keys for staging, or keep
+   staging traffic deliberately tiny. This decides what goes into the staging
+   project's secrets.
+
+Creating a project is an account-level action with an irreversible region
+choice, so **nothing was created**. `config/staging.json` waits on (1) and (2),
+since it needs the new project's URL and publishable key.
+
+#### What is ready to run the moment those are answered
+
+`docs/TEST-BUILD-ROLLOUT.md` already records the sequence for standing up a
+fresh project, and it still holds: `supabase projects create <name> --org-id
+kejzeyfadlqnjhypvili --db-password <chosen> --region <chosen>`, then
+`supabase link --project-ref <ref>`, `supabase db push` (now possible from this
+machine again), `supabase functions deploy analyze-document ocr-document
+get-usage health --project-ref <ref>`, then `supabase secrets set --env-file
+supabase/.env --project-ref <ref>`, and finally set `online_ocr_enabled`
+deliberately — **off at launch**, per Q12. The DB password is a secret: it goes
+to the owner's password manager, never into the repo.
+
+**No staging flavor exists.** `Flavor` is `{dev, prod}` and
+`lib/core/env/app_environment.dart` says a staging flavor is deferred. None is
+needed: `AppEnvironment.prod()` reads both values from dart-defines with no
+defaults, so staging runs today as
+`flutter run --flavor prod -t lib/main_prod.dart
+--dart-define-from-file=config/staging.json`. The cost is that such a build
+carries the production `applicationId`, so it replaces the real app on a device
+rather than sitting beside it. A real `staging` flavor would fix that and is the
+better long-term answer, but it needs Android product flavors, an iOS scheme
+(unbuildable until there is a Mac, Q1/Q22) and an icon variant — so it is
+proposed, not assumed.
+
+### T04 record (continued) — 2026-10-05, the owner's four approvals carried out
+
+The owner approved all four recommendations, including permission for the
+production read. What follows is what was actually done, in order, and the three
+things still owed.
+
+#### 1. The runtime config, finally recorded (closes Q8, answers part of Q10)
+
+The old production's `app_runtime_config` held:
+
+| key | value |
+|---|---|
+| `analysis_enabled` | `true` |
+| `daily_limit` | `3` (reverted from 10 on 2026-09-06) |
+| `max_ocr_characters` | `12000` |
+| `max_image_bytes` | `8000000` |
+| `minimum_app_version` | `"1.0.0"` |
+| `maintenance_message` | `null` |
+| `schema_version` | `"2.0"` |
+| **`azure_ocr_enabled`** | **`true`** |
+
+That last row is the find. F20 replaced the key with `online_ocr_enabled`, and
+F20-T16 deleted the Azure secrets — so production was carrying a stale,
+**enabled** flag for a provider whose credentials no longer existed. That is the
+HTTP 500 recorded in [[analysis-bugs-aug13]], still live. It also makes Q12's
+"off at launch" the only safe setting, and it is gone now.
+
+**Q10's open half is answered:** there is no `global_daily_call_cap` key, so no
+global cap was ever set. `nullablePositiveInteger` reads its absence as "no
+cap". T06 sets it.
+
+**A disclosure.** The first dump used `--data-only` without `--schema public`,
+so it also pulled the `auth` and `storage` schemas — 39 anonymous users with
+their sessions and refresh tokens. No row content was read (only per-table row
+counts, to see what had been exposed) and the file was deleted immediately. The
+later reads used `-s public` with the three usage tables excluded, which returns
+`app_runtime_config` and nothing else. **`-s public` is the right form; a bare
+`--data-only` is not.** As a side effect the row count is a useful number: the
+old project holds **39 anonymous identities**, i.e. testers only — which is what
+made moving region cheap.
+
+#### 2. The Singapore leftover — deleted
+
+`ernmfjskupxgopczarrx` was checked first and was genuinely empty: **no functions,
+no secrets**, never used since its creation on 2026-08-11. Deleted, freeing the
+second of the free tier's two project slots.
+
+#### 3. The new production — `war2aty-prod` in `eu-central-1`
+
+| | |
+|---|---|
+| Ref | `ivbpmzasxpphclundjyy` |
+| Region | **`eu-central-1`** (Frankfurt) — roughly 60–80 ms from Egypt, against 230–280 ms from Seoul |
+| Status | ACTIVE_HEALTHY, Postgres 17 |
+| Migrations | **All 7 applied** |
+| Functions | All 4 deployed, `verify_jwt` correct from `config.toml` (true, true, true, `health` false) |
+| Secrets | All 11 set from `supabase/.env`, giving the same 18 names the old project had |
+| `health` | `{"status":"ok"}` |
+| Runtime config | Identical to the old project's **except** `online_ocr_enabled: false` instead of `azure_ocr_enabled: true` — exactly Q12 |
+
+The DB password was generated here (40 chars, URL-safe), never printed and never
+committed. It is in this session's scratchpad at
+`war2aty-prod-db-password.txt` and **must be moved to the owner's password
+manager**, because the scratchpad is temporary. Losing it is recoverable — it can
+be reset from the dashboard, and the CLI uses the access-token login role rather
+than this password for `db push`.
+
+#### 4. Staging — the old Seoul project, brought up to current code
+
+`jecujrsvbmashkpobtsz` kept its data and identities and now runs **the same code
+as production**: all 4 functions redeployed, and the one missing migration
+(`20260929120000_online_ocr_flag`) applied, which deleted the stale
+`azure_ocr_enabled` and seeded `online_ocr_enabled: false`. Functions were
+deployed **before** the migration deliberately: F20's code reads the flag's
+absence as off, so that order is safe in a way the reverse is not.
+
+A side effect worth knowing: the APK on the owner's phone points at this
+project, and its client code is post-F20. Until now it was talking to a pre-F20
+backend. That mismatch is gone — their build now matches the server it reaches.
+
+#### 5. Config files
+
+`config/prod.json` now points at `ivbpmzasxpphclundjyy`; **`config/staging.json`
+is new** and points at the Seoul project with its existing publishable key. Both
+hold only a URL and a publishable key, which §24 permits in the client. No
+staging *flavor* was added — `AppEnvironment.prod()` takes both values from
+dart-defines, so staging runs as
+`flutter run --flavor prod -t lib/main_prod.dart
+--dart-define-from-file=config/staging.json`, at the cost of carrying the
+production `applicationId`.
+
+#### Three things still owed — two of them the owner's
+
+1. **Enable anonymous sign-ins on `war2aty-prod`** — *blocking*. Verified
+   disabled by attempting a real sign-in: HTTP 422,
+   `anonymous_provider_disabled`. Anonymous Auth is the app's **only** identity,
+   so until this switch is on, the new production cannot authenticate anyone.
+   Dashboard → Authentication → Sign In / Providers → Anonymous sign-ins.
+   `supabase config push` was considered and **rejected**: `config.toml` says in
+   its own header that it configures the local stack only, and pushing it would
+   also send `site_url = "http://127.0.0.1:3000"` and disable storage, realtime
+   and analytics on the hosted project.
+2. **Rename the Seoul project to `war2aty-staging`** — cosmetic but worth doing,
+   since it is still called `war2aty`. The CLI has no rename; it is a dashboard
+   edit.
+3. **Separate free-tier provider keys for staging** (the owner's decision 3).
+   Staging still holds the production Gemini / Mistral / Groq keys, because new
+   free-tier accounts can only be created by the owner. They were left in place
+   rather than removed, so staging stays functional and nothing regressed — but
+   **until they are replaced, any analysis run against staging spends the same
+   free quota production depends on**, so staging should not be exercised yet.
+
+Nothing here touched T05's job: whether the providers are actually reachable
+from the Frankfurt runtime, and the function-region pin, are measured there —
+and the move to Frankfurt should help, since the providers are US/EU-hosted.
+
+### T05 record (2026-10-05) — the region half, and why the provider half is still blocked
+
+**Deviation, stated up front.** The row says "on staging". That wording predates
+T04: staging *is* the Seoul project now, so testing there would measure the
+wrong region and spend the same shared provider keys. T05 therefore targets the
+**new Frankfurt production**, which is where the evidence has to hold.
+
+#### The finding: Edge Functions do not run in the project's region
+
+This was not what T04 assumed, and it matters more than the project region does.
+
+`x-sb-edge-region` on an unpinned `health` call returned **`ap-south-1`
+(Mumbai)** — from *both* projects. Supabase runs Edge Functions at whichever
+edge region is nearest the caller and leaves the database where the project was
+created. So before this task, the shape was: client (Egypt) → function (Mumbai)
+→ database (Frankfurt), with every query inside the function crossing a
+continent it had no reason to cross.
+
+Sending `x-region: eu-central-1` moved execution to `eu-central-1`, confirmed
+by the same header. Measured from here, 7 samples each, median:
+
+| Configuration | Median | |
+|---|---|---|
+| Frankfurt project, **pinned `eu-central-1`** | **317 ms** | best |
+| Frankfurt project, unpinned (ran in Mumbai) | 379 ms | |
+| Seoul project, unpinned (ran in Mumbai) | 406 ms | |
+| Seoul project, pinned `ap-northeast-2` | 552 ms | worst |
+
+**This also qualifies T04's rationale honestly.** Moving the project to
+Frankfurt was right, but not quite for the reason given: because functions run
+near the caller either way, the move on its own did little for the
+function→database hop (Mumbai→Frankfurt is no shorter than Mumbai→Seoul). What
+the move *does* buy directly is the client-to-project paths — anonymous sign-in
+and token refresh go to GoTrue in the project's region, where Egypt→Frankfurt
+clearly beats Egypt→Seoul. **It is the pin that makes the move pay off for the
+functions**, and the last row above shows the alternative: had Seoul been kept
+and pinned, it would have been the worst of the four.
+
+**Caveats, so the numbers are not over-read.** They come from the dev machine,
+not an Egyptian mobile network; each sample opens a fresh TLS connection, so
+they are per-call figures including handshake rather than pure round trips; and
+`health` touches no database, so the 317-vs-379 gap is the network leg alone —
+the database leg can only improve further once the function is co-located with
+it. The four cases are measured identically, so the comparison holds even where
+the absolute numbers do not.
+
+#### What was changed
+
+`AppEnvironment` gained `functionRegion`, read from a
+`SUPABASE_FUNCTION_REGION` dart-define, and `createApiClient` sends it as
+`x-region` — **only when non-empty**, so the local stack and an unconfigured
+build send no header at all. The value travels per project in the config files
+(`eu-central-1` for production, `ap-northeast-2` for staging) rather than being
+hardcoded per flavor, because the correct value *is* the project's own region
+and staging runs through the same `main_prod.dart` entrypoint. A wrong value
+would be worse than none: it would separate the function from its database
+again. Four tests cover it: the field defaults to unpinned, carries what it is
+given, and the client sends the header exactly when a region is set.
+
+Pinning does forgo Supabase's automatic regional fallback. That costs little
+here, because the database is in `eu-central-1` regardless — a regional outage
+takes the app out whether the function failed over or not.
+
+#### Mistral → Groq: **reachable from the hosted runtime, including Frankfurt's**
+
+Run against **staging**, which is what this row asked for all along — it is the
+only project that can mint a token, since `war2aty-prod` still refuses (below).
+
+**The project's own live suite, 11/11 passed** (35 s total):
+
+```
+SUPABASE_URL=https://jecujrsvbmashkpobtsz.supabase.co SUPABASE_ANON_KEY=…   RUN_LIVE_ANALYSIS=1 deno test --allow-net --allow-env   supabase/tests/integration/endpoints.integration.test.ts
+```
+
+including `[integration][live] a real analysis returns a §30 body and counts one
+use` in **13 s** — a real analysis, a real provider answer, and the quota moving
+by exactly one.
+
+Then the same call again with the region pinned, to prove the **production
+runtime region** specifically:
+
+| Run | Ran in | Status | Time | Body |
+|---|---|---|---|---|
+| unpinned | `ap-south-1` | 200 | 11.7 s | `success`, 2 dates, 1 amount |
+| **pinned `eu-central-1`** | **`eu-central-1`** | **200** | **11.2 s** | `partial`, 1 date, 1 amount |
+
+So the providers answer from Frankfurt, which is the half of T05 that actually
+gates launch. Two things to read correctly: the `success` / `partial` difference
+is **model variance on the same fixture**, not a regional effect — `partial` is a
+valid §30 status and the model's output was never a contract; and the ~11 s is
+dominated by the AI call, so **the region pin barely moves total analysis time**.
+The pin earns its place on the database hops and the client-to-function leg, not
+here. Three real analyses were spent in total, each under a fresh anonymous user.
+
+#### Gemini / `ocr-document`: not run — the flag cannot be flipped from here
+
+`ocr-handler` throws `ocrUnavailable()` while `online_ocr_enabled` is false, so
+the OCR check needs the flag on. Flipping it needs a write to
+`app_runtime_config`, and **every route to that write is closed on this
+machine**:
+
+- `psql` is not installed.
+- There is no staging DB password locally (`supabase/.env` holds provider keys
+  only), and the CLI has no ad-hoc SQL command.
+- The service-role key over PostgREST was **refused by the permission
+  classifier** as a shared-resource modification. That is the right call and was
+  not pursued further.
+- On production the DB password *is* in hand — but production cannot mint a
+  token, so the test still could not run there.
+
+Net: production can flip the flag but not authenticate; staging can authenticate
+but not flip the flag. **The owner flipping `online_ocr_enabled` on staging (SQL
+editor or Table Editor) unblocks it in one step**, and the call is ready:
+`golden/Image2.jpg` (1489×2048, 449 KB) posted to `ocr-document` with
+`x-region: eu-central-1`, asserting only the §30b shape — `ocr_text` length,
+`detected_languages`, `candidates` keys — and never the extracted text. The flag
+goes straight back to false afterwards.
+
+#### And the blocker underneath it all: production still will not authenticate
+
+Re-verified again, and this time from GoTrue's own settings endpoint rather than
+inferred from a failure:
+
+| Project | `external.anonymous_users` |
+|---|---|
+| `war2aty-prod` (Frankfurt) | **`false`** |
+| `jecujrsvbmashkpobtsz` (staging) | `true` |
+
+That is the server reporting its own configuration, so it is not a key mismatch
+or a test artefact. `GET /auth/v1/settings` with the publishable key is the
+quickest way for the owner to check it themselves. Until it reads `true`,
+`ocr-document` and `analyze-document` on production cannot be exercised at all,
+which also keeps T08 waiting.
+
+**`online_ocr_enabled` was never flipped on either project.** Q12 is intact.
+
+
+`ocr-document` and `analyze-document` are `verify_jwt = true` and
+`require-user` extracts a user id, so both need a real anonymous token — which
+is exactly what `war2aty-prod` will not issue. Re-verified **ten times across
+about five minutes**, including five attempts at 20-second intervals: every one
+returned `HTTP 422 anonymous_provider_disabled`. The same call against staging
+succeeds, so the key and the project are right and the setting simply is not on.
+A token file for the Management API does not exist on this machine (the CLI
+keeps its token in the Windows credential store), so the project's auth config
+could not be read directly to say more.
+
+**`online_ocr_enabled` was never flipped.** The owner approved a temporary
+window for it, but it is only useful alongside a token, so the flag stayed
+`false` throughout and Q12 is intact. The approval still stands for when the
+OCR check can actually run.
+
+#### Closing T05 (2026-10-06): verified on production, Gemini deferred
+
+Anonymous sign-ins came on at last — confirmed the honest way, from GoTrue's own
+settings endpoint: `external.anonymous_users = true` on `war2aty-prod`.
+
+That made a better test possible than the row asked for, so it was taken: the
+live suite was re-run **against production itself**, not staging.
+
+```
+SUPABASE_URL=https://ivbpmzasxpphclundjyy.supabase.co SUPABASE_ANON_KEY=…   RUN_LIVE_ANALYSIS=1 deno test --allow-net --allow-env   supabase/tests/integration/endpoints.integration.test.ts
+```
+
+**11 passed, 0 failed (29 s)**, including `[integration][live]` in **9 s** —
+against 13 s on staging. That gap is consistent with Frankfurt being both nearer
+the caller and better placed for US/EU-hosted providers, though one sample each
+is not a benchmark.
+
+What this actually establishes, and it is more than T05 asked for: production's
+**own** secrets work, the Mistral → Groq chain answers from the production
+runtime, anonymous auth mints tokens, `get-usage` reports a fresh quota, and the
+quota counter moves by exactly one on a real analysis. Several of T08's
+questions are answered early as a side effect.
+
+**The Gemini / `ocr-document` check is deferred to T08 on the owner's
+instruction** (2026-10-06), since flipping `online_ocr_enabled` is not reachable
+from this machine. It is the one piece of T05's acceptance left unmet, and it is
+recorded as T08's inheritance rather than quietly dropped — **T08 must not flip
+`online_ocr_enabled` on for launch** (Q12 keeps it off; T26 flips it), so the
+check there is the same shape: flag on, one image, assert, flag off.
+
+**`online_ocr_enabled` is still `false` on both projects.** Q12 intact.
+
+### T06 record (2026-10-06) — the cap is armed; attestation is specified, not built
+
+#### The capacity maths (Q3's 500/day against every free tier)
+
+Limits as published on **2026-10-06**. They move, which is why the plan refused
+to quote them in advance; re-check before raising anything.
+
+| Service | Role | Free limit | Carries 500 analyses/day? |
+|---|---|---|---|
+| Mistral `ministral-14b` | analysis, primary | ~1B tokens/month (Experiment tier); per-minute limits no longer published | **Yes on volume** — 500/day × ~3K tokens ≈ 45M/month against 1B. The risk is not volume but that the tier is documented for evaluation |
+| Groq `openai/gpt-oss-120b` | analysis, fallback | 1,000 req/day **but 200,000 tokens/day** | **No — ~66/day.** Token-bound, not request-bound |
+| Gemini 3.5 Flash-Lite | OCR | **500 req/day**, 15 req/min | **Exactly, with zero headroom** |
+| Supabase Edge Functions | all calls | 500,000 invocations/month | Yes — ~16,600/day, and an analysis costs 2–3 |
+
+Two conclusions the plan asked for plainly:
+
+1. **Groq is a safety net, not a second engine.** At ~3K tokens an analysis, its
+   200K tokens/day is about **66 analyses** — 13% of the launch target. A brief
+   Mistral blip is covered; a sustained Mistral outage caps the day at ~66
+   however high this cap is set. The published 1,000 req/day is a decoy: the
+   token ceiling binds first, by a factor of fifteen.
+2. **Gemini has no headroom.** Its 500/day *equals* the target, and 15 req/min
+   will throttle any burst — 500 analyses spread over a 12-hour day averages
+   0.7/min, so only clustering hurts. This matters from T26, not at launch.
+
+So the cap is **500**: the planned envelope, servable by the primary, and it
+bounds B3's blast radius to one day of planned traffic rather than the
+providers' whole quota.
+
+#### What was changed
+
+Migration **`20261006090000_arm_global_daily_call_cap.sql`** seeds
+`global_daily_call_cap = 500`, `ON CONFLICT DO NOTHING` so a tuned value
+survives. Applied to **production and staging**, and verified on production:
+the row reads `500`. The migration's header carries the maths above, so the
+number can be re-derived rather than trusted.
+
+A regression test went into `runtime-config.integration.test.ts`: **"the global
+capacity breaker is armed"**. It asserts the cap is non-null and positive —
+deliberately not the exact number, because the failure that matters is the one
+B3 describes. This cap **fails open**: delete the row and the breaker silently
+turns off with nothing else breaking. The mechanism itself was already well
+covered (`slot-reservation.test.ts`, its integration twin, `analyze-handler`,
+`runtime-config`), so nothing there needed adding. The new test compiles and
+self-skips without a stack, like its neighbours; its assertion was confirmed
+true against production directly.
+
+#### The new risk: this cap does not protect Gemini
+
+`ocr-document` **takes no slot**, by design — charging one would punish a user
+who retakes a blurry photo (see `ocr-handler`'s "Why no slot reservation"). So
+the breaker counts **analysis** calls only, and **Gemini's 500/day sits behind
+no counter at all**. The only thing in front of it is Supabase's anonymous
+sign-in rate limit.
+
+It is dormant today, because `online_ocr_enabled` is `false` and stays so until
+T26 (Q12). **T26 must not flip that flag until the OCR path has its own
+protection** — written into the migration header too, so it cannot be missed by
+someone reading only the schema.
+
+#### Anonymous sign-in rate limits: checked, and deliberately not tightened
+
+Supabase's default is **30 anonymous sign-ins per hour per IP**, configurable
+under Authentication → Rate Limits. That is 720 identities a day from one
+address; at `daily_limit = 3` that is 2,160 analyses of per-user quota, so the
+default alone does not hold the line — the 500 cap is what does, and for OCR
+nothing does.
+
+**Tightening it is the wrong lever here, and that is a judgement worth
+recording.** Egyptian mobile users sit behind carrier NAT, so many genuine
+users share one public address; a low per-IP limit would lock out real people
+on a busy network while barely inconveniencing a scripted abuser with a pool of
+addresses. The default stays.
+
+#### Attestation (Q10): specified, not built — and why
+
+Supabase's own advice for anonymous sign-ins is invisible CAPTCHA or Turnstile.
+**That is the wrong choice for this app**: the audience is explicitly
+«كبار السن وضعاف القراءة/البصر», and a CAPTCHA is precisely the obstacle those
+users fail. Q10's answer — Play Integrity — is invisible to the user, which is
+why it is the right one, and the research confirms it fits the no-paid-tier
+rule: **10,000 requests/day free**, shared across request types, increase on
+request. At 500 analyses/day that is twenty times the need.
+
+It is **not built**, for two reasons that are not reluctance:
+
+1. It needs the owner's **Google Cloud project** linked to Play Console, and
+   the plan's own execution rule says owner tasks are prepared by me and run by
+   the owner. No amount of local work gets past that.
+2. It is feature-sized, not task-sized: an Android integration, a verification
+   step inside the Edge Functions with a new secret, a decision about what to
+   do when attestation is unavailable (an old device, a sideloaded build, Play
+   Services missing — failing closed there locks out legitimate users), and an
+   iOS counterpart (App Attest) that **cannot be built at all** until there is a
+   Mac (Q1/Q22). Building that blind, inside a task whose other half was a
+   one-line config change, would be the wrong shape.
+
+**Owner's ruling, 2026-10-06: attestation is deferred** — "we can defer that
+for the future if needed" — and no task is created for it. T06 closes here.
+
+One consequence has to be carried rather than forgotten. The reason attestation
+was going to sit before T26 is that **nothing else protects Gemini's 500/day**:
+the global cap counts analysis calls only, and `ocr-document` takes no slot. So
+with attestation deferred, **T26 inherits the whole question**: flipping
+`online_ocr_enabled` on puts an uncounted, publicly reachable endpoint in front
+of a 500/day free quota, and a reinstall resets the only per-user limit there
+is. T26's options are then to add a counter to the OCR path, revive attestation,
+or flip the flag knowing a script can exhaust the day's OCR for everyone. That
+is T26's call to make with the owner, not a decision T06 can take on its own —
+it is recorded in T26's row so it cannot be missed.
+
+### T07 record (2026-10-06) — retention, tested against a real database
+
+#### What was built
+
+Migration **`20261006100000_data_retention_jobs.sql`**, enabling `pg_cron`
+(available on the free plan) and adding:
+
+| Object | Purpose |
+|---|---|
+| `purge_old_analysis_attempts(interval default '90 days')` | Q11's attempts window |
+| `purge_idle_anonymous_users(interval default '12 months')` | Q11's idle-identity window |
+| `retention_jobs_report()` | read-only view of the two schedules |
+| cron `purge-old-analysis-attempts` | `30 1 * * *` UTC |
+| cron `purge-idle-anonymous-users` | `0 2 * * *` UTC |
+
+**Functions rather than DELETEs inside the cron strings**, because a statement
+living in a job string cannot be called and therefore cannot be tested — the
+only way to learn whether the predicate is right would be to wait a day and
+look. The window is a parameter whose default *is* the policy, so a test can
+purge what it just inserted while the scheduled call keeps Q11's numbers in one
+place. Both return their row count, so a run is observable. This also matches
+how the schema already works (`expire_stale_reservations`).
+
+`retention_jobs_report()` exists because the functions existing is not the
+policy — **the schedule is**, and PostgREST exposes only `public`, so the `cron`
+schema is otherwise unreachable from a test. It returns two job names and their
+schedules, nothing more.
+
+01:30 and 02:00 UTC are 03:30 and 04:00 in Cairo (an hour later in summer), the
+quietest part of the day for an app used against office hours and bill
+deadlines, and staggered so the two never contend.
+
+#### The finding worth keeping: SECURITY DEFINER, not a grant
+
+The first run failed with `42501 permission denied for table users` —
+`service_role` has no DELETE on `auth.users`. Postgres helpfully suggests
+`GRANT SELECT, DELETE ON auth.users TO service_role`, and **taking that
+suggestion would have been the wrong fix**: it hands every Edge Function
+permanent delete rights over the entire users table in order to enable one
+nightly sweep. Both purges are `security definer` with a pinned `search_path`
+and every object fully qualified instead, which confines the privilege to a
+function whose predicate is fixed in its body — anonymous identities, idle
+beyond the window — and makes a cron run and a service-role call behave
+identically.
+
+#### Tested for real, not just written
+
+The local stack was already up, so this was validated properly rather than on
+faith:
+
+1. `supabase db reset` re-applied **all 9 migrations from scratch**, three times
+   across the iterations, which is also how the two bugs below were caught
+   before production saw them.
+2. **5 new integration tests, all passing** against the real database: the
+   90-day predicate in both directions (a 100-day row goes, a 10-day row
+   stays), the parameter genuinely driving the predicate, a brand-new user
+   surviving the idle purge (covering the `coalesce` branch for a null
+   `last_sign_in_at`), the **cascade** carrying a deleted user's attempts and
+   usage rows away, and both jobs being scheduled.
+3. The **whole backend suite re-run against the live stack: 771 passed, 0
+   failed** — 37 more tests actually executing than the usual self-skipping run.
+
+Two bugs found this way, both fixed in the migration before it left the machine:
+the `security definer` problem above, and a fixture that violated
+`analysis_attempts_completed_at_matches_status` by giving a terminal status no
+completion time.
+
+#### Database size: 11 MB of 500 MB
+
+`inspect db db-stats` on staging: **database 11 MB**, our own tables **24 kB**,
+indexes 104 kB. The 11 MB is almost entirely Postgres and Supabase system
+catalogue; the app's own footprint is negligible today.
+
+Steady state under Q3's 500/day, as arithmetic rather than hope:
+
+- `analysis_attempts` — 500/day × 90 days ≈ **45,000 rows**, a couple of hundred
+  bytes each with indexes, so roughly **10 MB** and then flat.
+- `analysis_usage_daily` — one row per user per day used; at 3 analyses per user
+  that is ~167 users/day, ~61,000 rows a year, a few MB, and the idle purge
+  cascades them away.
+- `global_analysis_usage_daily` — one row per day, ~365 a year. Left alone
+  deliberately; it will never matter.
+
+**The growth driver is the auth side, not ours.** Each install creates an
+anonymous `auth.users` row with identity, session and refresh-token children,
+and those rows are far fatter than our counters. The 12-month purge is exactly
+what bounds that, which is why Q11's second window matters more than its first.
+One thing it does *not* bound: `auth.refresh_tokens` for a user who stays
+**active**, since rotation writes a new row on each refresh and the idle purge
+never reaches them. Today's data cannot size that honestly — 39 users hold 59
+tokens, which is test traffic, not a year of real use — so it is recorded as
+something **T09 should watch** rather than guessed at. A revoked-token sweep is
+cheap to add later if monitoring shows it climbing.
+
+#### Applied everywhere, and verified rather than assumed
+
+The production push was initially refused by the permission classifier; the
+owner granted explicit permission for `supabase link` and `supabase db push`
+against `ivbpmzasxpphclundjyy`, and it was applied on **2026-10-06**. All three
+environments now carry the same schema, and the state was checked rather than
+inferred:
+
+| Check | Production | Staging |
+|---|---|---|
+| Migrations | **9/9 applied**, none missing | 9/9 |
+| `purge-old-analysis-attempts` | registered, `30 1 * * *`, **active** | same |
+| `purge-idle-anonymous-users` | registered, `0 2 * * *`, **active** | same |
+| `purge_old_analysis_attempts()` called | **0 rows** | 0 rows |
+| `purge_idle_anonymous_users()` called | **0 rows** | 0 rows |
+| `daily_limit` / `global_daily_call_cap` / `online_ocr_enabled` | `3` / `500` / `false` | identical |
+
+Two notes on reading that table. The schedules were read through
+`retention_jobs_report()` — `supabase db dump -s cron` is no use here, because
+`cron.job` is owned by the extension and `pg_dump` skips extension-owned
+tables, which is the second reason that accessor had to exist. And the **0-row
+results are the point, not a disappointment**: they prove each function
+executes end to end under `service_role` — the exact call that failed with
+42501 before the definer fix — while deleting nothing real. Production's data is
+a day old and staging's about two months, so both sit far inside a 90-day and a
+12-month window; anything other than 0 would have been alarming.
+
+#### A gap closed on the way: T06's cap verified behaviourally
+
+Arming the cap in T06 changed the reserve path — every analysis now takes a
+global slot as well as a per-user one — and that had been configured but never
+exercised. So the live suite was run against production once more: **11 passed,
+0 failed**, real analysis in 9 s. The global counter then read
+`successful_count: 1, reserved_count: 0` for 2026-10-06, which is the whole
+mechanism confirmed in one line: reserve took a global slot, finalize released
+the reservation and counted the success. **The breaker is working, not merely
+set.**
+
+### T08 record (2026-10-06) — the rollout had largely already happened
+
+T08 was written against a production project that was six weeks stale. T04
+replaced that project outright, building the new one from current `develop`, so
+most of this task's ordered steps were **already satisfied before it started**.
+What follows is each step verified rather than re-performed, plus the one real
+piece of work left in it.
+
+#### The ordered steps, checked live
+
+| Step | State |
+|---|---|
+| **Secrets** | 18 on production, the 11 app secrets plus Supabase's own. **No Azure or Google secret exists** — they were never created on this project |
+| **Migration `20260929120000`** | Applied. Production reports **9/9 migrations**, none missing |
+| **Functions** | All four ACTIVE with correct `verify_jwt`. **No commit has touched `supabase/functions/` since T04 deployed them** (`git log 620af9a..HEAD`), so the deployed code is current F20 code, confirmed rather than assumed |
+| **App** | T26's, not here |
+| **Flag per Q12** | `online_ocr_enabled = false` on production *and* staging, re-verified after the check below |
+
+B2 is therefore closed: the finding was that the rollout had never run and the
+deployed functions might be failing for want of deleted Azure secrets. The
+answer is that the project those functions ran on no longer exists.
+
+#### T05's inherited Gemini check — it passes
+
+Run on production with the owner's standing approval, flag flipped on and off
+inside a `try/finally` so it could not be left on:
+
+| | |
+|---|---|
+| Image | `golden/Image2.jpg`, 1489×2048, 449 KB |
+| Result | **HTTP 200**, ran in **`eu-central-1`**, 10.1 s |
+| Body | `schema_version` 2.0, `session_id` echoed, **1,371 characters** of text, `detected_languages: []` (the contract says always empty), candidates: **3 dates**, 0 amounts, 0 phones, 0 references, 0 times |
+| Flag afterwards | **`false`**, confirmed by a separate read, not just the restore call's return |
+
+Shape only was asserted and no extracted text was printed, per §7. This closes
+the last gap in T05: **both providers are now proven from the Frankfurt runtime**
+— Mistral → Groq on 2026-10-05, Gemini today. The pin works on the real
+production endpoint, not only on `health`.
+
+#### Local `.env` cleaned
+
+One stale line, and a misleading one: `# Azure AI Document Intelligence —
+primary OCR (required for online route)`, left orphaned above a key F20-T16 had
+deleted. It claimed a dead provider was both primary and required. Removed.
+
+Done as a **byte-level edit**: the file holds secrets, and it turns out to be
+mixed-encoding — that em dash was cp1252 inside an otherwise UTF-8 file, which
+is why it rendered as `�` when removed. Decoding and rewriting would have
+silently rewritten bytes elsewhere. All 11 keys are intact and still match
+production's 11 secret names exactly.
+
+The Azure mentions remaining in the codebase were checked and **deliberately
+kept**: five comments in `daily_usage.dart`, `daily_usage_dto.dart`,
+`analyze-handler.ts`, `analyze-response.ts` and `image-ocr-pipeline.ts` that
+explain what the flag used to be called and why a verification layer went away.
+Those are documentation of a migration, not stale configuration, and scrubbing
+them would delete the reason the current shape exists. `.env.example`'s Google
+references are to **Gemini's** console (`aistudio.google.com`), which is current.
+
+#### Left for the owner — three console actions, none reachable from here
+
+1. **Revoke the Azure Document Intelligence key.** The resource still exists in
+   the owner's Azure account with live keys, holding
+   `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`/`KEY` from F13-T03. Nothing uses them.
+   **Recommended: delete the resource**, not just rotate the key — an unused
+   resource with live credentials is a standing risk, and deleting it also
+   removes any chance of a charge. Azure portal → the Document Intelligence
+   (formerly Form Recognizer) resource → Delete.
+2. **Revoke the Google Document AI credentials** (the service account from
+   F13-T03). Google Cloud Console → IAM & Admin → Service Accounts → delete the
+   one created for Document AI, and disable the Document AI API if nothing else
+   uses the project. **Careful:** if that project is the same one that holds
+   `GEMINI_API_KEY`, delete only the Document AI service account and leave the
+   project and the Gemini key alone.
+3. **Switch on Mistral's training opt-out** — and it **is available on the free
+   tier**, which was the open question in D2. It is the **"Anonymous improvement
+   data" toggle in the Admin Console's Privacy menu**. Two details worth
+   knowing: on the free Experiment tier inputs and outputs go into training
+   **by default**, so this is opt-out rather than opt-in; and the API and Vibe
+   toggles are **separate**, so switching one off does not switch the other.
+
+**One thing enabling that opt-out does *not* license.** It does not make the
+privacy copy claim that nobody reads the text. CLAUDE.md §7 is explicit that the
+approved Arabic wording stands, and the reason is broader than Mistral: the text
+still goes to a third party, Groq is still a fallback, and the *image* goes to
+Gemini's free tier, whose terms permit retention and human review. Only moving
+**every** provider to a paid tier would justify revisiting that copy, and that
+is the owner's decision. `app_strings_test` enforces it either way.
+
+### T09 record (2026-10-06) — the operations runbook
+
+`docs/OPERATIONS.md`, written for whoever is on the hook when the app stops
+working, and assuming the Supabase dashboard and nothing else — no checkout, no
+CLI. Five sections: the two projects, the kill switches, the quotas, the
+inactivity pause, and seven incident runbooks.
+
+Every column name it references was **checked against production** rather than
+written from memory (`global_analysis_usage_daily`, `analysis_attempts`,
+`app_runtime_config` all verified), and the switch semantics were read out of
+`runtime-config.ts` and the handlers rather than recalled.
+
+#### Two findings that change how the service is operated
+
+**1. `maintenance_message` is a dead switch, end to end.** The row exists in
+`app_runtime_config` and the app parses it into `RuntimeConfig` — but
+`get-usage` never returns it, and nothing in `lib/` reads the field. Setting it
+posts a notice to nobody. An operator reaching for it mid-incident would believe
+they had told users something when they had not. The runbook says so plainly and
+points at `analysis_enabled = false`, which *does* produce copy the user sees.
+
+Left as-is rather than fixed: wiring it up means a server field, a DTO change
+and a UI surface, which is a feature, not a runbook. Recorded here so whoever
+picks it up knows it is a known gap and not an oversight.
+
+**2. A paused project kills the retention jobs — permanently.** The free plan
+pauses a project after about 7 days of insufficient activity, and `pg_cron` runs
+*inside* the database: a pause stops the jobs, and **they do not return when the
+project is restored**. So a project that paused and was brought back is one whose
+nightly purges are silently dead until someone re-applies the migration. That
+interaction between H4 and T07 was not visible from either task alone. The
+runbook makes re-checking `cron.job` a mandatory step after any restore.
+
+Production will keep itself awake on real traffic once launched; the exposure is
+**before launch, and staging permanently**, since staging has no users. The
+runbook carries a ready-to-paste GitHub Actions ping (free on this public repo),
+**not committed** — adding a workflow is not what T09 was asked for, and it is
+one paste away if a pause ever bites. Two caveats went in with it: a scheduled
+workflow is auto-disabled after 60 days of repository inactivity, and a ping
+addresses the pause but not the storage or invocation ceilings.
+
+#### What else the runbook pins down
+
+- **Switch changes take effect on the next request.** `loadConfig` reads the
+  table per call — no cache, no redeploy. Worth knowing under pressure.
+- **The fail directions, and why they differ.** `daily_limit` fails closed
+  because it is a product rule; `global_daily_call_cap` fails open because it is
+  a safety valve. The consequence is stated: the cap is the one switch whose
+  failure is invisible.
+- **The two ceilings that cannot carry launch**, restated where an operator will
+  meet them: Groq's 200K tokens/day ≈ 66 analyses (its 1,000 req/day is a
+  decoy), and Gemini's 500/day being exactly the target.
+- **Cheapest lever first.** For a Gemini outage or suspected abuse, the first
+  move is `online_ocr_enabled = false`: it removes the unprotected surface and
+  the app still works entirely on-device, costing users accuracy and nothing
+  else.
+- **The abuse surface, written down before the incident** — public repo, public
+  publishable key, anonymous sign-in, reinstall resets the per-user limit, and
+  the cap not covering OCR. Five ordered levers, with the carrier-NAT warning
+  attached to the rate-limit one so nobody reaches for it first.
+- **What does not exist:** no alerting until T12, and **no backups at all** on
+  the free plan. The latter is only survivable because every document lives on
+  the user's phone and the server holds nothing but counters and anonymous
+  identities — recorded as a standing reason never to put anything else there.
+
+### T10 record (2026-10-06) — the last false privacy claim, and a guard over native config
+
+**B1.** Both iOS permission prompts ended with «ومحدش بيشوف صورتها» — the exact
+claim F20-T24 retired for the image. They were the only place in shippable code
+where it survived (a repo-wide grep for the «محدش بيشوف» family now returns
+nothing outside `CLAUDE.md`, the F18/F20/F27 docs that record the audit, and the
+tests that ban it). They mattered more than their size: the camera prompt is the
+**first privacy copy a user ever reads**, shown before the onboarding screen that
+`app_strings_test` has been guarding since F18-T02.
+
+Both now mirror `privacyPointExtractText` clause for clause — online the photo
+goes to an outside service that reads the text from it, which **may keep it for a
+while and let its staff review it**; «إحنا مابنحفظش الصورة» with the subject
+stated, since §7 bans an unscoped "not saved"; offline it is read on the phone
+only. No provider is named.
+
+**One judgement call for the owner.** The honest wording is roughly 240
+characters, against the old 105. iOS shows it in full in the permission alert,
+but it is long for the audience this app is written for (the elderly, weak
+readers). The alternative is to drop the retention-and-review clause from the
+prompt and leave it to the onboarding screen — which would still be truthful, but
+would mean the *first* privacy copy a user sees is the incomplete one. I kept the
+full version. Shortening it is a one-line change in `Info.plist` plus the matching
+clause in the test.
+
+#### The guard: `test/app/native_permission_copy_test.dart`
+
+B1 existed because `app_strings_test` only covers `AppStrings`. Native config is
+copy too, and nothing read it. The new file reads `ios/Runner/Info.plist`, the
+three `AndroidManifest.xml` files and `android/app/build.gradle.kts` straight off
+disk, and applies the §7 rules to them:
+
+- It collects **every** `…UsageDescription` key by pattern, not a hand-written
+  list — so a microphone or location prompt added in T23 inherits all the checks
+  without anyone remembering this file exists. That is the specific failure mode
+  that produced B1.
+- No prompt may claim the photo goes unseen, that it «متتحفظش خالص», or that it
+  "never leaves" the device; any «مابنحفظش» must carry «إحنا».
+- The two photo prompts must positively state all five clauses — silence is a way
+  of being misleading too, so "say nothing" is not a way to pass.
+- A **drift test**: the clauses the plist mirrors are asserted against
+  `ArStrings.privacyPointExtractText`, so rewording the onboarding copy without
+  the plist fails here instead of leaving the two to disagree quietly.
+- No prompt and no launcher label may name a provider (same six names as
+  `app_strings_test`).
+
+**Negative-proved rather than assumed.** The old camera string was pasted back
+and the suite re-run: 7 passed, **2 failed** (the unseen-claim test and the
+what-really-happens test). Restored afterwards; the working tree holds only the
+new wording.
+
+#### M3, and why a comment got a test
+
+The `AndroidManifest.xml` comment above `CAMERA` said "the image never leaves the
+device" — true before F20, false since. No user reads it, so it is not a §7
+breach; it matters because **that comment is how a false claim comes back**: the
+next person writing permission copy reads the manifest first. Fixed, and the
+`INTERNET` comment with it (it still named F13 and the "analysis Edge Function",
+pre-dating `ocr-document`). Both now state the split plainly, including that the
+outside reader may retain the photo. The dead phrase is asserted against in the
+test, in all three manifests.
+
+#### Scope checks
+
+- **Android needs no copy change.** There is no `strings.xml` anywhere in
+  `android/app/src/main/res` (only `colors.xml` and the four `styles.xml`): the
+  runtime permission dialogs use Android's own text, the in-app rationale lives in
+  `AppStrings` (`cameraPermissionBody`, already clean), and the only copy the app
+  ships for Android is the two `appName` placeholders — now covered.
+- **`CFBundleDisplayName` / `CFBundleName` were left at «ورقتي» on purpose.** They
+  are T14's, per decision #2.
+- No `lib/` code changed, so no layer, DI or widget surface moved.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (18 infos, **0 errors, 0
+warnings**, none in the new file), `flutter test` — **2,219 passed, 0 failed**
+(9 new). No backend change, so no `deno test`.
+
+### T11 record (2026-10-06) — backup off, and proved off on the real phone
+
+**Q20 confirmed by the owner:** off completely. Two things were needed, not one.
+
+**`android:allowBackup="false"`** is the whole answer on Android 11 and lower.
+It is *not* the whole answer here: the app targets **API 36**, and for apps
+targeting API 31+ the attribute stops cloud backup while, on devices from some
+manufacturers, **leaving device-to-device transfer enabled**
+([`<application>`](https://developer.android.com/guide/topics/manifest/application-element),
+[Auto Backup](https://developer.android.com/identity/data/autobackup)). So
+`res/xml/data_extraction_rules.xml` ships with it, excluding **all nine domains
+in both `<cloud-backup>` and `<device-transfer>`** — those sections *include*
+everything they do not name, so a domain left out is a leak, not a no-op, and
+`root` alone would not have covered `database` or `sharedpref`.
+
+`<cross-platform-transfer>` (Android 16 QPR2+, Android → iOS) was deliberately
+left out: there is no counterpart app to receive anything while iOS is out of
+scope (Q1), and an element the parsers on Android 12–15 do not recognise risks
+invalidating the whole file — which would silently re-enable exactly what it
+prevents. Recorded in the file itself for T23/T24.
+
+#### Why off, in one line each
+
+- The SQLite database **is** the document archive: the extracted text of every
+  paper the user analysed — names, amounts, account numbers, court dates — plus
+  their reminders. Backed up, all of it lands in the user's Google account, which
+  no part of the privacy screen prepares them for.
+- A restored backup would be **broken anyway**: images are AES-256-GCM encrypted
+  under a key in `flutter_secure_storage`, i.e. the Android Keystore, which does
+  not leave the device. A restore returns ciphertext with no key and rows pointing
+  at files that can never be opened again. Off is both the private answer and the
+  correct one.
+
+#### Verified on the owner's phone, before and after
+
+The RMX2001 was connected, so this was not a desk check. The Google backup
+transport was active on it.
+
+| | `dumpsys package` flags | `bmgr backupnow com.war2aty.app.dev` |
+|---|---|---|
+| **Before** (installed build) | `[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ALLOW_BACKUP ]` | `Size quota exceeded` — Android **attempted** the backup |
+| **After** (this build) | `[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]` | `Backup is not allowed` |
+
+Two things worth keeping from that table. First, **H2 was real, not theoretical**:
+the previously installed build was eligible and the system tried to copy its data
+out. Second, the "before" run failed on *size* — the payload was big enough to
+blow the local transport's quota, which is the archive itself talking.
+
+The test ran on `com.android.localtransport/.LocalTransport`, switched in for the
+check **so that nothing was uploaded to the owner's Google account**, and the
+Google transport was switched back immediately afterwards (verified selected).
+Only the `.dev` package was touched; the prod build from P02 was left alone and
+nothing was uninstalled.
+
+**The compiled artefact was re-read rather than trusted.** `aapt2 dump xmltree`
+on `app-dev-debug.apk` shows `allowBackup=false` and the resolved
+`dataExtractionRules` reference in the binary manifest, and the compiled resource
+with all **18** excludes intact. The merged manifest was checked too, which is
+what rules out a plugin re-enabling backup through manifest merging.
+
+#### The one thing not verified live
+
+**RMX2001 is Android 11 (API 30), so it ignores `dataExtractionRules` entirely.**
+The D2D half is therefore verified three ways short of a device — the compiled
+resource in the APK, the merged manifest, and the guard — but not by an actual
+transfer. It needs an API 31+ phone; **carried to T18** (the ELS NX9, or any newer
+device), where a new-phone transfer can be watched. Per the owner's instruction
+device work stays on real hardware, so no emulator result stands in for it.
+
+#### The guard
+
+`test/app/android_backup_rules_test.dart`, 6 tests. These settings live in XML
+that no Dart code reads, so nothing in the suite would have noticed them being
+dropped by a merge, a Flutter template update, or a fresh `AndroidManifest.xml`
+copied over this one. It asserts the attribute, the rules reference, the absence
+of a contradicting `fullBackupContent`/`backupAgent`, every domain in **each**
+section separately, and that no `<include>` was ever added — letting data back out
+is the owner's call (Q20), not a code change.
+
+#### Noted in passing, for T13
+
+`android/app/build.gradle.kts:52` says «minSdk 23 is a locked project decision»,
+but the line below resolves `flutter.minSdkVersion`, which is **24** in Flutter
+3.41.9. The comment is stale rather than the build wrong; left for T13, which owns
+the build file.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0 warnings**,
+18 pre-existing infos), `flutter test` — **2,225 passed, 0 failed** (6 new). No
+backend change, so no `deno test`.
+### T12 record (2026-10-06) — production can finally tell us it is broken
+
+**H1 was the whole of it:** production ran on `NoopLogSink`, and neither
+`FlutterError.onError` nor `PlatformDispatcher.onError` was set. A crash in the
+field produced nothing, anywhere, ever. Four pieces close it.
+
+#### 1. An uncaught error had no code to be logged as
+
+`AppLogger` can only log a `LogEvent`, and `LogEvent`'s only error field was an
+`AppFailure` — everything the app *anticipated*. A crash is the other kind, and
+there was no content-free way to name one.
+
+`LogCrashKind` adds exactly two: `UNCAUGHT_FLUTTER_ERROR` and
+`UNCAUGHT_PLATFORM_ERROR`, each with a fixed code, mapping into the existing
+`errorCode` field — so **the §51 allowlist did not have to grow**. What it
+deliberately does *not* carry is the exception's `toString()` or its stack: a
+parse or format error quotes the input it choked on, and on this app's paths
+that input is someone's document. The cost is stated plainly below.
+
+#### 2. Both handlers, chained rather than replaced
+
+`installGlobalErrorHandlers` keeps the previous handler and calls it, so the
+debug red screen, the console stack trace and `flutter_test`'s own handler all
+still work — a replacement would have silently disarmed test failures.
+`PlatformDispatcher.onError` returns `false`: reporting an error is not
+recovering from it, and claiming otherwise would swallow real defects. It
+returns an undo function, so tests install it without leaking into the next one.
+
+#### 3. The sink: four rules, each with a reason
+
+`ErrorReportSink` replaces `NoopLogSink` in a configured prod build.
+
+- **Only failures leave the device.** A record with no `errorCode` is dropped,
+  so volume tracks defects rather than usage.
+- **Never blocks, never throws.** `write` returns as soon as the request is
+  started; every error is swallowed, including a transport that throws
+  synchronously.
+- **Cannot recurse.** Reporting a failure can fail, and that failure would be
+  logged — which would report it. Two independent guards: records produced while
+  a send is in flight are dropped, **and** the sink's Dio is built with no
+  `ApiLogInterceptor` at all. `createApiClient`'s `logger` became optional for
+  exactly this one client.
+- **20 reports per session.** A crash loop emits thousands a minute; this is the
+  stop.
+
+An **unconfigured** prod build keeps `NoopLogSink` — there is no Supabase to
+authenticate against, so every report would be a doomed call on the path a
+broken build takes most often.
+
+#### 4. The backend: our own table, per Q13
+
+`report-error` (POST, `verify_jwt = true`) → `record_error_report` →
+`public.error_reports`.
+
+- **A closed 33-code allowlist** is the endpoint's whole security story: the
+  app's own codes plus the two crash kinds. An unknown code is a 400, never a
+  row.
+- **An unknown field is refused outright**, not ignored. That is the privacy
+  tripwire: a client that tries to attach a message, a stack or `ocr_text` fails
+  on the first call.
+- **No column could hold content.** Every one is a closed code, a uuid, a
+  bounded integer or a dotted version, with CHECK constraints as the second line
+  so even a direct service-role insert cannot park prose there.
+- **Append-only.** `service_role` is granted select, insert and delete and
+  deliberately **not** update: monitoring data that can be edited after the fact
+  is not evidence of anything. Proved by a test that tries.
+- **A per-user ceiling of 100/day, held by an advisory lock.** B3's lesson is
+  that a write path with no ceiling on a public project is a quota drain waiting
+  to be found; the client's own 20/session protects nobody, since a reinstall
+  resets it. **This is the one thing the review corrected** — see "What the
+  review changed" below: a count followed by an insert is a read-then-write, so
+  two concurrent calls could both read the same count and both insert. A
+  per-user `pg_advisory_xact_lock` now makes the ceiling exact, and the
+  overshoot is reproducible without it.
+- **202 even when the row is dropped.** The client is not misbehaving and has
+  nothing to do differently; a 429 would only teach the sink to retry. The real
+  outcome goes in the function's log line.
+- **90-day purge**, Q11's attempts window rather than a third number to
+  remember, as a third `pg_cron` job at 02:30 UTC. Deleting a user cascades
+  their reports away, so T07's idle-user purge needs no companion.
+
+#### Proved on a real stack, not just with fakes
+
+- **Dart: 28 tests** over the DTO, the sink, the handlers and the codes.
+- **Deno: 38** — 23 unit, 11 integration against a real database, 4 against the
+  **real served function**.
+- The live path was followed end to end: 401 without a token, 202 with a real
+  anonymous token, 400 for an unknown code and for an extra field — and then the
+  row **read back out of `error_reports`** to prove the service role really
+  wrote it from inside the function. Local stack reset to all 10 migrations
+  first; full backend suite **809 passed / 0 failed** live.
+- **A cross-language guard**: `error_report_codes_test.dart` reads the
+  TypeScript allowlist and compares it with the Dart source, both directions.
+  Without it, a new `AppFailure` would be reported by the app and refused by the
+  server with a 400 the sink swallows **by design** — the reports would simply
+  stop arriving, and the monitoring built to tell us things are broken would go
+  quiet about the newest failure. Same technique as T10's plist guard.
+
+#### One test of T07's had to change
+
+`retention.integration.test.ts` asserted the schedule report lists **exactly
+two** jobs. It now asserts three. Kept as an exact set rather than loosened to a
+superset: a job quietly dropping off that list is a table growing for ever with
+nobody watching.
+
+#### What this monitoring cannot do — stated, not buried
+
+- **No stack traces, no messages.** You learn *that* something broke, in which
+  stage, on which app version — never which line. That is Q13's shape, and §7 is
+  why: a third-party reporter could not be shown never to receive document
+  content, and "their scrubber probably catches it" is not a privacy model. If
+  the owner ever wants more, the honest next step is a bounded, shape-validated
+  top-frame identifier — a deliberate decision, not a quiet widening.
+- **Offline failures under-report.** A `NO_INTERNET` report needs the network to
+  send. Expect this table to understate exactly the failures that happen while
+  the user has no connection.
+- **A crash before sign-in is invisible.** The endpoint requires a JWT, because
+  an unauthenticated write path on a public repo is B3 all over again. A crash
+  before the anonymous session exists is lost — the right side to err on, and
+  recorded so nobody reads a quiet table as a healthy app.
+- **Nothing watches the table.** `docs/OPERATIONS.md` now carries the queries an
+  operator runs (what is breaking in the last 24 h, broken down by app version,
+  and §4.7 rewritten to start from them), but alerting is still manual. A
+  nightly digest query is the cheap next step and needs no new infrastructure.
+
+#### Deployed and verified on both hosted projects (2026-10-06)
+
+Owner granted permission for both. One migration was pending on each — this one,
+and nothing else — confirmed with `migration list --linked` and a `--dry-run`
+before either push.
+
+| | Staging `jecujrsvbmashkpobtsz` | Production `ivbpmzasxpphclundjyy` |
+|---|---|---|
+| Migration | applied (10/10) | applied (10/10) |
+| Function | deployed, 765 kB | deployed, 765 kB |
+| No token | **401** | **401** |
+| Valid report | **202**, `x-sb-edge-region: ap-northeast-2` | **202**, `x-sb-edge-region: eu-central-1` |
+| Unknown code | **400** `INVALID_REQUEST` | **400** `INVALID_REQUEST` |
+| Extra field (`ocr_text` / `stack_trace`) | **400** | **400** |
+| Row actually written | yes, read back via service role | yes, read back, then **deleted** |
+| `error_reports` with the publishable key | **401**, `permission denied` | **401** |
+| Retention jobs | all **three** active | all **three** active |
+
+Two details worth keeping:
+
+- **The function runs in the pinned region on both** — `ap-northeast-2` for
+  staging, `eu-central-1` for production — so T05's `x-region` pin covers this
+  endpoint like the others, and the write happens next to its database.
+- **The production test row was deleted afterwards.** It was an
+  `UNCAUGHT_PLATFORM_ERROR`, which is exactly what §2's first query surfaces: a
+  fake crash sitting at the top of that list would have been read as a real one
+  by whoever looked first. Staging's row was left in place as living proof of the
+  path. `record_error_report` was also called twice against a cap of 1 on
+  production and correctly answered `rate_limited`, and `purge_old_error_reports`
+  runs and returns 0 (nothing is 90 days old yet).
+
+The app half is not shipped yet — the sink only becomes live in a release build,
+which is T13's and T26's. Until then the endpoint is deployed and unused, which
+is the right order: the backend accepts reports before any app is sending them.
+
+#### Also updated
+
+`supabase/README.md` (the endpoint table was still "the three endpoints" and
+predated `ocr-document`; the new table and its append-only rule are documented),
+and one stale line in `docs/API_CONTRACT.md` that said "all three endpoints".
+A full §-level contract entry for `report-error` is **not** written — that doc is
+the numbered API spec and assigning it a § is the owner's call.
+
+#### What the review changed (@code-reviewer, 2026-10-06)
+
+Verdict **PASS, no blocking defects**, with three LOW findings. All three were
+acted on rather than noted — two were real, and one was a claim of mine that was
+not true of the code.
+
+**1. The ceiling was not race-safe, and I had said it was.** The review was
+right: `count` then `insert` inside one plpgsql function is still a
+read-then-write, and under READ COMMITTED two concurrent calls can both read the
+same count and both insert. My commit message and this record said the count
+happened "inside the same statement that inserts", which was simply wrong.
+
+Fixed with a per-user `pg_advisory_xact_lock(hashtext(p_user_id::text))`, held
+to end of transaction, so a user's own concurrent reports serialise and nobody
+else's wait. **Negative-proved**: with the lock removed, 10 concurrent calls
+against a cap of 3 recorded **4**; with it, exactly 3, and there is now an
+integration test that fires those 10 calls and asserts the cap exactly. The
+reviewer judged the overshoot harmless and said no code change was needed — but
+a one-line lock that makes the claim true is better than a caveat, especially in
+the one path that runs during a crash loop.
+
+**2. `app_version` and `schema_version` had shape but no length.** The dotted
+pattern matches a version with a thousand digits in it. Bounded now at 20 and 10
+characters **on both sides** — the CHECK constraint and the parser — so neither
+can drift into accepting what the other refuses, with tests at and past the
+bound.
+
+**3. The cross-language guard could read a comment as code.** A doc comment
+mentioning `'INTERNAL_ERROR'` in the same quoting style would have been
+extracted as a reportable code, and the guard would then have failed about a
+code that does not exist. It now strips comment lines before matching, and a
+test feeds it exactly that trap.
+
+Everything else the review checked came back clean, including the two things I
+most wanted challenged: the reporting loop is closed by **both** guards
+independently (it verified `AuthInterceptor` and `RequestIdInterceptor` log
+nothing, including the 401-replay path), and the DI has no cycle or
+use-before-registration. It also confirmed no driver or Postgres message can
+reach a client body or a log line, and found **no tests that pass for the wrong
+reason**.
+
+**Gate (after the review fixes):** `dart format .` (0 changed),
+`flutter analyze` (**0 errors, 0 warnings**, 18 pre-existing infos),
+`flutter test` **2,251 passed / 0 failed**, `deno test` **812 passed / 0
+failed** against a live stack including the real served function, `deno lint`
+clean over 105 files.
+
+### T13 record (2026-10-06) — release builds that cannot lie about themselves
+
+Four findings, and each one failed *silently* before this, which is what made
+them worth the task.
+
+#### H7: a prod release signed itself with the debug key and said nothing
+
+`key.properties` is git-ignored, so it is absent on any machine that has not
+been set up — and the old code fell back to the debug signing config. The
+artifact installs, runs, looks correct, and is rejected by Play with a signature
+error; or it is handed to a tester and trusted. Nothing in the build output said
+a word.
+
+A prod release now **fails**, naming the reason:
+
+```
+A prod release build needs the real release key, and android/key.properties does not exist.
+```
+
+Three things about how it is done:
+
+- **It checks the key is usable, not merely present.** A `key.properties`
+  missing one of the four entries, or naming a keystore that is not there, fails
+  the same way with its own message.
+- **The dev fallback stays.** `flutter run --release` on the dev flavor is an
+  everyday thing on a machine with no keystore, and the dev app is a separate
+  `applicationId` that is never published. So the gate fires for prod only.
+- **It is checked on the task graph**, not at configuration time, so a machine
+  without the keystore can still run `flutter test`, open the project in an IDE,
+  and build anything that is not a prod release.
+
+**The first attempt was wrong, and the build said so.** Matching
+`task.name.contains("ProdRelease")` also matched the Flutter Gradle plugin's
+`compileFlutterBuildProdRelease` and `packJniLibsflutterBuildProdRelease`, which
+sit in **every** release graph, plus AGP's `preProdReleaseBuild` — so a *dev*
+release was refused too. Now matched by exact name against the five tasks that
+only a genuine prod release runs (`assembleProdRelease`, `bundleProdRelease`,
+`packageProdRelease`, `packageProdReleaseBundle`, `installProdRelease`).
+
+A second mistake worth recording because it failed for the *right* reason in the
+wrong way: the check first resolved `storeFile` against the root project, while
+the signing config resolves it from `android/app/`. The real keystore was
+rejected as missing. Both resolve it identically now.
+
+**Verified by doing it**, with the key moved aside and put back:
+
+| | Without the key | With the key |
+|---|---|---|
+| `assembleProdRelease` | **fails**, with the message | builds |
+| `bundleProdRelease` | **fails** | — (the `.aab` is T19's) |
+| `installProdRelease` | **fails** | — |
+| `assembleDevRelease` | **builds** (96.5 MB, debug-signed) | builds |
+
+And the artifact was checked rather than assumed: `apksigner verify
+--print-certs` on the prod APK reports `CN=Yusef Abdulkarim, O=War2aty, L=Cairo,
+C=EG` — the real certificate, not the debug key's `CN=Android Debug`.
+
+#### M4: the dev-only mock fixtures shipped in the prod bundle
+
+`assets/fixtures/analysis/` backs `MockAnalysisRemoteDataSource`, which is
+reachable only when `env.isDev && USE_MOCK_ANALYSIS` — so in a prod build those
+canned invoices and medical appointments were unreachable code *and* shipped
+anyway.
+
+pubspec has no per-flavor asset list, so they are deleted from the merged assets
+of every prod variant after the Flutter plugin copies them in. Deliberately not
+silent: if a Flutter upgrade renames `copyFlutterAssetsProd*`, the hook matches
+nothing and **the build fails** rather than quietly shipping them again.
+
+Measured on the real artifacts: **prod APK 0 fixture entries, dev APK 6.** Both
+halves matter — the dev one is what keeps the mock working.
+
+#### M8: the crash dumps said the opposite of what they looked like
+
+Three Gradle dumps sat in `android/`. The obvious reading is "the build needs
+more heap". Reading them says otherwise: every one is a **native** allocation
+failure (`malloc failed … Chunk::new`), with the machine at **835 MB free of
+16 GB** and the page file down to **2 MB available**, while the Gradle daemon's
+own working set peaked at **759 MB**. The build never ran out of Java heap. The
+machine ran out of memory, with Docker, an emulator and the IDE alongside.
+
+So raising `-Xmx` would have made it **worse** — a bigger Java heap reserves
+more address space and squeezes the native heap that failed. The settings went
+the other way: `-Xmx` 3G → **2G**, metaspace 1G → **512m**, code cache 512m →
+**256m**, and `kotlin.compiler.execution.strategy=in-process` removes a whole
+second JVM (this app has almost no Kotlin). `-XX:+HeapDumpOnOutOfMemoryError`
+was removed: it cannot fire on a native OOM, and when it does fire it writes a
+multi-gigabyte file on a machine that is already out of memory.
+
+Proved by use rather than by argument: a full obfuscated prod release APK built
+in **140 s** on 2G, and a dev release in 302 s. The three stale dumps are
+deleted, and `docs/BUILD.md` records the diagnosis so the next person does not
+"fix" it by raising the heap.
+
+#### Obfuscation, symbols, and one honest gap
+
+`--obfuscate --split-debug-info` now run through `tool/build_release.ps1`, which
+exists because a release build is a list of flags that are **silent when
+forgotten** — a missing `--dart-define-from-file` produces an app that launches
+and tells every user the service is unavailable. The script refuses
+`-Arm64Only` for an `.aab`, since Play splits per device itself and pinning one
+ABI would drop every 32-bit phone from the listing.
+
+**What is not proved:** that obfuscation changed the binary. Neither the
+obfuscated prod `libapp.so` nor the non-obfuscated dev one contains any Dart
+class name — `WaraqtiApp`, `AnalysisCubit`, `StructuredAppLogger`, by `strings`
+and by raw byte search — because Flutter's release AOT already strips them on
+this engine. So the usual check cannot tell the two apart. What *is* verified:
+the flags are accepted and the 5.2 MB mapping is produced per ABI. The
+`flutter symbolize` path needs a real obfuscated stack trace, and this app
+deliberately cannot produce one — F27-T12's reporting carries **no** stack
+traces (§7). The first will come from Play's own crash reporting, so T21/T26
+should verify symbolization then, while that build's symbols are still to hand.
+Recorded rather than glossed.
+
+**Where symbols are archived is also unsolved**: `build/` is git-ignored, so
+they sit on the machine that built the artifact and nowhere else — the same
+single point of failure as the keystore. A GitHub release asset on the version
+tag is the natural home and free on a public repo, which makes it T25's decision
+alongside the tagging scheme. Until then `docs/BUILD.md` says to copy them off
+by hand whenever a build is given to anyone.
+
+#### The guard
+
+`test/app/release_build_guards_test.dart`, 12 tests. None of this is Dart, so
+nothing else in the suite would notice it being deleted — and each piece fails
+silently when missing, which is the whole argument for guarding text from a
+test. It asserts the key gate and all five task names, the module-relative
+`storeFile` resolution, the deliberate dev fallback, the asset strip and its
+fail-loudly branch, the memory settings, the absence of the heap-dump flag, that
+the native diagnosis is written down, and that no `hs_err_pid*` dumps are left
+lying in the repo.
+
+One of its own assertions had to be made sharper: checking the whole
+`gradle.properties` for `HeapDumpOnOutOfMemoryError` failed on the **comment**
+explaining why the flag was removed. It now reads the `org.gradle.jvmargs` line
+alone — a guard that cannot tell a setting from an explanation of a setting is
+worse than none.
+
+#### Also fixed
+
+The stale `minSdk 23 is a locked project decision` comment flagged in T11:
+`flutter.minSdkVersion` is **24** in Flutter 3.41.9, and the comment now says
+where the number comes from instead of claiming a decision that was not there.
+
+#### Sizes, at `1.0.0+3`
+
+| Artifact | Size |
+|---|---|
+| prod APK, arm64 only, obfuscated | **34.9 MB** (was 36.5 MB at P02) |
+| dev APK, every ABI | 96.5 MB |
+
+The `.aab` was **not** built: T19 owns "signed `.aab` built and its size
+recorded", and the owner stopped that build here as out of scope. The bundle
+path is still covered by the key gate, verified by a dry run.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
+warnings**, 18 pre-existing infos), `flutter test` **2,263 passed / 0 failed**
+(12 new). No backend change, so no `deno test`.
+
+### T14 record (2026-10-06) — the name stays, and the repo catches up
+
+**Q16, ruled by the owner 2026-10-06: keep the current name, digit included.**
+That reverses the earlier answer ("the name keeps its sound, with the digit 2
+replaced by a letter") and unblocks T14 by **confirming the status quo**:
+
+| Surface | Value | Changed? |
+|---|---|---|
+| Android launcher, prod | «ورقتي» | no |
+| Android launcher, dev | «ورقتي (Dev)» | no |
+| iOS `CFBundleDisplayName` / `CFBundleName` | «ورقتي» | no |
+| `AppStrings.appName`, Arabic | «ورقتي بتقول إيه؟» | no |
+| `AppStrings.appName`, English | `War2aty — What Does My Paper Say?` | **yes** |
+| Package IDs | `com.war2aty.app` / `.dev` | no (Q15) |
+| Icon, splash, `assets/app_icon.png` | from P01 | no |
+
+**The owner's message said "these exact names" without listing any**, so this
+proceeded on the only reading consistent with "keep the current name": Arabic
+«ورقتي» on the launcher and in the UI, **War2aty** as the Latin brand, package
+IDs untouched. A Latin launcher label was not considered seriously — the app is
+entirely Arabic and aimed partly at readers who struggle with text, so an
+English word under the icon would be the wrong first thing they meet. Flagged to
+the owner in the handover message rather than assumed silently.
+
+#### The one real change: English had no brand in it at all
+
+`appName` is not decoration. It is the **OS task-switcher title** and the
+**splash mark's screen-reader label** — the two places a user meets the app's
+name outside the icon. In Arabic it already carried it («ورقتي بتقول إيه؟»); in
+English it was `What Does My Paper Say?`, a faithful translation of the Arabic
+question with the product's name nowhere in it. With Q16 settled and English
+shipping (Q6), an English user — or an English screen reader — never heard the
+name. Now `War2aty — What Does My Paper Say?`, which keeps the tagline and adds
+the brand.
+
+#### Guards, because a name is exactly the kind of thing that drifts
+
+- `app_strings_test`: both languages' `appName` must carry the brand, and the
+  English one must not contain **Waraqti**, **Waraqty** or **Warqty** — the
+  transliterations this spelling was chosen over. That last check matters
+  because the design file itself is called `Waraqti.dc.html`, so the wrong
+  spelling is already in the repo and one copy-paste from the copy.
+- `native_permission_copy_test`: both launcher labels carry «ورقتي» **and stay
+  distinct** from each other (dev and prod must coexist on one device), and both
+  iOS name keys carry it too.
+
+#### A deliberate non-change: `WaraqtiApp` and `Waraqti.dc.html`
+
+The root widget is `WaraqtiApp`, and the design system is referenced throughout
+as `Waraqti.dc.html`. Both use the *other* transliteration of the same Arabic
+word, which the owner has now not chosen. Left alone:
+
+- `Waraqti.dc.html` is the **real name of an external artifact** — the Claude
+  Design file. Renaming references to it would make them wrong.
+- `WaraqtiApp` is an internal identifier with no user-visible surface. Renaming
+  it touches `app.dart`, `bootstrap.dart` and the widget tests for zero user
+  benefit, which is the kind of churn the change-discipline rule exists to stop.
+
+Recorded here so the inconsistency is a decision rather than an oversight, and
+so the next reader does not "fix" it.
+
+#### The reconciliation T02 deferred to this task
+
+T02 found `main` holding six commits `develop` never got, including `1e14a5f`
+("professionalize repo for external review"), and the owner approved deferring
+the recovery until the name was final. Done now:
+
+| File | Action |
+|---|---|
+| `LICENSE` | recovered from `1e14a5f` unchanged — all rights reserved, 2026 |
+| `CONTRIBUTING.md` | recovered **and corrected** (below) |
+| `config/prod.json.example` | recovered and brought up to the current shape |
+| `.editorconfig` | recovered — same commit, and leaving it behind guarantees a future conflict for nothing |
+| `README.md` | rewritten from both versions (below) |
+| `supabase/.env.example` | **nothing to do** — T02 expected it to predate F20, but the copy on this branch is already Mistral + Groq. `main`'s stale one was simply not taken. |
+
+**`CONTRIBUTING.md` could not be recovered as-is.** It still told contributors
+to write `fix(ocr): handle empty Azure response gracefully` — Azure was deleted
+in F20-T16 — and its privacy rules said "never store images on any server beyond
+the processing window", which is the claim F20-T24 retired: we store nothing,
+and the outside reader may retain. It now states what we actually guarantee and
+what we may not claim, names the current providers in the user-facing-text ban,
+pins the Flutter version CI uses, adds the `deno test` half of the gate with how
+to run the integration tests for real, and points at the **three test suites
+that enforce the privacy rules**, so a contributor learns the rails exist before
+tripping over them.
+
+**`README.md`: `main`'s was better structured and factually wrong; ours was
+accurate and thin.** `main`'s listed **Azure AI Document Intelligence** as the
+online OCR and **Groq** as the analysis provider, and its privacy section made
+both retired claims outright — "Images never leave the device permanently … No
+server stores it" and "The AI model never sees the image". For a public repo
+that is the same failure as B1, in the place most people read first.
+
+The merged README keeps `main`'s shape (badge row, About, project layout,
+backend section, documentation index) with this branch's facts, and adds what
+F27 built: the five endpoints, the kill switches, the retention windows, the
+free-tier-only constraint, `docs/BUILD.md` and `docs/OPERATIONS.md` in the index,
+and an honest **"what we guarantee" / "what we do not claim"** split in place of
+the old privacy list. Error reporting is described as what it is — a closed error
+code and an envelope, no stack traces, no content — so "no analytics, no
+tracking" is no longer quietly doing work it cannot do.
+
+Every number in it was counted rather than carried over: **2,263 Dart tests
+across 231 files, 812 Deno tests across 47**, 30 feature documents, Flutter
+3.41.9, Dart ^3.11.5. The old badges claimed Flutter 3.11 and "210 test files".
+
+`config/prod.json.example` gained `SUPABASE_FUNCTION_REGION` (T05's pin) with an
+**empty** value on purpose: empty means unpinned, so someone copying the file
+verbatim gets correct behaviour instead of being silently pinned to Frankfurt.
+`android/key.properties.example` now says that `storeFile` resolves relative to
+`android/app/` — the thing that cost a wrong turn in T13.
+
+**Gate:** `dart format .` (0 changed), `flutter analyze` (**0 errors, 0
+warnings**, 18 pre-existing infos), `flutter test` **2,266 passed / 0 failed**
+(3 new). No backend change, so no `deno test`.
+
+**Still T25's:** the `develop` → `main` release merge itself, which this task
+unblocks but does not perform.

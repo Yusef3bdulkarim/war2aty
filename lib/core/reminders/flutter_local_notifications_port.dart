@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart'
     as fln;
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -42,12 +44,20 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
   Future<void> initialize({
     required void Function(String reminderId) onOpened,
   }) async {
-    tzdata.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Africa/Cairo'));
+    // Decoding the whole timezone database is long enough on a low-end phone
+    // to drop frames, and this runs while the splash animates (F27-P01). So it
+    // is decoded on a background isolate, and only the one zone the app uses
+    // comes back.
+    final cairo = await Isolate.run(_loadCairo);
+    tz.timeZoneDatabase.add(cairo);
+    tz.setLocalLocation(cairo);
 
     await _plugin.initialize(
       settings: const fln.InitializationSettings(
-        android: fln.AndroidInitializationSettings('@mipmap/ic_launcher'),
+        // A plain white silhouette (F27-P01): Android draws the small icon
+        // from its alpha only, and an adaptive launcher icon here breaks
+        // notifications on Android 8.0.
+        android: fln.AndroidInitializationSettings('@drawable/ic_stat_notify'),
         // Notifications are asked for through the app's own permission
         // sheet (F09-T09) — right before the first reminder, never during
         // onboarding. `false` here stops the plugin firing its own iOS
@@ -126,4 +136,11 @@ final class FlutterLocalNotificationsPort implements LocalNotificationsPort {
 String? _reminderIdOf(fln.NotificationResponse response) {
   final payload = response.payload;
   return payload == null || payload.isEmpty ? null : payload;
+}
+
+/// Runs on a background isolate: decodes the timezone database there and
+/// sends back only Cairo, the one zone the app uses.
+tz.Location _loadCairo() {
+  tzdata.initializeTimeZones();
+  return tz.getLocation('Africa/Cairo');
 }

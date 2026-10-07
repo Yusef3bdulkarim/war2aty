@@ -105,6 +105,41 @@ void main() {
     });
   });
 
+  group('uncaught errors (F27-T12)', () {
+    test('a crash kind is logged as an allowlisted error code', () {
+      // Routed through the real logger, so the §51 assertion in
+      // `StructuredAppLogger.event` is what passes or fails here.
+      logger.event(const LogEvent(crash: LogCrashKind.flutterFramework));
+
+      expect(sink.last, {'errorCode': 'UNCAUGHT_FLUTTER_ERROR'});
+    });
+
+    test('each kind has its own code', () {
+      for (final kind in LogCrashKind.values) {
+        logger.event(LogEvent(crash: kind));
+      }
+
+      expect(
+        sink.writes.map((w) => w['errorCode']).toSet(),
+        hasLength(LogCrashKind.values.length),
+      );
+    });
+
+    test('a crash carries no exception, message or stack', () {
+      // The reason the enum exists rather than a string: an exception's
+      // `toString()` quotes the input it choked on, and here that input is
+      // someone's document.
+      logger.event(
+        const LogEvent(
+          crash: LogCrashKind.platformDispatcher,
+          stage: LogStage.ocr,
+        ),
+      );
+
+      expect(sink.last.keys, unorderedEquals(['errorCode', 'stage']));
+    });
+  });
+
   group('errorCodeOf', () {
     final all = <AppFailure>[
       const CameraPermissionFailure(),

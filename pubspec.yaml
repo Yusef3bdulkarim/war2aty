@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.0.0+6
 
 environment:
   sdk: ^3.11.5
@@ -88,7 +88,14 @@ flutter:
         - asset: assets/fonts/Cairo.ttf
 
   assets:
-    - assets/app_icon.png
+    # `assets/app_icon.png` is deliberately NOT here: nothing loads it at
+    # runtime — it is the 512 px icon the generator keeps in step with the
+    # launcher icon, for the store listing — and bundling it put 204 KB in
+    # every build (F27-P02).
+    #
+    # Splash brand mark (F27-P01); the 2.0x/ and 3.0x/ variants are picked up
+    # automatically.
+    - assets/images/brand_mark.png
     - assets/tessdata_config.json
     - assets/tessdata/ara.traineddata
     - assets/tessdata/eng.traineddata

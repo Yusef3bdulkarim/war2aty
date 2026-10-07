@@ -4,7 +4,13 @@ abstract final class SecureStorageKeys {
   /// Stable per-install identifier (UUID v4).
   static const String installationId = 'installation_id';
 
-  /// Serialized anonymous session (contains a JWT — must stay encrypted).
+  /// Serialized anonymous session: the access JWT and the long-lived refresh
+  /// token, so it must stay encrypted.
+  ///
+  /// Written by [SecureSessionLocalStorage], which F27-T16 installed as the
+  /// Supabase SDK's session store. Until then this key described an intent
+  /// nothing honoured for the real session — the SDK's own default put it in
+  /// plain `SharedPreferences` — and only the dev-only stub repository used it.
   static const String session = 'session';
 
   /// Base64-encoded AES-256 key that encrypts saved documents' images

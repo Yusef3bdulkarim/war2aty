@@ -258,3 +258,85 @@ Deno.test({
     assertEquals(quota.used_today, body.status === "unsupported" ? 0 : 1);
   },
 });
+
+// ── report-error against the real function and table (F27-T12) ────────────
+
+function postReport(
+  token: string | null,
+  body: unknown,
+): Promise<Response> {
+  return fetch(endpoint("report-error"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token === null
+        ? {}
+        : { Authorization: `Bearer ${token}`, apikey: supabaseAnonKey! }),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+Deno.test({
+  name: "[integration] report-error rejects a call with no token",
+  ignore: skip,
+  fn: async () => {
+    // The whole reason the endpoint is authenticated: the repo is public, so
+    // an open write path would be found (B3).
+    const response = await postReport(null, { error_code: "OCR" });
+    await response.body?.cancel();
+
+    assertEquals(response.status, 401);
+  },
+});
+
+Deno.test({
+  name: "[integration] report-error accepts an allowlisted code",
+  ignore: skip,
+  fn: async () => {
+    const token = await mintAnonymousToken();
+
+    const response = await postReport(token, {
+      error_code: "UNCAUGHT_FLUTTER_ERROR",
+      app_version: "1.0.0",
+    });
+    await response.body?.cancel();
+
+    // Proves the whole chain the fakes cannot: config.toml routes the
+    // function, the gateway accepts the anonymous token, and the service role
+    // really can write to `error_reports` from inside a function.
+    assertEquals(response.status, 202);
+    assert(response.headers.get("x-request-id") !== null);
+  },
+});
+
+Deno.test({
+  name: "[integration] report-error refuses a code it does not know",
+  ignore: skip,
+  fn: async () => {
+    const token = await mintAnonymousToken();
+
+    const response = await postReport(token, { error_code: "MADE_UP_CODE" });
+
+    assertEquals(response.status, 400);
+    assertEquals((await response.json()).error.code, "INVALID_REQUEST");
+  },
+});
+
+Deno.test({
+  name: "[integration] report-error refuses a field that is not in the contract",
+  ignore: skip,
+  fn: async () => {
+    const token = await mintAnonymousToken();
+
+    // The privacy tripwire, live: a client that attaches anything beyond the
+    // envelope is refused outright rather than having the extra ignored.
+    const response = await postReport(token, {
+      error_code: "OCR",
+      ocr_text: "فاتورة كهرباء",
+    });
+
+    assertEquals(response.status, 400);
+    assertEquals((await response.json()).error.code, "INVALID_REQUEST");
+  },
+});

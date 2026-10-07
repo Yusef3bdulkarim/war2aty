@@ -27,9 +27,16 @@ import 'interceptors/request_id_interceptor.dart';
 /// that has a slot reserved against the user's daily quota. The server is
 /// designed to time out first, release the slot and answer 408; this value is
 /// what keeps that true.
+/// ## Why [logger] is optional
+///
+/// One client is built without it: the one the error-report sink uses
+/// (F27-T12). Logging that call would log the act of logging, and the next
+/// failure would report the report. A client with no logger simply has no
+/// [ApiLogInterceptor], which makes the loop impossible rather than merely
+/// guarded against.
 Dio createApiClient({
   required AppEnvironment environment,
-  required AppLogger logger,
+  AppLogger? logger,
   required AccessTokenProvider accessToken,
   required SessionRefresher refreshSession,
   Duration connectTimeout = const Duration(seconds: 10),
@@ -43,6 +50,14 @@ Dio createApiClient({
       sendTimeout: connectTimeout,
       contentType: Headers.jsonContentType,
       validateStatus: (_) => true,
+      // Run the function next to its database rather than next to the
+      // caller — see [AppEnvironment.functionRegion]. Empty means
+      // unpinned, which is what the local stack and an unconfigured
+      // build get.
+      headers: {
+        if (environment.functionRegion.isNotEmpty)
+          'x-region': environment.functionRegion,
+      },
     ),
   );
 
@@ -51,7 +66,7 @@ Dio createApiClient({
     // both see the same value; logging wraps the auth attempt so a refreshed
     // replay is timed as its own call.
     RequestIdInterceptor(),
-    ApiLogInterceptor(logger),
+    if (logger != null) ApiLogInterceptor(logger),
     AuthInterceptor(
       accessToken: accessToken,
       refreshSession: refreshSession,

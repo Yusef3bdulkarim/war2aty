@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,11 +18,17 @@ class ReminderNotificationOpener extends StatefulWidget {
     required this.taps,
     required this.router,
     required this.child,
+    this.revealed,
   });
 
   final ReminderNotificationTaps taps;
   final GoRouter router;
   final Widget child;
+
+  /// Whether the launch splash has finished fading off the app (F27-P01).
+  /// A tap waits for it, so its page never slides in under the fade; `null`
+  /// opens straight away.
+  final ValueListenable<bool>? revealed;
 
   @override
   State<ReminderNotificationOpener> createState() =>
@@ -50,14 +57,33 @@ class _ReminderNotificationOpenerState
   @override
   void dispose() {
     widget.taps.removeListener(_scheduleOpen);
+    widget.revealed?.removeListener(_onRevealed);
     super.dispose();
+  }
+
+  /// Waiting for the launch reveal before opening anything.
+  bool _awaitingReveal = false;
+
+  void _onRevealed() {
+    if (!(widget.revealed?.value ?? true)) return;
+    widget.revealed?.removeListener(_onRevealed);
+    _awaitingReveal = false;
+    _scheduleOpen();
   }
 
   /// After the frame, so the router has built its first page — pushing
   /// before then would race its initial location. A frame is asked for too:
   /// a tap on an idle app would otherwise wait for something else to
-  /// repaint.
+  /// repaint. During launch, only once the splash is gone.
   void _scheduleOpen() {
+    final revealed = widget.revealed;
+    if (revealed != null && !revealed.value) {
+      if (!_awaitingReveal) {
+        _awaitingReveal = true;
+        revealed.addListener(_onRevealed);
+      }
+      return;
+    }
     WidgetsBinding.instance
       ..addPostFrameCallback((_) {
         if (!mounted) return;

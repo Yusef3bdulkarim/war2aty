@@ -1,10 +1,43 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- The user photographs a paper; the image never leaves the device. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- The user photographs a paper. Offline the photo is read on the
+         device; online it is sent to the `ocr-document` Edge Function and on
+         to an outside reader (§7, F20) — so it does leave the device. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+
+    <!-- F27-T16: three permissions this app does not use, removed from the
+         merged manifest. They are not declared here — `camera_android_camerax`
+         contributes RECORD_AUDIO and WRITE_EXTERNAL_STORAGE, and the manifest
+         merger then derives READ_EXTERNAL_STORAGE from the WRITE. None is ever
+         requested: `PermissionHandlerService` maps only camera and
+         notification, and the camera is built with `enableAudio: false`.
+
+         They still mattered, for two reasons. They appear in the Play listing
+         and in Android's app-info screen, which for an app whose whole promise
+         is "we do not keep your paper" is the wrong thing to be asking for.
+         And the declaration is the gate: while it stands, a later plugin
+         upgrade or a new code path could obtain the microphone or the user's
+         whole media library without any manifest edit, so without anyone
+         reviewing that widening.
+
+         WRITE is removed as well as READ, because leaving it would let the
+         merger re-derive the READ. Note the derived READ carried no
+         `maxSdkVersion`, unlike the WRITE it came from, so it stayed live on
+         API 29-32 where it grants read access to all shared media.
+
+         `android_permissions_test` asserts all three stay out. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove"/>
     <!-- Required from F06-T14: the app calls Supabase Anonymous Auth and the
-         analysis Edge Function. Offline, only extracted text is ever sent;
-         online, the photo itself transits the Edge Function for secure
-         processing and is never stored server-side (§7, F13). -->
+         `ocr-document` / `analyze-document` Edge Functions. Offline, only the
+         extracted text is ever sent; online, the photo itself transits
+         `ocr-document` to an outside reader. We store neither the photo nor
+         the text on our servers, but the reader may retain the photo for a
+         while (§7, F20-T24). -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Android 13+ (API 33) requires this as a runtime permission before any
          notification can show — requested once, right before the first
@@ -23,10 +56,19 @@
          without one must still be able to install it. -->
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
+    <!-- F27-T11 (Q20, H2): backup and transfer are OFF. The SQLite database
+         holds the text of every analysed paper and its reminders, and saved
+         images are encrypted under a Keystore key that cannot be backed up —
+         so a restore would both expose the archive and hand back unreadable
+         images. `allowBackup="false"` alone is not enough at targetSdk 31+:
+         see `res/xml/data_extraction_rules.xml` for why both are set. -->
     <application
         android:label="${appName}"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"

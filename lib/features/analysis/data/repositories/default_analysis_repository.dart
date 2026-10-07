@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -173,13 +174,17 @@ final class DefaultAnalysisRepository implements AnalysisRepository {
     String installationId,
   ) async {
     final bytes = await _readImageBytes(request.photo.path);
+    // In a background isolate (F27-T15): a captured page is a few megabytes,
+    // and base64 of it is a third larger again. Encoding that on the UI
+    // isolate stalled the frame right as the wait screen's animation starts.
+    final encoded = await Isolate.run(() => base64Encode(bytes));
 
     return AnalysisImageRequestDto(
       schemaVersion: kAnalysisRequestSchemaVersion,
       sessionId: request.sessionId,
       installationId: installationId,
       appVersion: _appVersion,
-      imageBase64: base64Encode(bytes),
+      imageBase64: encoded,
       mimeType: _mimeTypeFor(request.photo.path),
     );
   }

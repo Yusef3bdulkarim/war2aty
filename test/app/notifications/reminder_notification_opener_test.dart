@@ -43,6 +43,33 @@ void main() {
     expect(find.text('details r1'), findsOneWidget);
   });
 
+  testWidgets('the launch tap waits until the splash has revealed the app', (
+    tester,
+  ) async {
+    // F27-P01: its page must not slide in while the splash fades off.
+    final revealed = ValueNotifier(false);
+    addTearDown(revealed.dispose);
+    taps.open('r1');
+
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router,
+        builder: (context, child) => ReminderNotificationOpener(
+          taps: taps,
+          router: router,
+          revealed: revealed,
+          child: child!,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('home'), findsOneWidget);
+
+    revealed.value = true;
+    await tester.pumpAndSettle();
+    expect(find.text('details r1'), findsOneWidget);
+  });
+
   testWidgets('a tap while the app runs opens its reminder', (tester) async {
     await pumpApp(tester);
     await tester.pumpAndSettle();

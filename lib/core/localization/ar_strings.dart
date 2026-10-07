@@ -25,9 +25,6 @@ final class ArStrings implements AppStrings {
   String get appName => 'ورقتي بتقول إيه؟';
 
   @override
-  String get appTagline => 'صوّر الورقة واعرف المهم فيها.';
-
-  @override
   String get bootstrapErrorTitle => 'مقدرناش نبدأ';
 
   @override
@@ -231,6 +228,18 @@ final class ArStrings implements AppStrings {
 
   @override
   String get previewRotateLabel => 'تدوير الصورة';
+
+  @override
+  String get previewCropHandleTop => 'مقبض القص أعلى';
+
+  @override
+  String get previewCropHandleBottom => 'مقبض القص أسفل';
+
+  @override
+  String get previewCropHandleLeft => 'مقبض القص يسار';
+
+  @override
+  String get previewCropHandleRight => 'مقبض القص يمين';
 
   @override
   String get previewProcessing => 'بنجهّز الصورة…';
@@ -740,7 +749,7 @@ final class ArStrings implements AppStrings {
 
   @override
   String get ocrOfflineQualityWarning =>
-      'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
+      'قرينا الورقة على موبايلك، فالنتيجة ممكن تكون أقل دقة — راجع النص كويس';
   @override
   String get ocrOnlineFallbackWarning =>
       'القراءة الأونلاين مش متاحة دلوقتي، فقرينا الورقة على موبايلك. '

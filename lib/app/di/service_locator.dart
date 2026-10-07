@@ -67,6 +67,8 @@ import '../../core/localization/locale_store.dart';
 import '../../core/localization/usecases/get_saved_locale.dart';
 import '../../core/localization/usecases/set_locale.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/error_report_remote_data_source.dart';
+import '../../core/logging/error_report_sink.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
 import '../../core/permissions/notification_permission_repository.dart';
@@ -104,6 +106,7 @@ import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
+import '../../core/storage/usecases/discard_analysis_session.dart';
 import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_hint_holder.dart';
@@ -140,6 +143,7 @@ import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
+import '../../features/bootstrap/domain/usecases/finish_launch.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/bootstrap/presentation/splash_timing.dart';
@@ -207,6 +211,7 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../launch_reveal.dart';
 import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
@@ -240,12 +245,44 @@ Future<void> configureDependencies(
 void _registerCore(AppEnvironment env) {
   getIt
     ..registerSingleton<AppEnvironment>(env)
-    // Logging is verbose in dev, silent in prod (privacy-first default).
-    ..registerLazySingleton<LogSink>(
-      () => env.isDev ? const DeveloperLogSink() : const NoopLogSink(),
-    )
+    // Verbose in dev; in prod, failures only and nothing else (F27-T12).
+    ..registerLazySingleton<LogSink>(() => _buildLogSink(env))
     ..registerLazySingleton<AppLogger>(() => StructuredAppLogger(getIt()))
     ..registerSingleton<RuntimeConfigStore>(RuntimeConfigStore());
+}
+
+/// Dev logs everything locally; prod reports failures to our own backend.
+///
+/// An **unconfigured** prod build gets [NoopLogSink]: there is no Supabase to
+/// authenticate against, so every report would be a doomed HTTP call on the
+/// exact path a broken build takes most often. Silence is the honest answer
+/// there — the build already tells the user the service is unavailable.
+///
+/// The sink's HTTP client is built here rather than resolved from `getIt`:
+/// it is deliberately a *different* client from the one every datasource
+/// shares, with no [ApiLogInterceptor] on it, because logging the error
+/// report would log the logging (F27-T12). It is also the reason this cannot
+/// be a `const` or a plain registration — the client needs the environment
+/// and the auth repository, and the auth repository must not need the sink.
+LogSink _buildLogSink(AppEnvironment env) {
+  if (env.isDev) return const DeveloperLogSink();
+  if (!env.isConfigured) return const NoopLogSink();
+
+  return ErrorReportSink(
+    EdgeFunctionErrorReportDataSource(
+      createApiClient(
+        environment: env,
+        accessToken: () async {
+          final session = await getIt<AuthRepository>().restoreSession();
+          return session.valueOrNull?.accessToken;
+        },
+        refreshSession: () async {
+          final refreshed = await getIt<AuthRepository>().refreshSession();
+          return refreshed.valueOrNull?.accessToken;
+        },
+      ),
+    ),
+  );
 }
 
 void _registerDatabase(AppDatabase? database) {
@@ -353,6 +390,9 @@ void _registerLaunch(AppEnvironment env) {
     ..registerFactory<InitializeApp>(
       () => InitializeApp(_buildLaunchSteps(), logger: getIt()),
     )
+    ..registerFactory<FinishLaunch>(
+      () => FinishLaunch(_buildDeferredSteps(), logger: getIt()),
+    )
     ..registerFactory<BootstrapCubit>(
       // Hold the splash until its entrance animation reports itself finished,
       // so the mark is never cut off mid-flight on a fast start. The duration
@@ -360,6 +400,7 @@ void _registerLaunch(AppEnvironment env) {
       () => BootstrapCubit(
         getIt(),
         splashEntranceTimeout: kLogoEntranceDuration * 2,
+        finishLaunch: getIt(),
       ),
     );
 }
@@ -381,6 +422,8 @@ const Duration _sessionBound = Duration(seconds: 8);
 /// without an identity the analysis path cannot run, but every offline feature
 /// can, so connectivity alone must not hold the app shut. Housekeeping steps are
 /// allowed to fail quietly rather than block the user behind an error screen.
+/// Everything that the first screen does *not* need waits in
+/// [_buildDeferredSteps] instead.
 List<BootstrapStep> _buildLaunchSteps() {
   return [
     BootstrapStep(BootstrapStage.session, () async {
@@ -407,6 +450,40 @@ List<BootstrapStep> _buildLaunchSteps() {
 
       return result.map<void>((_) {});
     }),
+    BootstrapStep(BootstrapStage.reminders, () async {
+      // Setup only (F09-T10) — the reconcile it used to do is deferred.
+      // This part cannot be: it loads the IANA data that every Cairo-day
+      // reading needs (`core/time/cairo_day.dart`), which Home's usage
+      // counter reads as it builds, and no notification may be scheduled
+      // before the plugin and its channel exist.
+      final notifications = getIt<LocalNotificationsPort>();
+      final taps = getIt<ReminderNotificationTaps>();
+      await notifications.initialize(onOpened: taps.open);
+      // A tap that launched the app from cold is only ever reported here
+      // (F25-T04); it opens once the router is up and the splash is gone.
+      final launchedBy = await notifications.launchedReminderId();
+      if (launchedBy != null) taps.open(launchedBy);
+      return const Ok(null);
+    }, critical: false),
+  ];
+}
+
+/// Launch work that runs once the splash has faded off the first screen
+/// (F27-P01), because nothing on that screen waits for it.
+///
+/// Measured on a mid-range phone, these three cost enough platform-thread time
+/// to drop frames; during the splash that stuttered the animation, and here it
+/// lands on a screen that is already still. None is critical, and none reports
+/// a stage — there is no splash left to announce it to.
+List<BootstrapStep> _buildDeferredSteps() {
+  return [
+    // First, because it is the app's first HTTPS request and so pays for the
+    // TLS setup the rest reuses. Measured on an RMX2001, that blocked the UI
+    // isolate for 154–216 ms; during the splash it froze the animation, and
+    // here it lands on a Home that is already still. Nothing on that screen
+    // reads it: `RuntimeConfigStore` is consulted only by the stub usage
+    // repository of an unconfigured build, lazily, and it starts on
+    // `RuntimeConfig.defaults` either way.
     BootstrapStep(BootstrapStage.config, () async {
       final result = await getIt<RuntimeConfigRepository>().load();
       if (result case Ok(:final value)) {
@@ -420,15 +497,6 @@ List<BootstrapStep> _buildLaunchSteps() {
       return result.map<void>((_) {});
     }, critical: false),
     BootstrapStep(BootstrapStage.reminders, () async {
-      // The plugin/timezone/channel setup (F09-T10) has to run before the
-      // first `reconcile` ever schedules anything.
-      final notifications = getIt<LocalNotificationsPort>();
-      final taps = getIt<ReminderNotificationTaps>();
-      await notifications.initialize(onOpened: taps.open);
-      // A tap that launched the app from cold is only ever reported here
-      // (F25-T04); it opens once the router is up.
-      final launchedBy = await notifications.launchedReminderId();
-      if (launchedBy != null) taps.open(launchedBy);
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
     }, critical: false),
@@ -540,6 +608,9 @@ void _registerCapture() {
     ..registerFactory<AssessImageQuality>(() => AssessImageQuality(getIt()))
     ..registerFactory<CreateAnalysisSession>(
       () => CreateAnalysisSession(getIt()),
+    )
+    ..registerFactory<DiscardAnalysisSession>(
+      () => DiscardAnalysisSession(getIt()),
     )
     ..registerLazySingleton<CaptureFileCleanup>(IOCaptureFileCleanup.new)
     ..registerFactory<CleanupCaptureFiles>(() => CleanupCaptureFiles(getIt()))
@@ -664,6 +735,7 @@ void _registerAnalysis(AppEnvironment env) {
         buildResult: getIt(),
         syncDailyUsage: getIt(),
         getDailyUsage: getIt(),
+        discardSession: getIt(),
       ),
     )
     // The OCR review screen (F14) — reuses `ExtractCandidates`, already
@@ -993,7 +1065,11 @@ void _registerSettings() {
 }
 
 void _registerRouting() {
-  getIt.registerLazySingleton<GoRouter>(
-    () => createAppRouter(onboardingGate: getIt()),
-  );
+  getIt
+    // F27-P01. App-scoped: the first screen reports its content here, the
+    // splash hand-off and the notification opener read it.
+    ..registerLazySingleton<LaunchReveal>(LaunchReveal.new)
+    ..registerLazySingleton<GoRouter>(
+      () => createAppRouter(onboardingGate: getIt(), launchReveal: getIt()),
+    );
 }

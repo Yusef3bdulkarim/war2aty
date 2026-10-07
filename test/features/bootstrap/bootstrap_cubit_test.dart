@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/bootstrap/domain/entities/bootstrap_stage.dart';
+import 'package:war2aty/features/bootstrap/domain/usecases/finish_launch.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_state.dart';
@@ -132,6 +133,41 @@ void main() {
 
       await cubit.start();
       expect(cubit.state, const BootstrapSuccess());
+    });
+  });
+
+  group('deferred housekeeping (F27-P01)', () {
+    test('does not run it as part of the launch', () async {
+      var ran = false;
+      final cubit = BootstrapCubit(
+        InitializeApp(const []),
+        finishLaunch: FinishLaunch([
+          BootstrapStep(BootstrapStage.usage, () async {
+            ran = true;
+            return const Ok(null);
+          }, critical: false),
+        ]),
+      );
+      addTearDown(cubit.close);
+
+      await cubit.start();
+
+      expect(
+        ran,
+        isFalse,
+        reason: 'it would stutter the splash it was moved out of',
+      );
+
+      // Only once the splash has faded off the first screen.
+      await cubit.finishLaunch();
+      expect(ran, isTrue);
+    });
+
+    test('has nothing to run when none is configured', () async {
+      final cubit = BootstrapCubit(InitializeApp(const []));
+      addTearDown(cubit.close);
+
+      await expectLater(cubit.finishLaunch(), completes);
     });
   });
 }

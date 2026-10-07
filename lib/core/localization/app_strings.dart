@@ -7,9 +7,6 @@
 abstract interface class AppStrings {
   String get appName;
 
-  /// One-line promise shown under the app name on the splash screen.
-  String get appTagline;
-
   // Launch failure
   String get bootstrapErrorTitle;
   String get bootstrapErrorMessage;
@@ -144,6 +141,14 @@ abstract interface class AppStrings {
 
   /// Accessibility label for the rotate button.
   String get previewRotateLabel;
+
+  /// Accessibility labels for the four crop handles. The edges are physical
+  /// — the handle that moves the top of the crop box is "top" in either
+  /// direction — so these are not mirrored, only translated.
+  String get previewCropHandleTop;
+  String get previewCropHandleBottom;
+  String get previewCropHandleLeft;
+  String get previewCropHandleRight;
 
   /// Announced while the confirmed image is being prepared.
   String get previewProcessing;
@@ -553,8 +558,17 @@ abstract interface class AppStrings {
   String get ocrOnlineHideImage;
   String get ocrOnlineAmbiguityNotice;
 
-  /// Amber warning banner shown on the review screen when OCR ran offline
-  /// (Tesseract) — accuracy may be lower than the online reading.
+  /// Amber warning banner shown on the review screen when the page was read
+  /// on the device (Tesseract) — accuracy may be lower than the online
+  /// reading.
+  ///
+  /// **Says where the page was read, never why** (F27-T18 finding D-1). The
+  /// on-device route is chosen for three different reasons — no connectivity,
+  /// `online_ocr_enabled` off server-side, or an unreadable flag
+  /// (`DecideAnalysisRoute`) — and the middle one is the launch default (Q12),
+  /// so copy that blamed the connection told every connected user something
+  /// false about their own phone. Same rule as
+  /// [ocrOnlineFallbackWarning] below, which had it from the start.
   String get ocrOfflineQualityWarning;
 
   /// Amber warning banner shown on the review screen when the online reading

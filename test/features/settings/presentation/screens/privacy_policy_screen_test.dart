@@ -7,6 +7,7 @@ import 'package:war2aty/core/widgets/teal_top_bar.dart';
 import 'package:war2aty/features/settings/presentation/screens/privacy_policy_screen.dart';
 
 import '../../../../support/pump_app.dart';
+import '../../../../support/ui_audit.dart';
 
 // F11-T12: the settings screen's «سياسة الخصوصية» row opens this — the same
 // four promises `PrivacyScreen` makes on first run, read back with a back
@@ -14,6 +15,16 @@ import '../../../../support/pump_app.dart';
 void main() {
   const ar = ArStrings();
   const en = EnStrings();
+
+  auditScreenLayout(
+    'PrivacyPolicyScreen',
+    (tester, locale, scaler) => pumpApp(
+      tester,
+      const PrivacyPolicyScreen(),
+      locale: locale,
+      textScaler: scaler,
+    ),
+  );
 
   testWidgets('shows the title and all four privacy promises', (tester) async {
     await pumpApp(tester, const PrivacyPolicyScreen());

@@ -573,13 +573,19 @@ class _ImageToggle extends StatelessWidget {
 /// the online route's on-device fallback (F20-T23) — whose OCR quality may be
 /// lower. Same amber styling as [_AmbiguityNotice].
 class _OfflineWarning extends StatelessWidget {
-  const _OfflineWarning({required this.text, this.icon = Icons.wifi_off});
+  const _OfflineWarning({required this.text, this.icon = Icons.smartphone});
 
   final String text;
 
-  /// Paired with [text] so the warning never relies on colour alone. The
-  /// default suits the offline route; the online fallback's cause is not the
-  /// connection, so it passes a general warning icon instead.
+  /// Paired with [text] so the warning never relies on colour alone, and it
+  /// has to say the same thing the words do.
+  ///
+  /// The default was `Icons.wifi_off` until F27-T18 D-1: the copy stopped
+  /// blaming the user's connection but the icon still shouted it, which the
+  /// owner caught on the phone. A phone says what is actually true of all
+  /// three on-device routes — the page was read here. The online fallback
+  /// passes a general warning icon instead, because its cause really is that
+  /// the online reading was unavailable.
   final IconData icon;
 
   @override

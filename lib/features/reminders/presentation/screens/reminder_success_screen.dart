@@ -54,147 +54,167 @@ class ReminderSuccessScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: colors.surface,
       body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(_padding),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: _iconOuterSize,
-                  height: _iconOuterSize,
-                  decoration: BoxDecoration(
-                    color: colors.successTint,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Container(
-                      width: _iconInnerSize,
-                      height: _iconInnerSize,
-                      decoration: BoxDecoration(
-                        color: colors.success,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: StrokeIcon(
-                          StrokeGlyph.check,
-                          color: colors.onBrand,
-                          size: 36,
-                          strokeWidth: 2.6,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            child: ConstrainedBox(
+              // Centres the block when it fits, scrolls when it does not — the
+              // same pattern `OnboardingScreen` uses. Without it the column ran
+              // off the bottom of a short phone at the largest text size
+              // (F27-T15).
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(_padding),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: _iconOuterSize,
+                        height: _iconOuterSize,
+                        decoration: BoxDecoration(
+                          color: colors.successTint,
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: _iconGapBelow),
-                Text(
-                  strings.reminderSuccessTitle,
-                  textAlign: TextAlign.center,
-                  style: AppTypography.titleLarge.copyWith(
-                    fontSize: _titleFontSize,
-                    fontWeight: AppTypography.extraBold,
-                    color: colors.ink,
-                  ),
-                ),
-                const SizedBox(height: _titleGapBelow),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: colors.card,
-                      borderRadius: BorderRadius.circular(_cardRadius),
-                      boxShadow: AppShadows.card,
-                      // Directional so it lands on the right in RTL, the left
-                      // in LTR — matching every other role-accent border in
-                      // the design.
-                      border: BorderDirectional(
-                        start: BorderSide(
-                          color: colors.brandPrimary,
-                          width: _cardBorderWidth,
-                        ),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(_cardPadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            reminder.title,
-                            style: AppTypography.labelCard.copyWith(
-                              fontSize: _cardTitleFontSize,
-                              fontWeight: AppTypography.extraBold,
-                              color: colors.ink,
+                        child: Center(
+                          child: Container(
+                            width: _iconInnerSize,
+                            height: _iconInnerSize,
+                            decoration: BoxDecoration(
+                              color: colors.success,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: StrokeIcon(
+                                StrokeGlyph.check,
+                                color: colors.onBrand,
+                                size: 36,
+                                strokeWidth: 2.6,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: _cardSubtitleGapAbove),
-                          Text(
-                            firstAlert == null
-                                ? formatDayMonth(strings, reminder.eventDate)
-                                : '${formatDayMonth(strings, reminder.eventDate)}'
-                                      ' — ${alertTimeLabel(strings, firstAlert.scheduledAt, offset: null)}',
-                            style: AppTypography.caption.copyWith(
-                              fontSize: _cardSubtitleFontSize,
-                              fontWeight: AppTypography.semiBold,
-                              color: colors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: _iconGapBelow),
+                      Text(
+                        strings.reminderSuccessTitle,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.titleLarge.copyWith(
+                          fontSize: _titleFontSize,
+                          fontWeight: AppTypography.extraBold,
+                          color: colors.ink,
+                        ),
+                      ),
+                      const SizedBox(height: _titleGapBelow),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: _cardMaxWidth,
+                        ),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: colors.card,
+                            borderRadius: BorderRadius.circular(_cardRadius),
+                            boxShadow: AppShadows.card,
+                            // Directional so it lands on the right in RTL, the left
+                            // in LTR — matching every other role-accent border in
+                            // the design.
+                            border: BorderDirectional(
+                              start: BorderSide(
+                                color: colors.brandPrimary,
+                                width: _cardBorderWidth,
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: _cardGapBelow),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: _primaryButtonHeight,
-                    child: FilledButton(
-                      onPressed: onViewReminder,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colors.brandPrimary,
-                        foregroundColor: colors.onBrand,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            _primaryButtonRadius,
+                          child: Padding(
+                            padding: const EdgeInsets.all(_cardPadding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  reminder.title,
+                                  style: AppTypography.labelCard.copyWith(
+                                    fontSize: _cardTitleFontSize,
+                                    fontWeight: AppTypography.extraBold,
+                                    color: colors.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: _cardSubtitleGapAbove),
+                                Text(
+                                  firstAlert == null
+                                      ? formatDayMonth(
+                                          strings,
+                                          reminder.eventDate,
+                                        )
+                                      : '${formatDayMonth(strings, reminder.eventDate)}'
+                                            ' — ${alertTimeLabel(strings, firstAlert.scheduledAt, offset: null)}',
+                                  style: AppTypography.caption.copyWith(
+                                    fontSize: _cardSubtitleFontSize,
+                                    fontWeight: AppTypography.semiBold,
+                                    color: colors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        textStyle: AppTypography.labelMedium.copyWith(
-                          fontSize: _primaryButtonFontSize,
-                          fontWeight: AppTypography.bold,
-                        ),
                       ),
-                      child: Text(strings.reminderSuccessViewAction),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: _primaryButtonGapBelow),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: _cardMaxWidth),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: _secondaryButtonHeight,
-                    child: FilledButton(
-                      onPressed: onClose,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: colors.surfaceTeal,
-                        foregroundColor: colors.brandPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            _primaryButtonRadius,
+                      const SizedBox(height: _cardGapBelow),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: _cardMaxWidth,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: _primaryButtonHeight,
+                          child: FilledButton(
+                            onPressed: onViewReminder,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: colors.brandPrimary,
+                              foregroundColor: colors.onBrand,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  _primaryButtonRadius,
+                                ),
+                              ),
+                              textStyle: AppTypography.labelMedium.copyWith(
+                                fontSize: _primaryButtonFontSize,
+                                fontWeight: AppTypography.bold,
+                              ),
+                            ),
+                            child: Text(strings.reminderSuccessViewAction),
                           ),
                         ),
-                        textStyle: AppTypography.labelMedium.copyWith(
-                          fontSize: _primaryButtonFontSize,
-                          fontWeight: AppTypography.bold,
+                      ),
+                      const SizedBox(height: _primaryButtonGapBelow),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: _cardMaxWidth,
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: _secondaryButtonHeight,
+                          child: FilledButton(
+                            onPressed: onClose,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: colors.surfaceTeal,
+                              foregroundColor: colors.brandPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  _primaryButtonRadius,
+                                ),
+                              ),
+                              textStyle: AppTypography.labelMedium.copyWith(
+                                fontSize: _primaryButtonFontSize,
+                                fontWeight: AppTypography.bold,
+                              ),
+                            ),
+                            child: Text(strings.actionBack),
+                          ),
                         ),
                       ),
-                      child: Text(strings.actionBack),
-                    ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),

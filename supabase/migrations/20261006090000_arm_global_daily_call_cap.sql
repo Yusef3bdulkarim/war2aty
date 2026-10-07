@@ -1,0 +1,56 @@
+-- F27-T06 · Arm the global daily call cap.
+--
+-- F13-T02 built the breaker and deliberately dark-launched it: unset means
+-- UNLIMITED (see 20260730140000's header). That was right while the pipeline
+-- was Groq-only and the app unreleased. It is wrong at launch, and the F27
+-- audit recorded it as finding B3: the repo is public, so the production URL
+-- and publishable key are public, anonymous sign-in is on, a reinstall resets
+-- the per-install limit, and the AI quotas are shared by every user. Unset, one
+-- script can drain the day's capacity for everybody.
+--
+-- ── Why 500 ───────────────────────────────────────────────────────────────
+--
+-- Q3 sizes launch at ~500 analyses/day, and the owner's standing constraint is
+-- that no upstream service is ever paid for. So the cap is set to the launch
+-- target, and the question is whether each free tier can carry it. Limits as
+-- published on 2026-10-06 (they move; re-check before raising this):
+--
+--   Gemini 3.5 Flash-Lite (OCR)   500 req/day, 15 req/min
+--   Mistral ministral-14b         ~1B tokens/month on the free Experiment tier;
+--                                 per-minute limits are no longer published
+--   Groq openai/gpt-oss-120b      1,000 req/day BUT 200,000 tokens/day
+--   Supabase Edge Functions       500,000 invocations/month
+--
+-- At roughly 3K tokens per analysis:
+--
+--   * Mistral, the primary, carries 500/day easily on tokens — 1.5M/day is
+--     ~45M/month against a 1B/month allowance. Its risk is not volume but that
+--     the free tier is documented for evaluation, with unpublished rate limits.
+--   * Groq, the fallback, carries only ~66/day (200K ÷ 3K). It is a safety net
+--     for a Mistral blip, NOT a second engine: a sustained Mistral outage caps
+--     the day at ~66 analyses whatever this number says.
+--   * Supabase allows ~16,600 invocations/day; an analysis costs 2-3, so ~5,500
+--     analyses/day. Not the binding limit.
+--   * Gemini's 500/day equals the launch target exactly, with no headroom — but
+--     see the gap below, because this cap does not govern it.
+--
+-- So 500 is the right number: it is the planned envelope, every analysis
+-- provider can serve it, and it bounds the blast radius of B3 to one day's
+-- planned traffic instead of the providers' entire quota.
+--
+-- ── What this cap does NOT cover (recorded, not fixed here) ───────────────
+--
+-- `ocr-document` takes no slot, by design — charging one would punish a user
+-- who retakes a blurry photo (see ocr-handler's "Why no slot reservation").
+-- So this breaker counts analysis calls only, and Gemini's 500/day has no
+-- counter in front of it. That is dormant today because `online_ocr_enabled`
+-- is false (Q12) and stays false until T26, but T26 must not flip it before
+-- the OCR path has its own protection. The only thing standing in front of
+-- Gemini meanwhile is Supabase's anonymous sign-in rate limit.
+--
+-- ON CONFLICT DO NOTHING, like every other seed here: an operator who has
+-- already tuned this value keeps it.
+
+insert into public.app_runtime_config (key, value) values
+  ('global_daily_call_cap', '500'::jsonb)
+on conflict (key) do nothing;

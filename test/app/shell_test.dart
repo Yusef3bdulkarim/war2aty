@@ -6,10 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
+import 'package:war2aty/app/launch_reveal.dart';
 import 'package:war2aty/app/notifications/reminder_notification_taps.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/app/shell/scaffold_with_nav_bar.dart';
 import 'package:war2aty/core/accessibility/high_contrast_cubit.dart';
+import 'package:war2aty/core/accessibility/text_size.dart';
 import 'package:war2aty/core/accessibility/text_size_cubit.dart';
 import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
@@ -41,11 +43,14 @@ import 'package:war2aty/core/reminders/usecases/delete_all_reminders.dart';
 import 'package:war2aty/core/reminders/usecases/get_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
+import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
 import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/bootstrap/domain/entities/bootstrap_stage.dart';
+import 'package:war2aty/features/bootstrap/domain/usecases/finish_launch.dart';
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/capture_source.dart';
@@ -56,9 +61,12 @@ import 'package:war2aty/features/capture/domain/usecases/request_camera_permissi
 import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/gallery_picker_cubit.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
+import 'package:war2aty/features/home/presentation/screens/home_screen.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/reminders/presentation/screens/reminders_list_screen.dart';
+import 'package:war2aty/features/saved_papers/presentation/screens/documents_list_screen.dart';
 import 'package:war2aty/features/settings/presentation/cubit/settings_cubit.dart';
 import 'package:war2aty/features/settings/presentation/screens/settings_screen.dart';
 
@@ -67,6 +75,10 @@ import '../support/fakes.dart';
 void main() {
   setUp(getIt.reset);
   tearDown(getIt.reset);
+
+  /// Whether the deferred launch housekeeping has run (F27-P01).
+  var housekeepingRan = false;
+  setUp(() => housekeepingRan = false);
 
   /// Boots the real app widget. [onboarded] seeds the first-run flag.
   Future<void> pumpShell(
@@ -91,7 +103,15 @@ void main() {
       })
       // An empty launch sequence succeeds immediately, so the shell is shown.
       ..registerFactory<BootstrapCubit>(
-        () => BootstrapCubit(InitializeApp(const [])),
+        () => BootstrapCubit(
+          InitializeApp(const []),
+          finishLaunch: FinishLaunch([
+            BootstrapStep(BootstrapStage.usage, () async {
+              housekeepingRan = true;
+              return const Ok(null);
+            }, critical: false),
+          ]),
+        ),
       )
       ..registerLazySingleton<OnboardingCubit>(
         () => OnboardingCubit(
@@ -203,8 +223,9 @@ void main() {
       ..registerLazySingleton<ReminderNotificationTaps>(
         ReminderNotificationTaps.new,
       )
+      ..registerLazySingleton<LaunchReveal>(LaunchReveal.new)
       ..registerLazySingleton<GoRouter>(
-        () => createAppRouter(onboardingGate: getIt()),
+        () => createAppRouter(onboardingGate: getIt(), launchReveal: getIt()),
       );
     await tester.pumpWidget(const WaraqtiApp());
     await tester.pumpAndSettle();
@@ -217,6 +238,51 @@ void main() {
   /// rather than by Material's [NavigationBar].
   Finder navBar() => find.byType(ScaffoldWithNavBar);
 
+  // F27-T15: the app replaces the root `MediaQuery.textScaler` with its own,
+  // and used to do so unconditionally -- so a phone set to 200 % in Android's
+  // accessibility settings rendered this app at 100 %. `resolveTextScaler` is
+  // unit-tested next to `TextSize`; this is the wiring, through the real app.
+  group('the OS text size reaches the tree (F27-T15)', () {
+    /// The scaler every screen below the app builder actually sees.
+    double effectiveScale(WidgetTester tester) =>
+        MediaQuery.textScalerOf(
+          tester.element(find.byType(ScaffoldWithNavBar)),
+        ).scale(14) /
+        14;
+
+    testWidgets('a phone set larger than the in-app choice wins', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await pumpShell(tester);
+
+      // `TextSize.normal` is what the fake store answers, so before this the
+      // tree saw 1.0 here however large the phone's setting was.
+      expect(effectiveScale(tester), closeTo(2, 0.0001));
+    });
+
+    testWidgets('a phone past the audited ceiling is capped, not obeyed', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await pumpShell(tester);
+
+      expect(effectiveScale(tester), closeTo(kMaxTextScale, 0.0001));
+    });
+
+    testWidgets('a phone at its default still renders at the design size', (
+      tester,
+    ) async {
+      await pumpShell(tester);
+
+      expect(effectiveScale(tester), closeTo(1, 0.0001));
+    });
+  });
+
   testWidgets('boots to a 4-tab shell in Arabic (RTL)', (tester) async {
     await pumpShell(tester);
     const ar = ArStrings();
@@ -227,6 +293,27 @@ void main() {
     expect(find.text(ar.navReminders), findsWidgets);
     expect(find.text(ar.navSettings), findsWidgets);
     expect(navDirection(tester), TextDirection.rtl);
+  });
+
+  testWidgets('runs the deferred housekeeping once the shell is up (F27-P01)', (
+    tester,
+  ) async {
+    await pumpShell(tester);
+
+    // It is held back until the splash has faded off the first screen, so its
+    // platform work cannot stutter the animation; then it runs.
+    expect(housekeepingRan, isTrue);
+  });
+
+  testWidgets('builds only the Home tab at launch (F27-P01)', (tester) async {
+    await pumpShell(tester);
+
+    // The other tabs are built the first time they are opened, so none of
+    // their work lands in the launch's first frames.
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.byType(DocumentsListScreen, skipOffstage: false), findsNothing);
+    expect(find.byType(RemindersListScreen, skipOffstage: false), findsNothing);
+    expect(find.byType(SettingsScreen, skipOffstage: false), findsNothing);
   });
 
   testWidgets('asks for dark status-bar icons on the light screens', (

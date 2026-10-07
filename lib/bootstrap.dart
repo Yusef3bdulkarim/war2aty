@@ -5,6 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'app/di/service_locator.dart';
 import 'core/env/app_environment.dart';
+import 'core/logging/global_error_handlers.dart';
+import 'core/storage/flutter_secure_storage_service.dart';
+import 'core/storage/secure_session_local_storage.dart';
+import 'features/bootstrap/presentation/screens/splash_screen.dart';
 
 /// Shared launch path for every flavor entrypoint.
 ///
@@ -16,6 +20,7 @@ import 'core/env/app_environment.dart';
 /// `AuthRepository`, and initializing it twice throws.
 Future<void> bootstrap(AppEnvironment env) async {
   WidgetsFlutterBinding.ensureInitialized();
+  _precacheSplashMark();
 
   final resolved = AppEnvironment(
     flavor: env.flavor,
@@ -32,6 +37,11 @@ Future<void> bootstrap(AppEnvironment env) async {
       : resolved;
 
   await configureDependencies(launchEnv);
+
+  // After DI, because it needs the logger; before `runApp`, so the first frame
+  // is already covered (F27-T12).
+  installGlobalErrorHandlers(getIt());
+
   runApp(const WaraqtiApp());
 }
 
@@ -51,6 +61,14 @@ Future<AppEnvironment> _initializeSupabase(AppEnvironment env) async {
       // interchangeably; both names describe the one key §24 permits in the
       // client.
       publishableKey: env.supabaseAnonKey,
+      // F27-T16: without this the SDK installs `SharedPreferencesLocalStorage`
+      // and the session — access JWT and long-lived refresh token — is written
+      // to plain `SharedPreferences`, while `SecureStorageKeys.session` claimed
+      // it must stay encrypted. Constructed directly rather than resolved from
+      // `get_it`, because this runs before `configureDependencies`.
+      authOptions: const FlutterAuthClientOptions(
+        localStorage: SecureSessionLocalStorage(FlutterSecureStorageService()),
+      ),
     ).timeout(const Duration(seconds: 15));
 
     return env;
@@ -79,4 +97,15 @@ Future<String> _readAppVersion(AppEnvironment env) async {
   } on Object {
     return env.appVersion;
   }
+}
+
+/// Starts decoding the splash mark (F27-P01) while Supabase and DI start up,
+/// so it is in the image cache by the splash's first frame instead of being
+/// decoded during its animation. Fire-and-forget: if it is not ready in time,
+/// the splash simply decodes it itself.
+void _precacheSplashMark() {
+  final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+  const AssetImage(
+    kBrandMarkAsset,
+  ).resolve(ImageConfiguration(devicePixelRatio: view?.devicePixelRatio ?? 1));
 }

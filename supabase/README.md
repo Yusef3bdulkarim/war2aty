@@ -162,12 +162,14 @@ RUN_LIVE_ANALYSIS=1 SUPABASE_URL=... SUPABASE_ANON_KEY=... \
 It asserts shape only — field presence, enums, the quota moving by one. The
 model's wording is not a contract and must never be asserted.
 
-## The three endpoints
+## The endpoints
 
 | Endpoint | Method | Auth | Contract |
 |---|---|---|---|
 | `analyze-document` | POST | anon JWT | request §29, response §30, errors §31 |
+| `ocr-document` | POST | anon JWT | request §29 (image shape), errors §31 |
 | `get-usage` | GET | anon JWT | §32 |
+| `report-error` | POST | anon JWT | F27-T12; answers 202, no body |
 | `health` | GET | none | §32 |
 
 Everything an endpoint does regardless of what it does — preflight, method
@@ -277,6 +279,7 @@ Three tables, all service-role only (F06-T02):
 | `analysis_usage_daily` | per-user daily counters, keyed by an **Africa/Cairo** `usage_date` the function supplies |
 | `analysis_attempts` | reservation ledger keyed by `request_id`; makes the quota race-safe and retries idempotent |
 | `app_runtime_config` | backend-tunable knobs (daily limit, kill switch, min app version) |
+| `error_reports` | F27-T12 production monitoring: a closed error code plus envelope, written only through `record_error_report` |
 
 Each has RLS **enabled with zero policies** and client grants revoked, so `anon`
 and `authenticated` are denied at both layers. `service_role` gets an explicit
@@ -284,6 +287,13 @@ grant — read/write on the two usage tables, **read-only** on the config table.
 
 `analysis_attempts` stores no document content: only `request_id`, `user_id`, a
 salted `installation_hash`, status and timing.
+
+`error_reports` stores no document content either, and by construction rather
+than by filtering: every column is a closed code, a uuid, a bounded integer or a
+dotted version, so there is no column a message or a stack trace would fit in.
+It is also append-only — `service_role` is granted select, insert and delete,
+deliberately **not** update. Writes go through `record_error_report`, which
+applies a per-user daily ceiling in the same statement that inserts.
 
 Re-check the lockdown after any schema change:
 
@@ -441,7 +451,8 @@ Error codes are a machine contract: renaming one breaks shipped clients.
 - **Secrets never leave `supabase/.env`** (git-ignored) or Supabase Project
   Secrets. Not in `config.toml`, not in Flutter, not in dart-defines (§24).
 - **No client policies** on `analysis_usage_daily`, `analysis_attempts`,
-  `app_runtime_config`. RLS on, service-role access from functions only (§26).
+  `app_runtime_config`, `error_reports`. RLS on, service-role access from
+  functions only (§26).
 - **No document content in logs** — envelope fields (`session_id`,
   `installation_id`, `request_id`) and status codes only.
 
@@ -455,7 +466,9 @@ supabase/
 │   ├── deno.json        # Deno fmt/lint/tasks for the functions workspace
 │   ├── _shared/         # ai, auth, http, errors, prompts, usage, validators
 │   ├── analyze-document/
+│   ├── ocr-document/
 │   ├── get-usage/
+│   ├── report-error/
 │   └── health/
 ├── migrations/          # F06-T02
 └── tests/               # unit / integration / fixtures

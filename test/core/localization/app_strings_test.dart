@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show SynchronousFuture;
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/app_strings.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -14,7 +17,6 @@ import 'package:war2aty/core/localization/en_strings.dart';
 /// drifted to 104 of 385 members, leaving most copy unchecked).
 final Map<String, String Function(AppStrings)> _accessors = {
   'appName': (s) => s.appName,
-  'appTagline': (s) => s.appTagline,
   'bootstrapErrorTitle': (s) => s.bootstrapErrorTitle,
   'bootstrapErrorMessage': (s) => s.bootstrapErrorMessage,
   'bootstrapStageSession': (s) => s.bootstrapStageSession,
@@ -75,6 +77,10 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'previewUseImage': (s) => s.previewUseImage,
   'previewRetake': (s) => s.previewRetake,
   'previewRotateLabel': (s) => s.previewRotateLabel,
+  'previewCropHandleTop': (s) => s.previewCropHandleTop,
+  'previewCropHandleBottom': (s) => s.previewCropHandleBottom,
+  'previewCropHandleLeft': (s) => s.previewCropHandleLeft,
+  'previewCropHandleRight': (s) => s.previewCropHandleRight,
   'previewProcessing': (s) => s.previewProcessing,
   'previewErrorMessage': (s) => s.previewErrorMessage,
   'qualityAlertTitle': (s) => s.qualityAlertTitle,
@@ -520,6 +526,23 @@ void main() {
       expect(ar.actionCancel, isNot(en.actionCancel));
     });
 
+    test('the app name carries the brand in both languages (F27-T14)', () {
+      // Q16, ruled 2026-10-06: the name stays as it is, digit included —
+      // «ورقتي» in Arabic, War2aty in Latin. `appName` is the OS
+      // task-switcher title and the splash mark's screen-reader label, so it
+      // is where a user meets the name; a rename that missed one of these
+      // would leave the product calling itself two things.
+      expect(ar.appName, contains('ورقتي'));
+      expect(en.appName, contains('War2aty'));
+
+      // The spelling is the decision. These are the transliterations it was
+      // chosen over, and the design file's own name is one of them — so it
+      // must not leak into user-facing copy.
+      for (final wrong in const ['Waraqti', 'Waraqty', 'Warqty']) {
+        expect(en.appName, isNot(contains(wrong)));
+      }
+    });
+
     test('covers every AppStrings member', () {
       // Read from the interface's source, so a new string cannot slip past
       // the checks in this file by being left out of [_accessors].
@@ -659,6 +682,115 @@ void main() {
           );
         }
       }
+    });
+  });
+
+  group('the on-device reading warning does not blame the connection', () {
+    // F27-T18 finding D-1, found on the owner's phone: the banner said the
+    // reading was done «بدون إنترنت» while the phone was online and the
+    // analysis that followed reached production over the same connection.
+    // `DecideAnalysisRoute` routes on-device for three reasons, and the one in
+    // production today (Q12: `online_ocr_enabled = false`) has nothing to do
+    // with the user's internet — so the banner must say *where* the page was
+    // read, never *why*.
+    // Arabic needs patterns rather than substrings: «النتيجة» (the result)
+    // contains «النت» (the net), so a plain `contains` fails on perfectly
+    // honest copy. «النت» is therefore matched only as a whole word.
+    final arBlamesConnection = <RegExp>[
+      RegExp('إنترنت'),
+      RegExp('انترنت'),
+      // U+0621-U+064A are the letters, U+064B-U+0652 the tashkeel, so a
+      // vowelled «النتُ» cannot slip past the word boundary either.
+      RegExp(r'النت(?![ء-ْ])'),
+      RegExp('اتصال'),
+      RegExp('أوفلاين'),
+    ];
+    const enBlamesConnection = [
+      'internet',
+      'connection',
+      'offline',
+      'no network',
+    ];
+
+    test('Arabic says where the page was read, not what the network did', () {
+      for (final pattern in arBlamesConnection) {
+        expect(
+          ar.ocrOfflineQualityWarning,
+          isNot(matches(pattern)),
+          reason:
+              'the on-device route is the launch default while the user is '
+              'online, so «${pattern.pattern}» would be false for every user',
+        );
+      }
+      expect(ar.ocrOfflineQualityWarning, contains('على موبايلك'));
+    });
+
+    test('that guard really would catch the wording it replaced', () {
+      // The copy this finding removed, kept here as the negative case: without
+      // it, the test above could pass by accident on any rewrite.
+      const old = 'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
+      expect(
+        arBlamesConnection.any((p) => p.hasMatch(old)),
+        isTrue,
+        reason: 'the banned patterns must match the wording D-1 removed',
+      );
+      // And it must not fire on «النتيجة», which is why they are patterns.
+      expect(
+        arBlamesConnection.any((p) => p.hasMatch('النتيجة ممكن تكون أقل دقة')),
+        isFalse,
+      );
+    });
+
+    test('English says where the page was read, not what the network did', () {
+      final copy = en.ocrOfflineQualityWarning.toLowerCase();
+      for (final word in enBlamesConnection) {
+        expect(copy, isNot(contains(word)), reason: '"$word" would be false');
+      }
+      expect(copy, contains('on your phone'));
+    });
+
+    test(
+      'the explicit-fallback banner keeps naming the online reading, which is '
+      'true in its one case',
+      () {
+        // Its cause really is that the online reading was unavailable, so this
+        // one may say so — and it still must not name a provider, which the
+        // provider guard above already enforces over every string.
+        expect(ar.ocrOnlineFallbackWarning, contains('الأونلاين'));
+        expect(
+          en.ocrOnlineFallbackWarning.toLowerCase(),
+          contains('online reading'),
+        );
+      },
+    );
+  });
+
+  group('AppStringsDelegate', () {
+    const delegate = AppStringsDelegate();
+
+    test('loads synchronously, so the first frame paints the app', () {
+      // `Localizations` renders an empty Container — the bare window background,
+      // no app UI — until every delegate's future completes. A plain `async`
+      // body always returns a real Future, which costs a guaranteed blank frame
+      // at launch. This is the regression guard: the type is the contract.
+      for (final locale in AppLocalizations.supportedLocales) {
+        expect(
+          delegate.load(locale),
+          isA<SynchronousFuture<AppStrings>>(),
+          reason: 'load() must not become an async function',
+        );
+      }
+    });
+
+    test('resolves the right implementation per locale', () async {
+      expect(await delegate.load(AppLocalizations.arabic), isA<ArStrings>());
+      expect(await delegate.load(AppLocalizations.english), isA<EnStrings>());
+    });
+
+    test('supports exactly the declared locales', () {
+      expect(delegate.isSupported(AppLocalizations.arabic), isTrue);
+      expect(delegate.isSupported(AppLocalizations.english), isTrue);
+      expect(delegate.isSupported(const Locale('fr')), isFalse);
     });
   });
 }

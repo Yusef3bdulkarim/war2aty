@@ -9,4 +9,6 @@ library;
 /// Single source of truth: the splash's animation controller runs for exactly
 /// this long, and the launch hold's escape hatch is derived from it, so the mark
 /// and the launch sequence can never drift apart.
-const Duration kLogoEntranceDuration = Duration(milliseconds: 6000);
+///
+/// 1.8 s: the owner-approved timing of the F27-P01 animated splash.
+const Duration kLogoEntranceDuration = Duration(milliseconds: 1800);

@@ -1,8 +1,16 @@
-# F12 · Hardening & Release
+# F12 · Hardening & Release — **SUPERSEDED by F27 (2026-10-05)**
+
+> **Closed, not finished.** F27 (production readiness) took this feature's
+> remaining scope, by the owner's answer to F27's Q7. T01 and T02 stay DONE;
+> **T03–T12 are not to be worked here** — see
+> [F27-production-readiness.md](F27-production-readiness.md), whose "What F12
+> leaves behind" section maps each one to its F27 task and records the single
+> item (T08, the OCR regression dataset) that is deliberately deferred past
+> launch rather than carried over.
 
 - **Branch:** `feature/hardening` · **Milestone:** M9
 - **Depends on:** all · **Feeds:** — (terminal)
-- **Progress:** 2 / 12 DONE
+- **Progress:** 2 / 12 DONE, the rest superseded
 
 Cross-cutting sweeps against the Definition-of-Done (§16) and store readiness.
 

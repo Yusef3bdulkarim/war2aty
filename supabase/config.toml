@@ -85,6 +85,13 @@ verify_jwt = true
 [functions.get-usage]
 verify_jwt = true
 
+# F27-T12. Authenticated like the rest, deliberately: an open error-report
+# endpoint is an unauthenticated write path, and the repo is public (B3).
+# The cost is that a crash before the anonymous session exists goes unreported
+# — a known, recorded gap, and the right side to err on.
+[functions.report-error]
+verify_jwt = true
+
 # Health is an unauthenticated liveness probe and returns no secrets (§23).
 [functions.health]
 verify_jwt = false

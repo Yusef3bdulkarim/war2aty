@@ -60,6 +60,25 @@ Deno.test({
 });
 
 Deno.test({
+  name: "[integration] the global capacity breaker is armed",
+  ignore: skip,
+  fn: async () => {
+    const config = await loadRuntimeConfig(serviceClient());
+
+    // F27-T06 / audit finding B3. This cap fails OPEN by design: unset means
+    // unlimited (see 20260730140000's header), which is exactly the state that
+    // let one script drain the shared free AI quotas for every user. So the
+    // regression worth guarding is not the number but its absence — deleting
+    // the row disables the breaker silently, with nothing else failing.
+    assert(
+      config.globalDailyCallCap !== null &&
+        config.globalDailyCallCap > 0,
+      "global_daily_call_cap must be set, or the breaker is off entirely",
+    );
+  },
+});
+
+Deno.test({
   name: "[integration] a failed read throws instead of failing the kill switch open",
   ignore: skip,
   fn: async () => {
