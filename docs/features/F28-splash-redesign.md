@@ -97,7 +97,7 @@ Resolved with the owner on 2026-10-08.
 |---|---|---|---|---|
 | 1 | F28-T01 | Feature doc, branch, stale-branch cleanup | this doc + `README.md` row; PR #29 merged to `develop`; `feature/splash-redesign` cut from `develop`; three stale branches deleted | DONE 2026-10-08 |
 | 2 | F28-T02 | Purge the old splash | as planned, plus a test file the coverage guard required — see "T02 record" | DONE 2026-10-08 |
-| 3 | F28-T03 | **Design: 3 variants → owner approval gate** | HTML preview in `tool/branding/`, three completely different concepts, brand colours, logo only, each with its own motion idea; written design plan reviewed for genericness before any code (per `frontend-design`) | |
+| 3 | F28-T03 | **Design: 3 variants → owner approval gate** | `tool/branding/splash_preview_v2.html` — see "T03 record" | **AWAITING THE OWNER'S PICK** |
 | 4 | F28-T04 | A sharper mark | upscale + sharpen in `generate_brand_assets.dart`; regenerated 1×/2×/3× plus every native splash size | |
 | 5 | F28-T05 | Native splash carries the mark | Android pre-12 (light + night), API 31+ `values-v31` / `values-night-v31`, the exit-animation listener in `MainActivity`, iOS `LaunchImage` + storyboard (written blind) | |
 | 6 | F28-T06 | The new Flutter splash | the approved variant; first frame pixel-matches the native splash; background fades in; the new idle animation | |
@@ -157,6 +157,80 @@ next one — two pumps, and the test says why.
 0 warnings** (18 infos, the standing baseline), `flutter test` **2,417 passed**.
 `flutter build apk --flavor dev --debug` succeeds, so the app still compiles for
 a device as well as for the test VM.
+
+## T03 record (2026-10-08) — awaiting the owner's pick
+
+Preview: **`tool/branding/splash_preview_v2.html`** (open in a browser). Replay,
+0.5x / 0.25x, a reduced-motion switch, and a **Hold frame 0** button. It also
+shows the handover proof: the system splash and Flutter's first frame side by
+side, identical.
+
+### The constraint that shaped all three
+
+Decision 2 says Flutter's first frame must match the native splash exactly. That
+rules out the obvious splash move — a logo that fades or scales in — because the
+logo is already on screen, drawn by the system, before Flutter exists. So in all
+three concepts **the mark never moves and never fades**. It is the fixed point,
+and the paper world assembles around it. Only the background arrives, once.
+
+### Palette: five brand values, nothing else
+
+| Token | Hex | Role |
+|---|---|---|
+| `launch` | `#0A6C76` | the handover colour; frame 0, and the floor of every concept |
+| `near` | `#0E7C86` | brand teal |
+| `far` | `#0A5C64` | deep teal |
+| `recess` | `#04454E` | the icon's own darker ground (P01 lifted it from the owner's artwork) |
+| `mint` | `#34D0B4` | only ever a hairline, only ever at low alpha |
+
+**Type: none.** The splash carries no text by decision 5, so there is no
+typeface to choose. The preview's own chrome uses Cairo loaded from
+`assets/fonts/` rather than Google Fonts, so the file works offline.
+
+### The three
+
+Each is a different *kind* of geometry, not three versions of one idea.
+
+| | Concept | Geometry | The one moment |
+|---|---|---|---|
+| A | **«السطور»** Ruled lines | 1D — horizontal hairlines, grouped as a real form groups them, breaking around the mark | the rules draw in **from the right leftward**, the direction these users read |
+| B | **«الطيّة»** The fold | 2D — a letter folded in three for an envelope, flat planes, no gradient | the two outer bands take the light; the middle band, where the mark sits, never changes at all |
+| C | **«الشبكة»** The watermark | texture — the fine diagonal security lattice printed into official paper | it resolves into focus once, easing from very slightly oversized to exact |
+
+### What the review pass changed
+
+The plan was written, then checked against the brief for anything that was a
+default rather than a choice. Three things failed that check, and two of them
+only became obvious once the page was rendered and looked at:
+
+1. **Evenly spaced rules in A** — hairline rules are on `frontend-design`'s list
+   of generated-page tells. Fixed by grouping them irregularly, the way a form
+   does, so the rhythm carries information instead of decorating.
+2. **B was four quarters.** Rendered, it read as four hard colour blocks with a
+   seam running straight behind the logo — not paper. Rebuilt as three bands
+   (a letter folded for an envelope, which is how these papers are actually
+   carried), with the value steps cut to a few percent and the middle band left
+   at exactly the handover colour, so nothing ever changes behind the mark.
+3. **C was the boxed grid of a bill.** Rendered, the outlined boxes read as a
+   **loading skeleton** — the worst possible association for a splash, since it
+   suggests the app is stuck. Replaced outright with the security lattice, which
+   is also a different kind of geometry from A and B rather than a third
+   rectilinear one.
+
+Two further notes, from `ui-ux-pro-max`:
+
+- Its database flags **continuous decorative animation** ("use for loading
+  indicators only") and **more than 1–2 animated elements per view**. The old
+  splash's infinitely breathing mark was exactly the first case. Every concept
+  here plays **one finite moment and then stops**.
+- Motion-duration guidance there explicitly warns against treating any single
+  figure as universal, so the three differ (~900 / ~800 / ~920 ms) according to
+  what each one is doing rather than sharing one number.
+
+### Deliberately not in the preview
+
+How the splash *leaves*. The exit is F28-T07's, and showing a guess at it would
+invite judging something that has not been designed.
 
 ## Deleted branches (F28-T01)
 

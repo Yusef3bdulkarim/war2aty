@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splash — three concepts (F28-T03)</title>
+<style>
+  /* Cairo from the repo, not Google Fonts: this file must work offline. */
+  @font-face {
+    font-family: 'Cairo';
+    src: url('../../assets/fonts/Cairo.ttf') format('truetype');
+    font-weight: 400 800;
+    font-display: swap;
+  }
+
+  :root {
+    /* Preview chrome — deliberately NOT brand colours, so the chrome can never
+       be mistaken for part of the design being judged. */
+    --page: #0f1416; --panel: #172024; --line: #26343a; --text: #e6eef0;
+    --muted: #8a9a9f;
+
+    /* The five brand values the concepts are built from. Nothing else. */
+    --launch:  #0A6C76;  /* the native splash colour = Flutter's first frame */
+    --near:    #0E7C86;  /* brand teal */
+    --far:     #0A5C64;  /* deep teal */
+    --recess:  #04454E;  /* the icon's own darker ground */
+    --mint:    #34D0B4;  /* only ever at low alpha, only ever as a line */
+
+    --speed: 1;          /* 1 | 2 | 4 — divides into playback rate */
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--text);
+    font: 14px/1.6 Cairo, system-ui, -apple-system, Roboto, sans-serif; }
+
+  header { padding: 28px 20px 10px; max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 21px; font-weight: 800; margin: 0 0 8px; }
+  header p { margin: 0 0 8px; color: var(--muted); max-width: 72ch; }
+  code { background: #0b1013; border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-size: 12.5px; }
+
+  .bar { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    align-items: center; padding: 14px 16px; position: sticky; top: 0; z-index: 20;
+    background: rgba(15,20,22,.95); border-bottom: 1px solid var(--line);
+    margin-top: 14px; }
+  button { font: inherit; font-weight: 700; color: #fff; background: #0E7C86;
+    border: 0; border-radius: 10px; padding: 10px 18px; cursor: pointer;
+    min-height: 44px; }
+  button:hover { background: #0c6d76; }
+  button:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button { background: transparent; border: 1px solid var(--line);
+    color: var(--text); padding: 9px 13px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--line); border-color: var(--mint); }
+  label.sw { display: inline-flex; gap: 8px; align-items: center; cursor: pointer;
+    color: var(--muted); min-height: 44px; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--mint); }
+  .clock { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 78px;
+    text-align: right; color: var(--mint); }
+
+  /* ── The handover proof ─────────────────────────────────────────────── */
+  .handover { max-width: 980px; margin: 26px auto 0; padding: 0 20px; }
+  .handover h2 { font-size: 15px; font-weight: 800; margin: 0 0 4px; }
+  .handover p { color: var(--muted); margin: 0 0 14px; max-width: 72ch; }
+  .pair { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .mini { width: 150px; margin: 0; }
+  .mini .frame { width: 150px; height: 317px; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--launch);
+    display: grid; place-items: center; }
+  .mini img { width: 53px; height: 53px; }      /* 128 dp at this scale */
+  .mini figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .verdict { align-self: center; color: var(--mint); font-weight: 700;
+    max-width: 30ch; font-size: 13px; }
+
+  /* ── The three concepts ─────────────────────────────────────────────── */
+  .row { display: flex; gap: 30px; justify-content: center; align-items: flex-start;
+    flex-wrap: wrap; padding: 30px 20px 70px; }
+  .opt { width: 360px; }
+  .opt > h2 { font-size: 17px; font-weight: 800; margin: 14px 0 0;
+    display: flex; gap: 9px; align-items: baseline; }
+  .opt > h2 .ar { font-size: 20px; }
+  .opt > h2 .en { color: var(--muted); font-size: 13.5px; font-weight: 600; }
+  .opt .why { color: var(--muted); margin: 7px 0 0; font-size: 13px; }
+  .opt .spec { margin: 10px 0 0; padding: 10px 12px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 9px; font-size: 12.5px;
+    color: var(--muted); }
+  .opt .spec b { color: var(--text); font-weight: 700; }
+
+  /* The phone is 360×740 true logical pixels, so the mark below is 128 dp
+     exactly as it will be on a device — nothing to scale past. */
+  .phone { width: 360px; height: 740px; border-radius: 30px; overflow: hidden;
+    border: 1px solid var(--line); position: relative;
+    background: var(--launch);                 /* frame 0, always */
+    box-shadow: 0 14px 40px rgba(0,0,0,.45); }
+
+  /* The mark: full opacity from the first frame, dead centre, never moves.
+     Every concept obeys this — it is the whole point of the handover. */
+  .mark { position: absolute; left: 50%; top: 50%; width: 128px; height: 128px;
+    transform: translate(-50%, -50%); z-index: 5; }
+
+  .pattern { position: absolute; inset: 0; z-index: 1; }
+
+  /* ===== A · ruled lines ============================================== */
+  .ruled .rule { position: absolute; height: 1px; background: var(--mint);
+    opacity: .085; transform: scaleX(0); transform-origin: right center; }
+  .play .ruled .rule { animation-name: draw; animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(.2,.75,.2,1);
+    animation-delay: calc(var(--t) * 1ms * var(--speed));
+    animation-duration: calc(420ms * var(--speed)); }
+  @keyframes draw { to { transform: scaleX(1); } }
+
+  /* ===== B · the fold ================================================= */
+  .fold .q { position: absolute; left: 0; width: 100%; display: block;
+    background-color: var(--launch); }
+  /* Folded in three for an envelope. The middle band — the one the mark sits
+     in — keeps the handover colour exactly and never changes; only the bands
+     above and below take the light. */
+  .fold .q.top { top: 0;      height: 33.4%; }
+  .fold .q.mid { top: 33.4%;  height: 33.2%; }
+  .fold .q.bot { top: 66.6%;  height: 33.4%; }
+  .play .fold .q { animation-name: facet; animation-fill-mode: forwards;
+    animation-timing-function: ease-out;
+    animation-delay: calc(var(--t) * 1ms * var(--speed));
+    animation-duration: calc(360ms * var(--speed)); }
+  @keyframes facet { to { background-color: var(--to); } }
+
+  .fold .crease { position: absolute; background: var(--mint); opacity: 0; }
+  .fold .crease { left: 0; width: 100%; height: 1px; }
+  .fold .crease.one { top: 33.4%; }
+  .fold .crease.two { top: 66.6%; }
+  .play .fold .crease { animation-name: creaseIn; animation-fill-mode: forwards;
+    animation-timing-function: ease-out;
+    animation-delay: calc(300ms * var(--speed));
+    animation-duration: calc(520ms * var(--speed)); }
+  @keyframes creaseIn { to { opacity: .1; } }
+
+  /* ===== C · the watermark lattice ==================================== */
+  /* The fine diagonal security print on official paper. Two 1px gratings at
+     +45 and -45, nothing else — a different kind of geometry from the rules
+     of A and the planes of B. */
+  .lattice .weave { position: absolute; inset: -10%; opacity: 0;
+    transform: scale(1.03); transform-origin: center;
+    background-image:
+      repeating-linear-gradient( 45deg, rgba(52,208,180,.34) 0 1px, transparent 1px 27px),
+      repeating-linear-gradient(-45deg, rgba(52,208,180,.34) 0 1px, transparent 1px 27px); }
+  .play .lattice .weave { animation-name: focusIn; animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(.2,.75,.2,1);
+    animation-delay: calc(300ms * var(--speed));
+    animation-duration: calc(620ms * var(--speed)); }
+  @keyframes focusIn { to { opacity: .22; transform: scale(1); } }
+
+  /* ===== Reduced motion: the settled frame, at once, no animation ===== */
+  .reduce .ruled .rule  { transform: scaleX(1); animation: none; }
+  .reduce .fold .q      { background-color: var(--to); animation: none; }
+  .reduce .fold .crease { opacity: .1; animation: none; }
+  .reduce .lattice .weave { opacity: .22; transform: scale(1); animation: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .phone * { animation: none !important; }
+  }
+
+  footer { max-width: 980px; margin: 0 auto; padding: 0 20px 60px;
+    color: var(--muted); font-size: 13px; }
+  footer b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Splash screen — three concepts</h1>
+  <p>F28-T03. The old gradient-and-glow splash is gone; these replace the idea rather
+     than refine it. All three are built from five brand values and carry no text.</p>
+  <p><b>The rule every one of them obeys:</b> at <code>t = 0</code> the screen is flat
+     <code>#0A6C76</code> with the mark already at full size and full opacity —
+     pixel-identical to the native splash before it. The mark never moves and never
+     fades in. Only the background arrives, and only once.</p>
+</header>
+
+<div class="bar">
+  <button id="replay">↻ Replay all</button>
+  <button id="zero">⏸ Hold frame 0</button>
+  <div class="seg" id="speeds">
+    <button data-speed="1" aria-pressed="true">1×</button>
+    <button data-speed="2" aria-pressed="false">0.5×</button>
+    <button data-speed="4" aria-pressed="false">0.25×</button>
+  </div>
+  <label class="sw"><input type="checkbox" id="reduce"> reduced motion</label>
+  <span class="clock" id="clock">0 ms</span>
+</div>
+
+<section class="handover">
+  <h2>Why the flicker goes away</h2>
+  <p>The ~440 ms before Flutter draws anything cannot be removed — that is engine and
+     VM startup. So the mark moves into the native splash instead, and Flutter's first
+     frame is built to match it. These two are the same frame:</p>
+  <div class="pair">
+    <figure class="mini">
+      <div class="frame"><img src="../../assets/images/3.0x/brand_mark.png" alt=""></div>
+      <figcaption>System splash, ~100 ms. Android and iOS draw this.</figcaption>
+    </figure>
+    <figure class="mini">
+      <div class="frame"><img src="../../assets/images/3.0x/brand_mark.png" alt=""></div>
+      <figcaption>Flutter's first frame, ~440 ms. Same colour, same mark, same place.</figcaption>
+    </figure>
+    <p class="verdict">Nothing changes at the swap, so there is nothing to notice. The
+       logo is present from ~100 ms instead of ~775 ms.</p>
+  </div>
+</section>
+
+<div class="row" id="row"></div>
+
+<footer>
+  <p><b>Not shown:</b> how the splash leaves. The exit belongs to F28-T07 and is
+     deliberately absent so it is not judged before it is designed.</p>
+  <p><b>Reduced motion</b> shows what a user with motion turned off sees: the settled
+     frame, immediately, with no animation at all.</p>
+</footer>
+
+<script>
+// Each concept: a builder for its pattern layer, plus the copy that explains it.
+const CONCEPTS = [
+  {
+    ar: 'السطور', en: 'Ruled lines',
+    why: 'The faint rules of a printed form. They are grouped the way a real form '
+       + 'groups them, never evenly spaced, and they break around the mark — so the '
+       + 'mark sits in the text rather than on top of a pattern.',
+    spec: '<b>Moment:</b> the rules draw in from the right edge leftward, the '
+        + 'direction this app&rsquo;s users read, top group to bottom. '
+        + '<b>0 ms</b> first rule &middot; <b>ends ~900 ms</b> &middot; then still.',
+    build() {
+      // Grouped, not evenly spaced: 3 close, gap, 2, the mark's band, 4, gap, 2.
+      const groups = [[12, 16, 20], [31, 35], [57, 61, 65, 69], [80, 84]];
+      const band = [44, 48, 52];        // the three rules the mark interrupts
+      const gap = 168;                  // 128 mark + 20 clear either side
+      let html = '', i = 0;
+      for (const g of groups) {
+        for (const y of g) {
+          html += '<div class="rule" style="top:' + y + '%;right:28px;'
+                + 'width:calc(100% - 56px);--t:' + (i * 55) + '"></div>';
+          i++;
+        }
+      }
+      const seg = 'calc(50% - ' + (gap / 2) + 'px - 28px)';
+      for (const y of band) {
+        html += '<div class="rule" style="top:' + y + '%;right:28px;width:' + seg
+              + ';--t:' + (i * 55) + '"></div>';
+        html += '<div class="rule" style="top:' + y + '%;left:28px;width:' + seg
+              + ';--t:' + (i * 55 + 28) + '"></div>';
+        i++;
+      }
+      return '<div class="pattern ruled">' + html + '</div>';
+    },
+  },
+  {
+    ar: 'الطيّة', en: 'The fold',
+    why: 'A letter folded in three for an envelope, then flattened out. The value '
+       + 'steps are deliberately tiny — light falling across a sheet, not colour '
+       + 'blocks — and the middle band keeps the handover colour exactly, so nothing '
+       + 'ever changes behind the mark.',
+    spec: '<b>Moment:</b> the two outer bands take the light, the creases surface '
+        + 'between them. Flat steps, not a sliding sheen. '
+        + '<b>300 ms</b> &middot; <b>ends ~800 ms</b> &middot; then still.',
+    build() {
+      // Deliberately tiny value steps: light across a sheet, not colour blocks.
+      const bands = [
+        ['top', '#0C7480', 300], ['mid', '#0A6C76', 300], ['bot', '#085E68', 440],
+      ];
+      let html = bands.map(function (b) {
+        return '<div class="q ' + b[0] + '" style="--to:' + b[1] + ';--t:' + b[2] + '"></div>';
+      }).join('');
+      html += '<span class="crease one"></span><span class="crease two"></span>';
+      return '<div class="pattern fold">' + html + '</div>';
+    },
+  },
+  {
+    ar: 'الشبكة', en: 'The watermark',
+    why: 'The fine diagonal lattice printed into official paper so it cannot be '
+       + 'forged — the texture of a document that counts. It is the one thing in '
+       + 'this app&rsquo;s world that is pure geometry already, so it needs no '
+       + 'inventing, and it is a different kind of pattern from the rules of A or '
+       + 'the planes of B.',
+    spec: '<b>Moment:</b> the lattice resolves into focus once, easing from very '
+        + 'slightly oversized to exact, the way print sharpens under a lens. '
+        + '<b>300 ms</b> &middot; <b>ends ~920 ms</b> &middot; then still.',
+    build() {
+      return '<div class="pattern lattice"><span class="weave"></span></div>';
+    },
+  },
+];
+
+const row = document.getElementById('row');
+row.innerHTML = CONCEPTS.map(function (c) {
+  return '<div class="opt">'
+       +   '<div class="phone">' + c.build()
+       +     '<img class="mark" src="../../assets/images/3.0x/brand_mark.png" alt="">'
+       +   '</div>'
+       +   '<h2><span class="ar">' + c.ar + '</span>'
+       +       '<span class="en">' + c.en + '</span></h2>'
+       +   '<p class="why">' + c.why + '</p>'
+       +   '<div class="spec">' + c.spec + '</div>'
+       + '</div>';
+}).join('');
+
+const phones = Array.prototype.slice.call(document.querySelectorAll('.phone'));
+const clock = document.getElementById('clock');
+const reduceBox = document.getElementById('reduce');
+let startedAt = 0, ticking = false;
+
+function setPlaying(on) {
+  phones.forEach(function (p) { p.classList.toggle('play', on); });
+}
+
+function speed() {
+  return Number(getComputedStyle(document.documentElement)
+    .getPropertyValue('--speed')) || 1;
+}
+
+function replay() {
+  document.body.classList.remove('reduce');
+  reduceBox.checked = false;
+  setPlaying(false);
+  void phones[0].offsetWidth;          // forces the animations to restart
+  setPlaying(true);
+  startedAt = performance.now();
+  if (!ticking) { ticking = true; requestAnimationFrame(tick); }
+}
+
+function tick(now) {
+  const elapsed = (now - startedAt) / speed();
+  clock.textContent = Math.min(Math.round(elapsed), 1100) + ' ms';
+  if (elapsed < 1150) requestAnimationFrame(tick);
+  else ticking = false;
+}
+
+document.getElementById('replay').addEventListener('click', replay);
+
+// The base CSS *is* frame 0, so removing .play shows it exactly.
+document.getElementById('zero').addEventListener('click', function () {
+  document.body.classList.remove('reduce');
+  reduceBox.checked = false;
+  setPlaying(false);
+  clock.textContent = '0 ms';
+});
+
+document.getElementById('speeds').addEventListener('click', function (e) {
+  const b = e.target.closest('button');
+  if (!b) return;
+  Array.prototype.slice.call(e.currentTarget.children).forEach(function (x) {
+    x.setAttribute('aria-pressed', String(x === b));
+  });
+  document.documentElement.style.setProperty('--speed', b.dataset.speed);
+  replay();
+});
+
+reduceBox.addEventListener('change', function (e) {
+  if (e.target.checked) {
+    setPlaying(false);
+    document.body.classList.add('reduce');
+    clock.textContent = 'settled';
+  } else {
+    replay();
+  }
+});
+
+replay();
+</script>
+</body>
+</html>
