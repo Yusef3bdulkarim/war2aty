@@ -90,6 +90,52 @@ void main() {
     );
   });
 
+  testWidgets('draws the mark at the size the native splash drew it', (
+    tester,
+  ) async {
+    await pumpLaunch(tester, steps: const []);
+    await tester.pump();
+
+    final mark = find.image(const AssetImage(kBrandMarkAsset));
+    expect(mark, findsOneWidget);
+    expect(
+      tester.getSize(mark),
+      const Size(kSplashMarkSize, kSplashMarkSize),
+      reason:
+          'the native splash has already drawn this mark at this size; any '
+          'other size here is a jump the user sees at the handover',
+    );
+  });
+
+  testWidgets('centres the mark, where the native splash centred it', (
+    tester,
+  ) async {
+    await pumpLaunch(tester, steps: const []);
+    await tester.pump();
+
+    final screen = tester.getRect(find.byType(Scaffold));
+    expect(
+      tester.getCenter(find.image(const AssetImage(kBrandMarkAsset))),
+      screen.center,
+    );
+  });
+
+  testWidgets('nothing on the launch frame moves, ever', (tester) async {
+    await pumpLaunch(tester, steps: const []);
+    await tester.pump();
+    // Well past any entrance the old splash would have been playing.
+    await tester.pump(const Duration(seconds: 5));
+
+    expect(
+      tester.binding.transientCallbackCount,
+      0,
+      reason:
+          'a still screen is the design (F28 decision 1). The old splash ran '
+          'a 1.8 s entrance and then breathed forever, and that entrance was '
+          'most of the ~775 ms before the mark was solid (F27-T18, D-2)',
+    );
+  });
+
   testWidgets('carries no text while launching', (tester) async {
     await pumpLaunch(tester, steps: const []);
     await tester.pump();

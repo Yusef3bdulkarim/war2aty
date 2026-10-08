@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 5 / 9 DONE
+- **Progress:** 6 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -105,7 +105,7 @@ Resolved with the owner on 2026-10-08.
 | 3 | F28-T03 | **Design → owner decision** | three concepts proposed and all three discarded; the screen is the background colour and the icon — see "T03 record" | DONE 2026-10-08 |
 | 4 | F28-T04 | A sharper mark | unsharp mask in `_resize`; every splash mark regenerated, +49–62 % edge contrast — see "T04 record" | DONE 2026-10-08 |
 | 5 | F28-T05 | Native splash carries the mark | all three paths wired, 13 guards, mutation-proved, verified in the APK's resource table — see "T05 record" | DONE 2026-10-08 |
-| 6 | F28-T06 | The Flutter splash | the mark at 128 dp on `kLaunchBackground`, centred, full opacity, static — and a test that it matches the native splash | |
+| 6 | F28-T06 | The Flutter splash | the mark drawn, the handover closed, a centring bug from T02 caught — see "T06 record" | DONE 2026-10-08 |
 | 7 | F28-T07 | The new hand-off | replaces `SplashHandOff` / `LaunchReveal`; ~500 ms floor, capped content gate, reveal fade, reduced-motion path | |
 | 8 | F28-T08 | Tests + gate + device verification | new test suite (seam guard, timing guard, reduced motion, error state, RTL + large text); `dart format` / `flutter analyze` / `flutter test`; installed on the RMX2001 with `am start -W` numbers recorded here | |
 | 9 | F28-T09 | Review and close | `/flutter-code-review` → `@code-reviewer` → `/explain-feature`; F27-T18's D-2 note updated to point here; PR | |
@@ -354,6 +354,63 @@ then the launch shows the mark natively and then *loses* it when Flutter takes
 over at ~440 ms, which is worse than before this task on its own. T05 and T06
 only make sense together, and nothing should be put in front of a user between
 them.
+
+## T06 record (2026-10-08)
+
+Flutter's first frame now draws the mark, which closes the handover T05 opened.
+From this commit the launch is one unchanging image from ~100 ms until Home.
+
+The screen is the background colour and the mark, centred at `kSplashMarkSize`,
+full opacity, **static**. Stillness is the design, not an omission: the system
+splash has already drawn this frame, so anything that faded or scaled the mark
+would be a change the user could see at exactly the moment there is meant to be
+nothing to notice. Reduced motion needs no separate path, because there is no
+motion to reduce.
+
+### The number now lives in four places, and a test holds them together
+
+`kSplashMarkSize` (Dart) = `_splashMarkDp` (the generator) = the `128dp` pin in
+`splash_icon.xml` = the intrinsic size of the pre-12 bitmap. A mismatch in any
+one is a mark that changes size at the handover, and `native_splash_test` now
+reads all three sources and compares them.
+
+Stronger still: **at a matching density the Flutter asset and the native bitmap
+are byte-identical.** Both come from one source through one resize, so
+`assets/images/brand_mark.png` *is* `drawable-mdpi/splash_mark.png`, the 2.0x is
+xhdpi and the 3.0x is xxhdpi. The test compares the bytes. The two layers do not
+merely look alike; they are the same image.
+
+### A bug the new tests caught, introduced in T02
+
+The mark came out in the **top-left corner**, not the centre. A `Stack` under
+loose constraints shrink-wraps to its largest child, and T02's rewrite had
+dropped the `SizedBox.expand` the old splash wrapped it in. It went unnoticed
+for four tasks because until the mark existed both of the Stack's children were
+invisible 1x1 leaves, so it made no difference where the Stack put them. The
+wrapper is restored, with a comment saying it is load-bearing.
+
+This is the exact failure the F28 approach is most exposed to — everything else
+about the handover was right, and the mark would still have jumped across the
+screen at ~440 ms.
+
+### The precache comes back, for a different reason
+
+T02 removed `_precacheSplashMark` along with the asset constant it referenced.
+It returns, and T05 changed what it is for. It used to prevent a decode stalling
+the splash animation; now the mark is already on screen natively, so a slow
+decode means Flutter's first frame draws the background **without** the mark and
+drops something the user is already looking at. That is the one visible failure
+this launch can still have, and avoiding it costs nothing.
+
+### Tests
+
+`launch_screen_test` gains three: the mark is drawn at `kSplashMarkSize`, it is
+centred on the screen, and **nothing moves** — `transientCallbackCount` is 0
+five seconds in, which the old splash's 1.8 s entrance and endless breathing
+would both have failed.
+
+**Gate:** format 0 changed, analyze **0 errors / 0 warnings**, **2,436 tests**
+green (+6), debug APK builds.
 
 ## Deleted branches (F28-T01)
 

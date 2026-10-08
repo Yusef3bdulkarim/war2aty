@@ -196,4 +196,65 @@ void main() {
       );
     });
   });
+
+  group('Flutter draws what the native splash already drew', () {
+    test('one mark size, in all four places that have to agree', () {
+      final dartSize = RegExp(
+        r'kSplashMarkSize = (\d+)',
+      ).firstMatch(launchScreen)?.group(1);
+      expect(dartSize, '128', reason: 'Flutter draws the mark at this size');
+
+      final generator = read('tool/branding/generate_brand_assets.dart');
+      final cutAt = RegExp(
+        r'_splashMarkDp = (\d+)',
+      ).firstMatch(generator)?.group(1);
+      expect(
+        cutAt,
+        dartSize,
+        reason: 'the generator cuts every bitmap at this many dp',
+      );
+
+      final icon = read('android/app/src/main/res/drawable/splash_icon.xml');
+      expect(
+        icon,
+        contains('android:width="${dartSize}dp"'),
+        reason:
+            'the Android 12+ icon is pinned to this inside its 288 dp canvas',
+      );
+    });
+
+    test('the Flutter asset and the native bitmap are the same bytes', () {
+      const pairs = [
+        ('assets/images/brand_mark.png', 'mdpi'),
+        ('assets/images/2.0x/brand_mark.png', 'xhdpi'),
+        ('assets/images/3.0x/brand_mark.png', 'xxhdpi'),
+      ];
+      for (final (flutterAsset, bucket) in pairs) {
+        final native =
+            'android/app/src/main/res/drawable-$bucket/splash_mark.png';
+        expect(
+          File(flutterAsset).readAsBytesSync(),
+          File(native).readAsBytesSync(),
+          reason:
+              'at a matching density these are the same image, cut from one '
+              'source by one resize. If they ever diverge, the mark changes '
+              'when Flutter takes over — which is the whole thing F28 exists '
+              'to prevent',
+        );
+      }
+    });
+
+    test('the launch screen draws the mark, and the mark is the asset', () {
+      expect(
+        launchScreen,
+        contains("kBrandMarkAsset = 'assets/images/brand_mark.png'"),
+        reason: 'Flutter must draw the same file the generator cut',
+      );
+      expect(
+        launchScreen,
+        contains('width: kSplashMarkSize'),
+        reason: 'drawing it at any other size is a jump at the handover',
+      );
+    });
+  });
 }

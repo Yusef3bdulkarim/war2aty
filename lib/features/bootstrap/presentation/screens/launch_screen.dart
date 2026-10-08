@@ -17,19 +17,41 @@ import 'launch_error_screen.dart';
 /// they drift, the handover from the native splash to Flutter becomes visible.
 const Color kLaunchBackground = Color(0xFF0A6C76);
 
+/// The mark the launch screen draws, cut by
+/// `tool/branding/generate_brand_assets.dart` along with every other brand
+/// asset.
+///
+/// At each density this file is **byte-identical** to the `splash_mark.png` the
+/// native splash draws, because both come from the same source through the same
+/// resize: `assets/images/brand_mark.png` is `drawable-mdpi/splash_mark.png`,
+/// the 2.0x is xhdpi, the 3.0x is xxhdpi. `native_splash_test` asserts it.
+const String kBrandMarkAsset = 'assets/images/brand_mark.png';
+
+/// Side of the mark, in logical pixels.
+///
+/// The fourth place this number has to appear, and the reason it is a named
+/// constant in all four: `_splashMarkDp` in the generator cuts the bitmaps,
+/// `splash_icon.xml` pins the Android 12+ icon inside its 288 dp canvas, the
+/// pre-12 bitmap is drawn at its intrinsic size, and this draws the Flutter
+/// copy. A mismatch in any one of them is a mark that changes size at the
+/// handover.
+const double kSplashMarkSize = 128;
+
 /// What the app shows while it is starting up, and instead of starting up if a
 /// critical step fails.
 ///
-/// **Interim (F28-T02).** The splash this replaces is gone and its successor is
-/// not built yet, so the launch frame here is the flat native colour and
-/// nothing else. F28-T06 fills it in with the approved design, which is why
-/// the state switch lives here rather than inside whatever draws the splash:
-/// handling a launch failure is this screen's job in every design, and drawing
-/// a brand animation is the job of exactly one widget that T06 will add.
+/// The launch frame is the background colour and the mark, and nothing else —
+/// no gradient, no glow, no pattern, no text (F28 decision 1, the owner's call
+/// on 2026-10-08 after three patterned concepts were discarded).
 ///
-/// What is deliberately kept through the interim, because it is behaviour
-/// rather than decoration: the app's name as the first thing a screen reader
-/// announces, and the running launch stage as a live region.
+/// **Nothing on it moves, and that is the design rather than an omission.**
+/// The system splash has already drawn this exact frame by ~100 ms, and F28's
+/// whole premise is that the swap to Flutter at ~440 ms is invisible. Anything
+/// that faded or scaled the mark here would be a change the user could see at
+/// precisely the moment there is meant to be nothing to notice — the old
+/// splash's entrance was itself most of the ~775 ms wait that F27-T18 measured.
+/// Reduced motion therefore needs no separate path: there is no motion to
+/// reduce.
 class LaunchScreen extends StatelessWidget {
   const LaunchScreen({super.key});
 
@@ -77,28 +99,54 @@ class _LaunchFrame extends StatelessWidget {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: kLaunchBackground,
+        // `SizedBox.expand` is load-bearing: a `Stack` shrink-wraps to its
+        // largest child under loose constraints, so without it the mark sits
+        // in the top-left corner instead of the centre. It went unnoticed from
+        // F28-T02 until T06, because until the mark arrived both children were
+        // invisible 1x1 leaves and it made no difference where they were.
+        //
         // Two sibling leaves rather than one wrapper around the other: a
         // `Semantics` with a label of its own, placed above the stage region,
         // absorbs it, and the stage stops being announced at all.
-        body: Stack(
-          alignment: Alignment.center,
-          children: [
-            // The app's name, the first thing a screen reader says. F28-T06
-            // moves this label onto the mark it draws, which is where it sat
-            // before the purge.
-            Semantics(
-              container: true,
-              label: context.strings.appName,
-              child: const SizedBox.square(dimension: 1),
-            ),
-            Semantics(
-              container: true,
-              liveRegion: true,
-              label: _stageLabel(context),
-              child: const SizedBox.square(dimension: 1),
-            ),
-          ],
+        body: SizedBox.expand(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // The mark, labelled with the app's name — the one thing on
+              // screen, and the first thing a screen reader says.
+              Semantics(
+                label: context.strings.appName,
+                image: true,
+                child: const _BrandMark(),
+              ),
+              Semantics(
+                container: true,
+                liveRegion: true,
+                label: _stageLabel(context),
+                child: const SizedBox.square(dimension: 1),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// The brand mark, at the size and place the native splash already drew it.
+///
+/// Its pixels say nothing a screen reader needs — the label around it carries
+/// the app's name, and announcing the image as well would say it twice.
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: Image.asset(
+        kBrandMarkAsset,
+        width: kSplashMarkSize,
+        height: kSplashMarkSize,
       ),
     );
   }

@@ -8,6 +8,7 @@ import 'core/env/app_environment.dart';
 import 'core/logging/global_error_handlers.dart';
 import 'core/storage/flutter_secure_storage_service.dart';
 import 'core/storage/secure_session_local_storage.dart';
+import 'features/bootstrap/presentation/screens/launch_screen.dart';
 
 /// Shared launch path for every flavor entrypoint.
 ///
@@ -19,6 +20,7 @@ import 'core/storage/secure_session_local_storage.dart';
 /// `AuthRepository`, and initializing it twice throws.
 Future<void> bootstrap(AppEnvironment env) async {
   WidgetsFlutterBinding.ensureInitialized();
+  _precacheSplashMark();
 
   final resolved = AppEnvironment(
     flavor: env.flavor,
@@ -97,9 +99,20 @@ Future<String> _readAppVersion(AppEnvironment env) async {
   }
 }
 
-// F28-T02 removed `_precacheSplashMark`, which started decoding the splash mark
-// here so it was in the image cache by the splash's first frame rather than
-// being decoded during its animation. It referenced the deleted splash screen's
-// asset constant. F28-T06 needs the same trick for whatever the new splash
-// draws, and the native splash in F28-T05 removes most of the urgency: the mark
-// is already on screen before Flutter starts.
+/// Starts decoding the splash mark while Supabase and DI start up, so it is in
+/// the image cache by the launch screen's first frame rather than being decoded
+/// during it.
+///
+/// F28-T05 lowered the stakes but raised the point of this. The mark is already
+/// on screen natively from ~100 ms, so a slow decode no longer means an empty
+/// screen — it means Flutter's first frame draws the background **without** the
+/// mark, dropping a mark the user is already looking at. That is the one
+/// visible failure this launch can still have, and it costs nothing to avoid.
+///
+/// Fire-and-forget: if it is not ready in time the screen decodes it itself.
+void _precacheSplashMark() {
+  final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+  const AssetImage(
+    kBrandMarkAsset,
+  ).resolve(ImageConfiguration(devicePixelRatio: view?.devicePixelRatio ?? 1));
+}
