@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+ always shows a system splash before the app draws
-         (F27-P01). Without these it falls back to the launcher icon on a
-         theme-coloured background; with them it shows the plain brand teal,
-         like the splash before Android 12, and the animated Flutter splash
-         that follows reveals the mark. -->
+    <!-- Android 12+ always shows a system splash before the app draws, and it
+         cannot be turned off. Without these it falls back to the launcher
+         icon on a theme-coloured background.
+
+         F28-T05: it now shows the brand teal AND the mark, so the mark is on
+         screen from ~100 ms instead of ~775 ms (F27-T18, D-2). The icon
+         drawable supplies its own 288 dp canvas so the system does not scale
+         the mark up — see `splash_icon.xml` — and `MainActivity` removes the
+         splash without its default exit animation, so the mark never moves
+         between this layer and Flutter's first frame. -->
     <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">@color/splash_bg</item>

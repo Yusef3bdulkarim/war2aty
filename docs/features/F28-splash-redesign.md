@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 4 / 9 DONE
+- **Progress:** 5 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -104,7 +104,7 @@ Resolved with the owner on 2026-10-08.
 | 2 | F28-T02 | Purge the old splash | as planned, plus a test file the coverage guard required — see "T02 record" | DONE 2026-10-08 |
 | 3 | F28-T03 | **Design → owner decision** | three concepts proposed and all three discarded; the screen is the background colour and the icon — see "T03 record" | DONE 2026-10-08 |
 | 4 | F28-T04 | A sharper mark | unsharp mask in `_resize`; every splash mark regenerated, +49–62 % edge contrast — see "T04 record" | DONE 2026-10-08 |
-| 5 | F28-T05 | Native splash carries the mark | Android pre-12 (light + night), API 31+ `values-v31` / `values-night-v31`, the exit-animation listener in `MainActivity`, iOS `LaunchImage` + storyboard (written blind) | |
+| 5 | F28-T05 | Native splash carries the mark | all three paths wired, 13 guards, mutation-proved, verified in the APK's resource table — see "T05 record" | DONE 2026-10-08 |
 | 6 | F28-T06 | The Flutter splash | the mark at 128 dp on `kLaunchBackground`, centred, full opacity, static — and a test that it matches the native splash | |
 | 7 | F28-T07 | The new hand-off | replaces `SplashHandOff` / `LaunchReveal`; ~500 ms floor, capped content gate, reveal fade, reduced-motion path | |
 | 8 | F28-T08 | Tests + gate + device verification | new test suite (seam guard, timing guard, reduced motion, error state, RTL + large text); `dart format` / `flutter analyze` / `flutter test`; installed on the RMX2001 with `am start -W` numbers recorded here | |
@@ -277,6 +277,83 @@ task just fixed for 0.5 % of the download.
 
 **Gate:** format 0 changed, analyze **0 errors / 0 warnings** (18 standing
 infos), **2,417 tests** green.
+
+## T05 record (2026-10-08)
+
+This is the task that actually removes the flicker. P01 is reversed on all
+three paths: the native splash now draws the mark, so it is on screen at
+~100 ms instead of ~775 ms.
+
+**Android before 12** — `launch_background.xml`, in both `drawable/` and
+`drawable-v21/`: the teal, then `@drawable/splash_mark` at `gravity="center"`,
+drawn at its intrinsic size, which the generator cuts to 128 dp per density.
+
+**Android 12 and up** — the sizing is the whole trick, and getting it wrong is
+invisible on this machine. The system draws `windowSplashScreenAnimatedIcon`
+into a **288 dp canvas** and expects content inside the inner 192 dp circle.
+Hand it a bare bitmap and it is scaled to fill 288 dp — **more than twice**
+the size Flutter draws the mark at, so the handover becomes a jump. So
+`splash_icon.xml` is a `layer-list` that supplies the canvas and pins its one
+item to `128dp × 128dp`, centred. No `windowSplashScreenIconBackgroundColor`
+is set, which is what makes the canvas 288 dp rather than 240 dp; 128 dp is
+inside either safe zone, so the mark is never clipped.
+
+**The system splash's own exit animation** would have undone all of it.
+By default Android plays its icon out, fading and scaling it, while Flutter's
+identical mark sits underneath — so the mark would appear to shrink away and
+come back. `MainActivity.removeSystemSplashExitAnimation` takes the splash off
+instantly instead, guarded on API 31 where `Activity.getSplashScreen()`
+arrives. Removing it with no animation is only correct because Flutter's first
+frame is already a copy of it. Deliberately the platform API, not
+`androidx.core:core-splashscreen` — three lines, no new dependency.
+
+**iOS** — the `LaunchImage` files stopped being 1×1 transparent placeholders in
+T04, which is what had made the iOS launch screen show the teal alone. The
+storyboard already centred the image on the right colour; its stale
+`<image name="LaunchImage" width="168" height="185"/>` declaration is corrected
+to 128×128. **Still written blind** — no Mac, so none of the iOS half has been
+built or seen (see "Known limits").
+
+### The guard, and proof it works
+
+`test/app/native_splash_test.dart`, 13 tests. The one that matters most reads
+`kLaunchBackground` out of the Dart source and asserts Android's
+`colors.xml` **and** the iOS storyboard's sRGB floats resolve to the same
+value. Four layers draw this launch and none of them can see the others;
+nothing else in the suite reads that XML.
+
+Mutation-proved rather than assumed — each of these was applied, the suite
+run, and the change reverted:
+
+| Mutation | Caught |
+|---|---|
+| `#FF0A6C76` → `#FF0A6C77` in `colors.xml` (one step, invisible by eye) | yes |
+| dropped the `128dp` pin from `splash_icon.xml`, letting the system scale the icon | yes |
+| removed `setOnExitAnimationListener`, restoring the default play-out | yes |
+
+### Verified in the artefact, not just in the source
+
+`aapt2 dump resources` on the built APK:
+
+- `color/splash_bg` → `#ff0a6c76`, the same value as `kLaunchBackground`;
+- `drawable/splash_icon` → the layer-list XML;
+- `drawable/splash_mark` → present at mdpi, hdpi, xhdpi, xxhdpi and xxxhdpi;
+- both v31 themes carry `windowSplashScreenBackground` and
+  `windowSplashScreenAnimatedIcon`.
+
+The build itself is part of the proof: `aapt2` fails on an unresolved
+reference, so a compiling APK means every `@drawable/splash_mark` resolves.
+
+**Gate:** format clean, analyze **0 errors / 0 warnings**, **2,430 tests**
+green (+13), `flutter build apk --flavor dev --debug` succeeds.
+
+### What is still not true
+
+Flutter's first frame does **not** yet draw the mark — T06 does that. Until
+then the launch shows the mark natively and then *loses* it when Flutter takes
+over at ~440 ms, which is worse than before this task on its own. T05 and T06
+only make sense together, and nothing should be put in front of a user between
+them.
 
 ## Deleted branches (F28-T01)
 
