@@ -218,6 +218,13 @@ T26's rollout should carry it.
 
 ## Gate
 
-`dart format` clean · `flutter analyze` 0 errors / 0 warnings (18 pre-existing
-infos, none in new or touched files) · `flutter test` **2,503 green (+35)** ·
-`deno test supabase/tests` 759 passed.
+`dart format` clean · `flutter analyze` 0 errors / 0 warnings · `flutter test`
+**2,503 green (+35)** · `deno test supabase/tests` 759 passed.
+
+**Correction, found during T21:** this section first said the 18 analyzer
+infos were all pre-existing. That was counted *before* the self-review added
+the tap-target test, which brought two of its own — a deprecated
+`SemanticsNode.hasFlag` and a redundant `semanticsEnabled: true` — and the
+commit (`fe9f903`) went out with them. Fixed in T21's commit; the semantics
+assertion was mutation-checked again on the new `flagsCollection` API and
+still fails when the button flag is removed.

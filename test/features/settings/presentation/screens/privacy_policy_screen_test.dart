@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/legal/legal_links.dart';
@@ -136,12 +135,12 @@ void main() {
         reason: '$label is below the 48 dp minimum tap target',
       );
       expect(
-        tester.getSemantics(link).hasFlag(SemanticsFlag.isButton),
+        tester.getSemantics(link).flagsCollection.isButton,
         isTrue,
         reason: '$label must announce itself as a button',
       );
     }
-  }, semanticsEnabled: true);
+  });
 
   testWidgets('says so when nothing on the device can open the page', (
     tester,
