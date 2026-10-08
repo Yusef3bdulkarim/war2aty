@@ -3,8 +3,8 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 8 / 9 DONE
-- **PR:** TBD (one per task batch: after T04, after T07, after T09)
+- **Progress:** 9 / 9 DONE · **F28 COMPLETE**
+- **PR:** [#30](https://github.com/Yusef3bdulkarim/war2aty/pull/30) into `develop`
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
 of [F27-T18 finding D-2](F27-T18-device-pass.md). T18 shipped the cheap half of
@@ -112,7 +112,7 @@ Resolved with the owner on 2026-10-08.
 | 6 | F28-T06 | The Flutter splash | the mark drawn, the handover closed, a centring bug from T02 caught — see "T06 record" | DONE 2026-10-08 |
 | 7 | F28-T07 | The new hand-off | `LaunchHandOff` + `LaunchStatus`; content gate, fade, reduced motion — and **no floor**, see "T07 record" | DONE 2026-10-08 |
 | 8 | F28-T08 | Tests + gate + device verification | release APK on the RMX2001; the handover measured and proved invisible — see "T08 record" | DONE 2026-10-08 |
-| 9 | F28-T09 | Review and close | `/flutter-code-review` → `@code-reviewer` → `/explain-feature`; F27-T18's D-2 note updated to point here; PR | |
+| 9 | F28-T09 | Review and close | self-review clean, `@code-reviewer` **PASS** with no findings at any severity; PR [#30](https://github.com/Yusef3bdulkarim/war2aty/pull/30) | DONE 2026-10-08 |
 
 ## T02 record (2026-10-08)
 
@@ -544,6 +544,41 @@ the mark was not solid until ~775 ms and the splash held for a ~3.2 s floor.
 
 **Gate:** format 0 changed, analyze **0 errors / 0 warnings** (18 standing
 infos), **2,448 tests** green.
+
+## T09 record (2026-10-08)
+
+**Self-review** (`/flutter-code-review`): clean. Layer boundaries intact, domain
+still free of Flutter, cubit still depends only on use cases, no leaked tickers
+or listeners, no dead references to the deleted symbols, no debug artefacts.
+
+**`@code-reviewer`: PASS — no blocking, major or minor findings.** It was
+pointed at the five things worth a second opinion, and checked each:
+
+- the hand-off state machine cannot double-fire and cannot leak, including the
+  `app`-goes-back-to-null recovery, where a pending callback sees the phase has
+  moved and returns, and `reset()` lands on `dismissed`, which the status
+  listener ignores;
+- `_curve` is disposed before `_reveal` — child before parent — and the status
+  listener goes with the controller;
+- dropping the floor creates no flash, because the native splash was already
+  showing the same image;
+- the Android 12+ sizing follows the documented pattern, with the caveat that
+  it is still unverified on hardware;
+- the unsharp mask is correct in premultiplied space, and the one theoretical
+  edge case (a colour channel exceeding alpha after sharpening) is absorbed by
+  the un-premultiply clamp.
+
+Most usefully, it diffed the deleted code against the new and listed **eleven
+behaviours carried over** and five correctly dropped — the check this feature
+most needed, since T02 removed the mechanism before T07 rebuilt it.
+
+Its one cosmetic note, `_precacheSplashMark` still saying "splash", is
+**deliberately not changed**: it precaches `splash_mark.png`, so the name
+matches what it loads. "Splash" remains the right word for the native layer and
+"launch" for the Flutter side, which is the distinction the whole feature draws.
+
+F27-T18's D-2 finding now points here, and records that the owner took option
+**(b)** and what it measured.
 
 ## Deleted branches (F28-T01)
 
