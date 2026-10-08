@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 7 / 9 DONE
+- **Progress:** 8 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -111,7 +111,7 @@ Resolved with the owner on 2026-10-08.
 | 5 | F28-T05 | Native splash carries the mark | all three paths wired, 13 guards, mutation-proved, verified in the APK's resource table — see "T05 record" | DONE 2026-10-08 |
 | 6 | F28-T06 | The Flutter splash | the mark drawn, the handover closed, a centring bug from T02 caught — see "T06 record" | DONE 2026-10-08 |
 | 7 | F28-T07 | The new hand-off | `LaunchHandOff` + `LaunchStatus`; content gate, fade, reduced motion — and **no floor**, see "T07 record" | DONE 2026-10-08 |
-| 8 | F28-T08 | Tests + gate + device verification | new test suite (seam guard, timing guard, reduced motion, error state, RTL + large text); `dart format` / `flutter analyze` / `flutter test`; installed on the RMX2001 with `am start -W` numbers recorded here | |
+| 8 | F28-T08 | Tests + gate + device verification | release APK on the RMX2001; the handover measured and proved invisible — see "T08 record" | DONE 2026-10-08 |
 | 9 | F28-T09 | Review and close | `/flutter-code-review` → `@code-reviewer` → `/explain-feature`; F27-T18's D-2 note updated to point here; PR | |
 
 ## T02 record (2026-10-08)
@@ -465,6 +465,85 @@ is the honest way to drive it.
 
 **Gate:** format 0 changed, analyze **0 errors / 0 warnings**, **2,448 tests**
 green (+12), debug APK builds.
+
+## T08 record (2026-10-08) — measured on the phone
+
+| | |
+|---|---|
+| Device | RMX2001, Android 11, **API 30**, density 480 (**xxhdpi, DPR 3.0**) |
+| Artefact | `app-prod-release.apk`, **35.2 MB** (34.9 MB at F27-T18, so **+0.3 MB** — the splash marks, as T04 predicted) |
+| Built with | `./tool/build_release.ps1 -Artifact apk -Arm64Only` — prod, release, obfuscated, real key |
+| SHA-256 | `b421305cffe304b6452ba448ceee126416c07ef50753b6a463b8bc4a116c1ef3` |
+| Installed | over the F27-T18 build, `versionCode=6`, `versionName 1.0.0` |
+
+At DPR 3.0 this phone draws `drawable-xxhdpi/splash_mark.png` natively and
+`assets/images/3.0x/brand_mark.png` in Flutter — the pair T06 proved
+byte-identical. API 30 means it exercises the **pre-12** path; `values-v31` and
+the exit-animation listener are still unverified on hardware.
+
+### Launch time: unchanged
+
+`am start -W`, release build, five cold starts with `force-stop` between:
+**446, 472, 499, 507, 522 ms** (mean **489 ms**), against F27-T18's pre-F28
+**422, 437, 438, 442, 677** (mean **483 ms**). The same, within noise — the
+native bitmap costs nothing measurable.
+
+**A trap worth recording.** The first five runs after `adb install` measured
+**1,608–2,025 ms**, four times the real figure, and trending down. That is ART
+with no profile for a freshly written app, exactly as the F27-P01 record warned
+("Play delivers pre-optimized artifacts, so a real install does not reproduce
+it"). `cmd package compile -m speed -f` is refused by this ROM, so the way
+through is simply to launch it several times and discard those runs. Anyone
+quoting a first-install number here is quoting ART warm-up.
+
+### The handover is invisible — measured, not asserted
+
+Captured with on-device `screencap` at true offsets from launch (`am start`
+backgrounded, so the sampling is not skewed by its own blocking):
+
+| t | What is on screen |
+|---|---|
+| 228 ms | teal + mark, window still **scaling in** — Android's own activity animation, before the app has any say |
+| **385 ms** | teal + mark, full screen — **the native splash** |
+| **503 / 534 ms** | teal + mark — **Flutter**, whose first frame lands at ~489 ms |
+| 573 ms | the fade has started |
+| 613–637 ms | mid cross-fade: the mark still visible, Home behind it — **a fade, not a cut** |
+| 932 ms | Home |
+
+Comparing the native frame at 385 ms with the Flutter frame at 503 ms, status
+bar excluded (its clock legitimately differs between two launches):
+
+- mean absolute difference **0.97 / 255**;
+- **1.62 %** of pixels differ by more than 8/255, and almost all of that is the
+  navigation bar and the mark's antialiased outline;
+- the mark's measured centre moves **0 px vertically and 1.5 device px
+  horizontally** — 0.5 dp at DPR 3.0, which is at the limit of what the
+  measurement can resolve on an antialiased edge, not a shift anyone could see.
+
+So the swap between the two layers changes essentially nothing on screen, which
+is the claim this whole feature rests on.
+
+### What the launch now looks like, end to end
+
+~100 ms mark appears (native) → ~489 ms Flutter takes over, invisibly →
+~550 ms the fade begins → **~930 ms Home**. Against the pre-F28 launch, where
+the mark was not solid until ~775 ms and the splash held for a ~3.2 s floor.
+
+### Not run, and not papered over
+
+- **The Android 12+ path.** The only phone available is API 30. `values-v31`,
+  the 288 dp icon canvas and the exit-animation listener are built to spec,
+  guarded by tests that read the XML, and **unverified on hardware**.
+- **iOS**, still — no Mac.
+- **The launch failure screen on the device.** It needs a critical launch step
+  to fail, and the installed app has a cached session, so it could not be
+  forced without changing the build. Covered by tests only.
+- **The owner's own eyes.** Everything above is instrument output. F27-T18 found
+  four defects no test here could catch, and the one thing that pass had which
+  this one does not is a person looking at the screen.
+
+**Gate:** format 0 changed, analyze **0 errors / 0 warnings** (18 standing
+infos), **2,448 tests** green.
 
 ## Deleted branches (F28-T01)
 
