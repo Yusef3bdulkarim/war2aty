@@ -12,23 +12,26 @@ import '../core/theme/app_colors.dart';
 import '../core/theme/app_theme.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../features/bootstrap/presentation/cubit/bootstrap_state.dart';
-import '../features/bootstrap/presentation/screens/splash_screen.dart';
-import '../features/bootstrap/presentation/widgets/splash_hand_off.dart';
+import '../features/bootstrap/presentation/screens/launch_screen.dart';
+import '../features/bootstrap/presentation/widgets/launch_hand_off.dart';
 import '../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../features/settings/presentation/cubit/settings_cubit.dart';
 import 'di/service_locator.dart';
-import 'launch_reveal.dart';
+import 'launch_status.dart';
 import 'notifications/reminder_notification_opener.dart';
 import 'notifications/reminder_notification_taps.dart';
 
 /// Root widget.
 ///
-/// The app launches into [SplashScreen], which runs the ordered init sequence
-/// and offers a retry if a critical step fails. Only once launch succeeds does
-/// the router shell take over, built under the splash, which [SplashHandOff]
-/// then fades off it. Text direction follows the active locale
-/// automatically (Arabic → RTL, English → LTR).
+/// The app launches into [LaunchScreen], which shows the launch frame while the
+/// ordered init sequence runs and offers a retry if a critical step fails. Once
+/// launch succeeds the router shell replaces it. Text direction follows the
+/// active locale automatically (Arabic → RTL, English → LTR).
+///
+/// The app is built *under* the opaque launch screen and only revealed once it
+/// has its content, which [LaunchHandOff] then fades off it — never a cut from
+/// one to the other.
 class WaraqtiApp extends StatelessWidget {
   const WaraqtiApp({super.key});
 
@@ -76,22 +79,21 @@ class WaraqtiApp extends StatelessWidget {
                       // The router is built only once the first-run flag is
                       // known, so its redirect resolves on the very first
                       // frame — no flash of the wrong screen. Until then the
-                      // splash stays up.
+                      // launch screen stays up.
                       final gate = context.watch<OnboardingCubit>().state;
                       final ready =
                           bootstrapState is BootstrapSuccess &&
                           gate is! OnboardingUnknown;
 
-                      // The app is built under the splash, which then fades
-                      // off it (F27-P01) — never a cut from one to the other.
-                      return SplashHandOff(
+                      return LaunchHandOff(
                         isContentReady: () =>
-                            getIt<LaunchReveal>().contentReady,
+                            getIt<LaunchStatus>().firstScreenReady,
                         onRevealed: () {
                           // Order matters: a notification tap that launched
-                          // the app opens as soon as the splash is gone,
-                          // before the housekeeping it no longer waits for.
-                          getIt<LaunchReveal>().markRevealed();
+                          // the app opens as soon as the launch screen is
+                          // gone, before the housekeeping it no longer waits
+                          // for.
+                          getIt<LaunchStatus>().markHandedOff();
                           context.read<BootstrapCubit>().finishLaunch();
                         },
                         app: ready
@@ -115,7 +117,7 @@ class WaraqtiApp extends StatelessWidget {
                                 ),
                               )
                             : null,
-                        splash: MaterialApp(
+                        launchScreen: MaterialApp(
                           onGenerateTitle: (context) => context.strings.appName,
                           debugShowCheckedModeBanner: false,
                           theme: highContrast
@@ -125,7 +127,7 @@ class WaraqtiApp extends StatelessWidget {
                           supportedLocales: AppLocalizations.supportedLocales,
                           localizationsDelegates: AppLocalizations.delegates,
                           localeResolutionCallback: AppLocalizations.resolve,
-                          home: const SplashScreen(),
+                          home: const LaunchScreen(),
                           builder: _appBuilder(textSize, highContrast),
                         ),
                       );
@@ -143,11 +145,12 @@ class WaraqtiApp extends StatelessWidget {
 
 /// Wraps [builder] so a reminder notification tap opens that reminder
 /// (F25-T04) — only on the router's app, the one that can navigate.
+///
 TransitionBuilder _withNotificationOpener(TransitionBuilder builder) =>
     (context, child) => ReminderNotificationOpener(
       taps: getIt<ReminderNotificationTaps>(),
       router: getIt<GoRouter>(),
-      revealed: getIt<LaunchReveal>().revealed,
+      revealed: getIt<LaunchStatus>().handedOff,
       child: builder(context, child),
     );
 

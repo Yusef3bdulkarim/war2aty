@@ -58,7 +58,7 @@ import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
 import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../di/service_locator.dart';
-import '../launch_reveal.dart';
+import '../launch_status.dart';
 import '../shell/scaffold_with_nav_bar.dart';
 
 /// Route path constants.
@@ -112,11 +112,12 @@ abstract final class AppRoutes {
 /// router re-evaluates the redirect whenever its state changes — so finishing
 /// the privacy step navigates to Home without any explicit `go` call.
 ///
-/// [launchReveal] hears from the first screen the app opens on once it has
-/// its content, so the splash can reveal it whole (F27-P01).
+/// [launchStatus] hears from the first screen the app opens on once it has its
+/// content, so the launch screen lifts on a whole Home rather than a half-drawn
+/// one (F28-T07).
 GoRouter createAppRouter({
   required OnboardingCubit onboardingGate,
-  LaunchReveal? launchReveal,
+  LaunchStatus? launchStatus,
 }) {
   return GoRouter(
     initialLocation: AppRoutes.home,
@@ -133,14 +134,14 @@ GoRouter createAppRouter({
         path: AppRoutes.onboarding,
         builder: (context, state) {
           // A static page: its content is there as soon as it is built.
-          launchReveal?.markContentReady();
+          launchStatus?.markFirstScreenReady();
           return const OnboardingScreen();
         },
       ),
       GoRoute(
         path: AppRoutes.privacy,
         builder: (context, state) {
-          launchReveal?.markContentReady();
+          launchStatus?.markFirstScreenReady();
           return const PrivacyScreen();
         },
       ),
@@ -499,7 +500,7 @@ GoRouter createAppRouter({
                   // the scan is done or cancelled, and Home keeps its scroll
                   // position and its live streams while they are away.
                   child: HomeScreen(
-                    onContentLoaded: launchReveal?.markContentReady,
+                    onContentLoaded: launchStatus?.markFirstScreenReady,
                     onScan: () => context.push(
                       AppRoutes.captureWith(CaptureSource.camera),
                     ),

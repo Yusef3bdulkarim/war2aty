@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ system splash icon (F27-P01): deliberately empty. The system
-     splash cannot be turned off, and without an icon of its own it would show
-     the launcher icon. The animated Flutter splash right after it reveals the
-     mark, so this splash shows the teal alone and the mark appears only once. -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@android:color/transparent" />
-    <size
-        android:width="288dp"
-        android:height="288dp" />
-</shape>
+<!-- The Android 12+ system splash icon (F28-T05).
+
+     It used to be a deliberately transparent shape: the system splash cannot
+     be turned off, and without an icon of its own it falls back to the
+     launcher icon, so P01 gave it nothing to draw and let the Flutter
+     animation reveal the mark. F28 reverses that — see
+     `launch_background.xml` for why.
+
+     The sizing is the whole trick. The system draws this drawable into a
+     288 dp canvas and expects the content to sit inside the inner 192 dp
+     circle; hand it a bare bitmap and it is scaled to the full 288 dp, which
+     is more than twice the size the mark has in Flutter's first frame, and
+     the handover becomes a jump. So the mark is placed at exactly
+     `kSplashMarkSize` (128 dp) and centred, and the layer-list around it
+     supplies the 288 dp canvas the system is looking for.
+
+     No `windowSplashScreenIconBackgroundColor` is set, which is what makes
+     the canvas 288 dp rather than 240 dp. 128 dp is well inside either safe
+     zone, so the mark is never clipped. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:drawable="@drawable/splash_mark"
+        android:gravity="center"
+        android:width="128dp"
+        android:height="128dp" />
+</layer-list>

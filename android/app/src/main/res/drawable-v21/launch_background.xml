@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Native splash: brand teal to avoid a white flash before Flutter paints. -->
+<!-- The splash before Android 12 (F28-T05).
+
+     It carries the mark, which reverses P01. There, every native splash showed
+     the teal alone so the mark would appear exactly once, in the Flutter
+     animation. The cost was measured in F27-T18: nothing was on screen for the
+     ~440 ms before Flutter's first frame, which is engine and Dart VM startup
+     and cannot be shortened from Dart at all. Drawing the mark in the layer
+     that is already on screen at ~100 ms removes that wait instead of hiding
+     it.
+
+     The two layers below have to match Flutter's first frame exactly or the
+     swap between them is visible:
+       - the colour is @color/splash_bg, which `native_splash_test` pins to
+         `kLaunchBackground` in the Dart source;
+       - the mark is drawn centred at its intrinsic size, and the density
+         buckets of `splash_mark` are generated at 128 dp each, which is
+         `kSplashMarkSize`. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_bg" />
+    <item
+        android:drawable="@drawable/splash_mark"
+        android:gravity="center" />
 </layer-list>

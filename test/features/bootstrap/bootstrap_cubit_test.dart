@@ -79,62 +79,13 @@ void main() {
     expect(cubit.state, const BootstrapSuccess());
   });
 
-  group('splash entrance hold', () {
-    test(
-      'withholds success until the splash reports its entrance done',
-      () async {
-        final cubit = BootstrapCubit(
-          InitializeApp(const []),
-          splashEntranceTimeout: const Duration(seconds: 30),
-        );
-        addTearDown(cubit.close);
-
-        final launch = cubit.start();
-        // The sequence is empty, so it is only the hold keeping this pending.
-        await pumpEventQueue();
-        expect(cubit.state, isA<BootstrapInProgress>());
-
-        cubit.splashEntranceFinished();
-        await launch;
-        expect(cubit.state, const BootstrapSuccess());
-      },
-    );
-
-    test('hands off anyway if the entrance never reports', () async {
-      final cubit = BootstrapCubit(
-        InitializeApp(const []),
-        splashEntranceTimeout: const Duration(milliseconds: 40),
-      );
-      addTearDown(cubit.close);
-
-      // Nothing ever calls splashEntranceFinished: the timeout is the only way
-      // out, and without it the user would be stranded on the splash.
-      await cubit.start();
-      expect(cubit.state, const BootstrapSuccess());
-    });
-
-    test('a failure is not held behind the entrance', () async {
-      final cubit = BootstrapCubit(
-        InitializeApp([
-          failingStep(BootstrapStage.session, const NoInternetFailure()),
-        ]),
-        // Long enough that a held failure would hang the test rather than pass.
-        splashEntranceTimeout: const Duration(seconds: 30),
-      );
-      addTearDown(cubit.close);
-
-      await cubit.start();
-      expect(cubit.state, const BootstrapFailure(NoInternetFailure()));
-    });
-
-    test('does not wait at all when no timeout is configured', () async {
-      final cubit = BootstrapCubit(InitializeApp(const []));
-      addTearDown(cubit.close);
-
-      await cubit.start();
-      expect(cubit.state, const BootstrapSuccess());
-    });
-  });
+  // F28-T02 deleted the 'splash entrance hold' group with the feature it
+  // covered: the launch no longer withholds success until a splash animation
+  // reports itself finished, so there is no hold, no escape-hatch timeout and
+  // no `splashEntranceFinished`. The remaining assertion worth keeping — that
+  // `start` reaches `BootstrapSuccess` without waiting for anything — is made
+  // by the retry test above. F28-T07 decides what, if anything, paces the
+  // launch, and brings its own tests.
 
   group('deferred housekeeping (F27-P01)', () {
     test('does not run it as part of the launch', () async {

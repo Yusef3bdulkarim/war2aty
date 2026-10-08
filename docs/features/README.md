@@ -40,8 +40,9 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F25 | Reminder notifications | [F25-reminder-notifications.md](F25-reminder-notifications.md) | `feature/reminder-notifications` | post-F24 | 9 |
 | F26 | Top bars, floating SnackBar, quota hint | [F26-bars-and-snackbar.md](F26-bars-and-snackbar.md) | `feature/ui-polish-bars-snackbar` | post-F25 | 5 |
 | F27 | Production readiness | [F27-production-readiness.md](F27-production-readiness.md) | `feature/production-readiness` | post-F25 | 28 |
+| F28 | Splash redesign | [F28-splash-redesign.md](F28-splash-redesign.md) | `feature/splash-redesign` | post-F27 | 9 |
 
-**Total: 315 tasks across 25 features.**
+**Total: 324 tasks across 26 features.**
 
 ## Critical path
 `F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place. F16 branches off F15 and is purely additive — it changes what the camera guide *shows*, never what the capture keeps, so it can be dropped without affecting the pipeline — and F24 Phase 1 did drop it (2026-10-03): F16 is superseded and the camera is a plain camera again. (`doclens` perspective correction was removed on 2026-09-30 — see F15 locked decision #4; the user's own crop on the preview screen is the only crop.) F18 depends on F06 only (the `AiAnalysisProvider` seam) and is orthogonal to the OCR line of work — it changes which AI provider classifies the text, never how the text is read. F19 is a bug fix on F01's launch sequence — it depends on nothing in flight and touches no screen, so it can land at any time.

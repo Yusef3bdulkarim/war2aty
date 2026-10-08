@@ -413,6 +413,15 @@ which is option (b) above and a design decision — is deliberately **not** bein
 decided inside a device-pass task. A dedicated splash feature follows once T18
 is closed.
 
+> **Resolved by [F28](F28-splash-redesign.md) (2026-10-08).** The owner took
+> option **(b)**: the native splash carries the mark on all three paths, and
+> Flutter's first frame is built to match it. Measured on this same phone, the
+> native frame at 385 ms and the Flutter frame at 503 ms differ by a mean of
+> 0.97/255, and the mark's centre moves 0 px vertically. Option (a), the fade
+> brought forward, is moot — there is no fade left: the screen is the colour
+> and the mark, and nothing on it moves. The old splash, its 1.8 s entrance and
+> the ~3.2 s hold are all deleted; Home now arrives at ~930 ms.
+
 **Done in T18 (owner approved (a), 2026-10-07):** the mark's fade is now
 `_span(0, 0.30)` instead of `_span(0.10, 0.75)`, so it is solid about 450 ms
 earlier. The two-frame delay before the entrance **stays** — it is what keeps
