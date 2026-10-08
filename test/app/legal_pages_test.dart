@@ -238,6 +238,80 @@ void main() {
     });
   });
 
+  group('the age the documents state is the one the owner chose', () {
+    // 15 and over (owner, 2026-10-08). The privacy page, the terms and the
+    // Play Console instructions each state it; a mismatch between what the
+    // listing declares and what the policy says is exactly what a reviewer
+    // compares, so all three are held to the same number here.
+    test('the privacy page says 15 and over, in both languages', () {
+      final privacy = pages['privacy.html']!;
+      expect(privacy, contains('15 سنة فأكتر'));
+      expect(privacy.toLowerCase(), contains('aged 15 and over'));
+    });
+
+    test('the terms make it a condition of use, in both languages', () {
+      final terms = pages['terms.html']!;
+      expect(terms, contains('15 سنة أو أكتر'));
+      expect(terms.toLowerCase(), contains('aged 15'));
+    });
+
+    test('both ask an under-18 to use it with a guardian', () {
+      for (final name in const ['privacy.html', 'terms.html']) {
+        expect(pages[name], contains('بمعرفة ولي أمرك'), reason: name);
+        expect(
+          pages[name]!.toLowerCase(),
+          contains("parent's or guardian's knowledge"),
+          reason: name,
+        );
+      }
+    });
+
+    test('no page still states the old age of 13', () {
+      for (final MapEntry(key: name, value: html) in pages.entries) {
+        expect(html, isNot(contains('تحت 13')), reason: name);
+        expect(html.toLowerCase(), isNot(contains('under 13')), reason: name);
+      }
+    });
+
+    test('the console instructions declare the same audience', () {
+      // Play has no 15+ band, so the instructions map it to the narrowest
+      // set that declares nobody under 15. If they drift from the pages,
+      // this fails rather than the store review.
+      final console = File(
+        'docs/features/F27-T21-play-console.md',
+      ).readAsStringSync();
+      expect(console, contains('15 and over'));
+      expect(console, contains('**16–17** and **18 and over**'));
+    });
+  });
+
+  group('each document says which version it is', () {
+    // The first release ships version 1.0 of both documents. Stating it is
+    // what makes a later change visible: without a number and an effective
+    // date, an edited policy looks identical to the one a user agreed to.
+    for (final name in const ['privacy.html', 'terms.html']) {
+      test(
+        '$name states version 1.0 and its effective date, in both languages',
+        () {
+          final html = pages[name]!;
+          expect(html, contains('الإصدار الأول (1.0)'));
+          expect(html, contains('ساري من 8 أكتوبر 2026'));
+          expect(html, contains('Version 1.0'));
+          expect(html, contains('effective 8 October 2026'));
+        },
+      );
+
+      test('$name promises a new version, not a silently edited date', () {
+        // «آخر تحديث» invited exactly the edit-in-place this rules out.
+        final html = pages[name]!;
+        expect(html, isNot(contains('آخر تحديث')));
+        expect(html.toLowerCase(), isNot(contains('last updated')));
+        expect(html, contains('هننشر إصدار جديد'));
+        expect(html, contains('publish a new version'));
+      });
+    }
+  });
+
   group('publish gate: nothing reaches the public URL as a placeholder', () {
     // These two values are the owner's to give (Q17: the company as developer
     // of record, and the support address). Until they land, the pages are

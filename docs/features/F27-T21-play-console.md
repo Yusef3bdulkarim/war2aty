@@ -397,79 +397,141 @@ does not apply. If the console insists on a URL anyway, give it the policy URL.
 
 **Policy → App content → Target audience and content**
 
+**The owner's decision (2026-10-08): the app is for users aged 15 and over.**
+The privacy policy and the terms both say so, and both ask a user under 18 to
+use the app with a parent's or guardian's knowledge.
+
 | Question | Answer |
 |---|---|
-| Target age groups | **18 and over**, and nothing below it |
+| Target age groups | tick **16–17** and **18 and over** — nothing below |
 | Appeal to children | **No** |
 | Store presence (Google Play for Families) | leave out |
 
-Why 18+ and not 13+: the app exists to help someone act on an official document
-— a bill, a court notice, a medical result. Declaring any age band below 18
-pulls the app into Play's Families policy, which brings its own ad, content and
-data rules for no benefit here.
+### Why 16–17 and not 13–15, when the app is for 15 and over
 
-**One consistency fix this creates.** The privacy policy currently says the app
-is not directed at children **under 13**, which is the usual wording but does not
-match an 18+ declaration. A reviewer comparing the two could reasonably call that
-out. Say the word and I will change the page to «تحت 18 سنة» / "under 18" and
-re-sync the published branch — it is a two-line edit.
+Play offers fixed bands — 13–15, 16–17, 18 and over — and none of them starts at
+15. There are two ways to approximate it, and only one is consistent with the
+pages:
+
+- **16–17 + 18 and over** declares nobody under 15. Fifteen-year-olds sit just
+  outside the declared target, but nothing *excludes* them: the target audience
+  does not decide who can install the app — the content rating does, and that
+  is Everyone. So a 15-year-old can install and use it, exactly as the policy
+  says.
+- **13–15 + 16–17 + 18 and over** would include 15-year-olds in the target, but
+  would also declare 13- and 14-year-olds, which the policy says the app is not
+  for. A reviewer comparing the listing with the policy would see the listing
+  claim an audience the policy disclaims.
+
+The first is a narrowing; the second is a contradiction. If you would rather
+declare the 13–15 band anyway, the pages have to say 13 and over to match —
+tell me and I will change both.
+
+### What a teen audience means here
+
+Google's own page says the 13–15 and 16–17 bands "may be considered to include
+children in some locales", and that for any user under 21 you must consider
+whether local law treats them as a child. As far as I know, Egyptian law treats
+anyone under 18 as a child — so for an Egypt-only app, declaring 16–17 may bring
+**Play's Families Policy** into scope. That matters for this app in particular,
+because it sends photos and text to outside services whose free tiers may keep
+and review them. You made this choice knowing that; it is recorded here so the
+reasoning is not lost, and so a Play query about it is not a surprise. I cannot
+verify Egyptian law from here, and if the teen audience matters commercially, a
+short check with a lawyer is worth it.
+
+**A correction to an earlier version of this section.** It said that declaring
+any band below 18 *automatically* brings in the Families Policy. That was stated
+as a general rule, and it is not one: Google ties it to whether local law treats
+those ages as children. For Egypt the practical effect is probably the same,
+but the reason was wrong.
 
 ---
 
 ## 8 · Graphics
 
-All six files are generated and committed under `store/`, already in the
-format each Play field demands.
+Ten files under `store/`, each already in the exact format its Play field
+takes.
 
 | Play field | File | Size | Format Play requires |
 |---|---|---|---|
 | App icon | `store/icon-512.png` | 512 × 512 | 32-bit PNG — this is RGBA, fully opaque |
 | Feature graphic | `store/feature-graphic.png` | 1024 × 500 | JPEG or 24-bit PNG, **no alpha** — this is RGB |
-| Phone screenshot 1 | `store/screenshots/ar/1-home.png` | 1080 × 1920 | 24-bit PNG, no alpha |
-| Phone screenshot 2 | `store/screenshots/ar/2-result.png` | 1080 × 1920 | 〃 |
-| Phone screenshot 3 | `store/screenshots/ar/3-reminder.png` | 1080 × 1920 | 〃 |
-| Phone screenshot 4 | `store/screenshots/ar/4-privacy.png` | 1080 × 1920 | 〃 |
+| Phone screenshots ×8 | `store/screenshots/ar/1-home.png` … `8-privacy.png` | 1080 × 1920 | 24-bit PNG, no alpha — RGB |
 
-Upload the screenshots **in filename order** — Home, the explained paper, the
-reminder, the privacy promises. Play shows them in upload order.
+### How many screenshots, and why eight
 
-**Upload them to the Arabic listing only.** Play shows a translation the
-default language's screenshots when it has none of its own, so the English
-listing inherits these. That is the honest choice as well as the easy one: the
-app *is* Arabic, and an English screenshot would show a language mode most of
-its users will never switch to. If you want English screenshots anyway, say so
-— it is one more run of the same generator.
+From Google's own guidelines:
+
+| | |
+|---|---|
+| Minimum to publish | **2** |
+| Maximum | **8** phone screenshots |
+| To be eligible for Play's large-format recommendations | **at least 4**, at least 1080 px, portrait 9:16 (1080 × 1920 or larger) |
+
+All eight slots are used, because they cost nothing and the full tour of the
+app fits in exactly eight. **Upload them in filename order** — Play shows
+screenshots in upload order:
+
+| # | Screen | Tagline |
+|---|---|---|
+| 1 | Home | عندك ورقة مش فاهمها؟ |
+| 2 | The camera, with a paper in the viewfinder | صوّرها في ثواني |
+| 3 | The paper, explained | اعرف ورقتك بتقول إيه |
+| 4 | Amounts, dates and account numbers | كل المهم قدامك |
+| 5 | Creating a reminder | متفوّتش ميعاد |
+| 6 | Listening to the explanation | اسمع الشرح بصوت عالي |
+| 7 | My papers | ورقك كله في مكان واحد |
+| 8 | Privacy, at large text | خط كبير، وخصوصيتك مهمة |
+
+**Upload them to the Arabic listing only** (owner's decision). Play shows a
+translation the default language's screenshots when it has none of its own, so
+the English listing shows these too.
 
 **No tablet screenshots.** The app is portrait phone only, so leave the 7-inch
 and 10-inch slots empty. Play will warn that the app will not be promoted on
 tablets — the correct outcome, not a problem to fix.
 
-### What the graphics are, and how to remake them
+### What the screenshots are
 
-- **The icon** is the launcher icon, not a redrawing of it: the two adaptive
-  layers composited and cropped to the 72 dp Android actually shows, so the
-  store and the home screen show the same picture. It is *not*
-  `assets/app_icon.png`, which has rounded transparent corners — Play rounds
-  the corners itself, and a pre-rounded icon gets rounded twice.
-- **The feature graphic** is drawn in Flutter with the real Cairo font,
-  because Arabic needs shaping and an image library would print «ورقتي» as
-  four disconnected letters.
-- **The screenshots are the real app**, not mock-ups: the real dependency
-  graph walked through the real invoice journey by the integration harness
-  (F27-T17), so what a buyer sees is what the app does. The only thing changed
-  for them is the sample bill's prose, which the bundled fixture dates 2024 —
-  it is rewritten to a deadline a week from the day they are rendered.
+Each is the real screen in a **generic modern phone frame** — a thin bezel and
+a punch-hole camera, no particular brand — on the brand gradient, under a
+tagline. That was the owner's choice (option B), made against two alternatives:
 
-After any change to a screen they show, regenerate both, in this order:
+- **No frame at all** sits closest to Google's guidance, which marks avoiding
+  "device imagery" as *highly recommended* — advice, not a rejection rule.
+- **An iPhone frame** was ruled out: on a Play listing it reads as the wrong
+  platform, and the iPhone's design is Apple's.
+
+Every tagline is kept inside Google's other guidance — no more than **20% of
+the image** — and the renderer measures that rather than trusting it.
+`store_captions_test` holds the taglines to §7 (no claim that the photo or text
+goes unseen, no provider named) and to Google's rule against pricing, rankings
+and testimonials, so «مجاني» cannot slip in.
+
+**The screens are the real app, not mock-ups**: the real dependency graph walked
+through the real journey by the integration harness (F27-T17). Two things are
+changed for a public listing, and only two:
+
+- **Real institutions are renamed.** The bundled sample papers name a real
+  utility, a real hospital and the Egyptian Tax Authority. A listing that shows
+  them implies a relationship that does not exist, so they are replaced with
+  generic names, and the renderer refuses to capture any screen that still shows
+  one.
+- **The sample bill is dated a week from the day it is rendered**, so it always
+  looks current. The camera shot shows a drawn sample of the same bill — never a
+  photograph of a real one.
+
+### Remaking them after a UI change
 
 ```powershell
 flutter test test/store/generate_store_assets.dart --update-goldens
 dart run tool/store/finalize_store_assets.dart
 ```
 
-The first renders; the second builds the icon and strips the alpha channel
-Play refuses — after checking no pixel actually used it, because a transparent
-pixel flattened to RGB turns black.
+The first walks the journey and frames the eight; the second builds the icon
+and strips the alpha channel Play refuses — after checking no pixel used it,
+because a transparent pixel flattened to RGB turns black.
 
 ## 9 · Play App Signing and the upload (Q14)
 
