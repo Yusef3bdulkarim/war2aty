@@ -3,7 +3,7 @@
 - **Branch:** `feature/splash-redesign`, based on `develop` · **Milestone:** post-F27
 - **Depends on:** F27-P01 (the splash this replaces), F27-T18 finding D-2 (the
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
-- **Progress:** 6 / 9 DONE
+- **Progress:** 7 / 9 DONE
 - **PR:** TBD (one per task batch: after T04, after T07, after T09)
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
@@ -80,10 +80,14 @@ Resolved with the owner on 2026-10-08.
    must still solve those, and the tests that prove it are rewritten rather
    than carried over.
 7. **Timing is optimised for launch speed, not for a brand moment.** The fixed
-   1.8 s hold goes. Hand off as soon as init is done **and** a ~500 ms floor
-   since the first frame has passed, keeping a capped "wait for Home's content"
-   gate so the reveal never lands on a skeleton. Target: **~1.2 s to Home**
-   instead of ~3.2 s, with the logo visible for essentially all of it.
+   1.8 s hold goes, and the capped "wait for Home's content" gate stays so the
+   reveal never lands on a skeleton.
+   **Amended in T07: the planned ~500 ms floor is not built.** Its purpose was
+   to stop the splash appearing and vanishing fast enough to read as a glitch,
+   and decision 2 removed that risk — the native splash draws the same frame
+   from ~100 ms, so there is no moment at which the Flutter screen *appears*
+   and nothing for a floor to protect. It would only have held a ready app
+   behind a screen the user cannot distinguish from the one before it.
 8. **Design comes from the brand colours**, not from `Waraqti.dc.html` — the
    design file ships no splash comp (the P01 splash was invented from a local
    HTML preview, which is why CLAUDE.md's "stop if no design exists" rule is
@@ -106,7 +110,7 @@ Resolved with the owner on 2026-10-08.
 | 4 | F28-T04 | A sharper mark | unsharp mask in `_resize`; every splash mark regenerated, +49–62 % edge contrast — see "T04 record" | DONE 2026-10-08 |
 | 5 | F28-T05 | Native splash carries the mark | all three paths wired, 13 guards, mutation-proved, verified in the APK's resource table — see "T05 record" | DONE 2026-10-08 |
 | 6 | F28-T06 | The Flutter splash | the mark drawn, the handover closed, a centring bug from T02 caught — see "T06 record" | DONE 2026-10-08 |
-| 7 | F28-T07 | The new hand-off | replaces `SplashHandOff` / `LaunchReveal`; ~500 ms floor, capped content gate, reveal fade, reduced-motion path | |
+| 7 | F28-T07 | The new hand-off | `LaunchHandOff` + `LaunchStatus`; content gate, fade, reduced motion — and **no floor**, see "T07 record" | DONE 2026-10-08 |
 | 8 | F28-T08 | Tests + gate + device verification | new test suite (seam guard, timing guard, reduced motion, error state, RTL + large text); `dart format` / `flutter analyze` / `flutter test`; installed on the RMX2001 with `am start -W` numbers recorded here | |
 | 9 | F28-T09 | Review and close | `/flutter-code-review` → `@code-reviewer` → `/explain-feature`; F27-T18's D-2 note updated to point here; PR | |
 
@@ -411,6 +415,56 @@ would both have failed.
 
 **Gate:** format 0 changed, analyze **0 errors / 0 warnings**, **2,436 tests**
 green (+6), debug APK builds.
+
+## T07 record (2026-10-08)
+
+The launch no longer ends in a cut. `SplashHandOff` and `LaunchReveal` are not
+adapted — they were deleted in T02 and this is written against what is left.
+
+**Two of the old four phases are gone with the splash.** There is no entrance
+to wait out and no animation to settle, because nothing moves. What remains is
+the part that was never about the animation: Home's first build (~55 ms) and
+the rebuild when its data lands (~100 ms) are the two longest frames of the
+launch, and revealing before they happen shows a half-drawn screen. So
+`LaunchHandOff` mounts the app **under** the opaque launch screen, waits frame
+by frame for `isContentReady` or `kLaunchRevealCap` (600 ms), then fades the
+launch screen off over 300 ms and drops it from the tree.
+
+**`LaunchStatus` replaces `LaunchReveal`**, with the names corrected:
+`firstScreenReady` is what the router reports, `handedOff` is what the
+notification opener waits for. "Reveal" described the old animation rather than
+the fact being reported. Both are back in DI, in the router, and on
+`ReminderNotificationOpener`, and `finishLaunch()` runs from `onRevealed` again
+rather than from T02's stand-in on the app's first frame.
+
+### The floor was planned and is deliberately not built
+
+Decision 7 called for a ~500 ms minimum display time, to stop the splash
+flashing on a fast launch. **That reasoning does not survive T05.** The native
+splash now draws this exact frame from ~100 ms, so there is no moment at which
+the Flutter launch screen appears — the user sees one continuous image, and a
+floor would only hold it in place after the app behind it was ready. The launch
+is therefore as short as the work allows, which is what the floor would have
+been trading away. A test pins it: the whole hand-off is over one fade after
+the app has its content, where the floor would have left it fully opaque.
+
+### Tests
+
+`launch_hand_off_test`, 12 tests, written against the two defects rather than
+the implementation: the app is built under an opaque screen and not revealed
+early, and the launch ends in a fade rather than a cut. Mutation-proved —
+ignoring the content gate fails 1, turning the fade into a cut fails 6.
+
+Two things about testing this are worth writing down, because both cost time
+here. The hand-off keys its own subtrees `ValueKey('launch')` and
+`ValueKey('app')`, so a test using `Key('launch')` finds two widgets. And
+counting pumps by hand is a trap: the reveal starts from a post-frame callback,
+runs on a ticker, and ends with a `setState` from a status listener, so the
+number of frames differs with what started it — `pumpAndSettle` after one pump
+is the honest way to drive it.
+
+**Gate:** format 0 changed, analyze **0 errors / 0 warnings**, **2,448 tests**
+green (+12), debug APK builds.
 
 ## Deleted branches (F28-T01)
 

@@ -58,6 +58,7 @@ import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
 import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../di/service_locator.dart';
+import '../launch_status.dart';
 import '../shell/scaffold_with_nav_bar.dart';
 
 /// Route path constants.
@@ -111,12 +112,13 @@ abstract final class AppRoutes {
 /// router re-evaluates the redirect whenever its state changes — so finishing
 /// the privacy step navigates to Home without any explicit `go` call.
 ///
-/// F28-T02 removed the `launchReveal` parameter with the rest of the old
-/// hand-off. It let the first screen report that it had its content, so the
-/// splash could reveal the app whole rather than mid-skeleton (F27-P01); the
-/// screens' own `onContentLoaded` callbacks survive, unwired, for F28-T07 to
-/// connect to whatever replaces it.
-GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
+/// [launchStatus] hears from the first screen the app opens on once it has its
+/// content, so the launch screen lifts on a whole Home rather than a half-drawn
+/// one (F28-T07).
+GoRouter createAppRouter({
+  required OnboardingCubit onboardingGate,
+  LaunchStatus? launchStatus,
+}) {
   return GoRouter(
     initialLocation: AppRoutes.home,
     refreshListenable: _CubitListenable(onboardingGate.stream),
@@ -130,11 +132,18 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
     routes: [
       GoRoute(
         path: AppRoutes.onboarding,
-        builder: (context, state) => const OnboardingScreen(),
+        builder: (context, state) {
+          // A static page: its content is there as soon as it is built.
+          launchStatus?.markFirstScreenReady();
+          return const OnboardingScreen();
+        },
       ),
       GoRoute(
         path: AppRoutes.privacy,
-        builder: (context, state) => const PrivacyScreen(),
+        builder: (context, state) {
+          launchStatus?.markFirstScreenReady();
+          return const PrivacyScreen();
+        },
       ),
       // Deliberately outside the shell: scanning is a task the user finishes
       // and leaves, not a place to browse, so it takes the whole screen and
@@ -491,6 +500,7 @@ GoRouter createAppRouter({required OnboardingCubit onboardingGate}) {
                   // the scan is done or cancelled, and Home keeps its scroll
                   // position and its live streams while they are away.
                   child: HomeScreen(
+                    onContentLoaded: launchStatus?.markFirstScreenReady,
                     onScan: () => context.push(
                       AppRoutes.captureWith(CaptureSource.camera),
                     ),

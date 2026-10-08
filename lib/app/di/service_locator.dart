@@ -210,6 +210,7 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../launch_status.dart';
 import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
 
@@ -1058,10 +1059,11 @@ void _registerSettings() {
 }
 
 void _registerRouting() {
-  // F28-T02: `LaunchReveal` is gone with the rest of the old hand-off, so the
-  // router no longer reports when the first screen has its content. F28-T07
-  // registers whatever replaces it.
-  getIt.registerLazySingleton<GoRouter>(
-    () => createAppRouter(onboardingGate: getIt()),
-  );
+  getIt
+    // App-scoped: the first screen reports its content here, and the hand-off
+    // and the notification opener read it (F28-T07).
+    ..registerLazySingleton<LaunchStatus>(LaunchStatus.new)
+    ..registerLazySingleton<GoRouter>(
+      () => createAppRouter(onboardingGate: getIt(), launchStatus: getIt()),
+    );
 }
