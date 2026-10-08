@@ -666,6 +666,23 @@ final class ArStrings implements AppStrings {
   String get settingsPrivacyPolicyLabel => 'سياسة الخصوصية';
 
   @override
+  String get settingsTermsOfUseLabel => 'شروط الاستخدام';
+
+  @override
+  String get settingsSupportLabel => 'الدعم والتواصل';
+
+  @override
+  String get privacyFullPolicyLabel => 'اقرا سياسة الخصوصية الكاملة';
+
+  @override
+  String get legalPageOpenFailed =>
+      'مقدرناش نفتح الصفحة. اتأكد إن عندك متصفح وجرّب تاني.';
+
+  @override
+  String legalSupportOpenFailed(String address) =>
+      'مقدرناش نفتح بريدك. ابعتلنا على $address';
+
+  @override
   String get settingsSupportedDocumentTypesLabel => 'أنواع الأوراق المدعومة';
 
   @override

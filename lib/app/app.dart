@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../core/accessibility/high_contrast_cubit.dart';
 import '../core/accessibility/text_size.dart';
 import '../core/accessibility/text_size_cubit.dart';
+import '../core/legal/presentation/legal_links_cubit.dart';
 import '../core/localization/app_localizations.dart';
 import '../core/localization/locale_cubit.dart';
 import '../core/theme/app_colors.dart';
@@ -62,6 +63,12 @@ class WaraqtiApp extends StatelessWidget {
         BlocProvider<SettingsCubit>(
           create: (_) => getIt<SettingsCubit>()..load(),
         ),
+        // F27-T20. App-scoped for the same reason `SettingsCubit` is, but the
+        // other way round: it holds nothing to load, and the two screens that
+        // use it sit in different branches of the tree — the settings «عن
+        // التطبيق» rows inside the shell, and «سياسة الخصوصية» as a top-level
+        // route outside it. One provider here beats one on each route.
+        BlocProvider<LegalLinksCubit>(create: (_) => getIt<LegalLinksCubit>()),
       ],
       child: BlocBuilder<LocaleCubit, Locale>(
         builder: (context, locale) {

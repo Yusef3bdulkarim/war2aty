@@ -31,6 +31,9 @@ import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/env/app_environment.dart';
 import 'package:war2aty/core/env/usecases/get_app_version.dart';
+import 'package:war2aty/core/legal/presentation/legal_links_cubit.dart';
+import 'package:war2aty/core/legal/system_legal_link_repository.dart';
+import 'package:war2aty/core/legal/usecases/open_legal_link.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
@@ -219,6 +222,15 @@ void main() {
           getAppVersion: GetAppVersion(AppEnvironment.dev(isAndroid: false)),
         );
       })
+      // F27-T20: app-scoped in `WaraqtiApp`, so every test that builds it
+      // needs one. A fake that records rather than leaving the app.
+      ..registerFactory<LegalLinksCubit>(
+        () => LegalLinksCubit(
+          openLegalLink: OpenLegalLink(
+            SystemLegalLinkRepository(FakeExternalLinkService()),
+          ),
+        ),
+      )
       ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<ReminderNotificationTaps>(
         ReminderNotificationTaps.new,

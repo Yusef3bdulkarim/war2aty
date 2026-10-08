@@ -62,6 +62,10 @@ import '../../core/env/app_environment.dart';
 import '../../core/env/usecases/get_app_version.dart';
 import '../../core/error/app_failure.dart';
 import '../../core/identity/installation_id_provider.dart';
+import '../../core/legal/legal_link_repository.dart';
+import '../../core/legal/presentation/legal_links_cubit.dart';
+import '../../core/legal/system_legal_link_repository.dart';
+import '../../core/legal/usecases/open_legal_link.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
 import '../../core/localization/usecases/get_saved_locale.dart';
@@ -78,6 +82,8 @@ import '../../core/permissions/system_notification_permission_repository.dart';
 import '../../core/permissions/usecases/get_notification_permission.dart';
 import '../../core/permissions/usecases/open_notification_permission_settings.dart';
 import '../../core/permissions/usecases/request_notification_permission.dart';
+import '../../core/platform/external_link_service.dart';
+import '../../core/platform/url_launcher_external_link_service.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
 import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
@@ -237,6 +243,7 @@ Future<void> configureDependencies(
   _registerSavedPapers();
   _registerReminders();
   _registerAudioReader();
+  _registerLegal();
   _registerSettings();
   _registerRouting();
 }
@@ -998,6 +1005,25 @@ void _registerAudioReader() {
         getIt(),
         getIt(),
       ),
+    );
+}
+
+/// F27-T20. The published privacy policy and terms, and the support mailbox.
+///
+/// Its own module rather than part of `_registerSettings`, because two
+/// screens in different places reach it: the settings «عن التطبيق» rows and
+/// the privacy screen's footer.
+void _registerLegal() {
+  getIt
+    ..registerLazySingleton<ExternalLinkService>(
+      UrlLauncherExternalLinkService.new,
+    )
+    ..registerLazySingleton<LegalLinkRepository>(
+      () => SystemLegalLinkRepository(getIt()),
+    )
+    ..registerFactory<OpenLegalLink>(() => OpenLegalLink(getIt()))
+    ..registerFactory<LegalLinksCubit>(
+      () => LegalLinksCubit(openLegalLink: getIt()),
     );
 }
 

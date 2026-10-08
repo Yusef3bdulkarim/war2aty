@@ -239,6 +239,12 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'settingsDeleteAllRemindersError': (s) => s.settingsDeleteAllRemindersError,
   'settingsAboutSection': (s) => s.settingsAboutSection,
   'settingsPrivacyPolicyLabel': (s) => s.settingsPrivacyPolicyLabel,
+  'settingsTermsOfUseLabel': (s) => s.settingsTermsOfUseLabel,
+  'settingsSupportLabel': (s) => s.settingsSupportLabel,
+  'privacyFullPolicyLabel': (s) => s.privacyFullPolicyLabel,
+  'legalPageOpenFailed': (s) => s.legalPageOpenFailed,
+  'legalSupportOpenFailed': (s) =>
+      s.legalSupportOpenFailed('war2aty.support@gmail.com'),
   'settingsSupportedDocumentTypesLabel': (s) =>
       s.settingsSupportedDocumentTypesLabel,
   'settingsUsageLimitLabel': (s) => s.settingsUsageLimitLabel,

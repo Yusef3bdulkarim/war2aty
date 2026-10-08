@@ -501,6 +501,29 @@ abstract interface class AppStrings {
   /// its points make on first run, read back at any time.
   String get settingsPrivacyPolicyLabel;
 
+  /// Opens the published «شروط الاستخدام» page in the browser (F27-T20).
+  ///
+  /// The page that carries the "not legal/medical/financial advice"
+  /// disclaimer, which is the most consequential thing the app publishes
+  /// about itself (F27-M5).
+  String get settingsTermsOfUseLabel;
+
+  /// Opens a mail to the published support address (F27-T20, Q17).
+  String get settingsSupportLabel;
+
+  /// The privacy screen's footer link out to the full published policy
+  /// (F27-T20) — the four promises above it are the summary, not the whole
+  /// document.
+  String get privacyFullPolicyLabel;
+
+  /// Shown when nothing on the device could open a page the app offered —
+  /// a phone with no browser. Never a silent no-op (CLAUDE.md §3).
+  String get legalPageOpenFailed;
+
+  /// Shown when no mail app could be opened: the address itself, so the user
+  /// can still write it down or copy it from the screen.
+  String legalSupportOpenFailed(String address);
+
   /// Opens the read-only sheet listing every [DocumentCategory] the app
   /// recognises — reuses the `documentCategory*` labels, nothing new.
   String get settingsSupportedDocumentTypesLabel;

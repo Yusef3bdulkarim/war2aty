@@ -122,5 +122,19 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- F27-T20: the settings screen opens the published privacy policy
+             and terms in a browser, and a mail to support. At targetSdk 30+
+             an app cannot see which activities handle an intent unless it
+             declares the intent here, so without these two `url_launcher`
+             finds nothing and the rows fail on exactly the phones the app
+             ships to. `legal_pages_test` asserts they stay. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
     </queries>
 </manifest>

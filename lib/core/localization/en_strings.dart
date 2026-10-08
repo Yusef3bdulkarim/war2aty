@@ -672,6 +672,23 @@ final class EnStrings implements AppStrings {
   String get settingsPrivacyPolicyLabel => 'Privacy policy';
 
   @override
+  String get settingsTermsOfUseLabel => 'Terms of use';
+
+  @override
+  String get settingsSupportLabel => 'Support and contact';
+
+  @override
+  String get privacyFullPolicyLabel => 'Read the full privacy policy';
+
+  @override
+  String get legalPageOpenFailed =>
+      "We couldn't open the page. Check that you have a browser and try again.";
+
+  @override
+  String legalSupportOpenFailed(String address) =>
+      "We couldn't open your mail app. Write to us at $address";
+
+  @override
   String get settingsSupportedDocumentTypesLabel => 'Supported paper types';
 
   @override
