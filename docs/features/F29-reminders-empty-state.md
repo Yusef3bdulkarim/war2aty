@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 11 / 14 · **T11 DONE**
+- **Progress:** 12 / 14 · **T12 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -124,7 +124,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only; the quick rows wired to the seeded route; 6 tests, 4 mutations — see "T09 record" | DONE 2026-10-10 |
 | 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab`; a new `AppColors.successBorder`; 4 tests, 4 mutations; **one open copy question** — see "T10 record" | DONE 2026-10-10 |
 | 11 | F29-T11 | `onScan` wired end to end | the reminders branch passes `onScan` → `push(captureWith(camera))`, the same push «مستنداتي» makes; a router test for the source *and* for the push, 3 mutations — see "T11 record" | DONE 2026-10-10 |
-| 12 | F29-T12 | Screen tests | all three empty states, tabs hidden/shown, the quick rows' routing, 1.6× text, RTL + English, screen-reader labels | TODO |
+| 12 | F29-T12 | Screen tests | most of the brief was already met by T07–T11; this closed the two real gaps — the three empty states swept across both languages × 1.0/1.5/2.0 on a 360×640 phone (**English had never been laid out at all**), and the assembled screen's screen-reader output. 24 tests, 5 mutations, and one hole no existing test could see — see "T12 record" | DONE 2026-10-10 |
 | 13 | F29-T13 | Quality gate + reviews | `dart format` · `flutter analyze` · `flutter test`; then `/flutter-code-review`, then `@code-reviewer` | TODO |
 | 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` | TODO |
 
@@ -172,6 +172,79 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T12 record (2026-10-10)
+
+The task as written — "all three empty states, tabs hidden/shown, the quick
+rows' routing, 1.6× text, RTL + English, screen-reader labels" — was mostly
+already done by the time it came up: each of T07–T11 shipped its own tests,
+and between them they cover all three states, both tab decisions, the seeds
+the quick rows carry, the route they carry them into, and 1.6×/2× Arabic. So
+rather than re-assert any of it, this task audited what was there and wrote
+only what was missing. Two things were:
+
+**1. English empty states had never been laid out, at any scale.** The
+F27-T15 layout sweep at the top of
+[`reminders_list_screen_test.dart`](../../test/features/reminders/reminders_list_screen_test.dart)
+covers both languages × 1.0/1.5/2.0 on a 360×640 phone — but its pump emits
+reminders, so every one of its six frames renders the *list*. The empty
+states were reached only by hand-written large-text tests, both Arabic. Since
+English is the longer language in almost every string here («Nothing has
+slipped past you» against «مفيش حاجة فاتتك»), that is the half of the matrix
+most likely to overflow.
+
+Fixed with the same sweep over the three states, built from `ui_audit.dart`'s
+own public helpers (`setAuditSurface`, `recordReportedErrors`,
+`expectNoLayoutError`) rather than a second `auditScreenLayout` call — each
+state needs its own repository seeding and a tab tap, which that helper's
+single pump closure cannot express. 18 tests, one per state × language ×
+scale, so a failure names all three. All 18 passed on the first run: the
+layout was already correct, and this is the guard that keeps it so.
+
+**2. Nothing checked what a screen reader is handed by the assembled
+screen.** `reminders_empty_art_test` and `reminders_quick_create_test` both
+assert their own widget's semantics — but in isolation, which says nothing
+about what the screen wraps around them. Four tests added:
+
+- «صوّر ورقة» arrives as one button node carrying its own label.
+- The way back to «القادمة» arrives as one button node — its label and its
+  chevron are two widgets in a `Row`, and what matters is that they reach
+  assistive tech as a single actionable thing rather than as a sentence
+  followed by an unexplained glyph.
+- An empty bucket announces its title and sentence, and no glyph in the state
+  carries a label of its own. (`StrokeIcon` excludes itself when
+  `semanticLabel` is null, so `_EmptyBucketBody`'s outer `ExcludeSemantics`
+  is belt-and-braces; what this test actually pins is the labels, at the
+  widget property, which is where a future author would add one.)
+- The empty library's **whole traversal, in order**: title, «إضافة تذكير»,
+  the empty title, the subtitle, the kicker, the three dated rows, «صوّر
+  ورقة», the hint — and nothing else. The paper, the bell and the three
+  calendar marks are decoration, and an extra node here is how a leaked
+  label would show up.
+
+### The hole this found
+
+The link back to «القادمة» is a `TextButton`. Restyling it to a
+`GestureDetector` — a plausible edit, and one that keeps the Row and the
+colours identical — leaves it working for a sighted user and **invisible as a
+control to a screen reader**. Every test on this branch before T12 passed
+under that mutation, including T10's own "an empty bucket leads back to
+«القادمة»", because the tap still fires. Only the new semantics test fails.
+That is the class of regression this task exists to catch.
+
+**Mutation-proved, five**, each caught by exactly the test meant to catch it
+and by no other:
+
+| Mutation | Caught by |
+|---|---|
+| The badge's tick given `semanticLabel: 'tick'` | the bucket's "sentence, not its badge" test |
+| The empty library's `Column` reversed (`verticalDirection: up`) | the traversal-order test, alone |
+| `SingleChildScrollView` → `Padding` in `_EmptyLibrary` | all six empty-library sweeps, both languages |
+| `reminderEmptyScanHint` hardcoded in Arabic | "the empty library is fully translated", alone |
+| The back link `TextButton` → `GestureDetector` | "reads as a button", alone — see above |
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, unchanged from
+the baseline · `flutter test` 2,625 passing (2,601 + 24).
 
 ## T11 record (2026-10-10)
 
