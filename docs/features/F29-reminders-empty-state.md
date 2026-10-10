@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 10 / 14 · **T10 DONE**
+- **Progress:** 11 / 14 · **T11 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -123,7 +123,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; 10 tests, 1×/1.6×/2×-on-320, four mutations run — see "T08 record" | DONE 2026-10-10 |
 | 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only; the quick rows wired to the seeded route; 6 tests, 4 mutations — see "T09 record" | DONE 2026-10-10 |
 | 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab`; a new `AppColors.successBorder`; 4 tests, 4 mutations; **one open copy question** — see "T10 record" | DONE 2026-10-10 |
-| 11 | F29-T11 | `onScan` wired end to end | the new callback on `RemindersListScreen` → `AppRoutes.captureWith(CaptureSource.camera)`, mirroring the documents list's own wiring | TODO |
+| 11 | F29-T11 | `onScan` wired end to end | the reminders branch passes `onScan` → `push(captureWith(camera))`, the same push «مستنداتي» makes; a router test for the source *and* for the push, 3 mutations — see "T11 record" | DONE 2026-10-10 |
 | 12 | F29-T12 | Screen tests | all three empty states, tabs hidden/shown, the quick rows' routing, 1.6× text, RTL + English, screen-reader labels | TODO |
 | 13 | F29-T13 | Quality gate + reviews | `dart format` · `flutter analyze` · `flutter test`; then `/flutter-code-review`, then `@code-reviewer` | TODO |
 | 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` | TODO |
@@ -172,6 +172,57 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T11 record (2026-10-10)
+
+Six lines in `app_router.dart`: the reminders branch now hands
+`RemindersListScreen` the `onScan` it has been declaring since T09, and that
+callback makes the same push «مستنداتي» makes —
+[`app_router.dart:564`](../../lib/app/router/app_router.dart#L564),
+`context.push(AppRoutes.captureWith(CaptureSource.camera))`. No screen file
+changed: T09 built the button behind `if (onScan case final scan?)`, so this
+task's whole job was to stop that being `null`.
+
+**`push`, not `go`, and for a reason this feature cares about.** The user came
+to photograph a paper *for a reminder*; backing out of the camera — or
+declining its permission — has to put «التذكيرات» back, not Home. `go` would
+replace the shell's location and lose the tab they started from. The
+documents list makes the same choice, and now the two screens' CTAs behave
+identically.
+
+**Tested where the bug would actually live.** The screen's own test can only
+prove the callback fired (T09 already does, by counting calls); *which* route
+it fires into exists only in the router. The new
+[`test/app/reminders_scan_routing_test.dart`](../../test/app/reminders_scan_routing_test.dart)
+boots the real `createAppRouter`, goes to `/reminders` with an empty
+repository — the only state that draws the button — and taps the real
+«صوّر ورقة»:
+
+- it lands on `/capture?source=camera`, **and** the camera route's permission
+  gate is on screen. The URI alone would pass if the source were swapped and
+  the string happened to match; the gate is what the gallery source cannot
+  produce, since that route builds a picker instead.
+- Back out of the permission sheet and the test is on `/reminders` with
+  «صوّر ورقة» still there — the push assertion, stated as the user's
+  experience rather than as a call to `push`.
+
+The viewport is set to 390×844 rather than the 800×600 test default: the empty
+library is tall enough that on the default surface the button sits *behind the
+shell's nav bar*, where a tap misses it. That is a test-harness artefact, not
+a layout bug — T09 already pins the first quick row above the fold at 1.6× on
+a 360×640 phone — but it is worth knowing the shell's bar is what the default
+surface hides.
+
+**Mutation-proved, three.** `CaptureSource.gallery` in place of `camera` → the
+source test failed on the URI. `context.go` in place of `context.push` → the
+Back test failed, landing on `/capture` with nothing to return to. The
+`onScan:` argument deleted altogether → the button is not drawn and both
+tests failed on the finder, which is the regression this task exists to
+prevent re-introducing.
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, unchanged from
+the baseline and none in either touched file · `flutter test` 2,601 passing
+(2,599 + 2).
 
 ## T10 record (2026-10-10)
 

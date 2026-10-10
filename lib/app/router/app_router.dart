@@ -558,6 +558,12 @@ GoRouter createAppRouter({
                     // riding along as `extra` (F29-T06).
                     onQuickReminder: (seed) =>
                         context.push(AppRoutes.reminderManual, extra: seed),
+                    // «صوّر ورقة» on the empty state (F29-T11) — the same
+                    // push «مستنداتي»'s own empty state makes, so a reminder
+                    // can start from a paper rather than from a blank form.
+                    onScan: () => context.push(
+                      AppRoutes.captureWith(CaptureSource.camera),
+                    ),
                   ),
                 ),
               ),
