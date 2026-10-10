@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 13 / 14 · **T13 DONE**
+- **Progress:** 14 / 15 · **T15 DONE** (only T14 — device pass, explanation, PR — is left)
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -126,7 +126,8 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 11 | F29-T11 | `onScan` wired end to end | the reminders branch passes `onScan` → `push(captureWith(camera))`, the same push «مستنداتي» makes; a router test for the source *and* for the push, 3 mutations — see "T11 record" | DONE 2026-10-10 |
 | 12 | F29-T12 | Screen tests | most of the brief was already met by T07–T11; this closed the two real gaps — the three empty states swept across both languages × 1.0/1.5/2.0 on a 360×640 phone (**English had never been laid out at all**), and the assembled screen's screen-reader output. 24 tests, 5 mutations, and one hole no existing test could see — see "T12 record" | DONE 2026-10-10 |
 | 13 | F29-T13 | Quality gate + reviews | gate clean; `/flutter-code-review` clean on all five sections; `@code-reviewer` PASS with no action items — but it found one real thing: a class doc that contradicted `_TextLine`'s directional alignment. Checked against the prototype, the **code was right and the comment wrong**; comment fixed, test renamed to what it measures, and a new test pins the exception — see "T13 record" | DONE 2026-10-10 |
-| 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` | TODO |
+| 15 | F29-T15 | An empty «القادمة» gets the library's state | the owner's answer to T10's open question (2026-10-10, after T13's reviews): share `_EmptyLibrary` whole rather than add two keys. The tabs stay — they are the only way to the buckets the reminders are in. 9 tests, 4 mutations, and a dead branch removed — see "T15 record" | DONE 2026-10-10 |
+| 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` — **runs last**, after T15 | TODO |
 
 Tasks 2–4 touch nothing each other touches and could land in any order; 5 → 6
 → 8 → 9 is a hard chain (the seed must exist before a row can carry it, and
@@ -172,6 +173,103 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T15 record (2026-10-10)
+
+The owner's answer to the question T10 raised and T13's two reviews both
+confirmed: an empty «القادمة» while the library is not empty now gets the
+**wholly-empty library's state, whole** — the illustration, the title, the
+subtitle, the kicker, the three ready dates, «صوّر ورقة» and the hint.
+
+Asked for after T13's reviews had passed, so this is a new task rather than
+an amendment to one of them.
+
+### Why a shared body rather than a third bucket variant
+
+The two options on the table in T10 were a badge with truer copy (two new
+keys), or leaving it. The owner picked a third: make it the library's state.
+That is the better call for a reason the earlier framing missed — the three
+buckets are not symmetrical. «الفائتة» and «المكتملة» empty are *statements*
+(nothing has slipped past you; nothing finished yet) and there is nothing to
+do about either. «القادمة» empty is the one that is an **invitation**: the
+user has nothing coming up, which is exactly the moment the three quick dates
+are worth offering. Giving that state a badge and a sentence was the mistake,
+not the wording on the badge.
+
+So `_EmptyBucket`'s `RemindersTab.upcoming` case returns `_EmptyLibrary`
+rather than `_EmptyBucketBody`
+([`reminders_list_screen.dart:565`](../../lib/features/reminders/presentation/screens/reminders_list_screen.dart#L565)),
+and `_Content` forwards `onQuickReminder`/`onScan` through it. The switch
+stays exhaustive and nothing is left unreachable.
+
+### The one thing deliberately *not* shared: the tabs
+
+The wholly-empty library hides them (locked decision 5 — three tabs that all
+lead to nothing are why the screen read as broken). This state must **keep**
+them, and that is not a detail: the user's reminders are sitting in
+«الفائتة»/«المكتملة», and the tabs are the only way to reach them. Hiding
+them would stand the user in front of an invitation to create a reminder with
+no way to see the ones they already have — a worse screen than the one this
+feature set out to fix. A test asserts all three tabs are present in this
+state, and when that was mutated away two *existing* tests broke as well,
+which is the clearest evidence it matters.
+
+### A dead branch this removed
+
+`_EmptyBucketBody.subtitle` was nullable, and the link back to «القادمة» was
+drawn inside `if (subtitle case final text?)`. «القادمة» was the only caller
+that passed neither. With it gone, both remaining callers pass both, so
+`subtitle` is now required and the link unconditional — the conditional and
+its doc comment («`null` only for «القادمة»») would otherwise have been a
+false statement guarding a branch nothing could reach.
+
+**Tests** (9 net new; 1 existing test replaced):
+
+- the state draws all eight things the empty library draws, and no «شوف
+  التذكيرات القادمة» link — the user is already on «القادمة»;
+- all three tabs are still on screen, unlike the wholly-empty library;
+- a quick row still carries a seed out from this position, which reaches the
+  caller through `_EmptyBucket` rather than straight from `_Content`;
+- «صوّر ورقة» still reaches the camera from here;
+- and the state joins T12's sweep — both languages × 1.0/1.5/2.0 on a
+  360×640 phone, 6 more combinations. It is the tallest of the four empty
+  states, since it carries the library's body *and* the tabs, so it is the
+  one most likely to overflow. All six passed first run.
+
+**The test it replaced was passing for the wrong reason.** T10's «القادمة»
+test asserted the badge's `StrokeGlyph.navReminders` mark — and the
+illustration's own bell uses that same glyph, so it kept passing after the
+state was replaced wholesale. It is now written as "the things the empty
+library draws", which cannot accidentally match.
+
+One harness note: the tabs push «صوّر ورقة» off the 800×600 test surface in
+this state, so its test calls `ensureVisible` first. The wholly-empty
+library's own version does not need to, which is why that test was written
+without it.
+
+**Mutation-proved, four.** The `upcoming` case put back to `_EmptyBucketBody`
+→ three of the new tests failed. The tabs hidden in this state as well as in
+the empty library → the tabs test failed *and* two pre-existing tests did.
+`onQuickReminder` and `onScan` not forwarded through `_EmptyBucket` → the
+quick-row and camera tests failed.
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, unchanged from
+the baseline and none in a touched file · `flutter test` 2,635 passing
+(2,626 + 9).
+
+### What this leaves open
+
+**The title is still «مافيش تذكيرات لسه»** — "no reminders yet" — and in this
+state that is still not true: there are reminders, just none ahead, and the
+tabs beside it say so. It is now the headline of a full-page state rather
+than one line under a badge, so it is *more* visible than before. No new copy
+was invented, because none was approved and the owner's instruction was about
+the design. If it should change, it is still the two keys T10 named.
+
+**T13's reviews predate this change.** The gate was re-run and the new
+behaviour mutation-proved, but neither `/flutter-code-review` nor
+`@code-reviewer` has seen it. Worth one more `@code-reviewer` pass before the
+PR, since the last one found something real.
 
 ## T13 record (2026-10-10)
 
@@ -426,7 +524,7 @@ RemindersTab.upcoming)`, exactly as the tabs above it do. Switching bucket is
 this screen's own state — not a navigation, and not something to hand a
 parent a callback for.
 
-### One open question for the owner: «القادمة»'s title
+### One open question for the owner: «القادمة»'s title — ANSWERED in T15
 
 An empty «القادمة» while the library is **not** empty — every reminder
 already missed or completed — still shows «مافيش تذكيرات لسه», which is the
@@ -439,6 +537,12 @@ owner, so this task did not invent one. If the owner wants it fixed, it is two
 keys (`reminderEmptyUpcomingTitle` + subtitle) and one line in the switch —
 something like «مفيش حاجة جاية» / «كل تذكيراتك اتنفذت أو فاتت. اعمل واحد جديد
 من «إضافة تذكير» فوق.» Raised here rather than decided.
+
+> **The owner chose neither option, on 2026-10-10 after T13's reviews:** give
+> that state the wholly-empty library's design instead. See the T15 record.
+> The two keys above were not added, so the title is still
+> `reminderEmptyTitle` — now as that state's headline rather than as one line
+> in a badge. T15's record says what that leaves open.
 
 **Tests** (4 new, plus assertions added to the two bucket tests that already
 existed): the missed bucket's subtitle and tick; the completed bucket's

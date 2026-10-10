@@ -270,17 +270,81 @@ void main() {
       expect(find.text(ar.reminderEmptyMissedTitle), findsNothing);
     });
 
-    testWidgets('«القادمة» itself offers no way back to itself', (
+    testWidgets('an empty «القادمة» gets the library\'s own filled state', (
       tester,
     ) async {
-      // Reachable once every reminder has been missed or completed. It shares
-      // the buckets' vocabulary (locked decision 2) but not their link.
+      // Reachable once every reminder has been missed or completed. The
+      // owner's call (T15): nothing coming up is the one empty bucket a user
+      // might want to act on, so it gets the whole invitation rather than a
+      // badge and a sentence.
+      //
+      // Written as "the same things the empty library draws" rather than
+      // against a glyph: the previous version of this test asserted the
+      // badge's `navReminders` mark, which the illustration's own bell also
+      // uses — so it kept passing after the state was replaced wholesale.
+      repository.emit([fakeReminder(status: ReminderStatus.completed)]);
+      await pumpApp(tester, screenUnderTest(onScan: () {}));
+
+      expect(find.byType(RemindersEmptyArt), findsOneWidget);
+      expect(find.text(ar.reminderEmptyTitle), findsOneWidget);
+      expect(find.text(ar.reminderQuickCreateKicker), findsOneWidget);
+      expect(find.text(ar.reminderQuickTomorrow), findsOneWidget);
+      expect(find.text(ar.reminderQuickNextWeek), findsOneWidget);
+      expect(find.text(ar.reminderQuickEndOfMonth), findsOneWidget);
+      expect(find.text(ar.reminderEmptyScanCta), findsOneWidget);
+      expect(find.text(ar.reminderEmptyScanHint), findsOneWidget);
+      // No way back to «القادمة» — the user is already on it.
+      expect(find.text(ar.reminderEmptyBackToUpcoming), findsNothing);
+    });
+
+    testWidgets('an empty «القادمة» keeps the tabs, unlike an empty library', (
+      tester,
+    ) async {
+      // The one thing that must *not* be shared with the wholly-empty
+      // library, which hides its tabs: the user's reminders are sitting in
+      // «المكتملة», and the tabs are the only way to reach them. Hiding them
+      // here would stand the user in front of an invitation to create a
+      // reminder with no way to see the ones they have.
       repository.emit([fakeReminder(status: ReminderStatus.completed)]);
       await pumpApp(tester, screenUnderTest());
 
-      expect(find.text(ar.reminderEmptyTitle), findsOneWidget);
-      expect(find.text(ar.reminderEmptyBackToUpcoming), findsNothing);
-      expect(_glyphs(tester), contains(StrokeGlyph.navReminders));
+      expect(find.text(ar.reminderTabUpcoming), findsOneWidget);
+      expect(find.text(ar.reminderTabMissed), findsOneWidget);
+      expect(find.text(ar.reminderTabCompleted), findsOneWidget);
+    });
+
+    testWidgets('and its quick rows still carry a date out', (tester) async {
+      // The state is only worth sharing if it is wired in this position too
+      // — the rows reach the caller through `_EmptyBucket` here rather than
+      // straight from `_Content`.
+      repository.emit([fakeReminder(status: ReminderStatus.completed)]);
+      final seeds = <ManualReminderSeed>[];
+      await pumpApp(tester, screenUnderTest(onQuickReminder: seeds.add));
+
+      await tester.tap(find.text(ar.reminderQuickTomorrow));
+      await tester.pumpAndSettle();
+
+      expect(seeds, hasLength(1));
+      expect(seeds.single.eventMinuteOfDay, kQuickReminderMinuteOfDay);
+    });
+
+    testWidgets('an empty «القادمة» can still reach the camera', (
+      tester,
+    ) async {
+      repository.emit([fakeReminder(status: ReminderStatus.completed)]);
+      var scans = 0;
+      await pumpApp(tester, screenUnderTest(onScan: () => scans++));
+
+      // Scrolled to first: the tabs sitting above this body push «صوّر ورقة»
+      // off the 800×600 test surface, which the wholly-empty library's own
+      // version of this test does not hit. The pane scrolls, so a real user
+      // reaches it the same way.
+      await tester.ensureVisible(find.text(ar.reminderEmptyScanCta));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.reminderEmptyScanCta));
+      await tester.pumpAndSettle();
+
+      expect(scans, 1);
     });
 
     testWidgets('an empty bucket survives large text', (tester) async {
@@ -436,14 +500,23 @@ void main() {
       ('the empty library', null),
       ('an empty «الفائتة»', RemindersTab.missed),
       ('an empty «المكتملة»', RemindersTab.completed),
+      // The library's own body with the tabs still above it (T15) — the
+      // tallest of the four, and so the one most likely to overflow.
+      ('an empty «القادمة»', RemindersTab.upcoming),
     ];
 
     /// Puts the screen into one empty state.
     ///
-    /// [tab] `null` is the wholly-empty library, which needs an empty
-    /// repository. An empty *bucket* needs the opposite: one reminder in
-    /// «القادمة», which is what keeps the library non-empty, the tabs on
-    /// screen, and both other buckets empty.
+    /// Each of the four needs the repository in a different condition, and
+    /// they are not interchangeable:
+    ///
+    ///  · `null` — the wholly-empty library: nothing saved at all.
+    ///  · `missed`/`completed` — one reminder in «القادمة», which is what
+    ///    keeps the library non-empty, the tabs on screen and both other
+    ///    buckets empty. Reached by tapping the tab.
+    ///  · `upcoming` — the mirror image: one **completed** reminder, so the
+    ///    library is non-empty while nothing is ahead. No tap, since
+    ///    «القادمة» is the tab the screen opens on.
     Future<void> pumpEmpty(
       WidgetTester tester,
       RemindersTab? tab, {
@@ -453,7 +526,13 @@ void main() {
       final strings = locale == AppLocalizations.english
           ? const EnStrings() as AppStrings
           : const ArStrings() as AppStrings;
-      if (tab != null) repository.emit([fakeReminder()]);
+      repository.emit(switch (tab) {
+        null => const [],
+        RemindersTab.upcoming => [
+          fakeReminder(status: ReminderStatus.completed),
+        ],
+        _ => [fakeReminder()],
+      });
 
       await pumpApp(
         tester,
@@ -465,14 +544,13 @@ void main() {
         textScaler: textScaler,
       );
 
-      if (tab == null) return;
-      await tester.tap(
-        find.text(
-          tab == RemindersTab.missed
-              ? strings.reminderTabMissed
-              : strings.reminderTabCompleted,
-        ),
-      );
+      final tabLabel = switch (tab) {
+        null || RemindersTab.upcoming => null,
+        RemindersTab.missed => strings.reminderTabMissed,
+        RemindersTab.completed => strings.reminderTabCompleted,
+      };
+      if (tabLabel == null) return;
+      await tester.tap(find.text(tabLabel));
       await tester.pumpAndSettle();
     }
 

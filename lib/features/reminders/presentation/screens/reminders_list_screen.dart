@@ -224,7 +224,11 @@ class _Content extends StatelessWidget {
           const SizedBox(height: _tabsGapBelow),
           Expanded(
             child: visible.isEmpty
-                ? _EmptyBucket(tab: tab)
+                ? _EmptyBucket(
+                    tab: tab,
+                    onQuickReminder: onQuickReminder,
+                    onScan: onScan,
+                  )
                 : _List(reminders: visible, onOpenReminder: onOpenReminder),
           ),
         ],
@@ -380,13 +384,18 @@ class _List extends StatelessWidget {
   }
 }
 
-/// «التذكيرات» with nothing in it at all — the screen F29 exists to fix.
+/// «التذكيرات» with nothing to come — the screen F29 exists to fix.
 ///
 /// It used to be a centred title and one grey line 80 px down an otherwise
 /// blank page. Now the middle of the screen does something: the illustration,
 /// the title and its promise, then the three ready-made dates, the «صوّر
 /// ورقة» way in, and a line pointing back at the header's «إضافة تذكير» for a
 /// reminder entered from scratch (F29, concept D).
+///
+/// Used in **two** states, which is the owner's call of 2026-10-10 (T15):
+/// the wholly-empty library, and an empty «القادمة» while «الفائتة» or
+/// «المكتملة» still hold something. The difference between them is the tabs
+/// above — gone in the first, kept in the second — not this body.
 ///
 /// Top-anchored and scrolling in its own pane, rather than centred: centring
 /// pushes the first quick row under the fold on a small phone at 1.6× text,
@@ -502,14 +511,23 @@ class _EmptyLibrary extends StatelessWidget {
   }
 }
 
-/// A tab with no rows while the library itself is not empty — «الفائتة» or
-/// «المكتملة» with nothing (yet) in them. Simpler than [_EmptyLibrary]: no
-/// call to action, since there is nothing to *do* about having missed or
-/// completed nothing.
+/// A tab with no rows while the library itself is not empty.
+///
+/// «الفائتة» and «المكتملة» get a statement: a badge, a title, a sentence and
+/// a way back to «القادمة». There is nothing to *do* about having missed or
+/// completed nothing, so they carry no call to action.
+///
+/// «القادمة» is the exception, and gets [_EmptyLibrary] in full instead —
+/// nothing coming up is the one empty bucket a user might want to act on.
 class _EmptyBucket extends StatelessWidget {
-  const _EmptyBucket({required this.tab});
+  const _EmptyBucket({required this.tab, this.onQuickReminder, this.onScan});
 
   final RemindersTab tab;
+
+  /// Forwarded to [_EmptyLibrary] for the «القادمة» case below, which is the
+  /// one bucket whose empty state is an invitation rather than a statement.
+  final ValueChanged<ManualReminderSeed>? onQuickReminder;
+  final VoidCallback? onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -538,26 +556,31 @@ class _EmptyBucket extends StatelessWidget {
         subtitle: strings.reminderEmptyCompletedSubtitle,
       ),
       // «القادمة» is only empty while the library is not when every reminder
-      // has already been missed or completed. It gets the same vocabulary so
-      // the three buckets read as one screen (locked decision 2), and no way
-      // «back to القادمة» — the user is already on it. Its title is the
-      // library's own «مافيش تذكيرات لسه», which is the one line of copy in
-      // this state that does not quite fit what it describes; the copy table
-      // approved no string of its own for it, so this reports the mismatch
-      // rather than inventing one (see the T10 record).
-      RemindersTab.upcoming => _EmptyBucketBody(
-        glyph: StrokeGlyph.navReminders,
-        badgeFill: colors.surfaceTealAlt,
-        badgeBorder: colors.borderCool,
-        glyphColor: colors.brandPrimary,
-        title: strings.reminderEmptyTitle,
+      // has already been missed or completed. Unlike the two buckets above
+      // it, that is not a state to *report* — it is the one place on this
+      // screen where the user has nothing coming up and may well want to
+      // make something. So it gets the wholly-empty library's own state,
+      // whole: the illustration, the three quick dates, «صوّر ورقة» and the
+      // hint (owner's call, 2026-10-10 — T15).
+      //
+      // The tabs above stay, because they are the only way back to the
+      // «الفائتة»/«المكتملة» the user's reminders are actually sitting in —
+      // hiding them, as the wholly-empty library does, would strand them.
+      RemindersTab.upcoming => _EmptyLibrary(
+        onQuickReminder: onQuickReminder,
+        onScan: onScan,
       ),
     };
   }
 }
 
-/// One empty bucket: a badge, a title, a sentence, and — for the two buckets
-/// that are not «القادمة» — a way back to it (F29-T10).
+/// One empty bucket: a badge, a title, a sentence, and a way back to
+/// «القادمة» (F29-T10).
+///
+/// Both of its callers are «الفائتة» and «المكتملة». «القادمة» used to be a
+/// third, with no sentence and no link, which is why [subtitle] was once
+/// nullable and the link conditional; since T15 that bucket gets
+/// [_EmptyLibrary] instead, so every instance here has both.
 ///
 /// The badge is never the message. Its colour is reinforcement for a title
 /// that already says the thing in words («مفيش حاجة فاتتك» is green *and*
@@ -573,7 +596,7 @@ class _EmptyBucketBody extends StatelessWidget {
     required this.badgeBorder,
     required this.glyphColor,
     required this.title,
-    this.subtitle,
+    required this.subtitle,
   });
 
   final StrokeGlyph glyph;
@@ -581,9 +604,7 @@ class _EmptyBucketBody extends StatelessWidget {
   final Color badgeBorder;
   final Color glyphColor;
   final String title;
-
-  /// `null` only for «القادمة», which has no sentence of its own approved.
-  final String? subtitle;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -627,53 +648,51 @@ class _EmptyBucketBody extends StatelessWidget {
               color: colors.textBody,
             ),
           ),
-          if (subtitle case final text?) ...[
-            const SizedBox(height: _emptyTitleGapBelow),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMedium.copyWith(
-                color: colors.textCaption,
-                fontWeight: AppTypography.medium,
+          const SizedBox(height: _emptyTitleGapBelow),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyMedium.copyWith(
+              color: colors.textCaption,
+              fontWeight: AppTypography.medium,
+            ),
+          ),
+          const SizedBox(height: _bucketLinkGapAbove),
+          // Reads the cubit directly, exactly as the tabs above it do:
+          // switching bucket is this screen's own state, not a navigation
+          // and not something a parent needs a callback for.
+          TextButton(
+            onPressed: () =>
+                context.read<RemindersCubit>().setTab(RemindersTab.upcoming),
+            style: TextButton.styleFrom(
+              foregroundColor: colors.brandPrimary,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: _bucketLinkPaddingV,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.sm),
               ),
             ),
-            const SizedBox(height: _bucketLinkGapAbove),
-            // Reads the cubit directly, exactly as the tabs above it do:
-            // switching bucket is this screen's own state, not a navigation
-            // and not something a parent needs a callback for.
-            TextButton(
-              onPressed: () =>
-                  context.read<RemindersCubit>().setTab(RemindersTab.upcoming),
-              style: TextButton.styleFrom(
-                foregroundColor: colors.brandPrimary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: _bucketLinkPaddingV,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.sm),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      strings.reminderEmptyBackToUpcoming,
-                      style: AppTypography.labelMedium.copyWith(
-                        fontSize: _bucketLinkFontSize,
-                        fontWeight: AppTypography.extraBold,
-                      ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    strings.reminderEmptyBackToUpcoming,
+                    style: AppTypography.labelMedium.copyWith(
+                      fontSize: _bucketLinkFontSize,
+                      fontWeight: AppTypography.extraBold,
                     ),
                   ),
-                  const SizedBox(width: _bucketLinkGap),
-                  // The prototype's 16 px, which is [ForwardChevron]'s own
-                  // default size.
-                  ForwardChevron(color: colors.brandPrimary),
-                ],
-              ),
+                ),
+                const SizedBox(width: _bucketLinkGap),
+                // The prototype's 16 px, which is [ForwardChevron]'s own
+                // default size.
+                ForwardChevron(color: colors.brandPrimary),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
