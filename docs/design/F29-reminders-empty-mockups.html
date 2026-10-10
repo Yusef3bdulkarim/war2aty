@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reminders Empty-State Mockups — F29</title>
+<style>
+  /* Cairo from the app's own bundle (works offline when opened from the repo). */
+  @font-face {
+    font-family: "Cairo";
+    src: url("../../assets/fonts/Cairo.ttf") format("truetype");
+    font-weight: 200 1000;
+    font-display: swap;
+  }
+
+  :root {
+    /* Waraqti tokens — lib/core/theme/app_colors.dart (AppColors.light) */
+    --brand: #0E7C86;
+    --brand-deep: #0A5C64;
+    --on-brand: #FFFFFF;
+    --ink: #1D2B30;
+    --text-body: #3A474C;
+    --text-2: #5A686E;
+    --text-muted: #8A969B;
+    --text-caption: #6B777C;
+    --bg: #E9E6DF;
+    --surface: #F5F4EF;
+    --surface-alt: #F2EFE8;
+    --card: #FFFFFF;
+    --surface-teal: #EEF4F5;
+    --surface-teal-alt: #E4F1F2;
+    --surface-neutral: #EFF3F0;
+    --border-soft: #E7E4DC;
+    --border-cool: #DCE6E7;
+    --border: #E0DCD3;
+    --success: #2E9E63;
+    --success-tint: #E1F2E9;
+    --success-ink: #1E7A48;
+    --warning: #C77B12;
+    --warning-ink: #8A5A0E;
+    --warning-tint: #FBEFD8;
+    --warning-border: #F0D8A8;
+    --error: #C4362A;
+    --error-tint: #FBECEA;
+    --icon-muted: #9AA6AB;
+    --icon-subtle: #7A868B;
+
+    /* Radii — lib/core/theme/app_radii.dart */
+    --r-sm: 10px; --r-md: 14px; --r-lg: 18px; --r-xl: 20px; --r-xxl: 26px;
+
+    --ts: 1;        /* the text-scale the toolbar flips */
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: "Cairo", system-ui, sans-serif; line-height: 1.6;
+  }
+  button { font: inherit; color: inherit; }
+
+  /* ───────────────────────── Page chrome ───────────────────────── */
+  .page { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; }
+  .page h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; letter-spacing: -.2px; }
+  .page .lede { color: var(--text-2); margin: 0 0 20px; max-width: 860px; font-size: 15px; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 10;
+    display: grid; gap: 10px;
+    background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px);
+    padding: 12px 0; margin-bottom: 28px; border-bottom: 1px solid var(--border);
+  }
+  .tb-row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .tb-row .label { font-size: 13px; font-weight: 800; color: var(--text-2); min-width: 86px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button {
+    border: 1px solid var(--border); background: var(--card); border-radius: 999px;
+    padding: 5px 13px; font-size: 13.5px; font-weight: 700; cursor: pointer; color: var(--ink);
+  }
+  .seg button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .seg button:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+  .decks { display: grid; grid-template-columns: repeat(auto-fit, minmax(372px, 1fr)); gap: 36px 24px; justify-items: center; }
+  .deck { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .deck > header { width: 100%; max-width: 372px; }
+  .deck .tag {
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 28px; min-width: 28px; padding: 0 9px; border-radius: 9px;
+    background: var(--brand); color: #fff; font-weight: 800; font-size: 14px;
+    margin-inline-end: 9px; vertical-align: middle;
+  }
+  .deck h2 { display: inline; font-size: 18.5px; font-weight: 800; vertical-align: middle; }
+  .deck .sub { color: var(--text-2); font-size: 14px; margin: 7px 0 0; }
+
+  /* ───────────────────────── Phone frame ───────────────────────── */
+  .phone {
+    width: 372px; height: 792px; padding: 6px; border-radius: 50px; background: #0B0D0F;
+    box-shadow: 0 24px 48px -16px rgba(29,43,48,.45), inset 0 0 0 1.5px #2A2F34; flex: none;
+  }
+  @media (max-width: 420px) { .phone { transform: scale(.86); transform-origin: top center; margin-bottom: -110px; } }
+  .screen {
+    position: relative; width: 360px; height: 780px; overflow: hidden; border-radius: 44px;
+    background: var(--surface); display: flex; flex-direction: column;
+    font-size: calc(1rem * var(--ts)); user-select: none;
+  }
+  .statusbar {
+    height: 30px; flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 26px; font-size: 13px; font-weight: 700; color: var(--ink);
+  }
+  .statusbar .icons { display: flex; gap: 6px; align-items: center; }
+  .statusbar .icons i { display: block; background: var(--ink); border-radius: 2px; opacity: .8; }
+
+  /* SafeArea top already consumed by the status bar; _pageTop = 64 - 52 = 12. */
+  .body { flex: 1; min-height: 0; display: flex; flex-direction: column; padding-top: 12px; }
+
+  /* ── The header, exactly as reminders_list_screen.dart draws it ── */
+  .head { padding: 0 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .head h3 { margin: 0; font-size: calc(24px * var(--ts)); font-weight: 800; color: var(--ink); line-height: 1.35; }
+  .btn-add {
+    display: inline-flex; align-items: center; gap: 7px; border: 0; cursor: pointer;
+    background: var(--brand); color: var(--on-brand); border-radius: var(--r-md);
+    padding: 11px 16px; font-size: calc(14px * var(--ts)); font-weight: 700;
+  }
+  .btn-add svg { width: calc(16px * var(--ts)); height: calc(16px * var(--ts)); }
+
+  /* ── Tabs (_Tabs) ── */
+  .tabs { margin: 16px 20px 0; background: var(--surface-alt); border-radius: var(--r-md); padding: 4px; display: flex; gap: 0; }
+  .tabs button {
+    flex: 1; border: 0; background: transparent; cursor: pointer; border-radius: var(--r-sm);
+    padding: 9px 0; font-size: calc(13.5px * var(--ts)); font-weight: 700; color: var(--text-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tabs button[aria-selected="true"] { background: var(--card); color: var(--brand); }
+
+  /* ── The scrolling empty-state body ── */
+  .pane { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; }
+  .pane::-webkit-scrollbar { width: 5px; }
+  .pane::-webkit-scrollbar-thumb { background: #CFCBC1; border-radius: 3px; }
+  .pane > .inner { padding: 24px 20px 108px; }
+
+  .e-title {
+    margin: 0; text-align: center; color: var(--text-body);
+    font-size: calc(18px * var(--ts)); font-weight: 800; line-height: 1.5;
+  }
+  .e-sub {
+    margin: 10px 0 0; text-align: center; color: var(--text-caption);
+    font-size: calc(15px * var(--ts)); font-weight: 500; line-height: 1.65;
+  }
+  .e-kicker {
+    margin: 22px 0 10px; color: var(--text-2);
+    font-size: calc(13.5px * var(--ts)); font-weight: 800; letter-spacing: .1px;
+  }
+
+  /* ───────── The shared illustration: a bell over a paper. No shadows. ─────────
+     Flat fills + a hairline border do the lifting the removed shadow used to.
+     Same discipline the owner asked for on Home and مستنداتي (F29 task 2). */
+  .art { width: 132px; height: 112px; margin: 0 auto; position: relative; }
+  .art .sheet {
+    position: absolute; inset: 6px 30px 10px 18px; background: var(--card);
+    border: 1.5px solid var(--border-soft); border-radius: 13px; transform: rotate(-7deg);
+    padding: 15px 12px 0;
+  }
+  .art .sheet i { display: block; height: 5px; border-radius: 3px; background: #E2DED5; margin-bottom: 7px; }
+  .art .sheet i:nth-child(1) { width: 62%; background: #D3CDBF; }
+  .art .sheet i:nth-child(2) { width: 100%; }
+  .art .sheet i:nth-child(3) { width: 82%; }
+  .art .date {
+    position: absolute; inset: auto auto 22px 10px; background: var(--warning-tint);
+    border: 1.5px solid var(--warning-border); color: var(--warning-ink);
+    border-radius: 8px; padding: 2px 7px; font-size: 11px; font-weight: 800;
+    transform: rotate(-7deg);
+  }
+  .art .bell {
+    position: absolute; inset: auto 0 0 auto; width: 58px; height: 58px; border-radius: 18px;
+    background: var(--brand); display: grid; place-items: center;
+  }
+  .art .bell svg { width: 29px; height: 29px; }
+  .art .ping {
+    position: absolute; inset: auto -5px -5px auto; width: 68px; height: 68px; border-radius: 22px;
+    border: 2px solid var(--surface-teal-alt);
+  }
+  /* The smaller art the denser concepts use. */
+  .art.sm { width: 104px; height: 88px; }
+  .art.sm .sheet { inset: 4px 24px 8px 14px; padding: 11px 10px 0; border-radius: 11px; }
+  .art.sm .sheet i { height: 4px; margin-bottom: 6px; }
+  .art.sm .date { inset: auto auto 17px 7px; font-size: 9.5px; padding: 1px 5px; }
+  .art.sm .bell { width: 46px; height: 46px; border-radius: 15px; }
+  .art.sm .bell svg { width: 23px; height: 23px; }
+  .art.sm .ping { width: 54px; height: 54px; border-radius: 18px; }
+
+  /* ───────── A — the 3-step explainer ───────── */
+  .steps { margin: 0; padding: 0; list-style: none; background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--r-xl); }
+  .steps li { display: flex; gap: 12px; padding: 15px 16px; align-items: flex-start; }
+  .steps li + li { border-top: 1px solid var(--border-soft); }
+  .steps .n {
+    flex: none; width: calc(28px * var(--ts)); height: calc(28px * var(--ts)); border-radius: 50%;
+    background: var(--surface-teal-alt); color: var(--brand-deep);
+    display: grid; place-items: center; font-size: calc(14px * var(--ts)); font-weight: 800;
+  }
+  .steps .tx { min-width: 0; }
+  .steps b { display: block; font-size: calc(15px * var(--ts)); font-weight: 800; color: var(--ink); line-height: 1.5; }
+  .steps span { display: block; margin-top: 2px; font-size: calc(13.5px * var(--ts)); font-weight: 500; color: var(--text-caption); line-height: 1.6; }
+
+  /* ───────── C — the value tiles ───────── */
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tiles.stack { grid-template-columns: 1fr; }
+  .tile {
+    background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--r-lg);
+    padding: 14px 13px; min-width: 0;
+  }
+  .tile .ic { width: calc(34px * var(--ts)); height: calc(34px * var(--ts)); border-radius: 11px; display: grid; place-items: center; margin-bottom: 9px; }
+  .tile .ic svg { width: calc(19px * var(--ts)); height: calc(19px * var(--ts)); }
+  .tile b { display: block; font-size: calc(14.5px * var(--ts)); font-weight: 800; color: var(--ink); line-height: 1.45; }
+  .tile span { display: block; margin-top: 3px; font-size: calc(12.8px * var(--ts)); font-weight: 500; color: var(--text-caption); line-height: 1.55; }
+
+  /* ───────── D — the quick-create row ───────── */
+  .quick { display: grid; gap: 9px; }
+  .qbtn {
+    display: flex; align-items: center; gap: 11px; width: 100%; cursor: pointer; text-align: start;
+    background: var(--card); border: 1px solid var(--border-cool); border-radius: var(--r-lg);
+    padding: 13px 14px; min-height: 56px;
+  }
+  .qbtn .ic { flex: none; width: calc(36px * var(--ts)); height: calc(36px * var(--ts)); border-radius: 11px; background: var(--surface-teal); display: grid; place-items: center; }
+  .qbtn .ic svg { width: calc(19px * var(--ts)); height: calc(19px * var(--ts)); }
+  .qbtn .tx { flex: 1; min-width: 0; }
+  .qbtn b { display: block; font-size: calc(15px * var(--ts)); font-weight: 800; color: var(--ink); line-height: 1.45; }
+  .qbtn span { display: block; font-size: calc(13px * var(--ts)); font-weight: 600; color: var(--text-muted); margin-top: 1px; }
+  .qbtn .go { flex: none; color: var(--icon-muted); }
+  .qbtn .go svg { width: 18px; height: 18px; }
+
+  /* The shared "or photograph a paper" secondary action. */
+  .btn-ghost {
+    margin-top: 14px; width: 100%; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--surface-teal); color: var(--brand); border: 1px solid var(--border-cool);
+    border-radius: var(--r-md); padding: 13px 16px;
+    font-size: calc(15.5px * var(--ts)); font-weight: 700;
+  }
+  .btn-ghost svg { width: calc(18px * var(--ts)); height: calc(18px * var(--ts)); }
+  .hint { margin: 10px 0 0; text-align: center; font-size: calc(12.8px * var(--ts)); font-weight: 500; color: var(--text-muted); line-height: 1.6; }
+
+  /* ── An empty bucket (الفائتة / المكتملة) — same vocabulary, quieter ── */
+  .bucket { padding-top: 34px; text-align: center; }
+  .bucket .badge {
+    width: calc(64px * var(--ts)); height: calc(64px * var(--ts)); border-radius: 22px; margin: 0 auto 18px;
+    display: grid; place-items: center; border: 1.5px solid transparent;
+  }
+  .bucket .badge svg { width: calc(30px * var(--ts)); height: calc(30px * var(--ts)); }
+  .bucket .badge.ok { background: var(--success-tint); border-color: #C8E6D6; }
+  .bucket .badge.done { background: var(--surface-teal-alt); border-color: var(--border-cool); }
+  .bucket .link {
+    margin-top: 18px; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+    background: transparent; border: 0; color: var(--brand); font-weight: 800;
+    font-size: calc(14.5px * var(--ts)); padding: 10px 12px; border-radius: var(--r-sm);
+  }
+  .bucket .link svg { width: 16px; height: 16px; }
+
+  /* ── Bottom nav (scaffold_with_nav_bar.dart): opaque card, hairline top ── */
+  .nav {
+    flex: none; background: var(--card); border-top: 1px solid var(--border-soft);
+    padding: 8px 12px 26px; display: flex;
+  }
+  .nav a { flex: 1; text-decoration: none; display: grid; justify-items: center; gap: 4px; color: var(--icon-muted); }
+  .nav a svg { width: 25px; height: 25px; }
+  .nav a span { font-size: 11px; font-weight: 700; }
+  .nav a.on { color: var(--brand); }
+  .gesturebar { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 118px; height: 4px; border-radius: 4px; background: #C3BEB3; }
+
+  .ico { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ───────────────────────── Notes panels ───────────────────────── */
+  .panel { margin-top: 44px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 20px 24px; }
+  .panel h2 { font-size: 19px; font-weight: 800; margin: 0 0 10px; }
+  .panel h3 { font-size: 15.5px; font-weight: 800; margin: 20px 0 6px; }
+  .panel p, .panel li { font-size: 14.5px; color: var(--text-2); }
+  .panel p { margin: 0 0 8px; }
+  .panel ul, .panel ol { margin: 0; padding-inline-start: 22px; }
+  .panel li { margin-bottom: 6px; }
+  .panel li b, .panel p b { color: var(--ink); }
+  .panel code { background: var(--surface-alt); border: 1px solid var(--border-soft); border-radius: 5px; padding: 1px 5px; font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; direction: ltr; display: inline-block; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 4px 32px; }
+  table.cmp { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  table.cmp th, table.cmp td { text-align: start; padding: 9px 10px; border-bottom: 1px solid var(--border-soft); font-size: 14px; vertical-align: top; }
+  table.cmp th { color: var(--ink); font-weight: 800; background: var(--surface-alt); }
+  table.cmp td:first-child { font-weight: 800; color: var(--ink); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <!-- Paths copied verbatim from lib/core/icons/stroke_icon.dart. -->
+  <symbol id="i-bell" viewBox="0 0 24 24"><path class="ico" d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9 M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path class="ico" d="M12 5v14M5 12h14" stroke-width="2.2"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path class="ico" d="M3 8a2 2 0 0 1 2-2h1.5l1-2h7l1 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle class="ico" cx="12" cy="12.5" r="3.5"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect class="ico" x="3" y="5" width="18" height="16" rx="3"/><path class="ico" d="M3 9h18 M8 3v4 M16 3v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle class="ico" cx="12" cy="12" r="9"/><path class="ico" d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path class="ico" d="M20 6 9 17l-5-5" stroke-width="2.1"/></symbol>
+  <symbol id="i-check-sq" viewBox="0 0 24 24"><path class="ico" d="M9 11l3 3 8-8 M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path class="ico" d="M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z M18 13l.8 2.5L21 16l-2.2.5L18 19l-.8-2.5L15 16l2.2-.5z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path class="ico" d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-doc-check" viewBox="0 0 24 24"><path class="ico" d="M9 11l3 3 8-8 M14 3v4a1 1 0 0 0 1 1h4 M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path class="ico" d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z M9 12l2 2 4-4"/></symbol>
+  <symbol id="i-money" viewBox="0 0 24 24"><path class="ico" d="M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></symbol>
+  <symbol id="i-nav-home" viewBox="0 0 24 24"><path class="ico" d="M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5"/></symbol>
+  <symbol id="i-nav-docs" viewBox="0 0 24 24"><path class="ico" d="M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-nav-set" viewBox="0 0 24 24"><circle class="ico" cx="12" cy="12" r="3"/><path class="ico" d="M19.9 14.4a1.7 1.7 0 0 0 .4 1.9 2 2 0 1 1-2.8 2.8 1.7 1.7 0 0 0-2.9 1.2 2 2 0 0 1-4 0 1.7 1.7 0 0 0-2.9-1.2 2 2 0 1 1-2.8-2.8 1.7 1.7 0 0 0-1.2-2.9 2 2 0 0 1 0-4 1.7 1.7 0 0 0 1.2-2.9 2 2 0 1 1 2.8-2.8 1.7 1.7 0 0 0 2.9-1.2 2 2 0 0 1 4 0 1.7 1.7 0 0 0 2.9 1.2 2 2 0 1 1 2.8 2.8 1.7 1.7 0 0 0 1.2 2.9 2 2 0 0 1 0 4 1.7 1.7 0 0 0-1.2 1z"/></symbol>
+</defs></svg>
+
+<div class="page">
+  <h1>التذكيرات — الحالة الفاضية (F29)</h1>
+  <p class="lede">
+    ثلاث أفكار مختلفة للمساحة الفاضية في وسط شاشة «التذكيرات»، كل واحدة مبنية على
+    <code>AppColors.light</code> و<code>AppTypography</code> و<code>AppRadii</code> بالقيم الحقيقية.
+    بدّل بين الأفكار والحالات من الشريط تحت، وجرّب مقاس الخط الكبير.
+    الرسمة في كل الأفكار <b>من غير أي ظل</b> — نفس المعاملة المطلوبة في «مستنداتي» و«الرئيسية».
+  </p>
+
+  <div class="toolbar">
+    <div class="tb-row">
+      <span class="label">الحالة</span>
+      <div class="seg" id="seg-state">
+        <button type="button" data-state="empty" aria-pressed="true">مافيش تذكيرات خالص</button>
+        <button type="button" data-state="missed" aria-pressed="false">«الفائتة» فاضية</button>
+        <button type="button" data-state="completed" aria-pressed="false">«المكتملة» فاضية</button>
+      </div>
+    </div>
+    <div class="tb-row">
+      <span class="label">مقاس الخط</span>
+      <div class="seg" id="seg-ts">
+        <button type="button" data-ts="1" aria-pressed="true">عادي</button>
+        <button type="button" data-ts="1.3" aria-pressed="false">كبير ‎1.3×</button>
+        <button type="button" data-ts="1.6" aria-pressed="false">أكبر ‎1.6×</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="decks">
+
+    <!-- ════════════════════════ A ════════════════════════ -->
+    <section class="deck" data-concept="A">
+      <header>
+        <span class="tag">A</span><h2>«إزاي بيشتغل؟» — ٣ خطوات</h2>
+        <p class="sub">بتشرح الفكرة لحد لسه ما جرّبهاش: صوّر، إحنا نلاقي التاريخ، إحنا نفكّرك. المساحة بتشيل تعليم، والزرار فوق فاضل هو الفعل.</p>
+      </header>
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
+        <div class="body">
+          <div class="head">
+            <h3>التذكيرات</h3>
+            <button type="button" class="btn-add"><svg><use href="#i-plus"/></svg>إضافة تذكير</button>
+          </div>
+          <div class="tabs" data-tabs>
+            <button type="button" aria-selected="true">القادمة</button>
+            <button type="button" aria-selected="false">الفائتة</button>
+            <button type="button" aria-selected="false">المكتملة</button>
+          </div>
+          <div class="pane"><div class="inner" data-slot></div></div>
+        </div>
+        <nav class="nav">
+          <a href="#"><svg><use href="#i-nav-home"/></svg><span>الرئيسية</span></a>
+          <a href="#"><svg><use href="#i-nav-docs"/></svg><span>مستنداتي</span></a>
+          <a href="#" class="on"><svg><use href="#i-bell"/></svg><span>التذكيرات</span></a>
+          <a href="#"><svg><use href="#i-nav-set"/></svg><span>الإعدادات</span></a>
+        </nav>
+        <div class="gesturebar"></div>
+      </div></div>
+    </section>
+
+    <!-- ════════════════════════ C ════════════════════════ -->
+    <section class="deck" data-concept="C">
+      <header>
+        <span class="tag">C</span><h2>«ليه تعمل تذكير؟» — بلاطات القيمة</h2>
+        <p class="sub">بتبيع الفايدة مش الخطوات: أربع بلاطات قصيرة بتقول المستخدم هيكسب إيه. أسرع في القراءة، وبتشيل المساحة بإيقاع بصري مرتب.</p>
+      </header>
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
+        <div class="body">
+          <div class="head">
+            <h3>التذكيرات</h3>
+            <button type="button" class="btn-add"><svg><use href="#i-plus"/></svg>إضافة تذكير</button>
+          </div>
+          <div class="tabs" data-tabs>
+            <button type="button" aria-selected="true">القادمة</button>
+            <button type="button" aria-selected="false">الفائتة</button>
+            <button type="button" aria-selected="false">المكتملة</button>
+          </div>
+          <div class="pane"><div class="inner" data-slot></div></div>
+        </div>
+        <nav class="nav">
+          <a href="#"><svg><use href="#i-nav-home"/></svg><span>الرئيسية</span></a>
+          <a href="#"><svg><use href="#i-nav-docs"/></svg><span>مستنداتي</span></a>
+          <a href="#" class="on"><svg><use href="#i-bell"/></svg><span>التذكيرات</span></a>
+          <a href="#"><svg><use href="#i-nav-set"/></svg><span>الإعدادات</span></a>
+        </nav>
+        <div class="gesturebar"></div>
+      </div></div>
+    </section>
+
+    <!-- ════════════════════════ D ════════════════════════ -->
+    <section class="deck" data-concept="D">
+      <header>
+        <span class="tag">D</span><h2>«اعمل تذكير في ثانية» — اختصارات</h2>
+        <p class="sub">المساحة بتبقى أزرار شغّالة: بكرة / بعد أسبوع / آخر الشهر، كل واحد بيفتح فورم التذكير والتاريخ متحدّد. أقصر طريق لأول تذكير.</p>
+      </header>
+      <div class="phone"><div class="screen">
+        <div class="statusbar"><span>٩:٤١</span><span class="icons"><i style="width:16px;height:9px"></i><i style="width:22px;height:10px"></i></span></div>
+        <div class="body">
+          <div class="head">
+            <h3>التذكيرات</h3>
+            <button type="button" class="btn-add"><svg><use href="#i-plus"/></svg>إضافة تذكير</button>
+          </div>
+          <div class="tabs" data-tabs>
+            <button type="button" aria-selected="true">القادمة</button>
+            <button type="button" aria-selected="false">الفائتة</button>
+            <button type="button" aria-selected="false">المكتملة</button>
+          </div>
+          <div class="pane"><div class="inner" data-slot></div></div>
+        </div>
+        <nav class="nav">
+          <a href="#"><svg><use href="#i-nav-home"/></svg><span>الرئيسية</span></a>
+          <a href="#"><svg><use href="#i-nav-docs"/></svg><span>مستنداتي</span></a>
+          <a href="#" class="on"><svg><use href="#i-bell"/></svg><span>التذكيرات</span></a>
+          <a href="#"><svg><use href="#i-nav-set"/></svg><span>الإعدادات</span></a>
+        </nav>
+        <div class="gesturebar"></div>
+      </div></div>
+    </section>
+
+  </div>
+
+  <!-- ───────────────────────── Notes ───────────────────────── -->
+  <div class="panel">
+    <h2>قرارات مشتركة بين الأفكار الثلاثة</h2>
+    <div class="cols">
+      <div>
+        <h3>التابات</h3>
+        <p>
+          <b>بتختفي</b> لما المكتبة كلها فاضية. تلات تابات كلها بتودّي على ولا حاجة هي أكبر سبب إن
+          الشاشة الحالية بتحس إنها مكسورة. بترجع تظهر أول ما يبقى فيه تذكير واحد — وفي حالة
+          «الفائتة»/«المكتملة» الفاضية بتفضل ظاهرة، لأن المستخدم محتاجها يرجع بيها على «القادمة».
+        </p>
+        <h3>مكان المحتوى</h3>
+        <p>
+          <b>من فوق</b> بـ24px تحت التابات/الهيدر، مش متوسّط في النص. التوسيط على موبايل صغير
+          بمقاس خط كبير بيرمي الـCTA تحت الطيّة؛ والمحتوى هنا بقى له جسم كفاية إنه يملا المساحة
+          من غير ما نعوّم عليه. الـ<code>pane</code> بيـscroll لوحده، والـ108px تحت بتسيب الشريط السفلي.
+        </p>
+      </div>
+      <div>
+        <h3>الرسمة</h3>
+        <p>
+          ورقة مايلة ‎-7°‎ وعليها شريطة تاريخ، وجرس براند فوقها — <b>ولا ظل واحد</b>.
+          اللي بيرفع الرسمة بدل الظل: حدود hairline (<code>borderSoft</code>) وحلقة
+          <code>surfaceTealAlt</code> حوالين الجرس. نفس منطق إزالة الظل في
+          <code>home_empty_state.dart</code> و<code>documents_empty_state.dart</code>.
+        </p>
+        <h3>الحالات الفاضية للتابات</h3>
+        <p>
+          «الفائتة» الفاضية خبر <b>حلو</b> (أخضر + «مفيش حاجة فاتتك») — مش فشل.
+          «المكتملة» الفاضية خبر <b>محايد</b> (teal). الاتنين فيهم زرار يرجّع على «القادمة»،
+          وده اللي ناقص خالص دلوقتي.
+        </p>
+      </div>
+    </div>
+
+    <h3>النصوص الجديدة في <code>AppStrings</code></h3>
+    <p>
+      كل فكرة محتاجة مفاتيح جديدة (عربي + إنجليزي + <code>app_strings_test</code>).
+      الموجود حاليًا: <code>reminderEmptyTitle</code>, <code>reminderEmptySubtitle</code>,
+      <code>reminderEmptyMissedTitle</code>, <code>reminderEmptyCompletedTitle</code>،
+      و<code>reminderEmptyScanCta</code> («صوّر ورقة») <b>متكتوب بالفعل ومش مستخدم</b> في أي شاشة.
+    </p>
+
+    <h3>مقارنة سريعة</h3>
+    <table class="cmp">
+      <thead><tr><th>&nbsp;</th><th>A — ٣ خطوات</th><th>C — بلاطات القيمة</th><th>D — اختصارات</th></tr></thead>
+      <tbody>
+        <tr><td>بتعلّم المستخدم</td><td>آه، ده شغلها الأساسي</td><td>جزئيًا (فايدة مش طريقة)</td><td>لأ</td></tr>
+        <tr><td>أول تذكير بكام خطوة</td><td>٢ (زرار → فورم فاضي)</td><td>٢</td><td><b>١</b> (اختصار → فورم فيه التاريخ)</td></tr>
+        <tr><td>نصوص جديدة</td><td>٧ مفاتيح</td><td>٩ مفاتيح</td><td>٦ مفاتيح</td></tr>
+        <tr><td>كود جديد بره الشاشة</td><td>مسار الكاميرا (<code>onScan</code>)</td><td>مسار الكاميرا</td><td>مسار الكاميرا + <code>ReminderFormCubit.manual</code> يقبل تاريخ مبدئي + باراميتر في الراوت</td></tr>
+        <tr><td>بمقاس خط ‎1.6×</td><td>طويلة بس بتـscroll مرتبة</td><td>البلاطات بتبقى عمود واحد</td><td>أفضل واحدة — ٣ صفوف بس</td></tr>
+        <tr><td>الخطر</td><td>ممكن تتقرا «كلام كتير»</td><td>كلام تسويق من غير فعل</td><td>التواريخ الجاهزة ممكن تكون مش اللي هو عايزه</td></tr>
+      </tbody>
+    </table>
+
+    <h3>تكلفة التنفيذ الحقيقية</h3>
+    <ul>
+      <li><b>A و C:</b> كلهم جوّه <code>reminders_list_screen.dart</code> + مفاتيح نصوص + <code>onScan</code> جديد على الشاشة وسطر في <code>app_router.dart</code> يوديه على <code>AppRoutes.capture</code>.</li>
+      <li><b>D:</b> زيادة على كده — <code>ReminderFormCubit.manual</code> دلوقتي بيبدأ فاضي تمامًا (<code>ReminderFormEditing(title: '', isManual: true)</code>)، فلازم يقبل <code>initialDate</code>، والراوت <code>/reminders/manual</code> يقبل تاريخ. تغيير صغير بس بيلمس الدومين/الفورم مش بس الشاشة.</li>
+      <li>مفيش أي تست دلوقتي بيثبّت ظل، فإزالة الظلال في المهمة التانية تغيير آمن (٤ أماكن: ورقة + جرس/كاميرا في كل شاشة).</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ───────── The three concepts' bodies, and the two bucket states ─────────
+const art = (sm) => `
+  <div class="art${sm ? ' sm' : ''}" aria-hidden="true">
+    <div class="sheet"><i></i><i></i><i></i></div>
+    <div class="date">١٥ / ١١</div>
+    <div class="ping"></div>
+    <div class="bell"><svg style="color:#fff"><use href="#i-bell"/></svg></div>
+  </div>`;
+
+const scanBtn = `
+  <button type="button" class="btn-ghost"><svg><use href="#i-camera"/></svg>صوّر ورقة وخلّينا نلاقي الميعاد</button>`;
+
+const concepts = {
+  A: () => `
+    ${art(false)}
+    <p class="e-title" style="margin-top:18px">مافيش تذكيرات لسه</p>
+    <p class="e-sub">التذكير بيخلّيك متنساش ميعاد أو دفعة. دي الطريقة:</p>
+    <p class="e-kicker">إزاي بيشتغل؟</p>
+    <ol class="steps">
+      <li>
+        <span class="n">١</span>
+        <span class="tx"><b>صوّر الورقة</b><span>فاتورة، كشف، أو أي ورقة فيها ميعاد.</span></span>
+      </li>
+      <li>
+        <span class="n">٢</span>
+        <span class="tx"><b>إحنا نلاقي الميعاد</b><span>التطبيق يقرا الورقة ويطلّع لك التواريخ اللي فيها.</span></span>
+      </li>
+      <li>
+        <span class="n">٣</span>
+        <span class="tx"><b>تراجع وتأكّد</b><span>مفيش تذكير بيتعمل من غير موافقتك.</span></span>
+      </li>
+      <li>
+        <span class="n">٤</span>
+        <span class="tx"><b>نفكّرك قبل الميعاد</b><span>إشعار على موبايلك في الوقت اللي تختاره.</span></span>
+      </li>
+    </ol>
+    ${scanBtn}
+    <p class="hint">أو اضغط «إضافة تذكير» فوق وأدخل الميعاد بنفسك.</p>`,
+
+  C: () => `
+    ${art(true)}
+    <p class="e-title" style="margin-top:16px">مافيش تذكيرات لسه</p>
+    <p class="e-sub">اعمل أول تذكير، وما تقلقش من ميعاد تاني.</p>
+    <p class="e-kicker">التذكير بيعمل لك إيه؟</p>
+    <div class="tiles${ts >= 1.3 ? ' stack' : ''}">
+      <div class="tile">
+        <span class="ic" style="background:var(--warning-tint);color:var(--warning-ink)"><svg><use href="#i-clock"/></svg></span>
+        <b>قبل الميعاد بوقت</b><span>نفكّرك باليوم اللي يريّحك، مش في آخر لحظة.</span>
+      </div>
+      <div class="tile">
+        <span class="ic" style="background:var(--surface-teal-alt);color:var(--brand)"><svg><use href="#i-doc-check"/></svg></span>
+        <b>من الورقة نفسها</b><span>التاريخ بيتطلّع من الورقة، ما تكتبوش بإيدك.</span>
+      </div>
+      <div class="tile">
+        <span class="ic" style="background:var(--error-tint);color:var(--error)"><svg><use href="#i-money"/></svg></span>
+        <b>مفيش غرامة تأخير</b><span>الفاتورة تتدفع في وقتها.</span>
+      </div>
+      <div class="tile">
+        <span class="ic" style="background:var(--success-tint);color:var(--success-ink)"><svg><use href="#i-shield"/></svg></span>
+        <b>كله على موبايلك</b><span>التذكيرات متسجّلة على جهازك إنت.</span>
+      </div>
+    </div>
+    ${scanBtn}
+    <p class="hint">أو اضغط «إضافة تذكير» فوق وأدخل الميعاد بنفسك.</p>`,
+
+  D: () => `
+    ${art(true)}
+    <p class="e-title" style="margin-top:16px">مافيش تذكيرات لسه</p>
+    <p class="e-sub">اختار ميعاد جاهز وابدأ على طول — تعدّله زي ما تحب بعد كده.</p>
+    <p class="e-kicker">تذكير سريع</p>
+    <div class="quick">
+      <button type="button" class="qbtn">
+        <span class="ic" style="color:var(--brand)"><svg><use href="#i-calendar"/></svg></span>
+        <span class="tx"><b>بكرة</b><span>الخميس ١٦ أكتوبر — ٩:٠٠ ص</span></span>
+        <span class="go"><svg><use href="#i-chev"/></svg></span>
+      </button>
+      <button type="button" class="qbtn">
+        <span class="ic" style="color:var(--brand)"><svg><use href="#i-calendar"/></svg></span>
+        <span class="tx"><b>بعد أسبوع</b><span>الأربع ٢٢ أكتوبر — ٩:٠٠ ص</span></span>
+        <span class="go"><svg><use href="#i-chev"/></svg></span>
+      </button>
+      <button type="button" class="qbtn">
+        <span class="ic" style="color:var(--brand)"><svg><use href="#i-calendar"/></svg></span>
+        <span class="tx"><b>آخر الشهر</b><span>الجمعة ٣١ أكتوبر — ٩:٠٠ ص</span></span>
+        <span class="go"><svg><use href="#i-chev"/></svg></span>
+      </button>
+    </div>
+    ${scanBtn}
+    <p class="hint">أو اضغط «إضافة تذكير» فوق وحدّد كل حاجة بنفسك.</p>`,
+};
+
+// The two bucket states are shared by all three concepts — one vocabulary,
+// so القادمة/الفائتة/المكتملة never look like three different screens.
+const buckets = {
+  missed: `
+    <div class="bucket">
+      <div class="badge ok" aria-hidden="true"><svg style="color:var(--success-ink)"><use href="#i-check"/></svg></div>
+      <p class="e-title">مفيش حاجة فاتتك</p>
+      <p class="e-sub">كل تذكيراتك لسه في وقتها. لو فات ميعاد، هتلاقيه هنا.</p>
+      <button type="button" class="link">شوف التذكيرات القادمة<svg><use href="#i-chev"/></svg></button>
+    </div>`,
+  completed: `
+    <div class="bucket">
+      <div class="badge done" aria-hidden="true"><svg style="color:var(--brand)"><use href="#i-check-sq"/></svg></div>
+      <p class="e-title">لسه مخلّصت ولا تذكير</p>
+      <p class="e-sub">أول ما تضغط «خلّصته» على أي تذكير، هيتحرّك هنا.</p>
+      <button type="button" class="link">شوف التذكيرات القادمة<svg><use href="#i-chev"/></svg></button>
+    </div>`,
+};
+
+let state = 'empty';
+let ts = 1;
+
+function render() {
+  for (const deck of document.querySelectorAll('.deck')) {
+    const key = deck.dataset.concept;
+    const slot = deck.querySelector('[data-slot]');
+    const tabs = deck.querySelector('[data-tabs]');
+
+    if (state === 'empty') {
+      slot.innerHTML = concepts[key]();
+      tabs.style.display = 'none';                 // hidden: the whole library is empty
+    } else {
+      slot.innerHTML = buckets[state];
+      tabs.style.display = 'flex';                 // kept: the user needs a way back
+      const i = state === 'missed' ? 1 : 2;
+      tabs.querySelectorAll('button').forEach((b, n) =>
+        b.setAttribute('aria-selected', String(n === i)));
+    }
+  }
+}
+
+document.getElementById('seg-state').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-state]');
+  if (!b) return;
+  state = b.dataset.state;
+  for (const o of e.currentTarget.querySelectorAll('button'))
+    o.setAttribute('aria-pressed', String(o === b));
+  render();
+});
+
+document.getElementById('seg-ts').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-ts]');
+  if (!b) return;
+  ts = Number(b.dataset.ts);
+  document.documentElement.style.setProperty('--ts', b.dataset.ts);
+  for (const o of e.currentTarget.querySelectorAll('button'))
+    o.setAttribute('aria-pressed', String(o === b));
+  render();   // the value tiles drop to one column past 1.3×
+});
+
+render();
+</script>
+</body>
+</html>

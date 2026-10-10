@@ -981,15 +981,41 @@ abstract interface class AppStrings {
   String get reminderTabCompleted;
 
   String get reminderEmptyTitle;
+
+  /// Reworded in F29-T03: it used to name the two ways in («اعمل تذكير
+  /// يدوي، أو أنشئ تذكير من تاريخ…»), which the quick rows underneath now
+  /// *show*. It points at them instead, and promises the date stays editable
+  /// — the one thing a ready-made date has to reassure the user about.
   String get reminderEmptySubtitle;
+
+  // The quick-create rows filling the empty library's middle (F29). Each row
+  // offers a ready event date; the second line under a label is the resolved
+  // date itself, built from `formatDocumentDate`/`formatWallClockTime`, not
+  // from a string here.
+  String get reminderQuickCreateKicker;
+  String get reminderQuickTomorrow;
+  String get reminderQuickNextWeek;
+  String get reminderQuickEndOfMonth;
 
   /// The way out of [reminderEmptyTitle] besides [reminderAddAction] —
   /// mirrors the scan action Home and the documents list offer for the
   /// same "nothing yet" moment.
   String get reminderEmptyScanCta;
 
+  /// Points back at [reminderAddAction] in the header, for a reminder the
+  /// quick rows do not cover (F29). The empty state deliberately does not
+  /// repeat that button; this sentence is the pointer instead.
+  String get reminderEmptyScanHint;
+
+  // An empty «الفائتة» or «المكتملة» while the library itself is not empty
+  // (F29-T10). Each is a title plus a sentence, and each ends in a way back
+  // to «القادمة» — a bucket with nothing in it used to be one grey line with
+  // nowhere to go.
   String get reminderEmptyMissedTitle;
+  String get reminderEmptyMissedSubtitle;
   String get reminderEmptyCompletedTitle;
+  String get reminderEmptyCompletedSubtitle;
+  String get reminderEmptyBackToUpcoming;
 
   /// The list card's own status pill — also the details screen's (F09-T12).
   String get reminderStatusUpcoming;

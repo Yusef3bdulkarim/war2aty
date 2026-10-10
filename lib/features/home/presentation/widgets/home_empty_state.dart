@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../cubit/home_state.dart';
 
@@ -95,6 +94,12 @@ class HomeEmptyState extends StatelessWidget {
 /// Laid out with plain [Positioned] rather than the directional variant: this
 /// is a picture, not a line of content, so it keeps the same composition in
 /// both languages — the same reasoning as the scan card's gradient.
+///
+/// Both shapes are flat. The design draws a drop shadow under the page and a
+/// teal glow under the camera tile; the owner asked for both to come off
+/// (F29-T02), so this deviates from `Waraqti.dc.html` deliberately. Nothing
+/// else about the illustration changed, and nothing replaces the shadows —
+/// `home_empty_state_test` fails if one comes back.
 class _EmptyArt extends StatelessWidget {
   const _EmptyArt();
 
@@ -119,7 +124,6 @@ class _EmptyArt extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.card,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: AppShadows.paper,
                   ),
                 ),
               ),
@@ -133,13 +137,6 @@ class _EmptyArt extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: colors.brandPrimary,
                   borderRadius: BorderRadius.circular(18),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x4D0E7C86),
-                      blurRadius: 24,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
                 ),
                 child: Center(
                   child: StrokeIcon(

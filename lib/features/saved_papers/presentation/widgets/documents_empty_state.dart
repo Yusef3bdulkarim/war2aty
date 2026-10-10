@@ -6,7 +6,6 @@ import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
-import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 
@@ -23,7 +22,7 @@ const double _subtitleGap = 22;
 
 /// Illustration-only accents for the mock "lines of text" on the second
 /// paper — decorative, not semantic UI colors, so they live here rather than
-/// in [AppColors] (the same reasoning as [AppShadows]'s literal rgba values).
+/// in [AppColors], which carries only colours a screen can reason about.
 const Color _linedPaperFill = Color(0xFFEDEAE2);
 const Color _linedPaperBorder = Color(0xFFDED9CE);
 const Color _lineDark = Color(0xFFD3CDBF);
@@ -116,6 +115,12 @@ class DocumentsEmptyState extends StatelessWidget {
 /// camera tile. A more detailed cousin of Home's empty-state art: this one
 /// speaks specifically to "nothing saved", so it draws the paper *with*
 /// content rather than a blank one.
+///
+/// Every shape is flat. The design shadows the blank page and glows the
+/// camera tile in teal; the owner asked for both to come off (F29-T02), here
+/// and on Home, so this deviates from `Waraqti.dc.html` deliberately. The
+/// lined sheet's own border is what still separates the two pages, and
+/// `documents_empty_state_test` fails if a shadow comes back.
 class _EmptyArt extends StatelessWidget {
   const _EmptyArt();
 
@@ -140,7 +145,6 @@ class _EmptyArt extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colors.card,
                     borderRadius: BorderRadius.circular(12),
-                    boxShadow: AppShadows.paper,
                   ),
                 ),
               ),
@@ -181,13 +185,6 @@ class _EmptyArt extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: colors.brandPrimary,
                   borderRadius: BorderRadius.circular(17),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x4D0E7C86),
-                      blurRadius: 24,
-                      offset: Offset(0, 10),
-                    ),
-                  ],
                 ),
                 child: Center(
                   child: StrokeIcon(

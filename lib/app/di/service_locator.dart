@@ -211,6 +211,7 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
+import '../../features/reminders/presentation/models/manual_reminder_seed.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
@@ -909,12 +910,19 @@ void _registerReminders() {
     // Manual (F09-T04): a distinct registration under the same type, since
     // it starts from nothing rather than from router args — `instanceName`
     // is how get_it tells the two apart.
-    ..registerFactory<ReminderFormCubit>(
-      () => ReminderFormCubit.manual(
+    //
+    // Parameterised since F29, but on a **nullable** seed: «إضافة تذكير» in
+    // the list header still opens an empty form and passes nothing, while a
+    // quick row passes the date it offered. A nullable `P1` is why `null` is
+    // a legal `param1` here — get_it only type-checks a parameter it was
+    // given, or one whose type cannot be null.
+    ..registerFactoryParam<ReminderFormCubit, ManualReminderSeed?, void>(
+      (seed, _) => ReminderFormCubit.manual(
         createFromDocumentDate: getIt(),
         createManual: getIt(),
         getNotificationPermission: getIt(),
         requestNotificationPermission: getIt(),
+        seed: seed,
       ),
       instanceName: manualReminderFormInstanceName,
     )

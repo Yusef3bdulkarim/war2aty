@@ -41,6 +41,7 @@ import '../../features/onboarding/presentation/screens/privacy_screen.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
+import '../../features/reminders/presentation/models/manual_reminder_seed.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/reminders/presentation/screens/reminder_details_screen.dart';
 import '../../features/reminders/presentation/screens/reminder_form_screen.dart';
@@ -425,14 +426,24 @@ GoRouter createAppRouter({
           );
         },
       ),
-      // F09-T04. `instanceName` (not `param1`) picks the manual factory —
-      // there is nothing to seed it with, unlike `reminderCreate` above.
+      // F09-T04. `instanceName` picks the manual factory, as opposed to
+      // `reminderCreate` above, which is told apart by its `param1` alone.
+      //
+      // The `extra` is optional here, unlike every other route in this file
+      // that reads one: «إضافة تذكير» in the list header opens an empty form
+      // and sends nothing, while F29's quick rows send the date they offered.
+      // So a missing — or foreign — `extra` becomes `null` and opens the
+      // empty form, rather than bouncing the user to Home.
       GoRoute(
         path: AppRoutes.reminderManual,
         builder: (context, state) {
+          final extra = state.extra;
+          final seed = extra is ManualReminderSeed ? extra : null;
+
           return BlocProvider<ReminderFormCubit>(
             create: (_) => getIt<ReminderFormCubit>(
               instanceName: manualReminderFormInstanceName,
+              param1: seed,
             ),
             child: ReminderFormScreen(
               screenTitle: context.strings.reminderAddAction,
@@ -543,6 +554,16 @@ GoRouter createAppRouter({
                     onAddReminder: () => context.push(AppRoutes.reminderManual),
                     onOpenReminder: (id) =>
                         context.push(AppRoutes.reminderDetailsWith(id)),
+                    // The same route, with the quick row's date and time
+                    // riding along as `extra` (F29-T06).
+                    onQuickReminder: (seed) =>
+                        context.push(AppRoutes.reminderManual, extra: seed),
+                    // «صوّر ورقة» on the empty state (F29-T11) — the same
+                    // push «مستنداتي»'s own empty state makes, so a reminder
+                    // can start from a paper rather than from a blank form.
+                    onScan: () => context.push(
+                      AppRoutes.captureWith(CaptureSource.camera),
+                    ),
                   ),
                 ),
               ),
