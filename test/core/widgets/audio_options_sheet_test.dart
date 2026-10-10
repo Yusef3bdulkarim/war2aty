@@ -178,6 +178,47 @@ void main() {
     });
   });
 
+  group('the playback controls stay left-to-right', () {
+    // Material's bidirectionality guidance: media playback controls are not
+    // mirrored, because they show the direction of the tape, not of reading.
+    // The row was laid out RTL in Arabic, which put ▶▶ on the left and ◀◀ on
+    // the right — each arrow pointing away from where it sat, either side of
+    // a play button that still pointed right.
+    double centreX(WidgetTester tester, IconData icon) =>
+        tester.getCenter(find.byIcon(icon)).dx;
+
+    for (final locale in AppLocalizations.supportedLocales) {
+      testWidgets('rewind is on the left and forward on the right — $locale', (
+        tester,
+      ) async {
+        await openSheet(tester, locale: locale);
+
+        final rewind = centreX(tester, Icons.fast_rewind_rounded);
+        final play = centreX(tester, Icons.play_arrow_rounded);
+        final forward = centreX(tester, Icons.fast_forward_rounded);
+
+        expect(rewind, lessThan(play), reason: 'rewind sits left of play');
+        expect(play, lessThan(forward), reason: 'forward sits right of play');
+      });
+    }
+
+    testWidgets("the play button keeps the app's own direction", (
+      tester,
+    ) async {
+      // Only the row's order is forced left-to-right. The play button's
+      // Arabic tooltip is what a screen reader announces, and it must not
+      // inherit the row's direction.
+      await openSheet(tester);
+
+      expect(
+        Directionality.of(
+          tester.element(find.byIcon(Icons.play_arrow_rounded)),
+        ),
+        TextDirection.rtl,
+      );
+    });
+  });
+
   group('the speed row (F10-T06)', () {
     testWidgets('shows the label and all four speeds', (tester) async {
       await openSheet(tester);

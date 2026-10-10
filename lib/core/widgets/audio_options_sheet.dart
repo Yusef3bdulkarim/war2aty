@@ -169,19 +169,36 @@ class _AudioOptionsSheetState extends State<AudioOptionsSheet> {
               ),
             ],
             const SizedBox(height: _optionsGapBelow),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const _SkipButton(icon: Icons.fast_rewind_rounded),
-                const SizedBox(width: _transportGap),
-                _PlayButton(
-                  label: strings.audioReaderStartLabel,
-                  onPressed: () =>
-                      Navigator.of(context).pop((mode: _mode, speed: _speed)),
-                ),
-                const SizedBox(width: _transportGap),
-                const _SkipButton(icon: Icons.fast_forward_rounded),
-              ],
+            // Playback controls stay left-to-right in an RTL app: they show
+            // the direction of the tape, not of reading, which is why every
+            // media app — Arabic YouTube and Android's own player among them —
+            // keeps ◀◀ ▶ ▶▶ in that order (Material, "Bidirectionality").
+            // Laid out RTL, the row put ▶▶ on the left and ◀◀ on the right,
+            // each arrow pointing away from where it sat, either side of a
+            // play button that still pointed right.
+            Directionality(
+              textDirection: TextDirection.ltr,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const _SkipButton(icon: Icons.fast_rewind_rounded),
+                  const SizedBox(width: _transportGap),
+                  // Only the row's order is left-to-right. The play button's
+                  // Arabic tooltip — which is also what a screen reader
+                  // announces — keeps the app's own direction.
+                  Directionality(
+                    textDirection: Directionality.of(context),
+                    child: _PlayButton(
+                      label: strings.audioReaderStartLabel,
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pop((mode: _mode, speed: _speed)),
+                    ),
+                  ),
+                  const SizedBox(width: _transportGap),
+                  const _SkipButton(icon: Icons.fast_forward_rounded),
+                ],
+              ),
             ),
             const SizedBox(height: _speedRowGapAbove),
             _SpeedRow(
