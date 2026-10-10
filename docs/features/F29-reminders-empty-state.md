@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 5 / 14 · **T05 DONE**
+- **Progress:** 6 / 14 · **T06 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -118,7 +118,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 3 | F29-T03 | The new strings | 8 new getters + 3 reworded, both languages, 13 `_accessors` rows; a new guard caught a quoted label that does not exist — see "T03 record" | DONE 2026-10-10 |
 | 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart`, 24 tests; end-of-month rolls forward once 09:00 passes, and the day is read off the real zone rather than the fixed +2 — see "T04 record" | DONE 2026-10-10 |
 | 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model; `ReminderFormCubit.manual` takes an optional seed; **and a pre-existing stale-alert bug fixed**, found because the seeded form makes it the common case — see "T05 record" | DONE 2026-10-10 |
-| 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>` under the same `instanceName`; `/reminders/manual` reads `state.extra`; the header's «إضافة تذكير» keeps passing nothing | TODO |
+| 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>`; `/reminders/manual` reads an **optional** `extra`; 3 router tests, the plumbing mutation-proved — see "T06 record" | DONE 2026-10-10 |
 | 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, `ExcludeSemantics`, **no shadow**, with its own test asserting that | TODO |
 | 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; widget test at 1× and 1.6× | TODO |
 | 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only | TODO |
@@ -172,6 +172,39 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T06 record (2026-10-10)
+
+**DI.** The manual registration became
+`registerFactoryParam<ReminderFormCubit, ManualReminderSeed?, void>` under the
+same `manualReminderFormInstanceName`. The parameter is **nullable**, which is
+what makes `param1: null` legal: get_it's `_validateFactoryParams` only
+type-checks a parameter it was actually given, or one whose declared type
+cannot be null — verified against get_it 9.2.1's own source rather than
+assumed, since a non-nullable `P1` would have thrown on every tap of the
+header button.
+
+**Route.** `/reminders/manual` now reads `state.extra`, and is the one route
+in `app_router.dart` that treats a missing or unusable `extra` as **normal**
+rather than as a reason to bounce to Home: «إضافة تذكير» in the list header
+sends nothing, and an empty manual form is exactly what that button should
+open. Hence `extra is ManualReminderSeed ? extra : null` instead of the
+`if (x is! T) return const _BackToHome();` guard the neighbouring routes use.
+
+**Tests** — `test/app/manual_reminder_seed_routing_test.dart`, three cases
+through the **real** `createAppRouter`, because the cubit test already covers
+what a seed does and what can only break here is the plumbing between them:
+a seed carried end to end (asserted as the date and time text the user sees,
+and the pick-hints being gone), no `extra` opening the empty form, and a
+wrong-typed `extra` opening the empty form rather than Home.
+
+**Proved non-vacuous.** `param1: seed` was removed from the route; the first
+test failed, the other two passed — exactly the right discrimination. Then
+reverted.
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, unchanged from
+the baseline · `flutter test` 2,571 passing (2,568 + 3). The seed now travels
+end to end, but nothing sends one yet — the quick rows are T08.
 
 ## T05 record (2026-10-10)
 
