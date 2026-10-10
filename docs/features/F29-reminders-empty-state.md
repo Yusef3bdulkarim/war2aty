@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 3 / 14 · **T03 DONE**
+- **Progress:** 4 / 14 · **T04 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -116,7 +116,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 1 | F29-T01 | Feature doc, branch, index row | this doc; `feature/reminders-empty-state` cut from `feature/android-release`; `docs/features/README.md` row; the approved prototype committed | DONE 2026-10-10 |
 | 2 | F29-T02 | **Shadows off** — the independent half | 4 `BoxShadow` sites removed; `AppShadows.paper` kept and marked unused; a mutation-proved test per screen, and «مستنداتي»'s art got its first test file at all — see "T02 record" | DONE 2026-10-10 |
 | 3 | F29-T03 | The new strings | 8 new getters + 3 reworded, both languages, 13 `_accessors` rows; a new guard caught a quoted label that does not exist — see "T03 record" | DONE 2026-10-10 |
-| 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart` — a pure helper giving بكرة / بعد أسبوع / آخر الشهر as a Cairo date + minute-of-day, with unit tests for month ends, February, leap years and the DST boundary | TODO |
+| 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart`, 24 tests; end-of-month rolls forward once 09:00 passes, and the day is read off the real zone rather than the fixed +2 — see "T04 record" | DONE 2026-10-10 |
 | 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model under `presentation/models/`; `ReminderFormCubit.manual` takes an optional seed and runs it through the same default-alert seeding; cubit tests for seeded and unseeded construction | TODO |
 | 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>` under the same `instanceName`; `/reminders/manual` reads `state.extra`; the header's «إضافة تذكير» keeps passing nothing | TODO |
 | 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, `ExcludeSemantics`, **no shadow**, with its own test asserting that | TODO |
@@ -172,6 +172,49 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T04 record (2026-10-10)
+
+`core/reminders/quick_reminder_date.dart` — pure Dart, no Flutter import, no
+dependency on anything but `core/time/cairo_day.dart`. It exports
+`QuickReminderDate` (the enum a widget switches on), `QuickReminderSlot` (a
+calendar day plus a minute-of-day, with value equality), the constant
+`kQuickReminderMinuteOfDay` (09:00), and `quickReminderSlots({DateTime? now})`
+— `now` injected for tests, the house convention `reminder_due_label` and
+`Reminder.isOverdue` already use.
+
+Four decisions inside it worth a reviewer's eye:
+
+1. **The day comes from `cairoWallClockOf`, not `cairoDateOf`.**
+   `cairoDateOf` adds a flat +2, which is Egypt's *winter* offset, so for the
+   first hour after midnight on summer time it names the previous day. That
+   is harmless for the usage-day boundary it was written for and wrong for
+   deciding what day it is for the user. Both behaviours are pinned in a
+   test, so the "simplification" back to `cairoDateOf` fails loudly.
+2. **Every slot is guaranteed strictly in the future.** The manual form seeds
+   its first alert at the event's own time (`_withDefaultAlertIfNeeded` →
+   `AlertTimeOffset.atEventTime`), so a slot in the past would show the
+   user's very first reminder as «فائت» the instant they saved it. Only
+   `endOfMonth` can breach it — on the 31st at noon, "the end of the month"
+   is three hours gone — so it rolls to the last day of the following month.
+   09:00 exactly counts as gone, not as still available. A sweep over 840
+   consecutive hours across five month-ends (including the week Egypt's DST
+   changes, a leap February and a year boundary) asserts the invariant.
+3. **Dates are built from calendar fields, never by adding a `Duration`.**
+   `DateTime(y, m, d + 7)` lets Dart normalise the overflow, so month ends,
+   short months and leap days need no special case, and a DST transition
+   cannot turn "+1 day" into 23 or 25 hours. `DateTime(y, m + 1, 0)` is the
+   same idiom for "last day of this month" — and the roll-forward uses
+   `m + 2`, so 31 January rolls to 28 February rather than inventing a
+   «February 31st». That case has its own test.
+4. **The event date is a *local* midnight, not `DateTime.utc`.** It matches
+   what `showDatePicker` hands the manual form today, and `formatDocumentDate`
+   and the Drift column both read `.year`/`.month`/`.day` as they stand — a
+   UTC midnight would come back a day early on any device west of UTC.
+
+**Gate:** `dart format` clean · `flutter analyze` no issues in
+`lib/core/reminders` or `test/core/reminders` · `flutter test` 2,555 passing
+(2,531 + 24). Nothing calls the helper yet; T05 is its first caller.
 
 ## T03 record (2026-10-10)
 
