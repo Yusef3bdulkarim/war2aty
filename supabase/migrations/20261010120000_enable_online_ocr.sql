@@ -1,0 +1,58 @@
+-- F27 · Online reading becomes the primary path (owner's ruling, 2026-10-10).
+--
+-- `20260929120000` seeded `online_ocr_enabled` OFF and left the flip to an
+-- operator, per F27's Q12: the flag was to stay off at launch and be turned on
+-- in T26, once the OCR path had abuse protection of its own. The owner
+-- superseded that on 2026-10-10 — online reading is the intended primary path
+-- from now on, permanently and through the public launch, with the protection
+-- gap below accepted rather than closed.
+--
+-- Recorded in full in `docs/features/F27-production-readiness.md` →
+-- "Owner's ruling (2026-10-10)".
+--
+-- Why this is an upsert and not `on conflict do nothing`
+--
+-- Every other seed in this schema preserves a value an operator has already
+-- tuned. This one asserts it, because ON is now the intended resting state of
+-- the system rather than one operator's preference: a fresh local or staging
+-- stack coming up OFF would quietly exercise a different pipeline from
+-- production's, which is how the pre-F20 `azure_ocr_enabled: true` drift went
+-- unnoticed. Migrations apply once per environment, so this does not fight an
+-- operator who turns the flag off later during an incident — it sets the
+-- starting point, not the running value.
+--
+-- The accepted risk — read this before "fixing" the value back to false
+--
+-- `ocr-document` takes no usage slot, by design: charging one would punish a
+-- user who retakes a blurry photo (see `ocr-handler`'s "Why no slot
+-- reservation"). And `global_daily_call_cap` counts analysis calls only. So the
+-- online reader's own free quota — 500 requests/day — sits behind no counter at
+-- all. The only thing in front of it is Supabase's anonymous sign-in rate
+-- limit, left at its default on purpose because Egyptian carrier NAT means a
+-- tight per-IP cap locks out real users while barely slowing an abuser. A
+-- determined script can therefore exhaust the day's online reading for
+-- everybody, and a reinstall resets the only per-user limit there is.
+--
+-- That is known and accepted, not overlooked. It is **not** a reason to set
+-- this key back to false. `20261006090000`'s header still reads "T26 must not
+-- flip it before the OCR path has its own protection" — true when written, and
+-- now overridden; it is left in place because that migration is already applied
+-- to three environments. Turning this off is an **incident lever**
+-- (`docs/OPERATIONS.md` §1 and §4.6), not the expected state. Adding a counter
+-- to the OCR path remains the right fix whenever there is appetite for it.
+--
+-- Part of why the risk is tolerable: the failure is graceful. When the online
+-- reader is out of quota, times out, is switched off or unreachable, the client
+-- re-reads on the device with Tesseract and shows a warning banner — the closed
+-- allowlist in `shouldFallBackToOnDeviceOcr` (F20 §1). Users keep a working app
+-- at lower accuracy rather than a dead one.
+--
+-- Note what this flag does *not* govern: the per-user `daily_limit` (3
+-- analyses/Cairo day). Hitting that limit blocks the **analysis**, which no
+-- amount of on-device reading can substitute for, so it does not fall back —
+-- `shouldFallBackToOnDeviceOcr` lists `DailyLimitReachedFailure` as `false`
+-- explicitly. The two limits are independent.
+
+insert into public.app_runtime_config (key, value) values
+  ('online_ocr_enabled', 'true'::jsonb)
+on conflict (key) do update set value = excluded.value;
