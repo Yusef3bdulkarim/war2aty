@@ -554,6 +554,10 @@ GoRouter createAppRouter({
                     onAddReminder: () => context.push(AppRoutes.reminderManual),
                     onOpenReminder: (id) =>
                         context.push(AppRoutes.reminderDetailsWith(id)),
+                    // The same route, with the quick row's date and time
+                    // riding along as `extra` (F29-T06).
+                    onQuickReminder: (seed) =>
+                        context.push(AppRoutes.reminderManual, extra: seed),
                   ),
                 ),
               ),

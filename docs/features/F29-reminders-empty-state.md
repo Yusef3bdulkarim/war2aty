@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 8 / 14 · **T08 DONE**
+- **Progress:** 9 / 14 · **T09 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -121,7 +121,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>`; `/reminders/manual` reads an **optional** `extra`; 3 router tests, the plumbing mutation-proved — see "T06 record" | DONE 2026-10-10 |
 | 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, no shadow, no text; 8 tests, the shadow and clipping ones mutation-proved — see "T07 record" | DONE 2026-10-10 |
 | 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; 10 tests, 1×/1.6×/2×-on-320, four mutations run — see "T08 record" | DONE 2026-10-10 |
-| 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only | TODO |
+| 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only; the quick rows wired to the seeded route; 6 tests, 4 mutations — see "T09 record" | DONE 2026-10-10 |
 | 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab` | TODO |
 | 11 | F29-T11 | `onScan` wired end to end | the new callback on `RemindersListScreen` → `AppRoutes.captureWith(CaptureSource.camera)`, mirroring the documents list's own wiring | TODO |
 | 12 | F29-T12 | Screen tests | all three empty states, tabs hidden/shown, the quick rows' routing, 1.6× text, RTL + English, screen-reader labels | TODO |
@@ -172,6 +172,79 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T09 record (2026-10-10)
+
+The dead centre is gone. `_EmptyLibrary` is now the illustration, «مافيش
+تذكيرات لسه», its reworded promise, the «تذكير سريع» kicker, the three quick
+rows, «صوّر ورقة», and the line pointing back at the header's «إضافة تذكير» —
+top-anchored in a scrolling pane, 24 px under the header, with the existing
+108 px bottom padding clearing the nav bar.
+
+**The tabs come off in this state only.** `_Content`'s switch grew a branch
+for `RemindersAvailable(hasNoReminders: true)` that returns the empty library
+*instead of* the `Column` holding the tabs — so an empty library has no tabs
+and no tab gap, while an empty bucket keeps both (locked decision 5). An
+object pattern on the getter does this without a flag reaching the widgets.
+
+**`24 - _headerGapBelow`**, written as that expression rather than as `8`,
+because `_headerGapBelow` is already between the header and this pane and the
+file's own `_pageTop = 64 - 52` sets the idiom. Decision 6's 24 px is then one
+number in one place.
+
+**Two new callbacks on `RemindersListScreen`.** `onQuickReminder`
+(`ValueChanged<ManualReminderSeed>`) is wired in `app_router.dart` to
+`context.push(AppRoutes.reminderManual, extra: seed)` — the route T06 built —
+so the screen still knows nothing about `go_router`. `onScan` is **declared
+and consumed but not yet wired**: while it is null the «صوّر ورقة» button is
+not drawn at all, which is `DocumentsEmptyState.noResults`'s own pattern for
+a CTA with nowhere to send the user. T11 gives it the camera route; nothing
+dead ships in between. A test pins both halves of that.
+
+**The slot → seed mapping lives in the screen**, inline where the row's
+callback fires, rather than as a `ManualReminderSeed.fromQuickSlot` factory:
+the seed's own doc says the form must not learn that a date came from a quick
+row, and a constructor on the presentation model that imports
+`core/reminders/quick_reminder_date.dart` would start that coupling for one
+two-line mapping with one caller.
+
+**`quickReminderSlots()` is read in `build`** — the one place that knows the
+dates are about to be shown, and the reason T08's widget takes its slots
+rather than fetching them. A rebuild after midnight correctly re-reads them.
+
+**`_EmptyState`'s `subtitle` slot came off** with the library's use of it: the
+buckets pass titles only until T10 rebuilds them, and leaving an unused
+optional parameter behind would have failed `flutter analyze`. The widget's
+doc now says plainly that it is the pre-F29 placeholder still serving the
+buckets, so the next reader does not take it for the current design.
+
+**Tests** (6, in the existing screen test): the empty library holds the art,
+the kicker, all three row labels and the hint; the tabs gone when nothing is
+saved; the tabs still there when only «الفائتة» is empty; each row carrying
+**its own** date into the form; «صوّر ورقة» absent without `onScan` and firing
+with it; and the whole filled state at 1.6× on a 360×640 phone — the
+configuration the screen's layout audit cannot reach, since it emits reminders
+and so never renders this state.
+
+The date test is deterministic **without a fixed clock**: it taps «بكرة» and
+«بعد أسبوع» and asserts the gap between the two seeds is six days, both read
+off the same screen. Asserting against a date computed from the test's own
+`DateTime.now()` would have had a one-in-a-million flake across a Cairo
+midnight, which the project's "no timing-dependent tests" rule does not allow.
+
+**Mutation-proved, four.** The tabs put back around the empty library → the
+tab test failed (and the scan test with it, incidentally: the CTA scrolls out
+of reach once the tabs take the space, which is itself the argument for
+hiding them). `eventMinuteOfDay: 0` → the date test failed. Every row mapped
+to the same fixed date → it failed on the six-day gap. `_emptyTopGap` raised
+to 200, standing in for the centring decision 6 rejected → the first quick row
+landed at y=696 on a 640-tall screen and the large-text test failed, which is
+the fold argument measured rather than asserted.
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, unchanged from
+the baseline, none in a touched file · `flutter test` 2,595 passing (2,589 +
+6). The quick rows now work end to end on the device; «صوّر ورقة» waits for
+T11 and the two empty buckets for T10.
 
 ## T08 record (2026-10-10)
 

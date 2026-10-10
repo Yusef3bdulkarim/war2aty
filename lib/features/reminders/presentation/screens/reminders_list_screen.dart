@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/reminders/quick_reminder_date.dart';
 import '../../../../core/reminders/reminder.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
@@ -10,7 +11,10 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../cubit/reminders_cubit.dart';
 import '../cubit/reminders_state.dart';
+import '../models/manual_reminder_seed.dart';
 import '../widgets/reminder_list_item.dart';
+import '../widgets/reminders_empty_art.dart';
+import '../widgets/reminders_quick_create.dart';
 import '../widgets/snooze_sheet.dart';
 
 // From `Waraqti.dc.html` → `isReminders`. Mirrors the documents list's own
@@ -24,6 +28,23 @@ const double _tabsGapBelow = 20;
 const double _rowGap = 12;
 const double _addIconSize = 16;
 
+// The empty library's own pane (F29, concept D's `.pane > .inner`). Its
+// content starts 24 px under the header — top-anchored, not centred, because
+// centring pushes the first quick row below the fold on a small phone at
+// 1.6× text — and [_headerGapBelow] has already provided part of that.
+const double _emptyTopGap = 24 - _headerGapBelow;
+const double _emptyArtGapBelow = 16;
+const double _emptyTitleGapBelow = 10;
+const double _emptyKickerGapAbove = 22;
+const double _emptyKickerGapBelow = 10;
+const double _emptyScanGapAbove = 14;
+const double _emptyHintGapAbove = 10;
+const double _emptyTitleFontSize = 18;
+const double _emptyKickerFontSize = 13.5;
+const double _emptyHintFontSize = 12.8;
+const double _emptyScanIconSize = 18;
+const double _emptyScanPaddingV = 13;
+
 /// The «التذكيرات» tab: every reminder, bucketed into القادمة/الفائتة/المكتملة
 /// (F09-T11).
 ///
@@ -34,6 +55,8 @@ class RemindersListScreen extends StatelessWidget {
   const RemindersListScreen({
     this.onAddReminder,
     this.onOpenReminder,
+    this.onQuickReminder,
+    this.onScan,
     super.key,
   });
 
@@ -44,6 +67,18 @@ class RemindersListScreen extends StatelessWidget {
   /// Opens one reminder's details (F09-T12), given its id. `null` leaves
   /// every card un-tappable.
   final ValueChanged<String>? onOpenReminder;
+
+  /// Opens the same manual create flow with a date and time already in it —
+  /// one of the empty state's three quick dates (F29). The screen hands over
+  /// a [ManualReminderSeed] rather than a route, so it still knows nothing
+  /// about `go_router`.
+  final ValueChanged<ManualReminderSeed>? onQuickReminder;
+
+  /// Opens the capture flow from the empty state's «صوّر ورقة» (F29). While
+  /// `null` the action is not drawn at all, the way «مستنداتي»'s own empty
+  /// state drops its CTA when it has nowhere to send the user — T11 wires
+  /// this to the camera.
+  final VoidCallback? onScan;
 
   @override
   Widget build(BuildContext context) {
@@ -67,8 +102,9 @@ class RemindersListScreen extends StatelessWidget {
                 child: BlocBuilder<RemindersCubit, RemindersState>(
                   builder: (context, state) => _Content(
                     state: state,
-                    onAddReminder: onAddReminder,
                     onOpenReminder: onOpenReminder,
+                    onQuickReminder: onQuickReminder,
+                    onScan: onScan,
                   ),
                 ),
               ),
@@ -139,37 +175,45 @@ class _Header extends StatelessWidget {
 class _Content extends StatelessWidget {
   const _Content({
     required this.state,
-    this.onAddReminder,
     this.onOpenReminder,
+    this.onQuickReminder,
+    this.onScan,
   });
 
   final RemindersState state;
-  final VoidCallback? onAddReminder;
   final ValueChanged<String>? onOpenReminder;
+  final ValueChanged<ManualReminderSeed>? onQuickReminder;
+  final VoidCallback? onScan;
 
   @override
   Widget build(BuildContext context) {
     return switch (state) {
       RemindersLoading() => const _Loading(),
       RemindersUnavailable() => const _LoadFailed(),
-      RemindersAvailable(:final tab, :final hasNoReminders, :final visible) =>
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: _pageSide),
-              child: _Tabs(selected: tab),
-            ),
-            const SizedBox(height: _tabsGapBelow),
-            Expanded(
-              child: hasNoReminders
-                  ? _EmptyLibrary(onAddReminder: onAddReminder)
-                  : visible.isEmpty
-                  ? _EmptyBucket(tab: tab)
-                  : _List(reminders: visible, onOpenReminder: onOpenReminder),
-            ),
-          ],
-        ),
+      // Nothing saved at all: the tabs come off with the list. Three tabs
+      // that each lead to the same nothing are the main reason the screen
+      // used to read as broken, and the state below them now carries its own
+      // way in (F29, locked decision 5). They stay for a single *empty
+      // bucket*, which a user does need a way back out of.
+      RemindersAvailable(hasNoReminders: true) => _EmptyLibrary(
+        onQuickReminder: onQuickReminder,
+        onScan: onScan,
+      ),
+      RemindersAvailable(:final tab, :final visible) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: _pageSide),
+            child: _Tabs(selected: tab),
+          ),
+          const SizedBox(height: _tabsGapBelow),
+          Expanded(
+            child: visible.isEmpty
+                ? _EmptyBucket(tab: tab)
+                : _List(reminders: visible, onOpenReminder: onOpenReminder),
+          ),
+        ],
+      ),
     };
   }
 }
@@ -321,18 +365,124 @@ class _List extends StatelessWidget {
   }
 }
 
+/// «التذكيرات» with nothing in it at all — the screen F29 exists to fix.
+///
+/// It used to be a centred title and one grey line 80 px down an otherwise
+/// blank page. Now the middle of the screen does something: the illustration,
+/// the title and its promise, then the three ready-made dates, the «صوّر
+/// ورقة» way in, and a line pointing back at the header's «إضافة تذكير» for a
+/// reminder entered from scratch (F29, concept D).
+///
+/// Top-anchored and scrolling in its own pane, rather than centred: centring
+/// pushes the first quick row under the fold on a small phone at 1.6× text,
+/// and the quick rows are the whole point (locked decision 6).
 class _EmptyLibrary extends StatelessWidget {
-  const _EmptyLibrary({this.onAddReminder});
+  const _EmptyLibrary({this.onQuickReminder, this.onScan});
 
-  final VoidCallback? onAddReminder;
+  final ValueChanged<ManualReminderSeed>? onQuickReminder;
+  final VoidCallback? onScan;
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
-    return _EmptyState(
-      title: strings.reminderEmptyTitle,
-      subtitle: strings.reminderEmptySubtitle,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(
+        _pageSide,
+        _emptyTopGap,
+        _pageSide,
+        _pageBottom,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Center(child: RemindersEmptyArt()),
+          const SizedBox(height: _emptyArtGapBelow),
+          Text(
+            strings.reminderEmptyTitle,
+            textAlign: TextAlign.center,
+            style: AppTypography.titleMedium.copyWith(
+              fontSize: _emptyTitleFontSize,
+              fontWeight: AppTypography.extraBold,
+              color: colors.textBody,
+            ),
+          ),
+          const SizedBox(height: _emptyTitleGapBelow),
+          Text(
+            strings.reminderEmptySubtitle,
+            textAlign: TextAlign.center,
+            style: AppTypography.bodyMedium.copyWith(
+              color: colors.textCaption,
+              fontWeight: AppTypography.medium,
+            ),
+          ),
+          const SizedBox(height: _emptyKickerGapAbove),
+          // Start-aligned, unlike everything above it: it labels the rows
+          // underneath rather than addressing the user, so it lines up with
+          // their leading edge.
+          Text(
+            strings.reminderQuickCreateKicker,
+            style: AppTypography.caption.copyWith(
+              fontSize: _emptyKickerFontSize,
+              fontWeight: AppTypography.extraBold,
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: _emptyKickerGapBelow),
+          RemindersQuickCreate(
+            // One clock read per build of this state, in the only place that
+            // knows the dates are about to be shown. A rebuild after
+            // midnight correctly re-reads them.
+            slots: quickReminderSlots(),
+            onSelected: (slot) => onQuickReminder?.call(
+              ManualReminderSeed(
+                eventDate: slot.eventDate,
+                eventMinuteOfDay: slot.eventMinuteOfDay,
+              ),
+            ),
+          ),
+          if (onScan case final scan?) ...[
+            const SizedBox(height: _emptyScanGapAbove),
+            FilledButton.icon(
+              onPressed: scan,
+              icon: StrokeIcon(
+                StrokeGlyph.camera,
+                color: colors.brandPrimary,
+                size: _emptyScanIconSize,
+              ),
+              label: Text(strings.reminderEmptyScanCta),
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.surfaceTeal,
+                foregroundColor: colors.brandPrimary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: _emptyScanPaddingV,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.md),
+                  side: BorderSide(color: colors.borderCool),
+                ),
+                textStyle: AppTypography.labelLarge.copyWith(fontSize: 15.5),
+              ),
+            ),
+            const SizedBox(height: _emptyHintGapAbove),
+          ] else
+            const SizedBox(height: _emptyScanGapAbove),
+          // The one place the header's button is named in the body: the
+          // empty state deliberately does not repeat it, so this sentence
+          // points at it instead.
+          Text(
+            strings.reminderEmptyScanHint,
+            textAlign: TextAlign.center,
+            style: AppTypography.caption.copyWith(
+              fontSize: _emptyHintFontSize,
+              fontWeight: AppTypography.medium,
+              color: colors.textMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -365,18 +515,18 @@ class _EmptyBucket extends StatelessWidget {
   }
 }
 
-/// A clean, minimal placeholder shown when a tab or the whole library is empty.
+/// The minimal placeholder an empty *bucket* still uses — one centred title,
+/// 80 px down.
 ///
-/// No illustration, no call to action — the header's «إضافة تذكير» button
-/// is always visible above, so repeating it here would be redundant. The
-/// layout centres a single title (and an optional subtitle) with generous
-/// vertical breathing room so it reads as deliberate emptiness rather than a
-/// missing screen.
+/// This is what the wholly-empty library looked like until F29-T09 replaced
+/// it, and F29-T10 replaces it here too: «الفائتة» and «المكتملة» get the
+/// same visual vocabulary as [_EmptyLibrary], plus a way back to «القادمة».
+/// Its subtitle slot came off with the library's own use of it, since the
+/// buckets' subtitles arrive with that redesign.
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title, this.subtitle});
+  const _EmptyState({required this.title});
 
   final String title;
-  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -400,17 +550,6 @@ class _EmptyState extends StatelessWidget {
               color: colors.textBody,
             ),
           ),
-          if (subtitle case final text?) ...[
-            const SizedBox(height: 10),
-            Text(
-              text,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMedium.copyWith(
-                color: colors.textCaption,
-                fontWeight: AppTypography.medium,
-              ),
-            ),
-          ],
         ],
       ),
     );

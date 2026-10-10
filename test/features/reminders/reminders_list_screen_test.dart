@@ -4,12 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/core/reminders/quick_reminder_date.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 import 'package:war2aty/core/reminders/usecases/complete_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/snooze_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/watch_reminders.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminders_cubit.dart';
+import 'package:war2aty/features/reminders/presentation/models/manual_reminder_seed.dart';
 import 'package:war2aty/features/reminders/presentation/screens/reminders_list_screen.dart';
+import 'package:war2aty/features/reminders/presentation/widgets/reminders_empty_art.dart';
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
@@ -31,6 +34,8 @@ void main() {
   Widget screenUnderTest({
     VoidCallback? onAddReminder,
     ValueChanged<String>? onOpenReminder,
+    ValueChanged<ManualReminderSeed>? onQuickReminder,
+    VoidCallback? onScan,
   }) => BlocProvider<RemindersCubit>(
     create: (_) => RemindersCubit(
       WatchReminders(repository),
@@ -40,6 +45,8 @@ void main() {
     child: RemindersListScreen(
       onAddReminder: onAddReminder,
       onOpenReminder: onOpenReminder,
+      onQuickReminder: onQuickReminder,
+      onScan: onScan,
     ),
   );
 
@@ -86,6 +93,86 @@ void main() {
 
       expect(find.text(ar.reminderEmptyTitle), findsOneWidget);
       expect(find.text(ar.reminderEmptySubtitle), findsOneWidget);
+    });
+
+    testWidgets('fills the empty library instead of leaving it blank', (
+      tester,
+    ) async {
+      // F29's first complaint: «التذكيرات» with nothing in it was a title and
+      // one grey line 80 px down a blank page. Everything asserted here is
+      // what now occupies that space.
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.byType(RemindersEmptyArt), findsOneWidget);
+      expect(find.text(ar.reminderQuickCreateKicker), findsOneWidget);
+      expect(find.text(ar.reminderQuickTomorrow), findsOneWidget);
+      expect(find.text(ar.reminderQuickNextWeek), findsOneWidget);
+      expect(find.text(ar.reminderQuickEndOfMonth), findsOneWidget);
+      expect(find.text(ar.reminderEmptyScanHint), findsOneWidget);
+    });
+
+    testWidgets('hides the tabs while nothing is saved at all', (tester) async {
+      // Three tabs that each lead to the same nothing are the main reason
+      // this screen read as broken (F29, locked decision 5).
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.text(ar.reminderTabUpcoming), findsNothing);
+      expect(find.text(ar.reminderTabMissed), findsNothing);
+      expect(find.text(ar.reminderTabCompleted), findsNothing);
+    });
+
+    testWidgets('keeps the tabs when only one bucket is empty', (tester) async {
+      // The other half of that decision: a user looking at an empty
+      // «الفائتة» needs the tabs to get back to «القادمة».
+      repository.emit([fakeReminder()]);
+      await pumpApp(tester, screenUnderTest());
+
+      await tester.tap(find.text(ar.reminderTabMissed));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.reminderEmptyMissedTitle), findsOneWidget);
+      expect(find.text(ar.reminderTabUpcoming), findsOneWidget);
+      expect(find.text(ar.reminderTabCompleted), findsOneWidget);
+    });
+
+    testWidgets('each quick row carries its own date into the form', (
+      tester,
+    ) async {
+      final seeds = <ManualReminderSeed>[];
+      await pumpApp(tester, screenUnderTest(onQuickReminder: seeds.add));
+
+      await tester.tap(find.text(ar.reminderQuickTomorrow));
+      await tester.tap(find.text(ar.reminderQuickNextWeek));
+      await tester.pumpAndSettle();
+
+      expect(seeds, hasLength(2));
+      // Asserted as the gap between two seeds read off the same screen
+      // rather than against a date the test computes from its own clock:
+      // «بعد أسبوع» is six days past «بكرة», whatever day it is run on, and
+      // no reading of `DateTime.now()` here can disagree with the widget's.
+      expect(
+        seeds[1].eventDate.difference(seeds[0].eventDate).inDays,
+        6,
+        reason: '${seeds[0]} → ${seeds[1]}',
+      );
+      for (final seed in seeds) {
+        expect(seed.eventMinuteOfDay, kQuickReminderMinuteOfDay);
+      }
+    });
+
+    testWidgets('offers «صوّر ورقة» only when it has somewhere to send you', (
+      tester,
+    ) async {
+      await pumpApp(tester, screenUnderTest());
+      expect(find.text(ar.reminderEmptyScanCta), findsNothing);
+
+      var scans = 0;
+      await pumpApp(tester, screenUnderTest(onScan: () => scans++));
+
+      await tester.tap(find.text(ar.reminderEmptyScanCta));
+      await tester.pumpAndSettle();
+
+      expect(scans, 1);
     });
 
     testWidgets('fires onAddReminder from the header button', (tester) async {
@@ -218,6 +305,31 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the filled empty state survives large text too', (
+      tester,
+    ) async {
+      // The state the layout audit above cannot reach — it emits reminders,
+      // so the empty library never renders under it. The pane scrolls, so
+      // what is checked is that nothing overflows and the first quick row is
+      // still on screen rather than pushed under the fold, which is the
+      // reason this state is top-anchored instead of centred.
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await pumpApp(
+        tester,
+        screenUnderTest(onScan: () {}),
+        textScaler: const TextScaler.linear(1.6),
+      );
+
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(find.text(ar.reminderQuickTomorrow)).bottom,
+        lessThan(640),
+      );
     });
   });
 }
