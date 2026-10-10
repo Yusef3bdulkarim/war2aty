@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 1 / 14 · **T01 DONE**
+- **Progress:** 2 / 14 · **T02 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -114,7 +114,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | # | ID | Task | Output | Status |
 |---|---|---|---|---|
 | 1 | F29-T01 | Feature doc, branch, index row | this doc; `feature/reminders-empty-state` cut from `feature/android-release`; `docs/features/README.md` row; the approved prototype committed | DONE 2026-10-10 |
-| 2 | F29-T02 | **Shadows off** — the independent half | 4 `BoxShadow` sites removed in `home_empty_state.dart` + `documents_empty_state.dart`; `AppShadows.paper` kept, comment updated; a test per screen pinning "no `BoxShadow` in the art" | TODO |
+| 2 | F29-T02 | **Shadows off** — the independent half | 4 `BoxShadow` sites removed; `AppShadows.paper` kept and marked unused; a mutation-proved test per screen, and «مستنداتي»'s art got its first test file at all — see "T02 record" | DONE 2026-10-10 |
 | 3 | F29-T03 | The new strings | new `AppStrings` getters + `ar_strings.dart` + `en_strings.dart` + `app_strings_test` rows. No UI yet, so the gate stays green on its own | TODO |
 | 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart` — a pure helper giving بكرة / بعد أسبوع / آخر الشهر as a Cairo date + minute-of-day, with unit tests for month ends, February, leap years and the DST boundary | TODO |
 | 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model under `presentation/models/`; `ReminderFormCubit.manual` takes an optional seed and runs it through the same default-alert seeding; cubit tests for seeded and unseeded construction | TODO |
@@ -172,6 +172,50 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T02 record (2026-10-10)
+
+Four `BoxShadow` sites removed, two per screen — the paper's
+`AppShadows.paper` and the camera tile's hand-written
+`Color(0x4D0E7C86)` glow — in `home_empty_state.dart` and
+`documents_empty_state.dart`. The now-unused `app_shadows.dart` import came
+out of both files with them.
+
+Nothing else moved. No re-spacing, no recolouring, no copy change, no new
+border to stand in for the shadow — locked decision 9. Each `_EmptyArt` gained
+a doc comment saying the flatness is deliberate and deviates from
+`Waraqti.dc.html` on the owner's instruction, so the next person to compare
+screen against comp does not "fix" it back.
+
+`AppShadows.paper` stays, with its doc comment rewritten to say it is
+currently unused and why (locked decision 8). The reference to it in
+`documents_empty_state.dart`'s `_linedPaperFill` comment was reworded, since
+that file no longer imports the type it was linking to.
+
+**Tests.** `home_empty_state_test` gained a case; «مستنداتي»'s art had **no
+test file at all**, so `documents_empty_state_test.dart` was written — the
+shadow case plus the coverage that was missing (both empty variants, the CTA's
+callback, the no-results variant dropping the CTA, English, screen readers,
+2× text). Both shadow cases walk every `BoxDecoration` in the widget's
+subtree, not just the two shapes that used to carry a shadow, so one cannot
+reappear on a third shape unnoticed.
+
+**Proved non-vacuous.** A shadow was temporarily put back on each screen —
+the teal glow on Home's tile, `AppShadows.paper` on «مستنداتي»'s page — and
+both tests failed; the mutation was then reverted. A test that cannot fail
+would have been worse than none here, because the whole task is an absence.
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, identical to the
+pre-change baseline measured on a stash, none in a touched file · `flutter
+test` 2,529 passing.
+
+**One thing for the device pass (T14).** Home's page is `colors.card`
+(`#FFFFFF`) on `colors.surface` (`#F5F4EF`) and now carries nothing at all —
+no shadow, no border, no content. On a real screen it may read as very faint.
+«مستنداتي» is unaffected, because its lined second sheet has its own 2 px
+border. This is reported, not acted on: decision 9 says only shadows come off,
+and whether that page needs a hairline is the owner's call once they see it on
+the RMX2001.
 
 ## T01 record (2026-10-10)
 

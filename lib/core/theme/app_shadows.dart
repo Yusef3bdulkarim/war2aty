@@ -20,8 +20,14 @@ abstract final class AppShadows {
     BoxShadow(color: Color(0x0F142D31), blurRadius: 3, offset: Offset(0, 1)),
   ];
 
-  /// The softer, single shadow the empty-state illustration's page uses:
-  /// `0 8px 22px rgba(20,40,45,.08)`.
+  /// The softer, single shadow the design puts under an empty-state
+  /// illustration's page: `0 8px 22px rgba(20,40,45,.08)`.
+  ///
+  /// **Currently unused.** Its only two callers — Home's and «مستنداتي»'s
+  /// empty-state art — dropped their shadows at the owner's request
+  /// (F29-T02), and the owner asked for the token itself to stay for future
+  /// use rather than be deleted with them. Anything reaching for it again
+  /// should check that decision first.
   static const List<BoxShadow> paper = [
     BoxShadow(color: Color(0x14142D31), blurRadius: 22, offset: Offset(0, 8)),
   ];
