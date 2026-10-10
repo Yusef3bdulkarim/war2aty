@@ -450,8 +450,7 @@ but the reason was wrong.
 
 ## 8 · Graphics
 
-Ten files under `store/`, each already in the exact format its Play field
-takes.
+Ten files under `store/`, each in the exact format its Play field takes.
 
 | Play field | File | Size | Format Play requires |
 |---|---|---|---|
@@ -469,20 +468,19 @@ From Google's own guidelines:
 | Maximum | **8** phone screenshots |
 | To be eligible for Play's large-format recommendations | **at least 4**, at least 1080 px, portrait 9:16 (1080 × 1920 or larger) |
 
-All eight slots are used, because they cost nothing and the full tour of the
-app fits in exactly eight. **Upload them in filename order** — Play shows
+All eight slots are used. **Upload them in filename order** — Play shows
 screenshots in upload order:
 
 | # | Screen | Tagline |
 |---|---|---|
 | 1 | Home | عندك ورقة مش فاهمها؟ |
-| 2 | The camera, with a paper in the viewfinder | صوّرها في ثواني |
+| 2 | Reading the paper (the wait screen) | التطبيق بيقرا ورقتك |
 | 3 | The paper, explained | اعرف ورقتك بتقول إيه |
-| 4 | Amounts, dates and account numbers | كل المهم قدامك |
-| 5 | Creating a reminder | متفوّتش ميعاد |
+| 4 | Creating a reminder | متفوّتش ميعاد |
+| 5 | The reminders list | كل مواعيدك قدامك |
 | 6 | Listening to the explanation | اسمع الشرح بصوت عالي |
 | 7 | My papers | ورقك كله في مكان واحد |
-| 8 | Privacy, at large text | خط كبير، وخصوصيتك مهمة |
+| 8 | Privacy settings | انت اللي بتتحكم |
 
 **Upload them to the Arabic listing only** (owner's decision). Play shows a
 translation the default language's screenshots when it has none of its own, so
@@ -494,44 +492,47 @@ tablets — the correct outcome, not a problem to fix.
 
 ### What the screenshots are
 
-Each is the real screen in a **generic modern phone frame** — a thin bezel and
-a punch-hole camera, no particular brand — on the brand gradient, under a
-tagline. That was the owner's choice (option B), made against two alternatives:
+**The owner's own screenshots, taken on the phone** (2026-10-10), each placed in
+a **generic modern phone frame** — a thin bezel and a punch-hole camera, no
+particular brand — on the brand gradient, under a tagline. The frame was the
+owner's choice (option B); an iPhone frame was ruled out because on a Play
+listing it reads as the wrong platform. The screen keeps the phone's own 9:20
+proportions inside the 9:16 panel, so nothing is stretched or cropped, and the
+status bar is the phone's real one.
 
-- **No frame at all** sits closest to Google's guidance, which marks avoiding
-  "device imagery" as *highly recommended* — advice, not a rejection rule.
-- **An iPhone frame** was ruled out: on a Play listing it reads as the wrong
-  platform, and the iPhone's design is Apple's.
-
-Every tagline is kept inside Google's other guidance — no more than **20% of
-the image** — and the renderer measures that rather than trusting it.
+Every tagline is kept inside Google's guidance — no more than **20% of the
+image** — and the renderer measures it rather than trusting it.
 `store_captions_test` holds the taglines to §7 (no claim that the photo or text
 goes unseen, no provider named) and to Google's rule against pricing, rankings
 and testimonials, so «مجاني» cannot slip in.
 
-**The screens are the real app, not mock-ups**: the real dependency graph walked
-through the real journey by the integration harness (F27-T17). Two things are
-changed for a public listing, and only two:
+**The sources are never committed.** They live in `store/screenshots/raw/`,
+which is gitignored: the repository is **public**, and a device screenshot shows
+whatever was on the phone. Every one is looked at before it is framed. Of the
+first batch of fifteen, one was excluded outright — a marriage certificate
+showing a person's name — and the listen sheet was retaken, because the
+original showed the reversed skip arrows that the same change fixes.
 
-- **Real institutions are renamed.** The bundled sample papers name a real
-  utility, a real hospital and the Egyptian Tax Authority. A listing that shows
-  them implies a relationship that does not exist, so they are replaced with
-  generic names, and the renderer refuses to capture any screen that still shows
-  one.
-- **The sample bill is dated a week from the day it is rendered**, so it always
-  looks current. The camera shot shows a drawn sample of the same bill — never a
-  photograph of a real one.
+### Remaking them
 
-### Remaking them after a UI change
+Save each screenshot in `store/screenshots/raw/` under its listing name —
+`1-home`, `2-reading`, `3-result`, `4-reminder`, `5-reminders`, `6-listen`,
+`7-papers`, `8-privacy` — as `.png`, `.jpg` or `.jpeg`, then:
 
 ```powershell
 flutter test test/store/generate_store_assets.dart --update-goldens
 dart run tool/store/finalize_store_assets.dart
 ```
 
-The first walks the journey and frames the eight; the second builds the icon
-and strips the alpha channel Play refuses — after checking no pixel used it,
-because a transparent pixel flattened to RGB turns black.
+The first frames every source it finds and then names any that are missing;
+the second builds the icon and strips the alpha channel Play refuses — after
+checking no pixel used it, because a transparent pixel flattened to RGB turns
+black.
+
+**Prefer the phone's own files over a chat app's copy.** WhatsApp shrank eleven
+of the first fifteen to 720 × 1600 and recompressed all of them. Inside the
+frame the screen is drawn about 640 px wide, so 720 px still holds up — but
+`adb pull` or a USB copy of the original screenshot is sharper.
 
 ## 9 · Play App Signing and the upload (Q14)
 

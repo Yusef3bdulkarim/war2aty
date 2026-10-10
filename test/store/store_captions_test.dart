@@ -7,15 +7,16 @@ import 'store_captions.dart';
 void main() {
   String all(StoreCaption c) => '${c.headline} ${c.subline}';
 
-  test('there are eight, in the order the owner approved', () {
-    // Play takes at most eight phone screenshots; the sequence was approved
-    // as a whole, so a reorder is a change to ask about, not to slip in.
+  test("there are eight, in the listing's order", () {
+    // Play takes at most eight phone screenshots. The sequence follows the
+    // owner's device screenshots (2026-10-10); a reorder is a change to ask
+    // about, not to slip in.
     expect(kStoreCaptions.map((c) => c.file), [
       '1-home',
-      '2-camera',
+      '2-reading',
       '3-result',
-      '4-details',
-      '5-reminder',
+      '4-reminder',
+      '5-reminders',
       '6-listen',
       '7-papers',
       '8-privacy',

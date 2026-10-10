@@ -6,8 +6,10 @@
 /// it — and, unlike the generator that renders them, that test runs in the
 /// suite.
 ///
-/// Order is the listing's order; [StoreCaption.file] is the screenshot's name
-/// in `store/screenshots/ar/`, and Play shows screenshots in upload order.
+/// Order is the listing's order. [StoreCaption.file] names both the owner's
+/// device screenshot in `store/screenshots/raw/` (gitignored — see
+/// `generate_store_assets.dart`) and the framed result in
+/// `store/screenshots/ar/`. Play shows screenshots in upload order.
 library;
 
 /// One screenshot's tagline: a short headline and the line under it.
@@ -27,21 +29,25 @@ const List<StoreCaption> kStoreCaptions = [
     'عندك ورقة مش فاهمها؟',
     'صوّرها، والتطبيق يشرحهالك بكلام بسيط',
   ),
-  StoreCaption('2-camera', 'صوّرها في ثواني', 'من الكاميرا أو من صور الموبايل'),
+  StoreCaption(
+    '2-reading',
+    'التطبيق بيقرا ورقتك',
+    'ويطلّعلك المهم فيها بالعربي',
+  ),
   StoreCaption(
     '3-result',
     'اعرف ورقتك بتقول إيه',
     'المطلوب منك، وآخر ميعاد، والمبلغ',
   ),
   StoreCaption(
-    '4-details',
-    'كل المهم قدامك',
-    'المبالغ والمواعيد وأرقام الحساب، متنظمة',
+    '4-reminder',
+    'متفوّتش ميعاد',
+    'تذكير بالموعد، بتظبطه انت بنفسك',
   ),
   StoreCaption(
-    '5-reminder',
-    'متفوّتش ميعاد',
-    'تذكير قبل الموعد، بتظبطه انت بنفسك',
+    '5-reminders',
+    'كل مواعيدك قدامك',
+    'القادمة والفائتة واللي خلصت',
   ),
   StoreCaption(
     '6-listen',
@@ -51,7 +57,7 @@ const List<StoreCaption> kStoreCaptions = [
   StoreCaption('7-papers', 'ورقك كله في مكان واحد', 'محفوظ على موبايلك انت'),
   StoreCaption(
     '8-privacy',
-    'خط كبير، وخصوصيتك مهمة',
-    'كبّر الخط زي ما يريحك، واعرف إيه اللي بيحصل لورقتك',
+    'انت اللي بتتحكم',
+    'توقف إرسال النص أو تحذف بياناتك في أي وقت',
   ),
 ];

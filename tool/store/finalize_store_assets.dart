@@ -106,10 +106,11 @@ void _buildIcon() {
 void _flattenRenders() {
   final renders = [
     File('store/feature-graphic.png'),
-    ...Directory('store/screenshots')
-        .listSync(recursive: true)
-        .whereType<File>()
-        .where((file) => file.path.endsWith('.png')),
+    // Only the published set. `store/screenshots/raw/` holds the owner's own
+    // device screenshots — sources, not outputs — and is never rewritten.
+    ...Directory(
+      'store/screenshots/ar',
+    ).listSync().whereType<File>().where((file) => file.path.endsWith('.png')),
   ];
 
   for (final file in renders) {

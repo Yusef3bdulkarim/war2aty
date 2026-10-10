@@ -78,7 +78,6 @@ import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/focus_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/set_camera_flash.dart';
-import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
 import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
 import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
@@ -537,9 +536,6 @@ void journeyTest(
 /// same way production does: with it off (the default), a capture takes the
 /// on-device pipeline; with it on and [connected] true, it takes the online
 /// one.
-///
-/// [cameraPreview] is what the viewfinder shows. Journeys never look at it,
-/// so the default is a black box; the store screenshots pass a sample paper.
 Future<AppHarness> bootApp(
   WidgetTester tester, {
   bool onlineOcrEnabled = false,
@@ -558,7 +554,6 @@ Future<AppHarness> bootApp(
     resolution: ImageQuality.good,
     brightness: ImageQuality.good,
   ),
-  CameraPreviewPort cameraPreview = const FakeCameraPreview(),
 }) async {
   final temp = Directory.systemTemp.createTempSync('war2aty-journey');
   addTearDown(() {
@@ -650,7 +645,7 @@ Future<AppHarness> bootApp(
     // only way past it is to re-wire this one cubit exactly as DI does.
     ..registerFactory<CameraCaptureCubit>(
       () => CameraCaptureCubit(
-        preview: cameraPreview,
+        preview: const FakeCameraPreview(),
         initializeCamera: InitializeCamera(camera),
         capturePhoto: CapturePhoto(camera),
         setCameraFlash: SetCameraFlash(camera),
