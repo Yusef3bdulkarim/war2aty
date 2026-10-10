@@ -507,6 +507,10 @@ GoRouter createAppRouter({
                     onPickImage: () => context.push(
                       AppRoutes.captureWith(CaptureSource.gallery),
                     ),
+                    onOpenDocument: (document) => context.push(
+                      AppRoutes.documentDetailsWith(document.id),
+                    ),
+                    onSeeAllDocuments: () => context.go(AppRoutes.saved),
                   ),
                 ),
               ),

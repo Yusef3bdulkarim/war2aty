@@ -331,11 +331,8 @@ class _EmptyLibrary extends StatelessWidget {
     final strings = context.strings;
 
     return _EmptyState(
-      glyph: StrokeGlyph.navReminders,
       title: strings.reminderEmptyTitle,
       subtitle: strings.reminderEmptySubtitle,
-      ctaLabel: strings.reminderAddAction,
-      onCta: onAddReminder,
     );
   }
 }
@@ -355,38 +352,31 @@ class _EmptyBucket extends StatelessWidget {
 
     return switch (tab) {
       RemindersTab.missed => _EmptyState(
-        glyph: StrokeGlyph.clock,
         title: strings.reminderEmptyMissedTitle,
       ),
       RemindersTab.completed => _EmptyState(
-        glyph: StrokeGlyph.check,
         title: strings.reminderEmptyCompletedTitle,
       ),
       // A non-empty library's «القادمة» bucket is only empty when every
       // reminder has already been missed or completed — still nothing to do
       // about from here.
-      RemindersTab.upcoming => _EmptyState(
-        glyph: StrokeGlyph.navReminders,
-        title: strings.reminderEmptyTitle,
-      ),
+      RemindersTab.upcoming => _EmptyState(title: strings.reminderEmptyTitle),
     };
   }
 }
 
+/// A clean, minimal placeholder shown when a tab or the whole library is empty.
+///
+/// No illustration, no call to action — the header's «إضافة تذكير» button
+/// is always visible above, so repeating it here would be redundant. The
+/// layout centres a single title (and an optional subtitle) with generous
+/// vertical breathing room so it reads as deliberate emptiness rather than a
+/// missing screen.
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.glyph,
-    required this.title,
-    this.subtitle,
-    this.ctaLabel,
-    this.onCta,
-  });
+  const _EmptyState({required this.title, this.subtitle});
 
-  final StrokeGlyph glyph;
   final String title;
   final String? subtitle;
-  final String? ctaLabel;
-  final VoidCallback? onCta;
 
   @override
   Widget build(BuildContext context) {
@@ -395,24 +385,12 @@ class _EmptyState extends StatelessWidget {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
-        56,
+        80,
         AppSpacing.xl,
         _pageBottom,
       ),
       child: Column(
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: colors.surfaceTeal,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: StrokeIcon(glyph, color: colors.brandPrimary, size: 32),
-            ),
-          ),
-          const SizedBox(height: 22),
           Text(
             title,
             textAlign: TextAlign.center,
@@ -423,7 +401,7 @@ class _EmptyState extends StatelessWidget {
             ),
           ),
           if (subtitle case final text?) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               text,
               textAlign: TextAlign.center,
@@ -431,25 +409,6 @@ class _EmptyState extends StatelessWidget {
                 color: colors.textCaption,
                 fontWeight: AppTypography.medium,
               ),
-            ),
-          ],
-          if (ctaLabel case final label?) ...[
-            const SizedBox(height: 22),
-            FilledButton(
-              onPressed: onCta,
-              style: FilledButton.styleFrom(
-                backgroundColor: colors.brandPrimary,
-                foregroundColor: colors.onBrand,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xxl,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.md),
-                ),
-                textStyle: AppTypography.labelLarge,
-              ),
-              child: Text(label),
             ),
           ],
         ],

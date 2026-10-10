@@ -74,9 +74,9 @@ void main() {
       await pumpApp(tester, screenUnderTest());
 
       expect(find.text(ar.reminderListTitle), findsOneWidget);
-      // Two matches while the library is empty: the header button and the
-      // empty state's own call to action share the same label.
-      expect(find.text(ar.reminderAddAction), findsWidgets);
+      // One match: the header button. The empty state no longer carries
+      // its own CTA — the header button is always visible above it.
+      expect(find.text(ar.reminderAddAction), findsOneWidget);
     });
 
     testWidgets('shows the empty-library state with nothing saved', (
@@ -92,7 +92,7 @@ void main() {
       var tapped = 0;
       await pumpApp(tester, screenUnderTest(onAddReminder: () => tapped++));
 
-      await tester.tap(find.text(ar.reminderAddAction).first);
+      await tester.tap(find.text(ar.reminderAddAction));
       await tester.pumpAndSettle();
 
       expect(tapped, 1);
