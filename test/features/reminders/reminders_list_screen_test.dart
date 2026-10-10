@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -229,6 +230,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(ar.reminderEmptyMissedTitle), findsOneWidget);
+      // Good news said in words as well as in green — the colour is never
+      // the message (F29's own rule, and CLAUDE.md's).
+      expect(find.text(ar.reminderEmptyMissedSubtitle), findsOneWidget);
+      expect(_glyphs(tester), contains(StrokeGlyph.check));
+      expect(_glyphs(tester), isNot(contains(StrokeGlyph.checkSquare)));
     });
 
     testWidgets('shows the completed tab\'s own empty state', (tester) async {
@@ -239,6 +245,79 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(ar.reminderEmptyCompletedTitle), findsOneWidget);
+      expect(find.text(ar.reminderEmptyCompletedSubtitle), findsOneWidget);
+      // A different mark from «الفائتة»'s, so the two buckets are not
+      // told apart by their tint alone.
+      expect(_glyphs(tester), contains(StrokeGlyph.checkSquare));
+      expect(_glyphs(tester), isNot(contains(StrokeGlyph.check)));
+    });
+
+    testWidgets('an empty bucket leads back to «القادمة»', (tester) async {
+      // The old bucket state was one grey line with nowhere to go: a user who
+      // tapped «الفائتة» had to find the tab again to get out.
+      repository.emit([fakeReminder(title: 'فاتورة الكهرباء')]);
+      await pumpApp(tester, screenUnderTest());
+
+      await tester.tap(find.text(ar.reminderTabMissed));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(ar.reminderEmptyBackToUpcoming));
+      await tester.pumpAndSettle();
+
+      expect(find.text('فاتورة الكهرباء'), findsOneWidget);
+      expect(find.text(ar.reminderEmptyMissedTitle), findsNothing);
+    });
+
+    testWidgets('«القادمة» itself offers no way back to itself', (
+      tester,
+    ) async {
+      // Reachable once every reminder has been missed or completed. It shares
+      // the buckets' vocabulary (locked decision 2) but not their link.
+      repository.emit([fakeReminder(status: ReminderStatus.completed)]);
+      await pumpApp(tester, screenUnderTest());
+
+      expect(find.text(ar.reminderEmptyTitle), findsOneWidget);
+      expect(find.text(ar.reminderEmptyBackToUpcoming), findsNothing);
+      expect(_glyphs(tester), contains(StrokeGlyph.navReminders));
+    });
+
+    testWidgets('an empty bucket survives large text', (tester) async {
+      // The link is a Row of a label and a chevron, which is the one thing in
+      // this state that can overflow sideways once the label doubles.
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      repository.emit([fakeReminder()]);
+      await pumpApp(
+        tester,
+        screenUnderTest(),
+        textScaler: const TextScaler.linear(2),
+      );
+
+      await tester.tap(find.text(ar.reminderTabMissed));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(ar.reminderEmptyBackToUpcoming), findsOneWidget);
+    });
+
+    testWidgets('no empty bucket carries a shadow', (tester) async {
+      // Same rule as the illustrations this feature flattened (F29-T02): the
+      // badge is lifted off the page by a border, never by a BoxShadow.
+      repository.emit([fakeReminder()]);
+      await pumpApp(tester, screenUnderTest());
+
+      await tester.tap(find.text(ar.reminderTabMissed));
+      await tester.pumpAndSettle();
+
+      final shadowed = tester
+          .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .where((d) => d.boxShadow?.isNotEmpty ?? false);
+
+      expect(shadowed, isEmpty);
     });
 
     testWidgets('opens a reminder when its card is tapped', (tester) async {
@@ -333,3 +412,14 @@ void main() {
     });
   });
 }
+
+/// Every stroke glyph currently on screen.
+///
+/// An empty bucket is told apart by its mark as well as by its tint, so what
+/// matters is that the right one is drawn and the other bucket's is not —
+/// which is also the check that the two states cannot be distinguished by
+/// colour alone.
+List<StrokeGlyph> _glyphs(WidgetTester tester) => tester
+    .widgetList<StrokeIcon>(find.byType(StrokeIcon))
+    .map((icon) => icon.glyph)
+    .toList();

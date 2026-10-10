@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 9 / 14 · **T09 DONE**
+- **Progress:** 10 / 14 · **T10 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -122,7 +122,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, no shadow, no text; 8 tests, the shadow and clipping ones mutation-proved — see "T07 record" | DONE 2026-10-10 |
 | 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; 10 tests, 1×/1.6×/2×-on-320, four mutations run — see "T08 record" | DONE 2026-10-10 |
 | 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only; the quick rows wired to the seeded route; 6 tests, 4 mutations — see "T09 record" | DONE 2026-10-10 |
-| 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab` | TODO |
+| 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab`; a new `AppColors.successBorder`; 4 tests, 4 mutations; **one open copy question** — see "T10 record" | DONE 2026-10-10 |
 | 11 | F29-T11 | `onScan` wired end to end | the new callback on `RemindersListScreen` → `AppRoutes.captureWith(CaptureSource.camera)`, mirroring the documents list's own wiring | TODO |
 | 12 | F29-T12 | Screen tests | all three empty states, tabs hidden/shown, the quick rows' routing, 1.6× text, RTL + English, screen-reader labels | TODO |
 | 13 | F29-T13 | Quality gate + reviews | `dart format` · `flutter analyze` · `flutter test`; then `/flutter-code-review`, then `@code-reviewer` | TODO |
@@ -172,6 +172,74 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T10 record (2026-10-10)
+
+`_EmptyBucketBody` replaces `_EmptyState`: a 64 px badge, the title, the
+sentence, and a link back to «القادمة». One widget, three configurations, so
+القادمة/الفائتة/المكتملة cannot drift into three different screens (locked
+decision 2).
+
+| Bucket | Badge | Mark | Link back |
+|---|---|---|---|
+| «الفائتة» | `successTint` + `successBorder` | `check` in `successInk` | yes |
+| «المكتملة» | `surfaceTealAlt` + `borderCool` | `checkSquare` in `brandPrimary` | yes |
+| «القادمة» | `surfaceTealAlt` + `borderCool` | `navReminders` in `brandPrimary` | no — the user is already on it |
+
+**Green, and it says so.** «مفيش حاجة فاتتك» is good news in words as much as
+in colour, and the two buckets carry **different marks** as well as different
+tints, so neither is distinguishable by colour alone. A test asserts each
+bucket draws its own glyph *and not the other's*. The badge is
+`ExcludeSemantics`: a screen reader gets the sentence, not the drawing.
+
+**Flat, like the rest of the feature.** Tinted fill plus a 1.5 px border, no
+`BoxShadow` — a test walks every decoration in the state, the same shape as
+T02's and T07's.
+
+**A new token: `AppColors.successBorder`** (`#C8E6D6` light, `#5E9B78` high
+contrast), the sibling `warningBorder` already had. It has one caller, which
+is below this project's bar for shared code — the alternative was the
+prototype's hardcoded pale green, which would not follow the palette into
+high contrast and would have left a washed-out edge on a darkened tint for
+exactly the users «تباين عالي» exists for. No test enumerates the palette's
+fields, and `contrast_test` pins `successInk`/`successTint` only, so the
+addition is contained.
+
+**The link reads the cubit directly**, `context.read<RemindersCubit>().setTab(
+RemindersTab.upcoming)`, exactly as the tabs above it do. Switching bucket is
+this screen's own state — not a navigation, and not something to hand a
+parent a callback for.
+
+### One open question for the owner: «القادمة»'s title
+
+An empty «القادمة» while the library is **not** empty — every reminder
+already missed or completed — still shows «مافيش تذكيرات لسه», which is the
+line this screen inherited and is not true of that state: there *are*
+reminders, just none ahead. It now at least shares the buckets' badge and
+layout.
+
+No string of its own was approved, and the copy table was settled with the
+owner, so this task did not invent one. If the owner wants it fixed, it is two
+keys (`reminderEmptyUpcomingTitle` + subtitle) and one line in the switch —
+something like «مفيش حاجة جاية» / «كل تذكيراتك اتنفذت أو فاتت. اعمل واحد جديد
+من «إضافة تذكير» فوق.» Raised here rather than decided.
+
+**Tests** (4 new, plus assertions added to the two bucket tests that already
+existed): the missed bucket's subtitle and tick; the completed bucket's
+subtitle and check-square, and neither showing the other's mark; the link
+actually landing on «القادمة» with the reminder list back on screen; «القادمة»
+showing no link to itself; no shadow anywhere in the state; and the bucket at
+2× text on a 360×640 phone, because the link is a `Row` of a label and a
+chevron and that is the one thing here that can overflow sideways.
+
+**Mutation-proved, four.** `setTab(RemindersTab.completed)` in the link → the
+"leads back" test failed. The completed bucket given «الفائتة»'s tick → the
+completed test failed. A `BoxShadow` on the badge → the shadow test failed.
+«القادمة» given a subtitle, which is what draws the link → its own test
+failed.
+
+**Gate:** `dart format` clean · `flutter analyze` 18 issues, unchanged from
+the baseline · `flutter test` 2,599 passing (2,595 + 4).
 
 ## T09 record (2026-10-10)
 

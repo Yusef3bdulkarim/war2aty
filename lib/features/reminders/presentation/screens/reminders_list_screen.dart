@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/forward_chevron.dart';
 import '../cubit/reminders_cubit.dart';
 import '../cubit/reminders_state.dart';
 import '../models/manual_reminder_seed.dart';
@@ -44,6 +45,20 @@ const double _emptyKickerFontSize = 13.5;
 const double _emptyHintFontSize = 12.8;
 const double _emptyScanIconSize = 18;
 const double _emptyScanPaddingV = 13;
+
+// An empty bucket — «الفائتة» or «المكتملة» with nothing in it (F29-T10,
+// concept D's `.bucket`). Quieter than the empty library: a badge instead of
+// the illustration, and a link instead of three rows.
+const double _bucketTopGap = 34;
+const double _bucketBadgeSize = 64;
+const double _bucketBadgeRadius = 22;
+const double _bucketBadgeGapBelow = 18;
+const double _bucketGlyphSize = 30;
+const double _bucketHairline = 1.5;
+const double _bucketLinkGapAbove = 18;
+const double _bucketLinkPaddingV = 10;
+const double _bucketLinkFontSize = 14.5;
+const double _bucketLinkGap = 7;
 
 /// The «التذكيرات» tab: every reminder, bucketed into القادمة/الفائتة/المكتملة
 /// (F09-T11).
@@ -498,58 +513,167 @@ class _EmptyBucket extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final strings = context.strings;
 
     return switch (tab) {
-      RemindersTab.missed => _EmptyState(
+      // Good news, said as good news: a green tick, not a grey apology. An
+      // empty «الفائتة» means the user has missed nothing.
+      RemindersTab.missed => _EmptyBucketBody(
+        glyph: StrokeGlyph.check,
+        badgeFill: colors.successTint,
+        badgeBorder: colors.successBorder,
+        glyphColor: colors.successInk,
         title: strings.reminderEmptyMissedTitle,
+        subtitle: strings.reminderEmptyMissedSubtitle,
       ),
-      RemindersTab.completed => _EmptyState(
+      // Neutral, not congratulatory: nothing has been finished yet, and the
+      // subtitle says which button moves a reminder here.
+      RemindersTab.completed => _EmptyBucketBody(
+        glyph: StrokeGlyph.checkSquare,
+        badgeFill: colors.surfaceTealAlt,
+        badgeBorder: colors.borderCool,
+        glyphColor: colors.brandPrimary,
         title: strings.reminderEmptyCompletedTitle,
+        subtitle: strings.reminderEmptyCompletedSubtitle,
       ),
-      // A non-empty library's «القادمة» bucket is only empty when every
-      // reminder has already been missed or completed — still nothing to do
-      // about from here.
-      RemindersTab.upcoming => _EmptyState(title: strings.reminderEmptyTitle),
+      // «القادمة» is only empty while the library is not when every reminder
+      // has already been missed or completed. It gets the same vocabulary so
+      // the three buckets read as one screen (locked decision 2), and no way
+      // «back to القادمة» — the user is already on it. Its title is the
+      // library's own «مافيش تذكيرات لسه», which is the one line of copy in
+      // this state that does not quite fit what it describes; the copy table
+      // approved no string of its own for it, so this reports the mismatch
+      // rather than inventing one (see the T10 record).
+      RemindersTab.upcoming => _EmptyBucketBody(
+        glyph: StrokeGlyph.navReminders,
+        badgeFill: colors.surfaceTealAlt,
+        badgeBorder: colors.borderCool,
+        glyphColor: colors.brandPrimary,
+        title: strings.reminderEmptyTitle,
+      ),
     };
   }
 }
 
-/// The minimal placeholder an empty *bucket* still uses — one centred title,
-/// 80 px down.
+/// One empty bucket: a badge, a title, a sentence, and — for the two buckets
+/// that are not «القادمة» — a way back to it (F29-T10).
 ///
-/// This is what the wholly-empty library looked like until F29-T09 replaced
-/// it, and F29-T10 replaces it here too: «الفائتة» and «المكتملة» get the
-/// same visual vocabulary as [_EmptyLibrary], plus a way back to «القادمة».
-/// Its subtitle slot came off with the library's own use of it, since the
-/// buckets' subtitles arrive with that redesign.
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.title});
+/// The badge is never the message. Its colour is reinforcement for a title
+/// that already says the thing in words («مفيش حاجة فاتتك» is green *and*
+/// says so), so the state survives colour blindness, high contrast, and a
+/// screen reader, which is handed the text and not the drawing.
+///
+/// Flat, like every other illustration in this feature: a tinted fill and a
+/// hairline border, no [BoxShadow].
+class _EmptyBucketBody extends StatelessWidget {
+  const _EmptyBucketBody({
+    required this.glyph,
+    required this.badgeFill,
+    required this.badgeBorder,
+    required this.glyphColor,
+    required this.title,
+    this.subtitle,
+  });
 
+  final StrokeGlyph glyph;
+  final Color badgeFill;
+  final Color badgeBorder;
+  final Color glyphColor;
   final String title;
+
+  /// `null` only for «القادمة», which has no sentence of its own approved.
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final strings = context.strings;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        80,
-        AppSpacing.xl,
+        _pageSide,
+        _bucketTopGap,
+        _pageSide,
         _pageBottom,
       ),
       child: Column(
         children: [
+          ExcludeSemantics(
+            child: Container(
+              width: _bucketBadgeSize,
+              height: _bucketBadgeSize,
+              decoration: BoxDecoration(
+                color: badgeFill,
+                border: Border.all(color: badgeBorder, width: _bucketHairline),
+                borderRadius: BorderRadius.circular(_bucketBadgeRadius),
+              ),
+              child: Center(
+                child: StrokeIcon(
+                  glyph,
+                  color: glyphColor,
+                  size: _bucketGlyphSize,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: _bucketBadgeGapBelow),
           Text(
             title,
             textAlign: TextAlign.center,
             style: AppTypography.titleMedium.copyWith(
-              fontSize: 18,
+              fontSize: _emptyTitleFontSize,
               fontWeight: AppTypography.extraBold,
               color: colors.textBody,
             ),
           ),
+          if (subtitle case final text?) ...[
+            const SizedBox(height: _emptyTitleGapBelow),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMedium.copyWith(
+                color: colors.textCaption,
+                fontWeight: AppTypography.medium,
+              ),
+            ),
+            const SizedBox(height: _bucketLinkGapAbove),
+            // Reads the cubit directly, exactly as the tabs above it do:
+            // switching bucket is this screen's own state, not a navigation
+            // and not something a parent needs a callback for.
+            TextButton(
+              onPressed: () =>
+                  context.read<RemindersCubit>().setTab(RemindersTab.upcoming),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.brandPrimary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: _bucketLinkPaddingV,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.sm),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      strings.reminderEmptyBackToUpcoming,
+                      style: AppTypography.labelMedium.copyWith(
+                        fontSize: _bucketLinkFontSize,
+                        fontWeight: AppTypography.extraBold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: _bucketLinkGap),
+                  // The prototype's 16 px, which is [ForwardChevron]'s own
+                  // default size.
+                  ForwardChevron(color: colors.brandPrimary),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
