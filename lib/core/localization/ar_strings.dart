@@ -1180,13 +1180,32 @@ final class ArStrings implements AppStrings {
   String get reminderEmptyTitle => 'مافيش تذكيرات لسه';
   @override
   String get reminderEmptySubtitle =>
-      'اعمل تذكير يدوي، أو أنشئ تذكير من تاريخ موجود في ورقة.';
+      'اختار ميعاد جاهز وابدأ على طول — تعدّله زي ما تحب بعد كده.';
+  @override
+  String get reminderQuickCreateKicker => 'تذكير سريع';
+  @override
+  String get reminderQuickTomorrow => 'بكرة';
+  @override
+  String get reminderQuickNextWeek => 'بعد أسبوع';
+  @override
+  String get reminderQuickEndOfMonth => 'آخر الشهر';
   @override
   String get reminderEmptyScanCta => 'صوّر ورقة';
   @override
-  String get reminderEmptyMissedTitle => 'مافيش تذكيرات فائتة.';
+  String get reminderEmptyScanHint =>
+      'أو اضغط «إضافة تذكير» فوق وحدّد كل حاجة بنفسك.';
   @override
-  String get reminderEmptyCompletedTitle => 'التذكيرات اللي تنفذها هتظهر هنا.';
+  String get reminderEmptyMissedTitle => 'مفيش حاجة فاتتك';
+  @override
+  String get reminderEmptyMissedSubtitle =>
+      'كل تذكيراتك لسه في وقتها. لو فات ميعاد، هتلاقيه هنا.';
+  @override
+  String get reminderEmptyCompletedTitle => 'لسه مخلّصت ولا تذكير';
+  @override
+  String get reminderEmptyCompletedSubtitle =>
+      'أول ما تضغط «تم التنفيذ» على أي تذكير، هيتحرّك هنا.';
+  @override
+  String get reminderEmptyBackToUpcoming => 'شوف التذكيرات القادمة';
   @override
   String get reminderStatusUpcoming => 'قادم';
   @override

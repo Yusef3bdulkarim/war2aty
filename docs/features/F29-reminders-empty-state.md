@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 2 / 14 · **T02 DONE**
+- **Progress:** 3 / 14 · **T03 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -115,7 +115,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 |---|---|---|---|---|
 | 1 | F29-T01 | Feature doc, branch, index row | this doc; `feature/reminders-empty-state` cut from `feature/android-release`; `docs/features/README.md` row; the approved prototype committed | DONE 2026-10-10 |
 | 2 | F29-T02 | **Shadows off** — the independent half | 4 `BoxShadow` sites removed; `AppShadows.paper` kept and marked unused; a mutation-proved test per screen, and «مستنداتي»'s art got its first test file at all — see "T02 record" | DONE 2026-10-10 |
-| 3 | F29-T03 | The new strings | new `AppStrings` getters + `ar_strings.dart` + `en_strings.dart` + `app_strings_test` rows. No UI yet, so the gate stays green on its own | TODO |
+| 3 | F29-T03 | The new strings | 8 new getters + 3 reworded, both languages, 13 `_accessors` rows; a new guard caught a quoted label that does not exist — see "T03 record" | DONE 2026-10-10 |
 | 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart` — a pure helper giving بكرة / بعد أسبوع / آخر الشهر as a Cairo date + minute-of-day, with unit tests for month ends, February, leap years and the DST boundary | TODO |
 | 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model under `presentation/models/`; `ReminderFormCubit.manual` takes an optional seed and runs it through the same default-alert seeding; cubit tests for seeded and unseeded construction | TODO |
 | 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>` under the same `instanceName`; `/reminders/manual` reads `state.extra`; the header's «إضافة تذكير» keeps passing nothing | TODO |
@@ -152,7 +152,7 @@ ways in rather than the quick rows now sitting under it.
 | `reminderEmptyMissedTitle` *(reworded)* | مفيش حاجة فاتتك | Nothing has slipped past you |
 | `reminderEmptyMissedSubtitle` | كل تذكيراتك لسه في وقتها. لو فات ميعاد، هتلاقيه هنا. | Every reminder is still on time. If one is missed, it shows up here. |
 | `reminderEmptyCompletedTitle` *(reworded)* | لسه مخلّصت ولا تذكير | You haven't finished a reminder yet |
-| `reminderEmptyCompletedSubtitle` | أول ما تضغط «خلّصته» على أي تذكير، هيتحرّك هنا. | As soon as you tap "Done" on a reminder, it moves here. |
+| `reminderEmptyCompletedSubtitle` | أول ما تضغط «تم التنفيذ» على أي تذكير، هيتحرّك هنا. | As soon as you tap "Mark done" on a reminder, it moves here. |
 | `reminderEmptyBackToUpcoming` | شوف التذكيرات القادمة | See upcoming reminders |
 
 The quick rows' secondary line is the resolved date itself, built from the
@@ -172,6 +172,44 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T03 record (2026-10-10)
+
+**Eight new getters**, in both languages, in the interface order the copy
+table above lists them: `reminderQuickCreateKicker`, `reminderQuickTomorrow`,
+`reminderQuickNextWeek`, `reminderQuickEndOfMonth`, `reminderEmptyScanHint`,
+`reminderEmptyMissedSubtitle`, `reminderEmptyCompletedSubtitle`,
+`reminderEmptyBackToUpcoming`.
+
+**Three reworded.** `reminderEmptySubtitle` (it described the two ways in,
+which the quick rows now show), and both bucket titles — «مافيش تذكيرات
+فائتة.» became «مفيش حاجة فاتتك», and «التذكيرات اللي تنفذها هتظهر هنا.»
+became «لسه مخلّصت ولا تذكير» with the explanation moved into the new
+subtitle. The existing screen test asserts these through the getters, not
+through literals, so the rewording broke nothing.
+
+`reminderEmptyScanCta` («صوّر ورقة») is untouched — it has existed since F09
+with no caller, and T11 finally gives it one.
+
+**A bug caught by a new guard.** The first draft of
+`reminderEmptyCompletedSubtitle` read «أول ما تضغط **«خلّصته»**…», quoting a
+button that exists nowhere: the card's action is «تم التنفيذ»
+([`reminder_list_item.dart`](../../lib/features/reminders/presentation/widgets/reminder_list_item.dart)
+→ `reminderCompleteAction`). Copy that names a control the user cannot find is
+worse than copy that names none, and this app's users are the least able to
+absorb the mismatch. So `app_strings_test` gained a group that pins each
+quotation to the label's own getter rather than to a literal — the hint to
+`reminderAddAction`, the completed subtitle to `reminderCompleteAction`. The
+bad wording was put back to confirm the guard fails on it, then reverted.
+
+English quoting follows the file's existing ASCII convention — `"Mark done"`
+inside a single-quoted Dart string, `"You haven't…"` double-quoted for the
+apostrophe — not the typographic quotes the first draft used.
+
+**Gate:** `dart format` clean · `flutter analyze` no issues in either
+localization directory · `flutter test` 2,531 passing (2,529 + the two new
+guards). No UI consumes any of this yet, which is why the suite stays green
+on its own.
 
 ## T02 record (2026-10-10)
 

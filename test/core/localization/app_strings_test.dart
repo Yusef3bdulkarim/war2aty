@@ -455,9 +455,17 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'reminderTabCompleted': (s) => s.reminderTabCompleted,
   'reminderEmptyTitle': (s) => s.reminderEmptyTitle,
   'reminderEmptySubtitle': (s) => s.reminderEmptySubtitle,
+  'reminderQuickCreateKicker': (s) => s.reminderQuickCreateKicker,
+  'reminderQuickTomorrow': (s) => s.reminderQuickTomorrow,
+  'reminderQuickNextWeek': (s) => s.reminderQuickNextWeek,
+  'reminderQuickEndOfMonth': (s) => s.reminderQuickEndOfMonth,
   'reminderEmptyScanCta': (s) => s.reminderEmptyScanCta,
+  'reminderEmptyScanHint': (s) => s.reminderEmptyScanHint,
   'reminderEmptyMissedTitle': (s) => s.reminderEmptyMissedTitle,
+  'reminderEmptyMissedSubtitle': (s) => s.reminderEmptyMissedSubtitle,
   'reminderEmptyCompletedTitle': (s) => s.reminderEmptyCompletedTitle,
+  'reminderEmptyCompletedSubtitle': (s) => s.reminderEmptyCompletedSubtitle,
+  'reminderEmptyBackToUpcoming': (s) => s.reminderEmptyBackToUpcoming,
   'reminderStatusUpcoming': (s) => s.reminderStatusUpcoming,
   'reminderStatusMissed': (s) => s.reminderStatusMissed,
   'reminderStatusCompleted': (s) => s.reminderStatusCompleted,
@@ -562,6 +570,32 @@ void main() {
 
       expect(declared, isNotEmpty);
       expect(_accessors.keys.toSet(), declared);
+    });
+  });
+
+  // ── the reminders empty state quotes real controls (F29-T03) ───────────
+  //
+  // Both of these sentences tell the user to press a specific button. The
+  // first draft of the second one quoted «خلّصته», a label that exists
+  // nowhere in the app — the card's action reads «تم التنفيذ». Copy that
+  // names a control the user cannot find is worse than copy that names none,
+  // and these users are the least able to absorb the mismatch, so the
+  // quotation is pinned to the label itself rather than to a literal.
+  group('the reminders empty state points at controls that exist', () {
+    test('the hint quotes the header button by its real label', () {
+      expect(ar.reminderEmptyScanHint, contains(ar.reminderAddAction));
+      expect(en.reminderEmptyScanHint, contains(en.reminderAddAction));
+    });
+
+    test('the completed bucket quotes the card action by its real label', () {
+      expect(
+        ar.reminderEmptyCompletedSubtitle,
+        contains(ar.reminderCompleteAction),
+      );
+      expect(
+        en.reminderEmptyCompletedSubtitle,
+        contains(en.reminderCompleteAction),
+      );
     });
   });
 
