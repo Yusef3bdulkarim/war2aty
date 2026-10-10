@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 12 / 14 · **T12 DONE**
+- **Progress:** 13 / 14 · **T13 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -125,7 +125,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab`; a new `AppColors.successBorder`; 4 tests, 4 mutations; **one open copy question** — see "T10 record" | DONE 2026-10-10 |
 | 11 | F29-T11 | `onScan` wired end to end | the reminders branch passes `onScan` → `push(captureWith(camera))`, the same push «مستنداتي» makes; a router test for the source *and* for the push, 3 mutations — see "T11 record" | DONE 2026-10-10 |
 | 12 | F29-T12 | Screen tests | most of the brief was already met by T07–T11; this closed the two real gaps — the three empty states swept across both languages × 1.0/1.5/2.0 on a 360×640 phone (**English had never been laid out at all**), and the assembled screen's screen-reader output. 24 tests, 5 mutations, and one hole no existing test could see — see "T12 record" | DONE 2026-10-10 |
-| 13 | F29-T13 | Quality gate + reviews | `dart format` · `flutter analyze` · `flutter test`; then `/flutter-code-review`, then `@code-reviewer` | TODO |
+| 13 | F29-T13 | Quality gate + reviews | gate clean; `/flutter-code-review` clean on all five sections; `@code-reviewer` PASS with no action items — but it found one real thing: a class doc that contradicted `_TextLine`'s directional alignment. Checked against the prototype, the **code was right and the comment wrong**; comment fixed, test renamed to what it measures, and a new test pins the exception — see "T13 record" | DONE 2026-10-10 |
 | 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` | TODO |
 
 Tasks 2–4 touch nothing each other touches and could land in any order; 5 → 6
@@ -172,6 +172,98 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T13 record (2026-10-10)
+
+The gate, then both reviews, over the whole branch against
+`feature/android-release` — 28 files, +4,401/−88.
+
+**Gate:** `dart format` 0 changed · `flutter analyze` 18 issues, every one of
+them pre-existing and none in a file this branch touched · `flutter test`
+2,625 passing at the start of this task.
+
+### `/flutter-code-review`
+
+Clean on all five sections. What the pass actually verified, rather than
+assumed:
+
+- **The T05 cubit fix cannot reach the from-document flow.** `_reanchored`
+  runs only from `setEventDate`/`setEventMinuteOfDay`, and
+  [`reminder_form_screen.dart:162`](../../lib/features/reminders/presentation/screens/reminder_form_screen.dart#L162)
+  gates both behind `if (editing.isManual)`. A from-document reminder's event
+  date is fixed and shown read-only, so its alerts are untouched.
+- **A reanchored preset alert can land in the past** (event moved to today,
+  with a «قبل الموعد بيوم» alert on it). The offset sheet excludes
+  already-used offsets, not past times, so this was equally possible before
+  the fix — and before it the alert kept the *old* instant while still
+  claiming to be relative to the new one. Strictly an improvement;
+  past-alert validation is a pre-existing gap and not F29's to close.
+- **Layers.** `quick_reminder_date.dart` imports only `core/time/cairo_day.dart`
+  — no Flutter. No new presentation code names a repository, data source,
+  `getIt`, Supabase, Drift or Dio.
+- **Privacy.** No provider name in any of the 11 new or reworded strings; no
+  `print`/`debugPrint`/`log` added anywhere on the branch.
+- **Disposal.** No controller or focus node is created by any new widget.
+
+### `@code-reviewer`
+
+PASS, no action items. It independently confirmed the date arithmetic across
+DST, month ends, leap years and the Cairo day boundary, the DI/router
+plumbing on a nullable seed, and the three exhaustive state switches — and
+re-confirmed the three findings it was handed up front rather than
+re-reporting them.
+
+It raised **one thing neither the gate nor T07 had caught**, and it was
+right: [`reminders_empty_art.dart`](../../lib/features/reminders/presentation/widgets/reminders_empty_art.dart)'s
+class doc claimed the drawing "holds the same composition in both languages",
+while `_TextLine` uses `AlignmentDirectional.centerStart` — so the two
+part-width bars *do* mirror. T07's own "same composition" test measured the
+bell only, so nothing contradicted the comment.
+
+**Checked against the design before changing anything, and the code is
+right.** The prototype is `dir="rtl"` and its bars are block elements
+narrower than their box
+([`F29-reminders-empty-mockups.html:164`](../design/F29-reminders-empty-mockups.html)),
+which CSS aligns to the **inline start** — the right edge on that page.
+`AlignmentDirectional.centerStart` reproduces that exactly and mirrors it in
+English, as the same CSS would. Switching to `Alignment.centerLeft`, which
+the reviewer floated as one option, would have *deviated* from the approved
+design and drawn an Arabic paper with its short lines pinned left.
+
+So the comment was corrected, not the rendering:
+
+- the class doc now says which four shapes are direction-independent (paper,
+  chip, ring, bell — plain `Positioned`) and names `_TextLine` as the
+  deliberate exception;
+- `_TextLine` carries its own note explaining why it follows the reading
+  direction, and that this is the prototype's behaviour rather than a
+  deviation from it;
+- T07's test was renamed to "keeps the bell on the same corner in both
+  languages", which is what it measures, and says why it is scoped there;
+- **a new test** pins the exception: the 62% bar's centre moves across the
+  paper between the two languages while the full-width bar's does not — the
+  second half being what makes the first a statement about alignment rather
+  than about layout drift.
+
+Two measurement traps in writing that test, both worth knowing for the next
+one on this widget: the paper is tilted −7°, so `getRect` returns a rotated
+bar's *bounding box* and two bars sharing an inline edge do not share a
+bounding-box edge (hence comparing one bar across locales, not two bars in
+one); and the bar is the `FractionallySizedBox`'s **child** — the box itself
+is full width in both directions, so measuring it sees no alignment at all.
+
+**Mutation-proved:** `AlignmentDirectional.centerStart` → `Alignment.centerLeft`
+and the new test fails, which is the whole claim.
+
+**Gate, re-run after the fix:** `dart format` 0 changed · `flutter analyze`
+18, unchanged · `flutter test` 2,626 passing (2,625 + 1).
+
+### Still open for the owner
+
+Carried from T10 and unchanged by either review, which both confirmed it:
+an empty «القادمة» while the library is **not** empty shows «مافيش تذكيرات
+لسه» — "no reminders yet" — which is not true of that state. Two keys and one
+line in the switch, and a copy decision that is the owner's, not this task's.
 
 ## T12 record (2026-10-10)
 

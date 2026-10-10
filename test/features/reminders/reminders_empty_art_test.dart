@@ -134,9 +134,16 @@ void main() {
       }
     });
 
-    testWidgets('keeps the same composition in both languages', (tester) async {
+    testWidgets('keeps the bell on the same corner in both languages', (
+      tester,
+    ) async {
       // It is a picture, not a line of content — the bell belongs on the
       // same corner however the text around it runs.
+      //
+      // Scoped to the bell deliberately: the mock text lines inside the
+      // paper *do* mirror, because a short line of text starts where text
+      // starts. That is what the next test pins, and the two together are
+      // the whole of the drawing's direction behaviour.
       await pumpApp(tester, const RemindersEmptyArt());
       final rtlBell = tester.getRect(_bell());
 
@@ -147,6 +154,41 @@ void main() {
       );
 
       expect(tester.getRect(_bell()), rtlBell);
+    });
+
+    testWidgets('the mock text lines start where text starts', (tester) async {
+      // The one directional thing in the drawing, and the prototype's own
+      // behaviour: its bars are block elements narrower than their box, which
+      // CSS aligns to the inline start. A part-width line pinned to the left
+      // in Arabic would read as a paper written in the wrong language.
+      //
+      // Compared across the two languages rather than against the bar beside
+      // it: the paper is tilted -7°, so `getRect` hands back a rotated bar's
+      // bounding box, and two bars sharing an inline edge do not share a
+      // bounding-box edge. The same bar measured in both directions is not
+      // affected by the tilt.
+      Rect lineAt(int index) => tester.getRect(_textLines().at(index));
+
+      await pumpApp(tester, const RemindersEmptyArt());
+      final rtlShort = lineAt(0);
+      final rtlFull = lineAt(1);
+
+      await pumpApp(
+        tester,
+        const RemindersEmptyArt(),
+        locale: AppLocalizations.english,
+      );
+
+      // The 62% bar swings across the paper: right-hugging in Arabic,
+      // left-hugging in English.
+      expect(lineAt(0).center.dx, lessThan(rtlShort.center.dx));
+      // And the full-width bar does not move at all — it fills the content
+      // box, so it has no start edge to pick. That is what makes the line
+      // above a statement about alignment rather than about layout drift.
+      expect(
+        lineAt(1).center.dx,
+        moreOrLessEquals(rtlFull.center.dx, epsilon: 0.01),
+      );
     });
 
     testWidgets('survives large text without changing size', (tester) async {
@@ -176,3 +218,15 @@ Finder _bell() => find
       matching: find.byType(DecoratedBox),
     )
     .first;
+
+/// The three mock text bars on the paper, in order.
+///
+/// The bar itself, not the [FractionallySizedBox] around it: that box is
+/// full-width in both directions and only *places* the bar inside itself, so
+/// measuring the box would see no alignment at all. It is `_TextLine`'s own
+/// box and the only one in the drawing — the private class cannot be named
+/// from here, so this is how its child is reached.
+Finder _textLines() => find.descendant(
+  of: find.byType(FractionallySizedBox),
+  matching: find.byType(DecoratedBox),
+);

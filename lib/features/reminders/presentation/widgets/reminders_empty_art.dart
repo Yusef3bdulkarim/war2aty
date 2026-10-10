@@ -62,12 +62,16 @@ const Color _lineLight = Color(0xFFDED9CE);
 /// so arriving with a third shadowed illustration would have undone half the
 /// feature. `reminders_empty_art_test` fails if a shadow appears.
 ///
-/// Laid out with plain [Positioned] rather than the directional variant, and
-/// carrying no text at all: this is a picture, so it holds the same
-/// composition in both languages, and the amber chip says "there is a date on
-/// this paper" with a calendar glyph rather than with digits no translation
-/// would reach — the whole thing is [ExcludeSemantics], so any text in it
-/// would be read by nobody and localized by nothing.
+/// Carries no text at all: the amber chip says "there is a date on this
+/// paper" with a calendar glyph rather than with digits no translation would
+/// reach — the whole thing is [ExcludeSemantics], so any text in it would be
+/// read by nobody and localized by nothing.
+///
+/// Its four shapes — the paper, the chip, the ring and the bell — are laid
+/// out with plain [Positioned] rather than the directional variant, so the
+/// composition is the same in both languages: this is a picture, and the bell
+/// belongs on the same corner however the text around it runs. The mock text
+/// lines inside the paper are the deliberate exception — see [_TextLine].
 class RemindersEmptyArt extends StatelessWidget {
   const RemindersEmptyArt({super.key});
 
@@ -185,6 +189,13 @@ class RemindersEmptyArt extends StatelessWidget {
 }
 
 /// One hairline bar standing in for a line of text on the mock paper.
+///
+/// The only part of the drawing that follows the reading direction, by
+/// [AlignmentDirectional.centerStart]: a short line of text starts where text
+/// starts, so the two part-width bars hug the right edge in Arabic and the
+/// left in English. That is the prototype's own behaviour, not a deviation
+/// from it — its bars are block elements narrower than their box, and CSS
+/// aligns those to the inline start of a `dir="rtl"` page.
 class _TextLine extends StatelessWidget {
   const _TextLine({this.width = 1, required this.color});
 
