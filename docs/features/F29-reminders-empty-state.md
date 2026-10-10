@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 14 / 15 · **T15 DONE** (only T14 — device pass, explanation, PR — is left)
+- **Progress:** 15 / 15 · **COMPLETE.** The owner confirmed the feature reviewed and working on 2026-10-11 and asked for it to be merged straight onto `feature/android-release`, so T14's PR step was waived in favour of a direct merge (Phase 4 still carries one batched PR into `develop`).
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -127,7 +127,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 12 | F29-T12 | Screen tests | most of the brief was already met by T07–T11; this closed the two real gaps — the three empty states swept across both languages × 1.0/1.5/2.0 on a 360×640 phone (**English had never been laid out at all**), and the assembled screen's screen-reader output. 24 tests, 5 mutations, and one hole no existing test could see — see "T12 record" | DONE 2026-10-10 |
 | 13 | F29-T13 | Quality gate + reviews | gate clean; `/flutter-code-review` clean on all five sections; `@code-reviewer` PASS with no action items — but it found one real thing: a class doc that contradicted `_TextLine`'s directional alignment. Checked against the prototype, the **code was right and the comment wrong**; comment fixed, test renamed to what it measures, and a new test pins the exception — see "T13 record" | DONE 2026-10-10 |
 | 15 | F29-T15 | An empty «القادمة» gets the library's state | the owner's answer to T10's open question (2026-10-10, after T13's reviews): share `_EmptyLibrary` whole rather than add two keys. The tabs stay — they are the only way to the buckets the reminders are in. 9 tests, 4 mutations, and a dead branch removed — see "T15 record" | DONE 2026-10-10 |
-| 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` — **runs last**, after T15 | TODO |
+| 14 | F29-T14 | Device pass, explanation, PR | RMX2001 (API 30) install and walk-through; `/explain-feature`; PR via `@git-expert` — **runs last**, after T15 | **DONE (waived) 2026-10-11** — the owner reported the feature tested locally and working, including the Gemini online path, and asked to merge and proceed straight to the Play upload. Merged to `feature/android-release` as a `--no-ff` merge instead of a PR. The full gate was re-run on the merge result: format clean, 18 infos / 0 errors, **2,635 Dart tests** and **759 backend tests** green. **Not separately walked through on the device by me** — recorded as the owner's verification, not an independent one. |
 
 Tasks 2–4 touch nothing each other touches and could land in any order; 5 → 6
 → 8 → 9 is a hard chain (the seed must exist before a row can carry it, and
