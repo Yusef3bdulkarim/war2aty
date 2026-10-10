@@ -140,7 +140,7 @@ re-asked in plainer terms, and are folded into the table below.
 | Q9 | **Yes**, a second free project for staging. The region decision follows T05. | T04 |
 | Q10 | **Play Integrity is accepted** for proving the caller is the real app. Whether `global_daily_call_cap` is already set in production is checked directly once the owner authorises the Supabase connector (Q8). | T06 |
 | Q11 | Delegated. **`analysis_attempts`: 90 days. Idle anonymous users: 12 months.** The quota resets every Cairo day, so 90 days is far more than any quota decision needs while still showing an abuse pattern; 12 months keeps a returning user's identity without holding dormant rows for ever. | T07 |
-| Q12 | Delegated. **`online_ocr_enabled` stays OFF at launch**, flipped in T26 once T08 has verified production. Production is still pre-F20 and unverified (B2/Q8), so shipping it on would put every first user on an untested path; off means they get on-device OCR, which works today. | T08, T26 |
+| Q12 | ~~Delegated. **`online_ocr_enabled` stays OFF at launch**, flipped in T26 once T08 has verified production. Production is still pre-F20 and unverified (B2/Q8), so shipping it on would put every first user on an untested path; off means they get on-device OCR, which works today.~~ **Superseded by the owner 2026-10-10: the flag is ON permanently, including at launch**, with T06's unprotected-OCR risk explicitly accepted. Its premise had expired — T04/T05/T08 put production on verified F20 functions. See *Owner's ruling (2026-10-10)*. | T08, ~~T26~~ |
 | Q13 | Delegated. **(a) our own Supabase table behind an Edge Function that only accepts allowlisted error codes.** No third party ever sees user content, which Sentry could not guarantee without trusting its scrubbing; it also stays inside the free-tier rule. | T12 |
 | Q14 | **Enrol in Play App Signing.** Note the keystore question was only half answered: whether `war2aty-release.jks` is backed up anywhere other than this machine is still unknown. Enrolling makes a lost *upload* key recoverable, so this is no longer fatal — but until T13 it is still the only copy. | T13, T21 |
 | Q15 | **Package IDs stay** `com.war2aty.app` / `.dev`, even though the name changes. Final once the first Play upload happens. | T13, T21 |
@@ -243,7 +243,7 @@ T19, T12 -> T23 and T24.
 | # | ID | Task | Output / acceptance | Depends on | Status |
 |---|---|---|---|---|---|
 | 25 | F27-T25 | Release process document | `docs/RELEASE.md`: versioning (next build number above `+2`), changelog, tagging, `minimum_app_version` policy, rollback with the kill switches. **Owns the release-branch and tag scheme outright** (owner-approved 2026-10-05: T02 was not to pre-empt it), and with it the `develop` → `main` release merge that T14 unblocks. | T02, T09 | TODO |
-| 26 | F27-T26 | Production launch (owner) | Staged rollout (percentages written down); F20 app step and flag per Q12; first-72-hour watch per T09; launch report | all above | TODO — **inherits T06's unprotected-OCR risk** (attestation deferred by the owner 2026-10-06): `ocr-document` takes no slot, so Gemini's 500/day has no counter in front of it. Decide with the owner before flipping the flag. |
+| 26 | F27-T26 | Production launch (owner) | Staged rollout (percentages written down); F20 app step with `online_ocr_enabled = true` per the owner's 2026-10-10 ruling (**not** Q12, which it supersedes); first-72-hour watch per T09, **including Gemini's quota by hand** since nothing counts OCR calls; launch report | all above | TODO — the flag question it inherited from T06 is **settled**: the owner accepted the unprotected-OCR risk on 2026-10-10 and chose ON permanently. T26 no longer decides this; it carries out the flip and watches the quota. See *Owner's ruling (2026-10-10)*. |
 
 ## Exit DoD
 
@@ -1151,6 +1151,13 @@ T26 (Q12). **T26 must not flip that flag until the OCR path has its own
 protection** — written into the migration header too, so it cannot be missed by
 someone reading only the schema.
 
+> **Overridden by the owner on 2026-10-10.** The prohibition above was T06's
+> conclusion and is kept for its reasoning, but it no longer governs: the flag is
+> deliberately **on**, with the gap accepted and unclosed. Do not "fix" the flag
+> back to `false` on the strength of this paragraph — see *Owner's ruling
+> (2026-10-10)* below. Turning it off is now an **incident lever**, not the
+> expected resting state.
+
 #### Anonymous sign-in rate limits: checked, and deliberately not tightened
 
 Supabase's default is **30 anonymous sign-ins per hour per IP**, configurable
@@ -1201,6 +1208,65 @@ is. T26's options are then to add a counter to the OCR path, revive attestation,
 or flip the flag knowing a script can exhaust the day's OCR for everyone. That
 is T26's call to make with the owner, not a decision T06 can take on its own —
 it is recorded in T26's row so it cannot be missed.
+
+**Resolved by the owner on 2026-10-10: the third option.** See the decision
+record directly below.
+
+### Owner's ruling (2026-10-10) — online reading is ON, permanently, risk accepted
+
+**The decision.** `online_ocr_enabled = true` on production, from now and
+through the public launch. This **supersedes Q12**, which had it off at launch
+and left T26 to flip it later. The owner's words: keep it enabled permanently
+and continue with it after the official release, "deliberately accepting the
+risk for now".
+
+**What was on the table.** T06 left T26 three options — add a counter to the OCR
+path, revive the deferred Play Integrity attestation, or flip the flag knowing
+the risk. The owner took the third, with the risk stated below in full rather
+than waived.
+
+**The risk now accepted, precisely.** `ocr-document` takes no usage slot by
+design (charging one would punish a user who retakes a blurry photo), and
+`global_daily_call_cap` counts analysis calls only. So **Gemini's 500/day sits
+behind no counter**. In front of it there is only Supabase's anonymous sign-in
+limit — 30/hour/IP, deliberately not tightened because Egyptian carrier NAT
+would lock out real users — and a reinstall resets the only per-user limit there
+is. A determined script can therefore exhaust the day's online reading for
+everybody. The failure is not silent and not destructive: when Gemini's quota is
+gone, `ocr-document` fails and the app falls back to on-device Tesseract with a
+warning banner, so users keep a working app at lower accuracy.
+
+**Why this is defensible.** Q12's own reasoning has partly expired. It argued
+that "production is still pre-F20 and unverified", but T04 rebuilt production on
+F20 functions, T05 verified Mistral → Groq live on it, and T08 completed the
+Gemini check end to end. The untested-path objection is weaker now than when
+Q12 was written. Off also has a real cost the flag's framing hides: with online
+reading off, **every** user gets on-device Tesseract, and T18's D-1 defect showed
+that path telling users their reading was poor "because there was no internet"
+while they were online. On-device is the degraded path, not the safe one.
+
+**What this does not change.** The Play Data safety declaration is already
+correct: T21 ruled that photos be declared **collected and shared** even while
+the flag was off, precisely because a server-side flip needs no app update
+([`F27-T21-play-console.md`](F27-T21-play-console.md) §6B, Decision 1). The
+published privacy policy already describes the online path in the §7 wording.
+**No resubmission and no copy change follow from this ruling.**
+
+**What remains open.**
+
+1. **The reactive levers are the whole defence.** `online_ocr_enabled = false`
+   restores the on-device path; `analysis_enabled = false` stops the service.
+   Both take effect on the next request. `docs/OPERATIONS.md` §1 and §4 already
+   order them correctly.
+2. **Nothing alerts on Gemini exhaustion.** There is no counter to alert on. The
+   first signal will be fallback banners reaching users, or the owner reading the
+   provider console. T26's first-72-hour watch should include it by hand.
+3. **A new environment still comes up `false`.** Migration `20260929120000`
+   seeds the flag off with `on conflict do nothing`, which correctly preserves
+   an operator's setting on production but means a fresh local or staging stack
+   defaults to off. Changing the seed is a separate decision, not taken here.
+4. **Adding a counter to the OCR path stays the right fix** whenever there is
+   appetite for it. This ruling accepts the gap; it does not close it.
 
 ### T07 record (2026-10-06) — retention, tested against a real database
 

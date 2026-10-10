@@ -326,8 +326,11 @@ user at launch**. `DecideAnalysisRoute`
 returns `AnalysisRoute.offline` for **three** different reasons:
 
 1. no connectivity;
-2. the server's `online_ocr_enabled` is **false** — which is the launch state
-   by Q12, i.e. the normal path for every user until T26 flips it;
+2. the server's `online_ocr_enabled` is **false** — which was the launch state
+   by Q12, i.e. the normal path for every user until T26 flipped it;
+   *(the owner superseded Q12 on 2026-10-10 — the flag now ships **on**, so this
+   reason became the uncommon case rather than the default. It does not change
+   the defect or its fix, which covered all three reasons.)*
 3. the flag could not be read (fails closed, by design).
 
 `OcrReviewCubit.loadOffline` maps all three to `OcrReadMode.offline`

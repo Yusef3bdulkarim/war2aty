@@ -253,17 +253,25 @@ explanation, not the paper.
 This is the one form where a wrong answer is a policy violation rather than a
 mistake, so read the three decisions below before you start filling it.
 
-### Decision 1 — the photo counts as collected, even though it does not leave the phone today
+### Decision 1 — the photo counts as collected
 
-Online reading is **off at launch** (`online_ocr_enabled = false`, Q12), so on
-the day you publish, no photo ever leaves a user's phone. It would be
-technically true to declare that no photos are collected.
+**Declare photos collected and shared.** This was the answer when this task ran
+and it remains the answer; what changed is that it is now *directly* true rather
+than anticipatory.
 
-**Declare them collected and shared anyway.** The flag is server-side: T26 can
-turn it on with no app update, and the moment it does, a "we don't collect
-photos" declaration becomes false — with no new submission for Play to notice
-and no way for you to find out you are now in violation. Declaring the capability
-up front costs nothing and matches what the privacy policy already tells users.
+The original reasoning, kept because it is why the answer is safe either way:
+online reading was off at launch (`online_ocr_enabled = false`, Q12), so it
+would have been technically true to declare no photos collected — but the flag
+is server-side, T26 could turn it on with no app update, and the moment it did a
+"we don't collect photos" declaration would have become false, with no new
+submission for Play to notice and no way to discover the violation.
+
+**The owner then ruled on 2026-10-10 that the flag is ON permanently, including
+at launch** (superseding Q12 — see `F27-production-readiness.md` → *Owner's
+ruling (2026-10-10)*). So photos genuinely do leave the phone for every online
+capture from day one. Because this form was filled in for exactly that
+possibility, **no resubmission and no edit to the submitted declaration is
+needed** — the ruling is why declaring the capability up front was worth doing.
 
 ### Decision 2 — "shared" is yes, even though the providers process on our behalf
 

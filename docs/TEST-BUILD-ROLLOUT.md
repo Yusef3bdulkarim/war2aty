@@ -215,9 +215,14 @@ are history. Because there is no staging project, the order matters:
 4. **App.** Ship the F20 build. It reads `online_ocr_enabled`, falls back to
    on-device reading for exactly four online failures with a warning, and
    carries the T24 privacy copy.
-5. **Only then, and only with the owner's confirmation after F20-T27**, set
-   `online_ocr_enabled = true`. Until then every user takes the on-device route,
-   with Tesseract reading and Mistral/Groq analysing.
+5. **Set `online_ocr_enabled = true`.** The owner confirmed this on 2026-10-10
+   and it is now the intended resting state, permanently and through launch —
+   superseding both F20-T27's "wait for confirmation" step and F27's Q12. The
+   unprotected-OCR risk behind the old caution is accepted, not resolved: see
+   `docs/features/F27-production-readiness.md` → *Owner's ruling (2026-10-10)*.
+   With the flag off instead, every user takes the on-device route, with
+   Tesseract reading and Mistral/Groq analysing — that is now the fallback and
+   the incident lever, not the default.
 
 All providers stay on their free tiers (owner's decision); capacity is what
 those tiers allow — see `supabase/README.md` → *Providers (F20)*.
