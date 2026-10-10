@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 7 / 14 · **T07 DONE**
+- **Progress:** 8 / 14 · **T08 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -120,7 +120,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model; `ReminderFormCubit.manual` takes an optional seed; **and a pre-existing stale-alert bug fixed**, found because the seeded form makes it the common case — see "T05 record" | DONE 2026-10-10 |
 | 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>`; `/reminders/manual` reads an **optional** `extra`; 3 router tests, the plumbing mutation-proved — see "T06 record" | DONE 2026-10-10 |
 | 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, no shadow, no text; 8 tests, the shadow and clipping ones mutation-proved — see "T07 record" | DONE 2026-10-10 |
-| 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; widget test at 1× and 1.6× | TODO |
+| 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; 10 tests, 1×/1.6×/2×-on-320, four mutations run — see "T08 record" | DONE 2026-10-10 |
 | 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only | TODO |
 | 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab` | TODO |
 | 11 | F29-T11 | `onScan` wired end to end | the new callback on `RemindersListScreen` → `AppRoutes.captureWith(CaptureSource.camera)`, mirroring the documents list's own wiring | TODO |
@@ -172,6 +172,69 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T08 record (2026-10-10)
+
+`RemindersQuickCreate` — the three rows from concept D's `.qbtn`: a teal
+calendar box, the row's name over the date it resolves to, and a chevron.
+Geometry and colours taken from the prototype.
+
+**It is handed its slots, it does not fetch them.** `slots` is a required
+argument and the only thing the widget draws; a tap goes back out through
+`onSelected(slot)`. No cubit, no route, no `get_it`, and no `DateTime.now()`
+inside `build` — which is what lets every date in its test be a literal
+rather than a value recomputed by the code under test. T09 owns the single
+clock read.
+
+**The date line is `formatDocumentDate` + `formatWallClockTime`**, in exactly
+the order and with exactly the separator `alertTimeLabel` uses — and exactly
+what `reminder_date_time_pickers.dart` shows in the form the row opens, so the
+date the user taps and the date they then see cannot read differently.
+
+**Two deviations from the prototype, both deliberate:**
+
+1. **No weekday name.** The prototype wrote «الخميس ١٦ أكتوبر — ٩:٠٠ ص». The
+   app has no weekday names in either language, and the copy table settled
+   this line as these two existing formatters rather than as new strings —
+   seven more Arabic strings plus seven English ones for a word the date
+   already implies.
+2. **No `minHeight: 56`.** The icon box and the 13 px vertical padding put the
+   row at ~65 px at 1×, so the prototype's `min-height` would never bind. It
+   was written, measured with a mutation (`minHeight: 0`, test still green),
+   and then **removed as dead weight** — the 56 px floor is asserted on the
+   rendered height instead, where it catches the padding or the box being
+   shrunk out from under it. The comment in the widget says so, so the next
+   reader does not add the constraint back believing it does something.
+
+**Tests** (10): the three names and the three dates; the tapped slot reported
+**by value**; each row one screen-reader button labelled «بكرة. 16 أكتوبر
+2026 — 9:00 صباحًا» (the house `excludeSemantics` pattern — two nodes per row
+would make a user swipe twice to learn what it does); the calendar glyph
+silent; English copy, date and chevron side; growth at 1.6×; wrapping at 2× on
+a 320-wide phone; the 56 px floor; "draws what it is handed, in order"; and one
+case through the **real** `quickReminderSlots`, so a slot kind the label switch
+forgot cannot reach the screen as a blank row.
+
+**Mutation-proved, four of them.** Every row wired to `slots.first` → only the
+tap test failed. The merged semantics label removed → only the semantics test
+failed. Two labels swapped in the switch → three tests failed, the pairing of
+name to date being the property that actually matters. `Expanded` dropped from
+the text column → a 105 px `RenderFlex` overflow, caught by the new 320 px /
+2× case and **not** by the 1.6× one. That last one is why the narrow case
+exists: at 1.6× on a 390-wide phone nothing wraps, so the test's original
+"the date wraps" comment was an overstatement and was corrected rather than
+left in the file.
+
+Likewise the English test does not prove the chevron glyph *turns around* —
+that is `ForwardChevron`'s own job. What it pins is that these rows go through
+that shared widget instead of drawing the raw glyph, which is how four rows in
+this app once ended up pointing backwards in English (F27-T15).
+
+**Gate:** `dart format` clean · `flutter analyze` no issues in
+`lib/features/reminders` or `test/features/reminders`, 18 project-wide and
+unchanged from the baseline · `flutter test` 2,589 passing (2,579 + 10).
+Nothing renders the rows yet; T09 places them and gives `onSelected` its
+first real caller.
 
 ## T07 record (2026-10-10)
 
