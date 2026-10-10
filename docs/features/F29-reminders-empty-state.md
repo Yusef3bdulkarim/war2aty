@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 6 / 14 · **T06 DONE**
+- **Progress:** 7 / 14 · **T07 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -119,7 +119,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart`, 24 tests; end-of-month rolls forward once 09:00 passes, and the day is read off the real zone rather than the fixed +2 — see "T04 record" | DONE 2026-10-10 |
 | 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model; `ReminderFormCubit.manual` takes an optional seed; **and a pre-existing stale-alert bug fixed**, found because the seeded form makes it the common case — see "T05 record" | DONE 2026-10-10 |
 | 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>`; `/reminders/manual` reads an **optional** `extra`; 3 router tests, the plumbing mutation-proved — see "T06 record" | DONE 2026-10-10 |
-| 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, `ExcludeSemantics`, **no shadow**, with its own test asserting that | TODO |
+| 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, no shadow, no text; 8 tests, the shadow and clipping ones mutation-proved — see "T07 record" | DONE 2026-10-10 |
 | 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; widget test at 1× and 1.6× | TODO |
 | 9 | F29-T09 | The empty library assembled | `_EmptyLibrary` rebuilt: art + title + subtitle + kicker + quick rows + «صوّر ورقة» + hint; tabs hidden in this state only | TODO |
 | 10 | F29-T10 | The two empty buckets | «الفائتة» as good news (success tint + tick), «المكتملة» as neutral (teal + check-square), both with a "back to القادمة" button that calls `setTab` | TODO |
@@ -172,6 +172,59 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T07 record (2026-10-10)
+
+`RemindersEmptyArt` — a tilted paper (-7°) with three mock text lines, an
+amber date chip, and a brand bell on the corner inside a pale
+`surfaceTealAlt` ring. Geometry taken from concept D's small art in the
+prototype.
+
+**No `BoxShadow` anywhere**, per locked decision 3. The paper is separated
+from the page by a hairline `borderSoft` edge and the bell by the ring — which
+is what stands in for the teal glow T02 removed from the other two
+illustrations. A third shadowed illustration would have undone half the
+feature.
+
+**Three deviations from the prototype, all deliberate:**
+
+1. **The date chip holds a calendar glyph, not «١٥ / ١١».** The prototype
+   wrote Arabic-Indic digits into the drawing. The whole art is
+   `ExcludeSemantics`, so text in it is read by nobody and localized by
+   nothing — and those digits would be wrong in English. A glyph says "there
+   is a date on this paper" in either language. A test asserts the art
+   contains no `Text` at all, so the shortcut cannot come back.
+2. **The ring sits flush in the corner and the bell is inset**, rather than
+   the ring hanging 5 px outside the box as the CSS had it. A `Stack` clips to
+   its bounds, so the CSS arrangement would have lost two sides of the ring
+   silently. The composition on screen is identical — the box is 5 px larger
+   on those two sides and the bell inset by the same.
+3. **Nothing animates.** Nothing asked for it, and a static drawing is the
+   safer default on this screen.
+
+**Tests** (8): no shadow in any decoration in the subtree; exactly three
+borders, since those are what replaces the shadows; the semantics tree is
+genuinely empty (asserted on the tree, not on the widget meant to produce it
+— `StrokeIcon` adds `ExcludeSemantics` of its own, so counting widgets found
+three and proved nothing); no `Text`; both glyphs present; everything inside
+the box; the same composition in Arabic and English; and an unchanged size at
+2× text, since nothing in it scales.
+
+**Mutation-proved.** A shadow added to the bell fails the first test. The ring
+moved back to a negative offset fails the bounds test. A third attempt —
+shrinking the box back to 104×88 — did **not** fail it, because that moves the
+ring without pushing it out; the test's comment was corrected to claim only
+what it actually catches rather than leaving an overstatement in the file.
+
+**One duplication, knowingly left.** `_lineDark`/`_lineLight` repeat the two
+values `documents_empty_state.dart` holds privately for the same purpose.
+Sharing them properly means lifting them into `core/`, which would edit that
+file for something other than the shadow removal — locked decision 9. Noted
+here rather than silently resolved either way.
+
+**Gate:** `dart format` clean · `flutter analyze` no issues in
+`lib/features/reminders` or `test/features/reminders` · `flutter test` 2,579
+passing (2,571 + 8). Nothing renders it yet; T09 places it.
 
 ## T06 record (2026-10-10)
 
