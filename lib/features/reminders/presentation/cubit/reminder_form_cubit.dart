@@ -7,6 +7,7 @@ import '../../../../core/reminders/alert_time_offset.dart';
 import '../../../../core/reminders/usecases/create_manual_reminder.dart';
 import '../../../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../../../core/time/cairo_day.dart';
+import '../models/manual_reminder_seed.dart';
 import '../models/reminder_alert_draft.dart';
 import '../models/reminder_from_document_args.dart';
 import 'reminder_form_state.dart';
@@ -51,18 +52,25 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
          ),
        );
 
-  /// A reminder entered by hand — every field starts empty; the user fills
+  /// A reminder entered by hand — every field starts empty and the user fills
   /// in the title, date, time and alerts themselves.
+  ///
+  /// With a [seed] (F29), the event date and time start filled in instead:
+  /// the empty reminders list offers three ready dates, and tapping one opens
+  /// this same form rather than a different screen. The title is still the
+  /// user's to write, and every field, the date included, stays editable from
+  /// here — a seed is a starting point, not a decision.
   ReminderFormCubit.manual({
     required CreateReminderFromDocumentDate createFromDocumentDate,
     required CreateManualReminder createManual,
     required GetNotificationPermission getNotificationPermission,
     required RequestNotificationPermission requestNotificationPermission,
+    ManualReminderSeed? seed,
   }) : _createFromDocumentDate = createFromDocumentDate,
        _createManual = createManual,
        _getNotificationPermission = getNotificationPermission,
        _requestNotificationPermission = requestNotificationPermission,
-       super(const ReminderFormEditing(title: '', isManual: true));
+       super(_manualInitialState(seed));
 
   final CreateReminderFromDocumentDate _createFromDocumentDate;
   final CreateManualReminder _createManual;
@@ -76,12 +84,15 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
 
   /// Manual reminders only (F09-T04) — the from-document flow's event date
   /// is fixed at construction.
-  void setEventDate(DateTime date) =>
-      _edit((s) => _withDefaultAlertIfNeeded(s.copyWith(eventDate: date)));
+  void setEventDate(DateTime date) => _edit(
+    (s) => _withDefaultAlertIfNeeded(_reanchored(s.copyWith(eventDate: date))),
+  );
 
   /// Manual reminders only (F09-T04).
   void setEventMinuteOfDay(int minuteOfDay) => _edit(
-    (s) => _withDefaultAlertIfNeeded(s.copyWith(eventMinuteOfDay: minuteOfDay)),
+    (s) => _withDefaultAlertIfNeeded(
+      _reanchored(s.copyWith(eventMinuteOfDay: minuteOfDay)),
+    ),
   );
 
   /// Adds one alert (F09-T08). The picker sheet already excludes offsets
@@ -175,6 +186,60 @@ final class ReminderFormCubit extends Cubit<ReminderFormState> {
     final current = state;
     if (current is! ReminderFormEditing || current.isSaving) return;
     emit(transform(current));
+  }
+
+  /// The manual form's opening state, with or without a [seed] (F29).
+  ///
+  /// A seeded form is built to be **indistinguishable** from one the user
+  /// filled in by hand: it goes through the very same
+  /// [_withDefaultAlertIfNeeded] that `setEventDate`/`setEventMinuteOfDay`
+  /// run, so it opens with the same "at the event's time" alert already
+  /// there. Without that, a seeded form would arrive with no alerts and
+  /// `canSave` false — the user would have to add one by hand, which is more
+  /// work than typing the date was.
+  static ReminderFormEditing _manualInitialState(ManualReminderSeed? seed) {
+    if (seed == null) {
+      return const ReminderFormEditing(title: '', isManual: true);
+    }
+    return _withDefaultAlertIfNeeded(
+      ReminderFormEditing(
+        title: '',
+        isManual: true,
+        eventDate: seed.eventDate,
+        eventMinuteOfDay: seed.eventMinuteOfDay,
+      ),
+    );
+  }
+
+  /// Moves every preset-derived alert to follow the event it is relative to.
+  ///
+  /// A [ReminderAlertDraft] stores an absolute instant, and its row is
+  /// labelled from its `offset` alone («في وقت الحدث», «قبل الموعد بيوم») —
+  /// so without this, changing the event date left each preset alert sitting
+  /// on the old one while still *claiming* to be relative to the new one.
+  /// The form showed the right words over the wrong time, and the reminder
+  /// fired on the wrong day. Found while building F29's seeded form, which
+  /// makes it the common case: a seeded form opens with an alert already
+  /// there, so the user's very first edit of the date would hit it.
+  ///
+  /// A hand-picked alert (`offset == null`) is left exactly where it is. The
+  /// user named that instant; it was never a function of the event.
+  ///
+  /// Does nothing until the event has both a date and a time — there is no
+  /// instant to be relative to before that.
+  static ReminderFormEditing _reanchored(ReminderFormEditing state) {
+    final instant = state.eventInstant;
+    if (instant == null || state.alerts.isEmpty) return state;
+
+    return state.copyWith(
+      alerts: [
+        for (final alert in state.alerts)
+          if (alert.offset case final offset?)
+            ReminderAlertDraft(time: offset.applyTo(instant), offset: offset)
+          else
+            alert,
+      ],
+    );
   }
 
   /// Seeds the manual form's first alert the moment both a date and a time

@@ -2,7 +2,7 @@
 
 - **Branch:** `feature/reminders-empty-state`, based on `feature/android-release` · **Milestone:** post-F28
 - **Depends on:** F09 (the reminders list and the manual form this builds on), F25 (the notifications a quick reminder schedules), F27-T03 (Home's own empty-state redesign, the precedent for "fill the dead space")
-- **Progress:** 4 / 14 · **T04 DONE**
+- **Progress:** 5 / 14 · **T05 DONE**
 - **PR:** one PR for both halves of this feature, into `feature/android-release` (the owner's call — F27 Phase 4 still batches its own PR separately)
 
 Two requests from the owner on 2026-10-10, carried in one branch because they
@@ -117,7 +117,7 @@ What is on the branch today, so a reviewer can see exactly what moves.
 | 2 | F29-T02 | **Shadows off** — the independent half | 4 `BoxShadow` sites removed; `AppShadows.paper` kept and marked unused; a mutation-proved test per screen, and «مستنداتي»'s art got its first test file at all — see "T02 record" | DONE 2026-10-10 |
 | 3 | F29-T03 | The new strings | 8 new getters + 3 reworded, both languages, 13 `_accessors` rows; a new guard caught a quoted label that does not exist — see "T03 record" | DONE 2026-10-10 |
 | 4 | F29-T04 | Quick-date arithmetic | `core/reminders/quick_reminder_date.dart`, 24 tests; end-of-month rolls forward once 09:00 passes, and the day is read off the real zone rather than the fixed +2 — see "T04 record" | DONE 2026-10-10 |
-| 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model under `presentation/models/`; `ReminderFormCubit.manual` takes an optional seed and runs it through the same default-alert seeding; cubit tests for seeded and unseeded construction | TODO |
+| 5 | F29-T05 | `ManualReminderSeed` + a seedable cubit | the seed model; `ReminderFormCubit.manual` takes an optional seed; **and a pre-existing stale-alert bug fixed**, found because the seeded form makes it the common case — see "T05 record" | DONE 2026-10-10 |
 | 6 | F29-T06 | DI + route carry the seed | `registerFactoryParam<…, ManualReminderSeed?, void>` under the same `instanceName`; `/reminders/manual` reads `state.extra`; the header's «إضافة تذكير» keeps passing nothing | TODO |
 | 7 | F29-T07 | The illustration | `reminders_empty_art.dart` — paper + date chip + bell, `ExcludeSemantics`, **no shadow**, with its own test asserting that | TODO |
 | 8 | F29-T08 | The quick-create rows | `reminders_quick_create.dart` — three rows, callback-driven, no cubit knowledge; widget test at 1× and 1.6× | TODO |
@@ -172,6 +172,62 @@ existing `formatDocumentDate` + `formatWallClockTime` — not a new string.
 - **Cairo day.** Every date the quick rows produce goes through
   `core/time/cairo_day.dart`, like every other date in the app.
 - **No new package.**
+
+## T05 record (2026-10-10)
+
+`ManualReminderSeed` (`presentation/models/manual_reminder_seed.dart`) — an
+event date and a **required** minute-of-day, with value equality. The sibling
+of `ReminderFromDocumentArgs` for the manual flow. Kept separate from
+`QuickReminderSlot`: the form has no business knowing a seed came from a quick
+row. The minute is required where the from-document args' is nullable, because
+a manual reminder's time is mandatory — a seed without one would open a form
+that still could not be saved.
+
+It deliberately does **not** carry a title (locked decision 7).
+
+`ReminderFormCubit.manual` takes `ManualReminderSeed? seed`. The opening state
+is built by `_manualInitialState`, which runs a seeded form through the very
+same `_withDefaultAlertIfNeeded` that `setEventDate`/`setEventMinuteOfDay` use
+— so a seeded form is **indistinguishable** from one filled in by hand, down
+to the "at the event's time" alert. A test asserts that equivalence field by
+field, which is what keeps the two paths from drifting. Without it a seeded
+form would open with no alerts and `canSave` false, and the user would have to
+add one by hand — more work than typing the date was.
+
+### A pre-existing bug this task exposed, and fixed
+
+While writing the "the seeded date is still the user's to change" test, the
+assertion that the alert follows the date **failed**: the event moved to
+1 December while its alert stayed on 13 October.
+
+A `ReminderAlertDraft` stores an absolute instant, and `alertTimeLabel` labels
+its row from the `offset` **alone** — «في وقت الحدث», «قبل الموعد بيوم». So
+after changing the event date, the form showed the right words over the wrong
+time, with nothing on screen to give it away, and the reminder fired on a day
+the user had already moved away from.
+
+This was always reachable by hand — pick a date and a time, then change the
+date — and predates F29 entirely. What F29 changes is the likelihood: a seeded
+form opens with an alert already in it, so the user's *first* edit of the date
+hits it. Shipping concept D over it would have made a wrong reminder the
+normal outcome of the feature's main path.
+
+Fixed with `_reanchored`, which moves every preset-derived alert to follow the
+new event instant and leaves a hand-picked one (`offset == null`) exactly
+where the user put it — that instant was never a function of the event. Six
+tests cover it: date change, time change, two alerts keeping their own
+distances, the hand-picked one staying put, and the saved payload carrying the
+moved time rather than the original.
+
+**This is wider than F29 asked for.** It changes the existing hand-filled
+form's behaviour too, and it is one hunk in
+`reminder_form_cubit.dart` (`_reanchored` plus the two setters) if the owner
+would rather split it into its own fix. It was not left for later because the
+feature's primary path would have shipped producing wrong reminders.
+
+**Gate:** `dart format` clean · `flutter analyze` no issues in
+`lib/features/reminders` or `test/features/reminders` · `flutter test` 2,568
+passing (2,555 + 13). Nothing routes a seed yet; T06 wires DI and the route.
 
 ## T04 record (2026-10-10)
 
