@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 13 / 22
+- **Progress:** 14 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -211,7 +211,9 @@ preceded this doc.
    captured at queue time is engine-dependent and is not asserted from docs.
    T12 spikes it on a real device and adopts it only if it holds. The
    trade-off accepted meanwhile: event-driven sequencing adds a small gap
-   between language runs.
+   between language runs. **(T12 found both halves of this wrong — the voice
+   is captured per utterance, and the gap is not small — and still did not
+   adopt `QUEUE_ADD`. See its findings below.)**
 7. **New Arabic copy is allowed**, for T07 and for T08/T16's permanent-failure
    message. The owner asked for drafts to approve. Per CLAUDE.md §7 the new
    strings name no provider and make no privacy claims, and go through
@@ -254,7 +256,7 @@ preceded this doc.
 | 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | DONE 2026-10-17 |
 | 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | DONE 2026-10-17 |
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | DONE 2026-10-17 |
-| 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |
+| 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | DONE 2026-10-18 — not adopted; the voice *is* honoured per utterance, but pause loses the queue |
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
 | 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO — code landed in T11; device pass left |
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
@@ -355,7 +357,8 @@ above: `PauseReading`, `ResumeReading` and `StopReading` all go through the
 queue, and pause/resume/stop are covered between runs, mid-run and
 mid-hand-over. What is left for it is the device pass — the gap between runs,
 and Android's resume-the-remainder behaviour, as heard rather than as unit
-tested — and whatever F30-T12's `QUEUE_ADD` spike changes about the gap.
+tested. The gap F30-T12 went on to measure is left as it is: see its
+findings below for why `QUEUE_ADD` was not the way to close it.
 
 **Accepted for now:** an English run on a device with no English voice is still
 named letter-by-letter — it is spoken with whatever voice the engine had rather
@@ -368,6 +371,107 @@ sound at all. And `PreviewDefaultVoice` still speaks straight to the engine
 rather than through the queue, because it previews one specific voice rather
 than reading a paper; the cancel rule above is what keeps it from advancing
 somebody else's reading.
+
+**T12's premise turned out to be wrong, and something else is in the way.**
+Locked decision 6 held `QUEUE_ADD` back because "whether the voice is captured
+at queue time is engine-dependent". It is not engine-dependent: the framework
+decides it, above any engine. `TextToSpeech.setVoice` writes the voice name
+into the instance's `mParams` (`TextToSpeech.java:1742`); `speak` hands
+`getParams(…)` across the binder **with that one utterance**
+(`TextToSpeech.java:1238`); and the service builds that item's
+`SynthesisRequest` from the bundle right where the call lands, in the
+constructor (`TextToSpeechService.java:949`, `:996`–`:998`), so the voice is
+fixed when the utterance is *queued* — `playImpl` later just hands the
+already-built request over. An engine never sees a queue at
+all — it is given one `SynthesisRequest` at a time with a voice name already
+in it. So the gate this task was written around is **passed**, on Samsung and
+Google alike.
+
+What stands in the way instead is pause, and it is the plugin and the
+framework together rather than either alone:
+
+- **A pause throws the rest of the queue away.** `flutter_tts`'s `"pause"`
+  branch calls its own `stop()`, which is `TextToSpeech.stop()`, which
+  "interrupts the current utterance and **discards other utterances in the
+  queue**". Every run behind the current one would be gone, at a level the
+  app cannot see it happen.
+- **The plugin's resume bookkeeping describes one utterance only.**
+  `pauseText` is set by the first `speak` and left alone by everything queued
+  behind it, `lastProgress` counts into whichever utterance is speaking, and
+  each `onDone` clears both. A pause during run 2 therefore has nothing to
+  resume, and a pause before it resumes run 1's text truncated at an offset
+  into run 2. Resuming the remainder — F10-T08's behaviour, which this doc
+  already calls the feature's highest regression risk — could not be leaned
+  on at all: the queue would have to rebuild it from its own progress
+  offsets.
+- **The events carry no utterance id.** `speak.onStart`, `onComplete`,
+  `onCancel` and `onPause` are bare `true`s, so with several utterances in
+  flight nothing but arrival order tells their events apart — and one `stop`
+  or `pause` fires one of them *per discarded item*
+  (`dispatchOnStop(…, isStarted())`), so a single tap arrives as a burst.
+
+**Measured on the owner's RMX2001, 2026-10-18** — Google Speech Services,
+473 voices, both the Arabic and the English one on-device.
+
+The harness was an `integration_test` file run against the phone and **not
+kept**: it needed the `integration_test` dev dependency, and a go/no-go
+answered once did not justify carrying either in the repo. What it did, for
+anyone who has to repeat it: speak four runs alternating Arabic/English,
+each handed over with `setVoice` + `speak`, logging every engine callback
+with a millisecond stamp, then read back how long each run spoke for and the
+silence before it. Four runs rather than two because the question is about
+the runs that are *still queued* when a later `setVoice` lands — with two,
+the first run's voice is set immediately before it and proves nothing. The
+four probes were: **A** sequential, as T11 speaks today; **B** all four
+queued under `setQueueMode(1)`; **C** B, paused 1.5s into run 1 and resumed;
+**D** sequential, but with each run's `setVoice` issued while the *previous*
+run was still speaking.
+
+| Run boundary | A · sequential, as T11 speaks today | D · next voice set ahead | B · `QUEUE_ADD` |
+|---|---|---|---|
+| 1 → 2 | 448ms | 170ms | 1ms |
+| 2 → 3 | 689ms | 256ms | 4ms |
+| 3 → 4 | 497ms | 18ms | 4ms |
+
+(A first pass on a cold engine measured A at 1490 / 1153 / 396ms, so the gap
+varies with how warm the engine is. D and B held across both passes.)
+
+**The voice is honoured per utterance — confirmed twice over.** Under
+`QUEUE_ADD` every run spoke for within 2% of its sequential length, run 3
+included: it is Arabic, and the voice had been switched to English twice
+behind it while it sat in the queue (6484ms queued, against 6482ms spoken on
+its own). Had the voice been resolved at dequeue, run 3 would have been read
+by an English voice and made almost no sound at all — RC-1's symptom, and
+impossible to miss in a duration. Probe D says the same thing from the other
+side.
+
+**And `QUEUE_ADD` does close the gap completely** — roughly a second per
+language switch, which is more than locked decision 6's "small gap" allowed
+for.
+
+**But pause under `QUEUE_ADD` fails worse than the source reading
+predicted.** A single `pause()` produced **four** pause events, one per
+discarded queue item, exactly as `dispatchOnStop(…, isStarted())` says it
+would. The resume then spoke for 504ms and reported the reading finished: it
+had lost about six seconds of run 1 *and* all of runs 2–4. The engine
+synthesises ahead under `QUEUE_ADD`, so the plugin's `lastProgress` had run
+far past what was actually being heard, and `pauseText.substring(lastProgress)`
+resumed near the end of the run. Pause is not a corner of this feature — it
+is one of T11's two invariants and the whole substance of T14.
+
+**Decision: `QUEUE_ADD` is not adopted.** The gap it closes is real, but the
+price is pause, resume and stop rebuilt on top of a plugin whose own pause
+state is wrong underneath them — and a reading that silently skips to its end
+is a worse fault than a silence between two sentences.
+
+**What the spike found instead (probe D).** Because the voice is captured at
+`speak()` time, the *next* run's voice can be set while the current one is
+still speaking: it cannot reach the utterance already playing, and the
+measured run lengths confirm it does not disturb it. That takes the awaited
+`setVoice` round trip off the critical path and cuts the gap to 18–256ms with
+no change to the queue's shape, to its two invariants, or to F10-T08's
+resume. It is not part of T12, which was only ever a go/no-go, and is left
+with the owner as a possible follow-up.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,

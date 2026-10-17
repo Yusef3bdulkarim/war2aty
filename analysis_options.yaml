@@ -12,10 +12,15 @@ analyzer:
   errors:
     avoid_print: error
     avoid_dynamic_calls: error
-  # Generated code (Drift) is not hand-written; don't lint it.
+  # Generated code (Drift) is not hand-written; don't lint it. Neither are
+  # the build outputs, which the analyzer otherwise walks into once a build
+  # has left Dart there, nor the two native host projects.
   exclude:
     - "**/*.g.dart"
     - "**/*.drift.dart"
+    - "build/**"
+    - "android/**"
+    - "ios/**"
 
 linter:
   rules:

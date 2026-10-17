@@ -38,13 +38,17 @@ import 'text_to_speech_service.dart';
 /// * **Nothing is spoken while the player is paused.** A run that comes due
 ///   during a pause is parked, and [resume] is what lets it go.
 ///
-/// Driven by completion events rather than `QUEUE_ADD` (F30 locked decision
-/// 6): whether Android captures a per-utterance voice at queue time is
-/// engine-dependent and was not going to be assumed from documentation. The
-/// accepted cost is a small gap between runs — the engine releases audio
-/// focus at the end of each utterance and requests it again for the next.
-/// F30-T12 spikes `QUEUE_ADD` on a real device and adopts it only if the
-/// voice is honoured per utterance.
+/// Driven by completion events rather than `QUEUE_ADD`, which F30-T12
+/// settled on a device. Its premise turned out to be wrong: the voice *is*
+/// captured per utterance — by the framework, above any engine — so
+/// `QUEUE_ADD` would have read every run in its own voice and closed the gap
+/// between them entirely. It is still not used, because `flutter_tts`'s
+/// pause is `TextToSpeech.stop()`: one pause discards every run still
+/// queued, and resumes near the end of the run that was speaking rather than
+/// where it was heard to stop — both of the invariants above, broken at
+/// once. The accepted cost is that gap, measured at 0.4–1.5s per language
+/// switch, most of which is the awaited `setVoice` in [_handOver] rather
+/// than the engine's own start-up.
 ///
 /// Stateful, and therefore the one thing in this layer that is not a value or
 /// a pure function: it is registered as a lazy singleton because the engine
