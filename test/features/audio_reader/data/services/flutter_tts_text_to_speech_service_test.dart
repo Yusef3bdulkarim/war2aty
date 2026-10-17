@@ -1,8 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart' as ft;
+import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/logging/app_logger.dart';
+import 'package:war2aty/core/logging/log_event.dart';
 import 'package:war2aty/features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
+import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 
 /// F30-T03. The data layer's own tests, which this service never had.
 ///
@@ -150,7 +155,10 @@ void main() {
     });
 
     test('a throw from the platform becomes a TtsFailure', () async {
-      final service = FlutterTtsTextToSpeechService(_ThrowingFlutterTts());
+      final service = FlutterTtsTextToSpeechService(
+        _RecordingLogger(),
+        _ThrowingFlutterTts(),
+      );
 
       expect((await service.getVoices()).failureOrNull, isA<TtsFailure>());
     });
@@ -164,7 +172,7 @@ void main() {
       final tts = _CountingFlutterTts([
         {'name': 'ar-EG-local', 'locale': 'ar-EG'},
       ]);
-      final service = FlutterTtsTextToSpeechService(tts);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
 
       await service.getVoices();
       await service.getVoices();
@@ -177,7 +185,7 @@ void main() {
       final tts = _CountingFlutterTts([
         {'name': 'ar-EG-local', 'locale': 'ar-EG', 'quality': 'high'},
       ]);
-      final service = FlutterTtsTextToSpeechService(tts);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
 
       final first = (await service.getVoices()).valueOrNull;
       final second = (await service.getVoices()).valueOrNull;
@@ -190,7 +198,7 @@ void main() {
       final tts = _CountingFlutterTts([
         {'name': 'ar-EG-local', 'locale': 'ar-EG'},
       ]);
-      final service = FlutterTtsTextToSpeechService(tts);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
 
       await service.getVoices();
       service.forgetVoices();
@@ -207,7 +215,7 @@ void main() {
       // of the session, which T07 would then report as a missing Arabic
       // voice on a phone that has one.
       final tts = _CountingFlutterTts(null);
-      final service = FlutterTtsTextToSpeechService(tts);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
 
       expect((await service.getVoices()).valueOrNull, isEmpty);
       tts.answer = [
@@ -220,7 +228,7 @@ void main() {
 
     test('a failure is not cached either', () async {
       final tts = _CountingFlutterTts(null, throws: true);
-      final service = FlutterTtsTextToSpeechService(tts);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
 
       expect((await service.getVoices()).failureOrNull, isA<TtsFailure>());
       tts
@@ -285,11 +293,122 @@ void main() {
       );
     });
   });
+
+  // F30-T08. The handler behind every one of these used to be
+  // `(_) => _events.add(const TtsFailed())`: the engine's reason was thrown
+  // away, so a voice that was still downloading and an engine that was gone
+  // arrived as the same unexplained failure (F30 RC-2).
+  group('FlutterTtsTextToSpeechService reads the engine\'s error', () {
+    test('a network error is carried through as a transient one', () async {
+      final built = _reportingService();
+
+      final failure = built.failureFrom('Error from TextToSpeech (speak) - -6');
+
+      expect(await failure, const TtsFailed(code: TtsErrorCode.network));
+      expect(TtsErrorCode.network.isTransient, isTrue);
+    });
+
+    test('a voice still downloading is transient, not a dead end', () async {
+      final built = _reportingService();
+
+      // What a phone reports the first time a freshly installed voice is
+      // used — the fix is to wait a moment, not to give up.
+      final failure = built.failureFrom('Error from TextToSpeech (speak) - -9');
+
+      expect(
+        await failure,
+        const TtsFailed(code: TtsErrorCode.notInstalledYet),
+      );
+      expect(TtsErrorCode.notInstalledYet.isTransient, isTrue);
+    });
+
+    test('an engine whose service failed is permanent', () async {
+      final built = _reportingService();
+
+      final failure = built.failureFrom('Error from TextToSpeech (speak) - -4');
+
+      expect(await failure, const TtsFailed(code: TtsErrorCode.service));
+      expect(TtsErrorCode.service.isTransient, isFalse);
+    });
+
+    test('the synthesise-to-file wording is read the same way', () async {
+      // Both of the plugin's error channels land on the one handler, and
+      // they differ only in the word in the brackets.
+      final built = _reportingService();
+
+      final failure = built.failureFrom('Error from TextToSpeech (synth) - -5');
+
+      expect(await failure, const TtsFailed(code: TtsErrorCode.output));
+    });
+
+    test('an error with no code at all is unknown, and retryable', () async {
+      // Android's older `onError(utteranceId)` callback carries no code.
+      final built = _reportingService();
+
+      final failure = built.failureFrom('Error from TextToSpeech (speak)');
+
+      expect(await failure, const TtsFailed(code: TtsErrorCode.unknown));
+      expect(TtsErrorCode.unknown.isTransient, isTrue);
+    });
+
+    test('the generic ERROR (-1) explains nothing, so it is unknown', () async {
+      final built = _reportingService();
+
+      final failure = built.failureFrom('Error from TextToSpeech (speak) - -1');
+
+      expect(await failure, const TtsFailed(code: TtsErrorCode.unknown));
+    });
+
+    test('a payload that is not a message at all is unknown', () async {
+      final built = _reportingService();
+
+      final failure = built.failureFrom(const <String, String>{});
+
+      expect(await failure, const TtsFailed(code: TtsErrorCode.unknown));
+    });
+  });
+
+  // The other half of RC-2: none of this reached F27's logging, so
+  // production could not see it at all.
+  group('FlutterTtsTextToSpeechService logs the engine\'s error', () {
+    test('the classified code is recorded, never the message', () async {
+      final built = _reportingService();
+
+      await built.failureFrom('Error from TextToSpeech (speak) - -7');
+
+      expect(built.logger.codes, ['TTS_NETWORK_TIMEOUT']);
+    });
+
+    test('a permanent error is logged as the failure it becomes', () async {
+      final built = _reportingService();
+
+      await built.failureFrom('Error from TextToSpeech (speak) - -8');
+
+      expect(
+        built.logger.events.single.failure,
+        const TtsEngineUnavailableFailure(TtsErrorCode.invalidRequest),
+      );
+    });
+
+    test('a transient error is logged as the retryable failure', () async {
+      final built = _reportingService();
+
+      await built.failureFrom('Error from TextToSpeech (speak) - -6');
+
+      expect(
+        built.logger.events.single.failure,
+        const TtsFailure(TtsErrorCode.network),
+      );
+    });
+  });
 }
 
 /// The parsed voices the service reports when the platform answers [raw].
 Future<List<TtsVoice>> _voicesFrom(Object? raw) async {
-  final service = FlutterTtsTextToSpeechService(_FakeFlutterTts(raw));
+  final service = FlutterTtsTextToSpeechService(
+    _RecordingLogger(),
+    _FakeFlutterTts(raw),
+  );
   final outcome = await service.getVoices();
   return outcome.valueOrNull ??
       (throw StateError('getVoices failed: $outcome'));
@@ -326,4 +445,59 @@ final class _CountingFlutterTts extends ft.FlutterTts {
     if (throws) throw Exception('no engine');
     return answer;
   }
+}
+
+/// A service whose engine can be made to report an error, with the log it
+/// writes to kept alongside it (F30-T08).
+({
+  _RecordingLogger logger,
+  _ErroringFlutterTts tts,
+  TextToSpeechService service,
+})
+_reportingService() {
+  final logger = _RecordingLogger();
+  final tts = _ErroringFlutterTts();
+  return (
+    logger: logger,
+    tts: tts,
+    service: FlutterTtsTextToSpeechService(logger, tts),
+  );
+}
+
+extension
+    on
+        ({
+          _RecordingLogger logger,
+          _ErroringFlutterTts tts,
+          TextToSpeechService service,
+        }) {
+  /// The event the service emits when the engine reports [payload].
+  ///
+  /// The stream is listened to before the error is reported, since
+  /// `events` is a broadcast stream and would otherwise drop it.
+  Future<TtsEvent> failureFrom(Object? payload) {
+    final emitted = service.events.first;
+    tts.reportError(payload);
+    return emitted;
+  }
+}
+
+/// `FlutterTts` that reports an error on demand, through the very handler
+/// the service registered on it.
+final class _ErroringFlutterTts extends ft.FlutterTts {
+  void reportError(Object? payload) => errorHandler!(payload);
+}
+
+final class _RecordingLogger implements AppLogger {
+  final List<LogEvent> events = [];
+
+  @override
+  void event(LogEvent e) => events.add(e);
+
+  @override
+  void failure(AppFailure failure, {LogStage? stage, String? sessionId}) =>
+      events.add(LogEvent(failure: failure, stage: stage));
+
+  List<String?> get codes =>
+      events.map((e) => e.toLogMap()['errorCode'] as String?).toList();
 }

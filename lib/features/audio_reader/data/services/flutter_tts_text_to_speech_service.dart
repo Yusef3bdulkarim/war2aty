@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter_tts/flutter_tts.dart' as ft;
 
+import '../../../../core/audio/tts_error_code.dart';
 import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/logging/app_logger.dart';
 import '../../../../core/result/result.dart';
 import '../../domain/entities/tts_event.dart';
 import '../../domain/services/text_to_speech_service.dart';
@@ -17,7 +19,7 @@ import '../../domain/services/text_to_speech_service.dart';
 /// `TesseractOcrEngine` and `FlutterLocalNotificationsPort` keep for their
 /// own plugins.
 final class FlutterTtsTextToSpeechService implements TextToSpeechService {
-  FlutterTtsTextToSpeechService([ft.FlutterTts? tts])
+  FlutterTtsTextToSpeechService(this._logger, [ft.FlutterTts? tts])
     : _tts = tts ?? ft.FlutterTts() {
     _tts
       ..setStartHandler(() => _events.add(const TtsStarted()))
@@ -31,7 +33,7 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
         _lastSpokenText = null;
         _events.add(const TtsCancelled());
       })
-      ..setErrorHandler((_) => _events.add(const TtsFailed()))
+      ..setErrorHandler(_onEngineError)
       ..setProgressHandler(
         (text, start, end, word) =>
             _events.add(TtsProgressed(start: start, end: end)),
@@ -39,6 +41,13 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
   }
 
   final ft.FlutterTts _tts;
+
+  /// F27's logging, so an engine error leaves a trace in production — the
+  /// half of F30 RC-2 the user never sees. Only the classified code is ever
+  /// recorded: the engine's message is free text and never leaves this file
+  /// (§51).
+  final AppLogger _logger;
+
   final _events = StreamController<TtsEvent>.broadcast();
 
   /// The text last handed to [speak].
@@ -50,6 +59,54 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
 
   @override
   Stream<TtsEvent> get events => _events.stream;
+
+  /// Turns the engine's error payload into a classified [TtsFailed], and
+  /// leaves a log line behind (F30-T08).
+  ///
+  /// This handler used to be `(_) => _events.add(const TtsFailed())`: the
+  /// payload — the only thing that says whether a voice is still downloading
+  /// or the engine is gone — was dropped on the floor, which is F30 RC-2 in
+  /// one line.
+  void _onEngineError(Object? payload) {
+    final code = _parseErrorCode(payload);
+    // The user hears about it first: logging is the part production needs,
+    // not the part the person holding the phone is waiting for, and a sink
+    // that throws must not be what swallows their failure.
+    _events.add(TtsFailed(code: code));
+    _logger.failure(
+      code.isTransient ? TtsFailure(code) : TtsEngineUnavailableFailure(code),
+    );
+  }
+
+  /// The engine's free-text error payload, read as a [TtsErrorCode].
+  ///
+  /// `flutter_tts`'s Android side sends
+  /// `"Error from TextToSpeech (speak) - $errorCode"`, where the number is
+  /// one of `android.speech.tts.TextToSpeech`'s constants — and, from the
+  /// older `onError(utteranceId)` callback, the same sentence with no number
+  /// at all. iOS sends nothing here: its side reports no error. So anything
+  /// that is not a recognised negative constant reads as
+  /// [TtsErrorCode.unknown], which is the retryable kind.
+  ///
+  /// The message itself goes no further than this method, by design: it is
+  /// free text, and free text is what must never reach a log line (§51).
+  static TtsErrorCode _parseErrorCode(Object? payload) {
+    if (payload is! String) return TtsErrorCode.unknown;
+    final trailingNumber = RegExp(r'(-?\d+)\s*$').firstMatch(payload);
+    if (trailingNumber == null) return TtsErrorCode.unknown;
+    return switch (int.tryParse(trailingNumber.group(1)!)) {
+      -3 => TtsErrorCode.synthesis,
+      -4 => TtsErrorCode.service,
+      -5 => TtsErrorCode.output,
+      -6 => TtsErrorCode.network,
+      -7 => TtsErrorCode.networkTimeout,
+      -8 => TtsErrorCode.invalidRequest,
+      -9 => TtsErrorCode.notInstalledYet,
+      // -1 `ERROR` says only "something went wrong", and -2 `STOPPED` is not
+      // an error at all. Both are as unexplained as a message with no number.
+      _ => TtsErrorCode.unknown,
+    };
+  }
 
   @override
   Future<Result<void, AppFailure>> speak(String text) async {

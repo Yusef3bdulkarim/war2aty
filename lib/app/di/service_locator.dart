@@ -950,7 +950,9 @@ void _registerAudioReader() {
   // instance app-wide: the OS TTS engine is itself a single shared resource.
   getIt
     ..registerLazySingleton<TextToSpeechService>(
-      FlutterTtsTextToSpeechService.new,
+      // The logger is F30-T08's: an engine error reports its own code to
+      // F27's logging from the boundary that parses it.
+      () => FlutterTtsTextToSpeechService(getIt()),
     )
     // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
     ..registerFactory<BuildReadingText>(BuildReadingText.new)

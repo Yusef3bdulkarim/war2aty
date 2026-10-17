@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 9 / 22
+- **Progress:** 10 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -222,7 +222,7 @@ preceded this doc.
 | 7 | F30-T05 | Voice selection prefers **offline, low-latency** voices over network ones | RC-6 | DONE 2026-10-17 |
 | 8 | F30-T06 | Warm the engine when the result screen mounts, so the first tap is not the cold start | RC-6 | DONE 2026-10-17 |
 | 9 | F30-T07 | Detect "no Arabic voice on this device", surface it as a real explained failure, route to system TTS settings | RC-1 | DONE 2026-10-17 |
-| 10 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | TODO |
+| 10 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | DONE 2026-10-17 |
 | 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | TODO |
 | 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | TODO |
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | TODO |
@@ -245,6 +245,14 @@ queue without losing that.
 T02 is independent of everything and could land in any order. T03 → T04 → T05
 is a chain (the fields must exist before they can be cached or preferred), and
 T10 → T11 → T13 → T14 is the hard chain of the queue work.
+
+**T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
+giving each engine error its own log code (`TTS_NETWORK`,
+`TTS_NOT_INSTALLED_YET`, …), and `report-error` only accepts codes listed in
+`supabase/functions/_shared/reports/error-report-codes.ts`. Until that
+function is redeployed the new codes are refused with a 400 the sink swallows
+on purpose, so those reports would simply not arrive. Plain `TTS` is still
+accepted throughout, so nothing regresses in the meantime.
 
 ## The copy end
 

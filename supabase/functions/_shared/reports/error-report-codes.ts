@@ -43,6 +43,19 @@ export const REPORTABLE_ERROR_CODES = [
   "NOTIFICATION_SCHEDULING",
   "TTS",
   "TTS_NO_ARABIC_VOICE",
+  // F30-T08. The reading engine's own reasons (`TtsErrorCode`), which the app
+  // used to discard at the handler — so a voice still downloading, a network
+  // hiccup and a dead engine all reported the one unexplained `TTS`, and
+  // production could not tell them apart (F30 RC-2). `TTS` stays for the
+  // paths where the engine reported nothing at all.
+  "TTS_NOT_INSTALLED_YET",
+  "TTS_NETWORK",
+  "TTS_NETWORK_TIMEOUT",
+  "TTS_SYNTHESIS",
+  "TTS_SERVICE",
+  "TTS_OUTPUT",
+  "TTS_INVALID_REQUEST",
+  "TTS_UNKNOWN",
   // F27-T20. The app can produce it (`errorCodeOf` is exhaustive), so the
   // server has to accept it, even though nothing reports it today: it is a
   // settings-screen link that would not open.

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
@@ -35,6 +36,7 @@ import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cub
 import 'package:war2aty/features/analysis/presentation/screens/analysis_result_screen.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress_view.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
@@ -559,6 +561,20 @@ void main() {
   });
 
   group('the mini-player really speaks (F10-T04)', () {
+    /// Reports [event] the way the engine's own handler does, and settles.
+    ///
+    /// Through `runAsync` on purpose: the cubit subscribes to the engine's
+    /// event stream when it is built in `setUp`, outside the fake clock the
+    /// widget test runs on, so an event pushed from inside it is never
+    /// delivered — the cubit would simply never hear it.
+    Future<void> reportEngineError(WidgetTester tester, TtsEvent event) async {
+      await tester.runAsync(() async {
+        tts.emitEvent(event);
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('confirming a mode actually speaks its text', (tester) async {
       await cubit.analyze();
       await pumpScreen(tester);
@@ -604,6 +620,46 @@ void main() {
         expect(find.text(_strings.audioReaderFailedFeedback), findsOneWidget);
       },
     );
+
+    // F30-T08. Every engine error used to wear «حصلت مشكلة. جرّب تاني.»,
+    // including the ones retrying cannot fix (RC-2).
+    testWidgets('an engine that cannot read at all says so, not «try again»', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      await reportEngineError(
+        tester,
+        const TtsFailed(code: TtsErrorCode.service),
+      );
+
+      expect(
+        find.text(_strings.audioReaderEngineUnavailableFeedback),
+        findsOneWidget,
+      );
+      expect(find.text(_strings.audioReaderFailedFeedback), findsNothing);
+      expect(find.byType(AudioMiniPlayerBar), findsNothing);
+    });
+
+    testWidgets('an error the engine did not explain still offers a retry', (
+      tester,
+    ) async {
+      await cubit.analyze();
+      await pumpScreen(tester);
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      await reportEngineError(tester, const TtsFailed());
+
+      expect(find.text(_strings.audioReaderFailedFeedback), findsOneWidget);
+    });
   });
 
   group('the mini-player pauses and resumes (F10-T05)', () {

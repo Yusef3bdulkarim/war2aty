@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/audio_reader_state.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
@@ -823,9 +824,86 @@ void main() {
         built.tts.emitEvent(const TtsFailed());
         await Future<void>.delayed(Duration.zero);
 
-        expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
+        expect(
+          built.cubit.state,
+          const AudioReaderFailed(TtsFailure(TtsErrorCode.unknown)),
+        );
       },
     );
+
+    // F30-T08. One generic «حصلت مشكلة. جرّب تاني.» for every engine error is
+    // what made the owner tap three times before a reading worked (RC-2).
+    test('a transient engine error stays the retryable failure', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        built.cubit.state,
+        const AudioReaderFailed(TtsFailure(TtsErrorCode.network)),
+      );
+    });
+
+    test('a permanent engine error is not offered as a retry', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.service));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        built.cubit.state,
+        const AudioReaderFailed(
+          TtsEngineUnavailableFailure(TtsErrorCode.service),
+        ),
+      );
+    });
+
+    test('a failed reading still clears the bar\'s progress', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 5));
+      await Future<void>.delayed(Duration.zero);
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.service));
+      await Future<void>.delayed(Duration.zero);
+      // A second reading starts from zero, not from where the failed one
+      // stopped.
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(ReadingMode.summaryOnly),
+      );
+    });
 
     test('an engine failure while idle is ignored', () async {
       final built = _cubitFor();

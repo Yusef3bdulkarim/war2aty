@@ -23,14 +23,19 @@ import 'action_prompt_sheet.dart';
 /// tick, and rebuilding a whole result page on each one would be wasteful
 /// (CLAUDE.md §B8).
 ///
-/// Two failures, told apart because only one of them is the user's to fix:
+/// Three failures, told apart because each leaves the user somewhere
+/// different:
 ///
 /// - **[NoArabicVoiceFailure]** — the device has no Arabic reading voice, so
 ///   nothing can read an Arabic paper aloud. A sheet, with a way to the
 ///   system's text-to-speech settings, because a snackbar that vanishes is
 ///   no use for something the user has to go and do. The way out is offered
 ///   only when the device has such a screen to open.
-/// - **everything else** — a snackbar, as before.
+/// - **[TtsEngineUnavailableFailure]** — the engine said it cannot do this
+///   reading at all (F30-T08). A snackbar still, since there is nothing to
+///   go and do, but one that says so instead of «جرّب تاني»: a retry the
+///   engine has already ruled out is worse than no offer at all.
+/// - **everything else** — «حصلت مشكلة. جرّب تاني.», as before.
 class AudioReaderFailureListener extends StatelessWidget {
   const AudioReaderFailureListener({required this.child, super.key});
 
@@ -45,6 +50,11 @@ class AudioReaderFailureListener extends StatelessWidget {
         switch (state.failure) {
           case NoArabicVoiceFailure():
             unawaited(_promptForArabicVoice(context));
+          case TtsEngineUnavailableFailure():
+            _showSnackBar(
+              context,
+              context.strings.audioReaderEngineUnavailableFeedback,
+            );
           case _:
             _showFailureSnackBar(context);
         }
@@ -53,12 +63,13 @@ class AudioReaderFailureListener extends StatelessWidget {
     );
   }
 
-  void _showFailureSnackBar(BuildContext context) {
+  void _showFailureSnackBar(BuildContext context) =>
+      _showSnackBar(context, context.strings.audioReaderFailedFeedback);
+
+  void _showSnackBar(BuildContext context, String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(context.strings.audioReaderFailedFeedback)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _promptForArabicVoice(BuildContext context) async {

@@ -291,10 +291,20 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
           _resetProgress();
           emit(const AudioReaderIdle());
         }
-      case TtsFailed():
+      case TtsFailed(:final code):
         if (state is AudioReaderReading) {
           _resetProgress();
-          emit(const AudioReaderFailed(TtsFailure()));
+          // Which sentence the user gets turns on the engine's own code
+          // (F30-T08): a condition it named as permanent is not something to
+          // ask them to retry, and everything else — including an error it
+          // did not explain — keeps the «جرّب تاني» it has always had.
+          emit(
+            AudioReaderFailed(
+              code.isTransient
+                  ? TtsFailure(code)
+                  : TtsEngineUnavailableFailure(code),
+            ),
+          );
         }
       case TtsStarted():
       case TtsPaused():

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 
 /// Category-level exhaustive switch — compile-enforced over the three groups.
@@ -8,7 +9,7 @@ String _categoryOf(AppFailure failure) => switch (failure) {
   BusinessFailure() => 'business',
 };
 
-/// Leaf-level exhaustive switch over ALL 33 leaves with no `default`.
+/// Leaf-level exhaustive switch over ALL 34 leaves with no `default`.
 ///
 /// This is the exhaustiveness guard: adding a new [AppFailure] leaf without
 /// handling it here fails to compile, so the taxonomy can never silently grow.
@@ -28,6 +29,7 @@ String _describe(AppFailure failure) => switch (failure) {
   NotificationPermissionFailure() => 'notification-permission',
   NotificationSchedulingFailure() => 'notification-scheduling',
   TtsFailure() => 'tts',
+  TtsEngineUnavailableFailure() => 'tts-engine-unavailable',
   NoArabicVoiceFailure() => 'tts-no-arabic-voice',
   ExternalLinkFailure() => 'external-link',
   AnalysisConsentDeclinedFailure() => 'consent-declined',
@@ -67,6 +69,7 @@ void main() {
     const NotificationPermissionFailure(),
     const NotificationSchedulingFailure(),
     const TtsFailure(),
+    const TtsEngineUnavailableFailure(TtsErrorCode.service),
     const NoArabicVoiceFailure(),
     const ExternalLinkFailure(),
     const AnalysisConsentDeclinedFailure(),
@@ -93,8 +96,8 @@ void main() {
   ];
 
   group('taxonomy shape', () {
-    test('has 17 local + 12 network + 4 business leaves', () {
-      expect(localLeaves, hasLength(17));
+    test('has 18 local + 12 network + 4 business leaves', () {
+      expect(localLeaves, hasLength(18));
       expect(networkLeaves, hasLength(12));
       expect(businessLeaves, hasLength(4));
     });
@@ -121,10 +124,10 @@ void main() {
   });
 
   group('leaf-level exhaustiveness', () {
-    test('all 33 leaves describe to distinct labels', () {
+    test('all 34 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(33));
+      expect(labels, hasLength(34));
     });
   });
 

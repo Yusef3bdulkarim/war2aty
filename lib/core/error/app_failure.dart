@@ -1,3 +1,5 @@
+import '../audio/tts_error_code.dart';
+
 /// Classified failure type returned across every layer via `Result<T, AppFailure>`.
 ///
 /// The taxonomy mirrors master plan §47: three sealed categories
@@ -85,8 +87,51 @@ final class NotificationSchedulingFailure extends LocalFailure {
   const NotificationSchedulingFailure();
 }
 
+/// The reader could not speak, and trying again might still work.
+///
+/// [code] is the engine's own reason, when the engine gave one (F30-T08):
+/// `null` for the wrapper's own exception paths, where nothing was reported
+/// at all, and otherwise a [TtsErrorCode] whose [TtsErrorCode.isTransient] is
+/// true — the permanent ones are [TtsEngineUnavailableFailure] instead.
+/// Either way the user is told «حصلت مشكلة. جرّب تاني.»; the code exists so
+/// the log line says which of them it was, which before T08 it could not
+/// (F30 RC-2).
 final class TtsFailure extends LocalFailure {
-  const TtsFailure();
+  const TtsFailure([this.code]);
+
+  final TtsErrorCode? code;
+
+  @override
+  bool operator ==(Object other) => other is TtsFailure && other.code == code;
+
+  @override
+  int get hashCode => code.hashCode;
+}
+
+/// The engine cannot do this reading at all, and retrying will not change
+/// that (F30-T08).
+///
+/// Its own failure rather than a [TtsFailure], for the same reason
+/// [NoArabicVoiceFailure] is: the two need different sentences. «جرّب تاني»
+/// in front of a dead engine sends the user tapping at something that cannot
+/// work — which is close to what F30 RC-2 describes from the other side,
+/// where a *recoverable* error wore that same message and the owner had to
+/// supply the retry by hand.
+///
+/// Reported only when the engine named a permanent condition itself. An
+/// error it did not explain stays a [TtsFailure]: "we do not know" is not
+/// grounds for telling someone their phone cannot read aloud.
+final class TtsEngineUnavailableFailure extends LocalFailure {
+  const TtsEngineUnavailableFailure(this.code);
+
+  final TtsErrorCode code;
+
+  @override
+  bool operator ==(Object other) =>
+      other is TtsEngineUnavailableFailure && other.code == code;
+
+  @override
+  int get hashCode => code.hashCode;
 }
 
 /// The device has no Arabic reading voice installed (F30-T07).
