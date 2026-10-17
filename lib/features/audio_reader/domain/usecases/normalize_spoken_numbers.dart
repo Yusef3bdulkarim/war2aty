@@ -132,8 +132,10 @@ final RegExp _currencyBeforePattern = RegExp(
 ///    keyword ("رقم"، "محضر"، "قضية"، "طلب"، "إيصال") → digit-by-digit.
 /// 5. A number directly adjacent to a currency word ("جنيه"، "ج.م") →
 ///    Arabic number words (with hundreds/thousands agreement — 1200 →
-///    "ألف ومئتين", 1500 → "ألف وخمسمائة"); a decimal part reads as its own
-///    number of قرش.
+///    "ألف ومئتين", 1500 → "ألف وخمسمائة", 10500 → "عشرة آلاف وخمسمائة",
+///    1500000 → "مليون وخمسمائة ألف"); a decimal part reads as its own
+///    number of قرش. A run too long to be a real amount is left alone, under
+///    rule 6.
 /// 6. Anything else passes through unchanged — no guessing on genuinely
 ///    ambiguous input.
 String normalizeSpokenNumbers(String text) {
@@ -151,14 +153,14 @@ String normalizeSpokenNumbers(String text) {
     final prefix = m[0]!.substring(0, m[0]!.length - digits.length);
     return '$prefix${_digitByDigit(digits)}';
   });
-  result = result.replaceAllMapped(
-    _currencyAfterPattern,
-    (m) => '${_amountWords(m[1]!)} ${m[2]}',
-  );
-  result = result.replaceAllMapped(
-    _currencyBeforePattern,
-    (m) => '${m[1]} ${_amountWords(m[2]!)}',
-  );
+  result = result.replaceAllMapped(_currencyAfterPattern, (m) {
+    final words = _amountWords(m[1]!);
+    return words == null ? m[0]! : '$words ${m[2]}';
+  });
+  result = result.replaceAllMapped(_currencyBeforePattern, (m) {
+    final words = _amountWords(m[2]!);
+    return words == null ? m[0]! : '${m[1]} $words';
+  });
   return result;
 }
 
@@ -202,8 +204,15 @@ String _normalizeTimes(String text) {
 /// [numberText] (an integer, optionally with one `.`-separated decimal part)
 /// as Arabic number words. The decimal part, if present, reads as its own
 /// number of قرش.
-String _amountWords(String numberText) {
+///
+/// `null` for a run too long to speak, which leaves the digits on the page
+/// untouched for the engine to read. The alternative is worse than useless:
+/// [_parseDigits] wraps around silently past 2^63, so a 20-digit OCR smudge
+/// would otherwise be read aloud, confidently, as a number the paper does not
+/// carry — the invented figure CLAUDE.md §7 forbids.
+String? _amountWords(String numberText) {
   final parts = numberText.split('.');
+  if (parts.any((part) => part.length > _maxSpokenDigits)) return null;
   final whole = _arabicNumberWords(_parseDigits(parts[0]));
   if (parts.length < 2 || parts[1].isEmpty) return whole;
   return '$whole و${_arabicNumberWords(_parseDigits(parts[1]))} قرش';
@@ -214,32 +223,56 @@ String _amountWords(String numberText) {
 String _digitByDigit(String digits) =>
     digits.split('').map((c) => _digitWords[_digitValue(c)]).join(' ');
 
-/// [n] as one Arabic cardinal number, up to the low hundred-thousands —
-/// comfortably past anything a currency amount or a calendar year needs.
+/// The largest number spoken as words. Past this the digits are left for the
+/// engine to read as it will: a figure that big on an Egyptian paper is far
+/// likelier to be OCR noise — a meter serial read as one run, say — than a
+/// real amount, and guessing at it is what rule 6 above refuses to do.
+const int _spokenWordsLimit = 1000000000;
+
+/// How many digits [_spokenWordsLimit] leaves room for — the widest run
+/// [_amountWords] will turn into words.
+const int _maxSpokenDigits = 9;
+
+/// [n] as one Arabic cardinal number, up to (but not including)
+/// [_spokenWordsLimit].
+///
+/// Total for every `int`: anything out of range comes back as its own digits
+/// rather than throwing. It has to be, because the only caller that bounds
+/// its input is the date rule (a 4-digit year) — [_amountWords] passes
+/// whatever digits sat next to «جنيه», and OCR decides that, not us. Two
+/// crashes lived here until F30-T02 for exactly that reason: `10500 جنيه`
+/// threw `RangeError` and `1000000 جنيه` threw on a null check, both of them
+/// killing the reading before a single word was spoken.
 String _arabicNumberWords(int n) {
   if (n == 0) return 'صفر';
+  if (n < 0 || n >= _spokenWordsLimit) return n.toString();
 
-  final thousands = n ~/ 1000;
-  final remainder = n % 1000;
+  final parts = [
+    if (n ~/ 1000000 case final millions when millions > 0)
+      _scaled(millions, 'مليون', 'مليونين', 'ملايين'),
+    if ((n % 1000000) ~/ 1000 case final thousands when thousands > 0)
+      _scaled(thousands, 'ألف', 'ألفين', 'آلاف'),
+    if (_belowThousand(n % 1000) case final remainder when remainder.isNotEmpty)
+      remainder,
+  ];
 
-  final String thousandsWord;
-  if (thousands == 0) {
-    thousandsWord = '';
-  } else if (thousands == 1) {
-    thousandsWord = 'ألف';
-  } else if (thousands == 2) {
-    thousandsWord = 'ألفين';
-  } else if (thousands <= 10) {
-    thousandsWord = '${_ones[thousands]} آلاف';
-  } else {
-    thousandsWord = '${_belowThousand(thousands)} ألف';
-  }
-
-  final remainderWord = _belowThousand(remainder);
-  if (thousandsWord.isEmpty) return remainderWord;
-  if (remainderWord.isEmpty) return thousandsWord;
-  return '$thousandsWord و$remainderWord';
+  return parts.join(' و');
 }
+
+/// [count] of a scale word, with the agreement Arabic puts on it: one and two
+/// have their own forms, 3-10 take the plural ([plural]), and 11 and up go
+/// back to the singular ([singular]) — «ألفين»، «ثلاثة آلاف»، «أحد عشر ألف».
+///
+/// [count] is always 1-999 here: [_arabicNumberWords] caps the whole number
+/// below [_spokenWordsLimit] before it divides, so [_belowThousand] below can
+/// never be handed a number it has no hundreds entry for.
+String _scaled(int count, String singular, String dual, String plural) =>
+    switch (count) {
+      1 => singular,
+      2 => dual,
+      <= 10 => '${_belowThousand(count)} $plural',
+      _ => '${_belowThousand(count)} $singular',
+    };
 
 /// [n] (0-999) as Arabic number words, with hundreds/tens/ones agreement.
 String _belowThousand(int n) {

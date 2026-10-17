@@ -106,4 +106,133 @@ void main() {
       );
     });
   });
+
+  // F30-T02. Two amounts used to throw out of here rather than read: a
+  // `RangeError` anywhere in 10,000-10,999, and a null check at 1,000,000 and
+  // up. Both killed the whole reading before a word was spoken, in every
+  // mode, since `BuildReadingText` funnels all four through this function —
+  // and in a release build the throw escapes an unawaited callback, so the
+  // user got silence with no error at all.
+  group('normalizeSpokenNumbers · amounts that used to crash', () {
+    test('reads 10,000 as "عشرة آلاف" instead of throwing RangeError', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 10000 جنيه'),
+        'المبلغ عشرة آلاف جنيه',
+      );
+    });
+
+    test('reads 10,500 — the whole 10,000-10,999 band was a RangeError', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 10500 جنيه'),
+        'المبلغ عشرة آلاف وخمسمائة جنيه',
+      );
+    });
+
+    test('reads 1,000,000 as "مليون" instead of throwing on a null check', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 1000000 جنيه'),
+        'المبلغ مليون جنيه',
+      );
+    });
+
+    test('reads 1,500,000 across both the million and thousand scales', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 1500000 جنيه'),
+        'المبلغ مليون وخمسمائة ألف جنيه',
+      );
+    });
+
+    test('a decimal part in the crashing band reads too', () {
+      // `_amountWords` runs the piastres through the same number words, so
+      // the band had to be fixed on both sides of the dot, not just the left.
+      expect(
+        normalizeSpokenNumbers('المبلغ 1200.10500 جنيه'),
+        'المبلغ ألف ومئتين وعشرة آلاف وخمسمائة قرش جنيه',
+      );
+    });
+
+    test('no amount from 0 to 1,200,000 throws', () {
+      // The band fixed here is 10,000-10,999 and 1,000,000 up; this sweeps
+      // across both edges rather than trusting the three samples above.
+      for (var amount = 0; amount <= 1200000; amount++) {
+        expect(
+          () => normalizeSpokenNumbers('$amount جنيه'),
+          returnsNormally,
+          reason: 'threw on $amount',
+        );
+      }
+    });
+  });
+
+  // F30-T02. `_parseDigits` wraps around silently past 2^63, so a long
+  // enough run would otherwise be read aloud as a number the paper does not
+  // carry — the invented figure CLAUDE.md §7 forbids. Too long to speak now
+  // means left alone.
+  group('normalizeSpokenNumbers · runs too long to speak', () {
+    test('a 12-digit amount is left as digits, not spoken as words', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 123456789012 جنيه'),
+        'المبلغ 123456789012 جنيه',
+      );
+    });
+
+    test('a 20-digit run is never read as a wrapped-around number', () {
+      const noise = 'المبلغ 99999999999999999999 جنيه';
+      expect(normalizeSpokenNumbers(noise), noise);
+    });
+
+    test('an over-long run before the currency word is left alone too', () {
+      expect(normalizeSpokenNumbers('جنيه 123456789012'), 'جنيه 123456789012');
+    });
+
+    test('an over-long decimal part leaves the whole amount alone', () {
+      const noise = 'المبلغ 1.99999999999999999999 جنيه';
+      expect(normalizeSpokenNumbers(noise), noise);
+    });
+
+    test('9 digits is still spoken — the limit is not off by one', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 999999999 جنيه'),
+        'المبلغ تسعمائة وتسعة وتسعين مليون '
+        'وتسعمائة وتسعة وتسعين ألف '
+        'وتسعمائة وتسعة وتسعين جنيه',
+      );
+    });
+  });
+
+  // F30-T02. The scale words carry Arabic's own agreement: one and two have
+  // their own forms, 3-10 take the plural, 11 and up go back to the singular.
+  group('normalizeSpokenNumbers · scale-word agreement', () {
+    test('2,000 is "ألفين", not "اثنين ألف"', () {
+      expect(normalizeSpokenNumbers('المبلغ 2000 جنيه'), 'المبلغ ألفين جنيه');
+    });
+
+    test('3,000 takes the plural "آلاف"', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 3000 جنيه'),
+        'المبلغ ثلاثة آلاف جنيه',
+      );
+    });
+
+    test('11,000 goes back to the singular "ألف"', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 11000 جنيه'),
+        'المبلغ أحد عشر ألف جنيه',
+      );
+    });
+
+    test('2,000,000 is "مليونين"', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 2000000 جنيه'),
+        'المبلغ مليونين جنيه',
+      );
+    });
+
+    test('3,000,000 takes the plural "ملايين"', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 3000000 جنيه'),
+        'المبلغ ثلاثة ملايين جنيه',
+      );
+    });
+  });
 }

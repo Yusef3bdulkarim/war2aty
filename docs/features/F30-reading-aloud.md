@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 1 / 20
+- **Progress:** 2 / 20
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -197,7 +197,7 @@ preceded this doc.
 | # | ID | Task | Closes | Status |
 |---|---|---|---|---|
 | 1 | F30-T01 | Feature doc, branch, index row | — | DONE 2026-10-17 |
-| 2 | F30-T02 | Fix the normalizer's two crashes + tests (10k–10,999, ≥1M, the decimal part) | RC-5 | TODO |
+| 2 | F30-T02 | Fix the normalizer's two crashes + tests (10k–10,999, ≥1M, the decimal part) | RC-5 | DONE 2026-10-17 |
 | 3 | F30-T03 | Extend `TtsVoice` with `quality`, `latency`, `networkRequired`; parse all six fields the plugin sends | RC-6 | TODO |
 | 4 | F30-T04 | Cache the voice list; drop the always-null `getDefaultReadingVoice` from the hot path; retire the dead `SetDefaultReadingVoice` plumbing | RC-6 | TODO |
 | 5 | F30-T05 | Voice selection prefers **offline, low-latency** voices over network ones | RC-6 | TODO |
