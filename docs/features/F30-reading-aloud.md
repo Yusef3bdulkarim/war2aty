@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 4 / 22
+- **Progress:** 5 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -217,7 +217,7 @@ preceded this doc.
 | 2 | F30-T02 | Fix the normalizer's two crashes + tests (10k–10,999, ≥1M, the decimal part) | RC-5 | DONE 2026-10-17 |
 | 3 | F30-T21 | The currency word belongs between the pounds and the piastres — «مئتين وخمسين جنيه وخمسين قرش», and a zero piastres part is dropped | found in T02 | DONE 2026-10-17 |
 | 4 | F30-T22 | The clock: stop «الساعة» doubling when the text already says it, and read a 24-hour hour as a 12-hour one | found in T02 | DONE 2026-10-17 |
-| 5 | F30-T03 | Extend `TtsVoice` with `quality`, `latency`, `networkRequired`; parse all six fields the plugin sends | RC-6 | TODO |
+| 5 | F30-T03 | Extend `TtsVoice` with `quality`, `latency`, `networkRequired`; parse all six fields the plugin sends | RC-6 | DONE 2026-10-17 |
 | 4 | F30-T04 | Cache the voice list; drop the always-null `getDefaultReadingVoice` from the hot path; retire the dead `SetDefaultReadingVoice` plumbing | RC-6 | TODO |
 | 5 | F30-T05 | Voice selection prefers **offline, low-latency** voices over network ones | RC-6 | TODO |
 | 6 | F30-T06 | Warm the engine when the result screen mounts, so the first tap is not the cold start | RC-6 | TODO |

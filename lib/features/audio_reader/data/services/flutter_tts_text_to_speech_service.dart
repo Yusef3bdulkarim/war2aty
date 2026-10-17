@@ -125,10 +125,51 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
     }
   }
 
+  /// One entry from `getVoices`, or `null` if it carries no name or locale —
+  /// without both there is nothing to select it by later.
+  ///
+  /// The two platforms describe a voice differently and neither is complete:
+  /// Android sends `quality`, `latency`, `network_required` and `features`;
+  /// iOS sends `quality` (in a vocabulary of its own), `gender` and
+  /// `identifier`, and no latency or network field at all. Anything missing
+  /// or unrecognised reads as "unknown", which ranks level with ordinary
+  /// rather than last — see [TtsVoiceQuality.unknown].
   static TtsVoice? _parseVoice(Map<dynamic, dynamic> raw) {
     final name = raw['name'] as String?;
     final locale = raw['locale'] as String?;
     if (name == null || locale == null) return null;
-    return TtsVoice(name: name, locale: locale);
+    return TtsVoice(
+      name: name,
+      locale: locale,
+      quality: _parseQuality(raw['quality'] as String?),
+      latency: _parseLatency(raw['latency'] as String?),
+      // Android sends the flag as "1"/"0". A platform that sends nothing is
+      // taken as on-device, which is what iOS's voices are.
+      networkRequired: raw['network_required'] == '1',
+    );
   }
+
+  static TtsVoiceQuality _parseQuality(String? raw) => switch (raw) {
+    'very high' => TtsVoiceQuality.veryHigh,
+    'high' => TtsVoiceQuality.high,
+    'normal' => TtsVoiceQuality.normal,
+    'low' => TtsVoiceQuality.low,
+    'very low' => TtsVoiceQuality.veryLow,
+    // iOS's own three, which say nothing about Android's five-step scale
+    // beyond their order: premium is the best it offers, default the
+    // baseline.
+    'premium' => TtsVoiceQuality.veryHigh,
+    'enhanced' => TtsVoiceQuality.high,
+    'default' => TtsVoiceQuality.normal,
+    _ => TtsVoiceQuality.unknown,
+  };
+
+  static TtsVoiceLatency _parseLatency(String? raw) => switch (raw) {
+    'very low' => TtsVoiceLatency.veryLow,
+    'low' => TtsVoiceLatency.low,
+    'normal' => TtsVoiceLatency.normal,
+    'high' => TtsVoiceLatency.high,
+    'very high' => TtsVoiceLatency.veryHigh,
+    _ => TtsVoiceLatency.unknown,
+  };
 }
