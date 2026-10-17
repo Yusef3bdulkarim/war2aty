@@ -63,4 +63,97 @@ void main() {
       expect(voice, _arabicVoice);
     });
   });
+
+  // F30-T05. Taking the first matching voice is most of why a reading took
+  // 1-3 seconds to start: devices commonly list a network-synthesised voice
+  // ahead of an on-device one, and until T03 nothing here could tell them
+  // apart.
+  group('SelectVoiceForReading · which matching voice', () {
+    const network = TtsVoice(
+      name: 'ar-EG-network',
+      locale: 'ar-EG',
+      quality: TtsVoiceQuality.veryHigh,
+      latency: TtsVoiceLatency.veryHigh,
+      networkRequired: true,
+    );
+    const onDevice = TtsVoice(
+      name: 'ar-EG-local',
+      locale: 'ar-EG',
+      quality: TtsVoiceQuality.low,
+      latency: TtsVoiceLatency.normal,
+    );
+
+    test('an on-device voice wins even when listed second', () {
+      expect(_select('فاتورة كهرباء', [network, onDevice]), onDevice);
+    });
+
+    test('an on-device voice wins even when it sounds worse', () {
+      // The network voice here is very high quality and the local one low.
+      // A plain voice that speaks now still beats a beautiful one that
+      // speaks in two seconds — or not at all on a bad connection.
+      expect(onDevice.quality.rank, lessThan(network.quality.rank));
+      expect(_select('فاتورة كهرباء', [network, onDevice]), onDevice);
+    });
+
+    test('a network voice is still used when it is the only match', () {
+      // Refusing to read at all would be worse than reading slowly.
+      expect(_select('فاتورة كهرباء', [network]), network);
+    });
+
+    test('among on-device voices, the one that starts soonest wins', () {
+      const slower = TtsVoice(
+        name: 'ar-EG-slower',
+        locale: 'ar-EG',
+        latency: TtsVoiceLatency.high,
+        quality: TtsVoiceQuality.veryHigh,
+      );
+      const sooner = TtsVoice(
+        name: 'ar-EG-sooner',
+        locale: 'ar-EG',
+        latency: TtsVoiceLatency.veryLow,
+        quality: TtsVoiceQuality.low,
+      );
+
+      expect(_select('فاتورة كهرباء', [slower, sooner]), sooner);
+    });
+
+    test('quality decides only once network and latency tie', () {
+      const worse = TtsVoice(
+        name: 'ar-EG-worse',
+        locale: 'ar-EG',
+        latency: TtsVoiceLatency.low,
+        quality: TtsVoiceQuality.normal,
+      );
+      const better = TtsVoice(
+        name: 'ar-EG-better',
+        locale: 'ar-EG',
+        latency: TtsVoiceLatency.low,
+        quality: TtsVoiceQuality.veryHigh,
+      );
+
+      expect(_select('فاتورة كهرباء', [worse, better]), better);
+    });
+
+    test('voices the device cannot tell apart keep its own order', () {
+      const first = TtsVoice(name: 'ar-EG-first', locale: 'ar-EG');
+      const second = TtsVoice(name: 'ar-EG-second', locale: 'ar-EG');
+
+      expect(_select('فاتورة كهرباء', [first, second])?.name, 'ar-EG-first');
+    });
+
+    test('a better voice in the wrong language is still not chosen', () {
+      const greatEnglish = TtsVoice(
+        name: 'en-US-great',
+        locale: 'en-US',
+        quality: TtsVoiceQuality.veryHigh,
+        latency: TtsVoiceLatency.veryLow,
+      );
+
+      expect(_select('فاتورة كهرباء', [greatEnglish, network]), network);
+    });
+
+    test('no voice in the text\'s language still gives null', () {
+      expect(_select('فاتورة كهرباء', [_englishVoice]), isNull);
+    });
+  });
 }
