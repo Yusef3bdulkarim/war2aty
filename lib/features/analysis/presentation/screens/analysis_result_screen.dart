@@ -17,6 +17,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/audio_mini_player_bar.dart';
 import '../../../../core/widgets/audio_options_sheet.dart';
+import '../../../../core/widgets/audio_reader_failure_listener.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
 import '../../../../core/widgets/result_action_bar.dart';
@@ -191,15 +192,7 @@ class _ResultBodyState extends State<_ResultBody> {
     // result card and the action bar on each one. Only `_MiniPlayerSlot`
     // below needs to watch the state at all (CLAUDE.md §B8: `BlocBuilder` on
     // the smallest Widget that needs it).
-    return BlocListener<AudioReaderCubit, AudioReaderState>(
-      listenWhen: (previous, current) => current is AudioReaderFailed,
-      listener: (context, state) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
-          );
-      },
+    return AudioReaderFailureListener(
       // The system back gesture leaves the way the arrow does, through
       // `onClose` — otherwise it would pop to whatever the capture flow left
       // underneath and skip what `onClose` does on the way out.

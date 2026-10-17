@@ -39,7 +39,9 @@ final class StartReading {
       mode: mode,
       strings: strings,
     );
-    await _applySelectedVoiceFor(text);
+    if (await _applySelectedVoiceFor(text) case final failure?) {
+      return Err(failure);
+    }
     return (await _tts.speak(text)).map((_) => text.length);
   }
 
@@ -60,13 +62,29 @@ final class StartReading {
   /// a `getVoices`/`setVoice` call that fails should not stop — or interrupt
   /// — the reading; it proceeds on whatever voice the engine already had.
   ///
-  /// A device with **no Arabic voice at all** is the exception, and it is not
-  /// handled here: that is F30-T07's job, because it has to reach the user
-  /// rather than be shrugged off like the rest of this.
-  Future<void> _applySelectedVoiceFor(String text) async {
+  /// A device with **no Arabic voice at all** is the one exception, and it is
+  /// returned rather than shrugged off (F30-T07): an Arabic paper cannot be
+  /// read without one, the user is the only one who can fix it, and the
+  /// silent version of this is what made a Samsung phone read Arabic with an
+  /// English voice (F30 RC-1). English is not treated the same way — a
+  /// missing English voice falls back to transliteration (F30 locked
+  /// decision 3), so it is not a failure here.
+  ///
+  /// Answers `null` when there is nothing to report.
+  Future<AppFailure?> _applySelectedVoiceFor(String text) async {
     final voices = (await _tts.getVoices()).valueOrNull;
-    if (voices == null) return;
+    // Either the engine could not be asked, or it is still binding and has
+    // nothing to report yet. Neither is evidence that a voice is missing, so
+    // read on rather than accuse the device of lacking one.
+    if (voices == null || voices.isEmpty) return null;
+
     final voice = _selectVoice(text, voices);
-    if (voice != null) await _tts.setVoice(voice);
+    if (voice != null) {
+      await _tts.setVoice(voice);
+      return null;
+    }
+    return _selectVoice.languageFor(text) == 'ar'
+        ? const NoArabicVoiceFailure()
+        : null;
   }
 }

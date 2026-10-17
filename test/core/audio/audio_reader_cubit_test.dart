@@ -4,6 +4,7 @@ import 'package:war2aty/core/audio/audio_reader_state.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_result.dart';
 import 'package:war2aty/core/documents/reading_mode.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -39,7 +40,12 @@ final AnalysisResult _result = _buildResult(
 /// F30-T04 took the stored choice out of the reading path, since the picker
 /// that wrote it was removed and the two database reads it cost happened on
 /// every single reading.
-({AudioReaderCubit cubit, FakeTextToSpeechService tts}) _cubitFor({
+({
+  AudioReaderCubit cubit,
+  FakeTextToSpeechService tts,
+  FakeSystemTtsSettings ttsSettings,
+})
+_cubitFor({
   bool speakFails = false,
   bool stopFails = false,
   bool pauseFails = false,
@@ -47,6 +53,8 @@ final AnalysisResult _result = _buildResult(
   bool setSpeechRateFails = false,
   List<TtsVoice> voices = const [],
   ReadingSpeed? defaultSpeed,
+  bool settingsAvailable = true,
+  bool settingsOpen = true,
 }) {
   final tts = FakeTextToSpeechService(
     speakFails: speakFails,
@@ -55,6 +63,10 @@ final AnalysisResult _result = _buildResult(
     resumeFails: resumeFails,
     setSpeechRateFails: setSpeechRateFails,
     voices: voices,
+  );
+  final ttsSettings = FakeSystemTtsSettings(
+    available: settingsAvailable,
+    opensSuccessfully: settingsOpen,
   );
   final cubit = AudioReaderCubit(
     StartReading(const BuildReadingText(), const SelectVoiceForReading(), tts),
@@ -66,8 +78,9 @@ final AnalysisResult _result = _buildResult(
     WatchReadingEvents(tts),
     GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
     WarmUpReader(tts),
+    OpenSystemTtsSettings(ttsSettings, tts),
   );
-  return (cubit: cubit, tts: tts);
+  return (cubit: cubit, tts: tts, ttsSettings: ttsSettings);
 }
 
 void main() {
@@ -468,6 +481,89 @@ void main() {
       addTearDown(built.tts.dispose);
 
       expect(await built.cubit.loadDefaultSpeed(), ReadingSpeed.normal);
+    });
+
+    // F30-T07. The one voice problem the user can fix, and the one worth
+    // stopping a reading over. Silently reading on with an English voice is
+    // what made a Samsung phone spell out the Latin characters of an Arabic
+    // paper and do nothing at all for «الخلاصة» (F30 RC-1).
+    test('a device with no Arabic voice is told, not read to anyway', () async {
+      final built = _cubitFor(
+        voices: const [TtsVoice(name: 'Samantha', locale: 'en-US')],
+      );
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(
+        built.cubit.state,
+        isA<AudioReaderFailed>().having(
+          (s) => s.failure,
+          'failure',
+          isA<NoArabicVoiceFailure>(),
+        ),
+      );
+      // And nothing was read with the wrong voice.
+      expect(built.tts.spoken, isEmpty);
+      expect(built.tts.voicesSet, isEmpty);
+    });
+
+    test('an engine still binding is not accused of missing a voice', () async {
+      // Android reports no voices at all until it finishes binding. Claiming
+      // a missing Arabic voice on that basis would be wrong, and would send
+      // the user off to install one they already have.
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(built.cubit.state, isA<AudioReaderReading>());
+      expect(built.tts.spoken, hasLength(1));
+    });
+
+    test('opening the settings forgets the cached voice list', () async {
+      // The point of sending the user there is that they install a voice;
+      // the cached list would still say they have none (F30-T04).
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      expect(await built.cubit.openSystemTtsSettings(), isTrue);
+
+      expect(built.ttsSettings.openCount, 1);
+      expect(built.tts.forgetVoicesCount, 1);
+    });
+
+    test(
+      'a phone with no settings screen says so before offering it',
+      () async {
+        final built = _cubitFor(settingsAvailable: false);
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+
+        expect(await built.cubit.canOpenSystemTtsSettings(), isFalse);
+        expect(built.ttsSettings.availableCount, 1);
+      },
+    );
+
+    test('an intent that fails once fired is reported as false', () async {
+      final built = _cubitFor(settingsOpen: false);
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      expect(await built.cubit.openSystemTtsSettings(), isFalse);
     });
 
     test('the engine is warmed up as soon as the cubit exists', () async {

@@ -42,6 +42,7 @@ export const REPORTABLE_ERROR_CODES = [
   "NOTIFICATION_PERMISSION",
   "NOTIFICATION_SCHEDULING",
   "TTS",
+  "TTS_NO_ARABIC_VOICE",
   // F27-T20. The app can produce it (`errorCodeOf` is exhaustive), so the
   // server has to accept it, even though nothing reports it today: it is a
   // settings-screen link that would not open.

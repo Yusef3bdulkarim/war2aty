@@ -8,7 +8,7 @@ String _categoryOf(AppFailure failure) => switch (failure) {
   BusinessFailure() => 'business',
 };
 
-/// Leaf-level exhaustive switch over ALL 32 leaves with no `default`.
+/// Leaf-level exhaustive switch over ALL 33 leaves with no `default`.
 ///
 /// This is the exhaustiveness guard: adding a new [AppFailure] leaf without
 /// handling it here fails to compile, so the taxonomy can never silently grow.
@@ -28,6 +28,7 @@ String _describe(AppFailure failure) => switch (failure) {
   NotificationPermissionFailure() => 'notification-permission',
   NotificationSchedulingFailure() => 'notification-scheduling',
   TtsFailure() => 'tts',
+  NoArabicVoiceFailure() => 'tts-no-arabic-voice',
   ExternalLinkFailure() => 'external-link',
   AnalysisConsentDeclinedFailure() => 'consent-declined',
   // Network
@@ -66,6 +67,7 @@ void main() {
     const NotificationPermissionFailure(),
     const NotificationSchedulingFailure(),
     const TtsFailure(),
+    const NoArabicVoiceFailure(),
     const ExternalLinkFailure(),
     const AnalysisConsentDeclinedFailure(),
   ];
@@ -91,8 +93,8 @@ void main() {
   ];
 
   group('taxonomy shape', () {
-    test('has 16 local + 12 network + 4 business leaves', () {
-      expect(localLeaves, hasLength(16));
+    test('has 17 local + 12 network + 4 business leaves', () {
+      expect(localLeaves, hasLength(17));
       expect(networkLeaves, hasLength(12));
       expect(businessLeaves, hasLength(4));
     });
@@ -119,10 +121,10 @@ void main() {
   });
 
   group('leaf-level exhaustiveness', () {
-    test('all 32 leaves describe to distinct labels', () {
+    test('all 33 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(32));
+      expect(labels, hasLength(33));
     });
   });
 

@@ -19,6 +19,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/audio_mini_player_bar.dart';
 import '../../../../core/widgets/audio_options_sheet.dart';
+import '../../../../core/widgets/audio_reader_failure_listener.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
 import '../../../../core/widgets/result_action_bar.dart';
@@ -174,15 +175,7 @@ class _DetailsBodyState extends State<_DetailsBody> {
     // Same reasoning as `_ResultBodyState`: a `BlocListener` here, not a
     // `BlocBuilder` around the whole page, so a reading's progress ticks
     // only rebuild `_MiniPlayerSlot` below (CLAUDE.md §B8).
-    return BlocListener<AudioReaderCubit, AudioReaderState>(
-      listenWhen: (previous, current) => current is AudioReaderFailed,
-      listener: (context, state) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
-          );
-      },
+    return AudioReaderFailureListener(
       child: Column(
         children: [
           Expanded(

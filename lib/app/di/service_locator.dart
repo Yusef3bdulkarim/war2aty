@@ -27,6 +27,7 @@ import '../../core/audio/usecases/get_available_voices.dart';
 import '../../core/audio/usecases/get_default_reading_speed.dart';
 import '../../core/audio/usecases/get_default_reading_voice.dart';
 import '../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../core/audio/usecases/open_system_tts_settings.dart';
 import '../../core/audio/usecases/preview_default_voice.dart';
 import '../../core/audio/usecases/set_default_reading_speed.dart';
 import '../../core/audio/usecases/set_resume_reading_enabled.dart';
@@ -82,6 +83,8 @@ import '../../core/permissions/usecases/get_notification_permission.dart';
 import '../../core/permissions/usecases/open_notification_permission_settings.dart';
 import '../../core/permissions/usecases/request_notification_permission.dart';
 import '../../core/platform/external_link_service.dart';
+import '../../core/platform/method_channel_system_tts_settings.dart';
+import '../../core/platform/system_tts_settings.dart';
 import '../../core/platform/url_launcher_external_link_service.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
@@ -993,6 +996,15 @@ void _registerAudioReader() {
       () => SetResumeReadingEnabled(getIt()),
     )
     ..registerFactory<WarmUpReader>(() => WarmUpReader(getIt()))
+    // F30-T07. The app's own method channel rather than an intent plugin —
+    // one intent is not worth a dependency, the same call `MainActivity`
+    // makes for the splash API.
+    ..registerLazySingleton<SystemTtsSettings>(
+      MethodChannelSystemTtsSettings.new,
+    )
+    ..registerFactory<OpenSystemTtsSettings>(
+      () => OpenSystemTtsSettings(getIt(), getIt()),
+    )
     ..registerFactory<GetAvailableVoices>(() => GetAvailableVoices(getIt()))
     ..registerFactory<PreviewDefaultVoice>(
       () => PreviewDefaultVoice(getIt(), getIt()),
@@ -1001,6 +1013,7 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

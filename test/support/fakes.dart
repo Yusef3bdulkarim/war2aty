@@ -38,6 +38,7 @@ import 'package:war2aty/core/logging/log_sink.dart';
 import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/platform/external_link_service.dart';
+import 'package:war2aty/core/platform/system_tts_settings.dart';
 import 'package:war2aty/core/reminders/local_notifications_port.dart';
 import 'package:war2aty/core/reminders/notification_privacy_store.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
@@ -96,6 +97,34 @@ final class FakeLocaleStore implements LocaleStore {
 ///
 /// Every test that builds a screen with the legal rows needs one, because the
 /// real implementation would hand the link to the platform.
+/// Stands in for the app's own method channel to Android's text-to-speech
+/// settings (F30-T07).
+///
+/// [available] models a phone with no such screen — iOS, or an Android build
+/// that does not register it — where the way out must not be offered at all;
+/// [opensSuccessfully] models the intent failing once it is actually fired.
+final class FakeSystemTtsSettings implements SystemTtsSettings {
+  FakeSystemTtsSettings({this.available = true, this.opensSuccessfully = true});
+
+  bool available;
+  bool opensSuccessfully;
+
+  int availableCount = 0;
+  int openCount = 0;
+
+  @override
+  Future<bool> isAvailable() async {
+    availableCount++;
+    return available;
+  }
+
+  @override
+  Future<bool> open() async {
+    openCount++;
+    return opensSuccessfully;
+  }
+}
+
 final class FakeExternalLinkService implements ExternalLinkService {
   FakeExternalLinkService({this.result = true});
 

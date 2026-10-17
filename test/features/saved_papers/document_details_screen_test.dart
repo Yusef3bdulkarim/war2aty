@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
@@ -73,6 +74,7 @@ void main() {
       WatchReadingEvents(tts),
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
       WarmUpReader(tts),
+      OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
     );
   });
   tearDown(() async {

@@ -18,6 +18,7 @@ import '../localization/app_strings.dart';
 import 'audio_reader_state.dart';
 import 'reading_speed.dart';
 import 'usecases/get_default_reading_speed.dart';
+import 'usecases/open_system_tts_settings.dart';
 
 /// Drives the result screen's mini-player: what [ReadingMode] is reading, and
 /// starting/stopping the engine behind it (F10-T04).
@@ -42,6 +43,7 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     this._watchReadingEvents,
     this._getDefaultReadingSpeed,
     this._warmUpReader,
+    this._openSystemTtsSettings,
   ) : super(const AudioReaderIdle()) {
     _eventsSubscription = _watchReadingEvents().listen(_onEvent);
     // Fire-and-forget on purpose (F30-T06): this cubit is built as the screen
@@ -66,6 +68,10 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// Primes the engine the moment this cubit exists, so the first tap is not
   /// the one that pays for it (F30-T06).
   final WarmUpReader _warmUpReader;
+
+  /// The way out of [NoArabicVoiceFailure] — the one reading failure the
+  /// user can fix themselves (F30-T07).
+  final OpenSystemTtsSettings _openSystemTtsSettings;
 
   /// Listens for the rest of this cubit's life — one shared engine, one
   /// subscription — and is cancelled in [close].
@@ -96,6 +102,20 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// reading — reopening it mid-reading highlights the *current* reading's
   /// own speed instead, which the caller already holds in [state].
   Future<ReadingSpeed> loadDefaultSpeed() => _getDefaultReadingSpeed();
+
+  /// Whether this device has text-to-speech settings to send the user to
+  /// (F30-T07), asked before the way out of [NoArabicVoiceFailure] is
+  /// offered.
+  Future<bool> canOpenSystemTtsSettings() =>
+      _openSystemTtsSettings.isAvailable();
+
+  /// Sends the user to those settings to install a reading voice. Answers
+  /// false if nothing could be opened.
+  ///
+  /// Emits nothing — like [loadDefaultSpeed], this answers its caller rather
+  /// than moving the player, since leaving for the settings screen changes
+  /// nothing about what is or is not being read.
+  Future<bool> openSystemTtsSettings() => _openSystemTtsSettings();
 
   /// Starts reading [mode] aloud at [speed], replacing whatever was reading
   /// before — `TextToSpeechService.speak` does that on its own, so this never

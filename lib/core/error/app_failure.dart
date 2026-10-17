@@ -89,6 +89,29 @@ final class TtsFailure extends LocalFailure {
   const TtsFailure();
 }
 
+/// The device has no Arabic reading voice installed (F30-T07).
+///
+/// Its own failure, rather than a [TtsFailure], because it is the one voice
+/// problem the user can actually fix and the only one worth stopping a
+/// reading over. Everything else about choosing a voice is best-effort: the
+/// reading goes ahead on whatever the engine already had.
+///
+/// Until F30 this was silent. `StartReading` treated "no matching voice" as
+/// nothing to report, so a phone whose engine ships no Arabic — Samsung TTS
+/// in many regions — read an Arabic paper with an **English** voice, which
+/// produces nothing audible for Arabic script and spells out the Latin
+/// characters one at a time. That is exactly what the owner heard on a
+/// Samsung phone, and why «الخلاصة» — one short, purely Arabic sentence —
+/// appeared to do nothing at all while the longer modes made some sound
+/// (F30 RC-1).
+///
+/// Reported only when the device listed voices and none of them was Arabic.
+/// An engine that answered with no voices at all is still binding, and
+/// claiming a missing voice on that basis would be wrong.
+final class NoArabicVoiceFailure extends LocalFailure {
+  const NoArabicVoiceFailure();
+}
+
 /// Nothing on the device could open a link the app handed out (F27-T20).
 ///
 /// A phone with no browser, or no mail app for a `mailto:`, is unusual but

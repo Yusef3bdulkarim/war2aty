@@ -27,17 +27,27 @@ final class StartRawReading {
     if (normalized.isEmpty) {
       return const Err(TtsFailure());
     }
-    await _applySelectedVoiceFor(normalized);
+    if (await _applySelectedVoiceFor(normalized) case final failure?) {
+      return Err(failure);
+    }
     return (await _tts.speak(normalized)).map((_) => normalized.length);
   }
 
   /// Best-effort voice selection — same reasoning as [StartReading]'s own
   /// `_applySelectedVoiceFor`, including why there is no user-chosen voice to
-  /// honour any more (F30-T04).
-  Future<void> _applySelectedVoiceFor(String text) async {
+  /// honour any more (F30-T04) and why a missing Arabic voice is the one
+  /// thing here worth reporting (F30-T07).
+  Future<AppFailure?> _applySelectedVoiceFor(String text) async {
     final voices = (await _tts.getVoices()).valueOrNull;
-    if (voices == null) return;
+    if (voices == null || voices.isEmpty) return null;
+
     final voice = _selectVoice(text, voices);
-    if (voice != null) await _tts.setVoice(voice);
+    if (voice != null) {
+      await _tts.setVoice(voice);
+      return null;
+    }
+    return _selectVoice.languageFor(text) == 'ar'
+        ? const NoArabicVoiceFailure()
+        : null;
   }
 }

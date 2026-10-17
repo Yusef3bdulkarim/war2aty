@@ -61,6 +61,13 @@ final class SelectVoiceForReading {
     return candidate.quality.rank > incumbent.quality.rank;
   }
 
+  /// The language code a voice for [text] has to be in — public since
+  /// F30-T07, which needs to know *which* language was missing when nothing
+  /// matched: Arabic has no fallback and has to be reported to the user,
+  /// while English falls back to transliteration (F30 locked decisions 3 and
+  /// 4).
+  String languageFor(String text) => _dominantScript(text);
+
   /// `ar` if [text] has at least as many Arabic-script letters as Latin
   /// ones, `en` otherwise. A mixed document (project context: papers may be
   /// "Arabic/English/mixed") is judged by whichever script actually

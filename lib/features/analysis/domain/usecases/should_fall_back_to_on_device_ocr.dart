@@ -56,6 +56,10 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   NotificationPermissionFailure() ||
   NotificationSchedulingFailure() ||
   TtsFailure() ||
+  // Reading a paper *aloud* (F30) cannot reach here either: a missing Arabic
+  // voice is about the device's speech engine, not about getting text off
+  // the page.
+  NoArabicVoiceFailure() ||
   // Opening a policy page or a mail client (F27-T20) has nothing to do with
   // reading a paper; it is listed only to keep the switch exhaustive.
   ExternalLinkFailure() => false,
