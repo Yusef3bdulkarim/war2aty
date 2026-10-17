@@ -142,6 +142,16 @@ void main() {
         LanguageRun(text: ' ✅👍 done', language: ReadingLanguage.english),
       ]);
     });
+
+    test('keeps a surrogate pair whole when the languages change at it', () {
+      // The case the run boundary could actually have torn: both halves of
+      // the pair are neutral, so the cut has to land before them or after
+      // them, never between.
+      expect(_segment('a👍ب'), const [
+        LanguageRun(text: 'a', language: ReadingLanguage.english),
+        LanguageRun(text: '👍ب', language: ReadingLanguage.arabic),
+      ]);
+    });
   });
 
   // The three properties F30-T11's queue and F30-T13's progress lean on. A
@@ -159,6 +169,12 @@ void main() {
       'ا',
       'ا1b2ا3b',
       'تم ✅👍 done',
+      'a👍ب',
+      // An Arabic presentation form, which `ofCodeUnit` classifies as
+      // neutral rather than Arabic — as the regexes it replaced also did.
+      // Here to prove the three guarantees survive a character the
+      // classifier does not recognise, not to bless that gap.
+      'ﭐabcا',
       'رقم المحضر ١٢٣ — ref. ABC/٤٥٦',
     ];
 
