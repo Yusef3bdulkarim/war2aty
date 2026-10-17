@@ -218,23 +218,23 @@ preceded this doc.
 | 3 | F30-T21 | The currency word belongs between the pounds and the piastres — «مئتين وخمسين جنيه وخمسين قرش», and a zero piastres part is dropped | found in T02 | DONE 2026-10-17 |
 | 4 | F30-T22 | The clock: stop «الساعة» doubling when the text already says it, and read a 24-hour hour as a 12-hour one | found in T02 | DONE 2026-10-17 |
 | 5 | F30-T03 | Extend `TtsVoice` with `quality`, `latency`, `networkRequired`; parse all six fields the plugin sends | RC-6 | DONE 2026-10-17 |
-| 4 | F30-T04 | Cache the voice list; drop the always-null `getDefaultReadingVoice` from the hot path; retire the dead `SetDefaultReadingVoice` plumbing | RC-6 | TODO |
-| 5 | F30-T05 | Voice selection prefers **offline, low-latency** voices over network ones | RC-6 | TODO |
-| 6 | F30-T06 | Warm the engine when the result screen mounts, so the first tap is not the cold start | RC-6 | TODO |
-| 7 | F30-T07 | Detect "no Arabic voice on this device", surface it as a real explained failure, route to system TTS settings | RC-1 | TODO |
-| 8 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | TODO |
-| 9 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | TODO |
-| 10 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | TODO |
-| 11 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | TODO |
-| 12 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |
-| 13 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
-| 14 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO |
-| 15 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
-| 16 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
-| 17 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
-| 18 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
-| 19 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
-| 20 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass → PR | — | TODO |
+| 6 | F30-T04 | Cache the voice list; drop the always-null `getDefaultReadingVoice` from the hot path; retire the dead `SetDefaultReadingVoice` plumbing | RC-6 | DONE 2026-10-17 |
+| 7 | F30-T05 | Voice selection prefers **offline, low-latency** voices over network ones | RC-6 | DONE 2026-10-17 |
+| 8 | F30-T06 | Warm the engine when the result screen mounts, so the first tap is not the cold start | RC-6 | DONE 2026-10-17 |
+| 9 | F30-T07 | Detect "no Arabic voice on this device", surface it as a real explained failure, route to system TTS settings | RC-1 | TODO |
+| 10 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | TODO |
+| 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | TODO |
+| 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | TODO |
+| 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | TODO |
+| 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |
+| 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
+| 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO |
+| 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
+| 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
+| 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
+| 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
+| 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
+| 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass → PR | — | TODO |
 
 **T13 and T14 carry the highest regression risk** in the feature: today
 `_totalLength` / `_peakProgress` measure a single utterance, including
