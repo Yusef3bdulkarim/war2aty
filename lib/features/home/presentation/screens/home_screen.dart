@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/documents/recent_document.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../cubit/home_cubit.dart';
@@ -27,6 +28,8 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({
     this.onScan,
     this.onPickImage,
+    this.onOpenDocument,
+    this.onSeeAllDocuments,
     this.onContentLoaded,
     super.key,
   });
@@ -37,6 +40,12 @@ class HomeScreen extends StatelessWidget {
   /// a router; in the app they are always wired to the capture route.
   final VoidCallback? onScan;
   final VoidCallback? onPickImage;
+
+  /// Opens one saved document's detail screen (F08-T08).
+  final ValueChanged<RecentDocument>? onOpenDocument;
+
+  /// Opens the full saved-documents list (F08).
+  final VoidCallback? onSeeAllDocuments;
 
   /// Called once, when every section has had its first answer
   /// ([HomeState.hasLoaded]). The launch reveal waits for it (F27-P01), so
@@ -86,8 +95,11 @@ class HomeScreen extends StatelessWidget {
               ),
               BlocSelector<HomeCubit, HomeState, DocumentsSection>(
                 selector: (state) => state.documents,
-                builder: (context, documents) =>
-                    RecentDocumentsStrip(section: documents),
+                builder: (context, documents) => RecentDocumentsStrip(
+                  section: documents,
+                  onOpenDocument: onOpenDocument,
+                  onSeeAll: onSeeAllDocuments,
+                ),
               ),
               // Depends on two sections at once, so it selects the pair —
               // records compare by value, so this still rebuilds only when

@@ -76,3 +76,7 @@ supabase/.temp/
 # to be in the repo for F18-T10 to run.
 golden*/
 baseline*.json
+
+# F27-T21: the owner's device screenshots, framed by test/store/generate_store_assets.dart.
+# NEVER commit them: the repo is public, and they show whatever was on the phone.
+store/screenshots/raw/

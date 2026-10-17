@@ -24,6 +24,10 @@ import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/env/app_environment.dart';
 import 'package:war2aty/core/env/usecases/get_app_version.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/legal/legal_links.dart';
+import 'package:war2aty/core/legal/presentation/legal_links_cubit.dart';
+import 'package:war2aty/core/legal/system_legal_link_repository.dart';
+import 'package:war2aty/core/legal/usecases/open_legal_link.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -79,6 +83,8 @@ void main() {
   late LocaleCubit localeCubit;
   late TextSizeCubit textSizeCubit;
   late HighContrastCubit highContrastCubit;
+  late LegalLinksCubit legalLinksCubit;
+  late FakeExternalLinkService links;
 
   setUp(() {
     consentStore = FakeAnalysisConsentStore();
@@ -155,9 +161,16 @@ void main() {
       getHighContrast: GetHighContrast(highContrastStore),
       setHighContrast: SetHighContrast(highContrastStore),
     );
+    // F27-T20: «شروط الاستخدام» and «الدعم والتواصل» leave the app, so the
+    // screen now needs the cubit `WaraqtiApp` provides at the root.
+    links = FakeExternalLinkService();
+    legalLinksCubit = LegalLinksCubit(
+      openLegalLink: OpenLegalLink(SystemLegalLinkRepository(links)),
+    );
   });
 
   tearDown(() {
+    legalLinksCubit.close();
     cubit.close();
     localeCubit.close();
     textSizeCubit.close();
@@ -182,6 +195,7 @@ void main() {
           BlocProvider<LocaleCubit>.value(value: localeCubit),
           BlocProvider<TextSizeCubit>.value(value: textSizeCubit),
           BlocProvider<HighContrastCubit>.value(value: highContrastCubit),
+          BlocProvider<LegalLinksCubit>.value(value: legalLinksCubit),
         ],
         // A bare `Scaffold`, matching the real app: `SettingsScreen` itself
         // draws no `Scaffold` (unlike `AnalysisResultScreen`), relying on the
@@ -221,6 +235,7 @@ void main() {
               BlocProvider<LocaleCubit>.value(value: localeCubit),
               BlocProvider<TextSizeCubit>.value(value: textSizeCubit),
               BlocProvider<HighContrastCubit>.value(value: highContrastCubit),
+              BlocProvider<LegalLinksCubit>.value(value: legalLinksCubit),
             ],
             child: const Scaffold(body: SettingsScreen()),
           ),
@@ -915,7 +930,7 @@ void main() {
   });
 
   group('the about section (F11-T12)', () {
-    testWidgets('shows the section, the two nav rows, and the version line', (
+    testWidgets('shows the section, the four nav rows, and the version line', (
       tester,
     ) async {
       await pumpScreen(tester);
@@ -923,9 +938,56 @@ void main() {
       await tester.ensureVisible(find.text(ar.settingsAboutSection));
       expect(find.text(ar.settingsAboutSection), findsOneWidget);
       expect(find.text(ar.settingsPrivacyPolicyLabel), findsOneWidget);
+      // F27-T20 added these two.
+      expect(find.text(ar.settingsTermsOfUseLabel), findsOneWidget);
+      expect(find.text(ar.settingsSupportLabel), findsOneWidget);
       expect(find.text(ar.settingsSupportedDocumentTypesLabel), findsOneWidget);
       expect(find.text(ar.settingsUsageLimitLabel), findsOneWidget);
       expect(find.text(ar.settingsVersionLabel('2.3.1')), findsOneWidget);
+    });
+
+    testWidgets('«شروط الاستخدام» opens the published terms page (F27-T20)', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsTermsOfUseLabel));
+      await tester.tap(find.text(ar.settingsTermsOfUseLabel));
+      await tester.pumpAndSettle();
+
+      // The URL itself: a row wired to the wrong page would pass any
+      // assertion weaker than this.
+      expect(links.opened, [Uri.parse(termsOfUseUrl)]);
+    });
+
+    testWidgets('«الدعم والتواصل» opens a mail to the published address', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsSupportLabel));
+      await tester.tap(find.text(ar.settingsSupportLabel));
+      await tester.pumpAndSettle();
+
+      expect(links.opened, [Uri(scheme: 'mailto', path: supportEmailAddress)]);
+    });
+
+    testWidgets('a row that cannot open says so, and names the address', (
+      tester,
+    ) async {
+      // CLAUDE.md §A3, and the reason the support case has its own message:
+      // a user with no mail app still needs to know where to write.
+      links.result = false;
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsSupportLabel));
+      await tester.tap(find.text(ar.settingsSupportLabel));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(ar.legalSupportOpenFailed(supportEmailAddress)),
+        findsOneWidget,
+      );
     });
 
     testWidgets('tapping «سياسة الخصوصية» calls the router callback', (

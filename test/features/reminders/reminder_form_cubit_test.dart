@@ -9,6 +9,7 @@ import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_da
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_state.dart';
+import 'package:war2aty/features/reminders/presentation/models/manual_reminder_seed.dart';
 import 'package:war2aty/features/reminders/presentation/models/reminder_alert_draft.dart';
 import 'package:war2aty/features/reminders/presentation/models/reminder_from_document_args.dart';
 
@@ -142,12 +143,14 @@ void main() {
   });
 
   group('manual', () {
-    ReminderFormCubit build() => ReminderFormCubit.manual(
-      createFromDocumentDate: createFromDocumentDate,
-      createManual: createManual,
-      getNotificationPermission: getNotificationPermission,
-      requestNotificationPermission: requestNotificationPermission,
-    );
+    ReminderFormCubit build({ManualReminderSeed? seed}) =>
+        ReminderFormCubit.manual(
+          createFromDocumentDate: createFromDocumentDate,
+          createManual: createManual,
+          getNotificationPermission: getNotificationPermission,
+          requestNotificationPermission: requestNotificationPermission,
+          seed: seed,
+        );
 
     test('starts empty', () {
       final cubit = build();
@@ -200,6 +203,101 @@ void main() {
       expect((cubit.state as ReminderFormEditing).alerts, [custom]);
     });
 
+    // Found while building F29's seeded form, and fixed there — but it was
+    // always reachable by hand: pick a date and time, then change the date.
+    // A preset alert's row is labelled from its offset alone, so one left
+    // behind showed «قبل الموعد بيوم» over an instant relative to a date the
+    // user had already moved away from, and fired on the wrong day.
+    group('a preset alert follows the event it is relative to', () {
+      test('changing the date moves it', () {
+        final cubit = build();
+        addTearDown(cubit.close);
+        cubit
+          ..setEventDate(DateTime(2026, 9))
+          ..setEventMinuteOfDay(9 * 60);
+
+        cubit.setEventDate(DateTime(2026, 11, 20));
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.alerts.single.offset, AlertTimeOffset.atEventTime);
+        expect(state.alerts.single.time, state.eventInstant);
+      });
+
+      test('changing the time moves it', () {
+        final cubit = build();
+        addTearDown(cubit.close);
+        cubit
+          ..setEventDate(DateTime(2026, 9))
+          ..setEventMinuteOfDay(9 * 60);
+
+        cubit.setEventMinuteOfDay(20 * 60);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.alerts.single.time, state.eventInstant);
+      });
+
+      test('keeps each alert\'s own distance from the event', () {
+        final cubit = build();
+        addTearDown(cubit.close);
+        cubit
+          ..setEventDate(DateTime(2026, 9))
+          ..setEventMinuteOfDay(9 * 60);
+        // On top of the seeded "at event time" one.
+        final instant = (cubit.state as ReminderFormEditing).eventInstant!;
+        cubit.addAlert(
+          ReminderAlertDraft(
+            time: AlertTimeOffset.oneDayBefore.applyTo(instant),
+            offset: AlertTimeOffset.oneDayBefore,
+          ),
+        );
+
+        cubit.setEventDate(DateTime(2026, 11, 20));
+
+        final state = cubit.state as ReminderFormEditing;
+        final moved = state.eventInstant!;
+        expect(state.alerts, [
+          ReminderAlertDraft(time: moved, offset: AlertTimeOffset.atEventTime),
+          ReminderAlertDraft(
+            time: AlertTimeOffset.oneDayBefore.applyTo(moved),
+            offset: AlertTimeOffset.oneDayBefore,
+          ),
+        ]);
+      });
+
+      test('a hand-picked instant is left exactly where the user put it', () {
+        // No offset means the user named that moment outright — it was never
+        // a function of the event, so the event moving must not drag it.
+        final cubit = build();
+        addTearDown(cubit.close);
+        cubit
+          ..setEventDate(DateTime(2026, 9))
+          ..setEventMinuteOfDay(9 * 60);
+        final custom = ReminderAlertDraft(time: DateTime.utc(2026, 8, 30, 7));
+        cubit.addAlert(custom);
+
+        cubit.setEventDate(DateTime(2026, 11, 20));
+
+        expect((cubit.state as ReminderFormEditing).alerts, contains(custom));
+      });
+
+      test('what it saves is the moved time, not the original', () async {
+        // The whole point: the repository must receive the alert the form
+        // was showing, not the one it started with.
+        final cubit = build();
+        addTearDown(cubit.close);
+        cubit
+          ..setTitle('تذكير')
+          ..setEventDate(DateTime(2026, 9))
+          ..setEventMinuteOfDay(9 * 60)
+          ..setEventDate(DateTime(2026, 11, 20));
+
+        final moved = (cubit.state as ReminderFormEditing).eventInstant;
+        await cubit.save();
+
+        expect(repository.lastCreatedAlertTimes, [moved]);
+      });
+    });
+
     test('addAlert respects the 3-alert cap by simply trusting its caller', () {
       final cubit = build();
       addTearDown(cubit.close);
@@ -244,6 +342,123 @@ void main() {
       cubit.setEventMinuteOfDay(9 * 60);
 
       expect((cubit.state as ReminderFormEditing).canSave, isFalse);
+    });
+
+    // F29: the empty reminders list's quick rows open this same form with a
+    // ready date in it.
+    group('seeded from a quick date', () {
+      final seed = ManualReminderSeed(
+        eventDate: DateTime(2026, 10, 13),
+        eventMinuteOfDay: 9 * 60,
+      );
+
+      test('opens holding the seeded date and time, and no title', () {
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.eventDate, DateTime(2026, 10, 13));
+        expect(state.eventMinuteOfDay, 9 * 60);
+        expect(state.isManual, isTrue);
+        // Guessing a title would either be wrong or let an untitled reminder
+        // through — the user still says what the reminder is about.
+        expect(state.title, isEmpty);
+      });
+
+      test('opens with the same default alert a hand-filled form gets', () {
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.alerts, hasLength(1));
+        expect(state.alerts.single.offset, AlertTimeOffset.atEventTime);
+        expect(state.alerts.single.time, state.eventInstant);
+      });
+
+      test('is one typed title away from saveable', () {
+        // The honest claim about concept D: a step fewer, not a tap.
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        expect((cubit.state as ReminderFormEditing).canSave, isFalse);
+
+        cubit.setTitle('امتحان');
+        expect((cubit.state as ReminderFormEditing).canSave, isTrue);
+      });
+
+      test('is indistinguishable from the same form filled in by hand', () {
+        // The property that keeps the two paths from drifting: a seed is a
+        // shortcut through the form, not a second kind of form.
+        final seeded = build(seed: seed);
+        addTearDown(seeded.close);
+        seeded.setTitle('امتحان');
+
+        final byHand = build();
+        addTearDown(byHand.close);
+        byHand
+          ..setTitle('امتحان')
+          ..setEventDate(DateTime(2026, 10, 13))
+          ..setEventMinuteOfDay(9 * 60);
+
+        final a = seeded.state as ReminderFormEditing;
+        final b = byHand.state as ReminderFormEditing;
+        expect(a.eventDate, b.eventDate);
+        expect(a.eventMinuteOfDay, b.eventMinuteOfDay);
+        expect(a.eventInstant, b.eventInstant);
+        expect(a.alerts, b.alerts);
+        expect(a.canSave, b.canSave);
+      });
+
+      test('the seeded date is still the user\'s to change', () {
+        // A seed is a starting point, not a decision.
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        cubit.setEventDate(DateTime(2026, 12));
+        cubit.setEventMinuteOfDay(18 * 60);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.eventDate, DateTime(2026, 12));
+        expect(state.eventMinuteOfDay, 18 * 60);
+      });
+
+      test('moving the date takes the seeded alert with it', () {
+        // Without this, the form would show «في وقت الحدث» over an alert
+        // still pointing at the seeded day — and fire on the wrong one.
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        cubit.setEventDate(DateTime(2026, 12));
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.alerts.single.offset, AlertTimeOffset.atEventTime);
+        expect(state.alerts.single.time, state.eventInstant);
+      });
+
+      test('saves the seeded date through to the repository', () async {
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+        cubit.setTitle('امتحان');
+
+        await cubit.save();
+
+        expect(repository.lastCreatedEventDate, DateTime(2026, 10, 13));
+        expect(repository.lastCreatedEventMinuteOfDay, 9 * 60);
+        expect(repository.lastCreatedIsManual, isTrue);
+        expect(repository.lastCreatedAlertTimes, hasLength(1));
+      });
+
+      test('no seed still opens the empty form it always did', () {
+        // The header's «إضافة تذكير» passes nothing, and must be untouched
+        // by all of the above.
+        final cubit = build();
+        addTearDown(cubit.close);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.eventDate, isNull);
+        expect(state.eventMinuteOfDay, isNull);
+        expect(state.alerts, isEmpty);
+      });
     });
   });
 

@@ -119,6 +119,33 @@ void main() {
       );
     });
 
+    testWidgets('draws the illustration without a single shadow', (
+      tester,
+    ) async {
+      // F29-T02: the owner asked for the page's drop shadow and the camera
+      // tile's teal glow to come off, and for nothing to replace them. Every
+      // decoration in the whole widget is checked, not just the two that used
+      // to carry one, so a shadow cannot reappear on a third shape either.
+      await pumpApp(
+        tester,
+        const HomeEmptyState(reminder: noReminder, documents: noDocuments),
+      );
+
+      final shadowed = tester
+          .widgetList<DecoratedBox>(
+            find.descendant(
+              of: find.byType(HomeEmptyState),
+              matching: find.byType(DecoratedBox),
+            ),
+          )
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .where((d) => d.boxShadow?.isNotEmpty ?? false)
+          .toList();
+
+      expect(shadowed, isEmpty);
+    });
+
     testWidgets('renders in English', (tester) async {
       await pumpApp(
         tester,

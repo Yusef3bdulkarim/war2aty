@@ -188,3 +188,41 @@ ls build/symbols/<version>/
 
 A debug-signed artifact is the failure this document exists to prevent, and
 `apksigner` is the one check that cannot be fooled by the build succeeding.
+
+---
+
+## Before uploading to Play (F27-T19)
+
+```bash
+dart run tool/check_play_compliance.dart build/app/outputs/bundle/prodRelease/app-prod-release.aab
+dart run tool/check_play_compliance.dart build/app/outputs/flutter-apk/app-prod-release.apk
+```
+
+Run it on **both**, from the same commit, and expect `✓ every check passed`.
+They answer different halves: the bundle is what Play takes, and the APK is the
+only place the merged manifest and the 16 KB packaging can actually be read
+(`aapt2` cannot open an `.aab`, and Play does its own splitting).
+
+The check covers the four things Play enforces on the artifact rather than on
+the code — target API level, 16 KB page alignment for every native library, the
+permission list, and that the build is not debuggable. **It is not in CI**: it
+needs a signed release build, which CI does not produce. It is this document's
+job to make sure it is run.
+
+It matters at every release and not just the first because half of what it
+checks belongs to files this project does not build: `libtesseract.so`,
+`libleptonica.so`, `libjpeg.so`, `libpngx.so` and `libsqlite3.so` are prebuilt
+binaries inside plugin AARs, and `libflutter.so` comes from the engine. A
+`flutter pub upgrade` can therefore break Play compliance with no change to this
+repo, and nothing in `flutter test` can see it.
+
+Also verify the bundle's signature — `apksigner` does not read an `.aab`:
+
+```bash
+jarsigner -verify -verbose:summary -certs build/app/outputs/bundle/prodRelease/app-prod-release.aab
+```
+
+Expect `jar verified.` and `O=War2aty`. The "self-signed" and "no timestamp"
+warnings are expected and correct for an Android upload key. `jarsigner` is not
+on `PATH` on this machine; it ships with any JDK, including Android Studio's
+(`"C:/Program Files/Android/Android Studio/jbr/bin/jarsigner.exe"`).

@@ -28,6 +28,7 @@ final class AppColors {
     required this.success,
     required this.successTint,
     required this.successInk,
+    required this.successBorder,
     required this.mint,
     required this.mintSoft,
     required this.warning,
@@ -107,6 +108,13 @@ final class AppColors {
   /// Text and icons on [successTint] — darker than [success], which is a fill
   /// colour and does not carry enough contrast as small type.
   final Color successInk;
+
+  /// Outline of a green block, the sibling of [warningBorder] — the empty
+  /// «الفائتة» badge (F29-T10). Same reason: a tinted shape needs an edge to
+  /// stay a shape against a warm surface, and a hardcoded pale green would
+  /// not follow the palette into high contrast.
+  final Color successBorder;
+
   final Color mint;
 
   /// The pale mint the design writes on top of a brand-teal surface — the
@@ -164,6 +172,7 @@ final class AppColors {
     success: Color(0xFF2E9E63),
     successTint: Color(0xFFE1F2E9),
     successInk: Color(0xFF1E7A48),
+    successBorder: Color(0xFFC8E6D6),
     mint: Color(0xFF34D0B4),
     mintSoft: Color(0xFF8FE6D4),
     warning: Color(0xFFC77B12),
@@ -223,6 +232,7 @@ final class AppColors {
     success: Color(0xFF1E7A48),
     successTint: Color(0xFFDCEEE4),
     successInk: Color(0xFF13502F),
+    successBorder: Color(0xFF5E9B78),
     mint: Color(0xFF12A98C),
     mintSoft: Color(0xFFC8F5EA),
     warning: Color(0xFF8A5A0E),

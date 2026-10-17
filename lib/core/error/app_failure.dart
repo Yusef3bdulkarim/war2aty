@@ -89,6 +89,15 @@ final class TtsFailure extends LocalFailure {
   const TtsFailure();
 }
 
+/// Nothing on the device could open a link the app handed out (F27-T20).
+///
+/// A phone with no browser, or no mail app for a `mailto:`, is unusual but
+/// real — and an invisible no-op on «شروط الاستخدام» would leave the user
+/// tapping a row that does nothing, so the screen says so instead.
+final class ExternalLinkFailure extends LocalFailure {
+  const ExternalLinkFailure();
+}
+
 /// The user has turned off «السماح بإرسال النص للتحليل» (F11-T02) — analysis
 /// was never attempted, so this is not a network/business outcome, but a
 /// local, user-controlled setting the request never got past.

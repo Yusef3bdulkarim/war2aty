@@ -62,6 +62,10 @@ import '../../core/env/app_environment.dart';
 import '../../core/env/usecases/get_app_version.dart';
 import '../../core/error/app_failure.dart';
 import '../../core/identity/installation_id_provider.dart';
+import '../../core/legal/legal_link_repository.dart';
+import '../../core/legal/presentation/legal_links_cubit.dart';
+import '../../core/legal/system_legal_link_repository.dart';
+import '../../core/legal/usecases/open_legal_link.dart';
 import '../../core/localization/locale_cubit.dart';
 import '../../core/localization/locale_store.dart';
 import '../../core/localization/usecases/get_saved_locale.dart';
@@ -78,6 +82,8 @@ import '../../core/permissions/system_notification_permission_repository.dart';
 import '../../core/permissions/usecases/get_notification_permission.dart';
 import '../../core/permissions/usecases/open_notification_permission_settings.dart';
 import '../../core/permissions/usecases/request_notification_permission.dart';
+import '../../core/platform/external_link_service.dart';
+import '../../core/platform/url_launcher_external_link_service.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
 import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
@@ -205,6 +211,7 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
+import '../../features/reminders/presentation/models/manual_reminder_seed.dart';
 import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
@@ -237,6 +244,7 @@ Future<void> configureDependencies(
   _registerSavedPapers();
   _registerReminders();
   _registerAudioReader();
+  _registerLegal();
   _registerSettings();
   _registerRouting();
 }
@@ -902,12 +910,19 @@ void _registerReminders() {
     // Manual (F09-T04): a distinct registration under the same type, since
     // it starts from nothing rather than from router args — `instanceName`
     // is how get_it tells the two apart.
-    ..registerFactory<ReminderFormCubit>(
-      () => ReminderFormCubit.manual(
+    //
+    // Parameterised since F29, but on a **nullable** seed: «إضافة تذكير» in
+    // the list header still opens an empty form and passes nothing, while a
+    // quick row passes the date it offered. A nullable `P1` is why `null` is
+    // a legal `param1` here — get_it only type-checks a parameter it was
+    // given, or one whose type cannot be null.
+    ..registerFactoryParam<ReminderFormCubit, ManualReminderSeed?, void>(
+      (seed, _) => ReminderFormCubit.manual(
         createFromDocumentDate: getIt(),
         createManual: getIt(),
         getNotificationPermission: getIt(),
         requestNotificationPermission: getIt(),
+        seed: seed,
       ),
       instanceName: manualReminderFormInstanceName,
     )
@@ -998,6 +1013,25 @@ void _registerAudioReader() {
         getIt(),
         getIt(),
       ),
+    );
+}
+
+/// F27-T20. The published privacy policy and terms, and the support mailbox.
+///
+/// Its own module rather than part of `_registerSettings`, because two
+/// screens in different places reach it: the settings «عن التطبيق» rows and
+/// the privacy screen's footer.
+void _registerLegal() {
+  getIt
+    ..registerLazySingleton<ExternalLinkService>(
+      UrlLauncherExternalLinkService.new,
+    )
+    ..registerLazySingleton<LegalLinkRepository>(
+      () => SystemLegalLinkRepository(getIt()),
+    )
+    ..registerFactory<OpenLegalLink>(() => OpenLegalLink(getIt()))
+    ..registerFactory<LegalLinksCubit>(
+      () => LegalLinksCubit(openLegalLink: getIt()),
     );
 }
 

@@ -37,6 +37,7 @@ import 'package:war2aty/core/localization/locale_store.dart';
 import 'package:war2aty/core/logging/log_sink.dart';
 import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
+import 'package:war2aty/core/platform/external_link_service.dart';
 import 'package:war2aty/core/reminders/local_notifications_port.dart';
 import 'package:war2aty/core/reminders/notification_privacy_store.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
@@ -89,6 +90,27 @@ final class FakeLocaleStore implements LocaleStore {
 
   @override
   Future<void> writeLanguageCode(String code) async => _code = code;
+}
+
+/// [ExternalLinkService] that records instead of leaving the app (F27-T20).
+///
+/// Every test that builds a screen with the legal rows needs one, because the
+/// real implementation would hand the link to the platform.
+final class FakeExternalLinkService implements ExternalLinkService {
+  FakeExternalLinkService({this.result = true});
+
+  /// What the device is pretending to answer: false models a phone with no
+  /// browser, or no mail app for a `mailto:`.
+  bool result;
+
+  /// Everything it was asked to open, in order.
+  final opened = <Uri>[];
+
+  @override
+  Future<bool> open(Uri destination) async {
+    opened.add(destination);
+    return result;
+  }
 }
 
 /// In-memory [NotificationPrivacyStore] (F09-T14) — no persistence,

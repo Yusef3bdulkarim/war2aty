@@ -55,7 +55,10 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   FileStorageFailure() ||
   NotificationPermissionFailure() ||
   NotificationSchedulingFailure() ||
-  TtsFailure() => false,
+  TtsFailure() ||
+  // Opening a policy page or a mail client (F27-T20) has nothing to do with
+  // reading a paper; it is listed only to keep the switch exhaustive.
+  ExternalLinkFailure() => false,
 
   // Business outcomes belong to a finished analysis, not to a reading.
   UnsupportedDocumentFailure() ||

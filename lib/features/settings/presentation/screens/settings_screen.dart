@@ -9,6 +9,9 @@ import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/documents/document_category.dart';
 import '../../../../core/documents/document_category_style.dart';
 import '../../../../core/icons/stroke_icon.dart';
+import '../../../../core/legal/legal_links.dart';
+import '../../../../core/legal/presentation/legal_links_cubit.dart';
+import '../../../../core/legal/presentation/legal_links_state.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/localization/app_strings.dart';
 import '../../../../core/localization/locale_cubit.dart';
@@ -1169,8 +1172,9 @@ class _PermissionsSectionState extends State<_PermissionsSection> {
   }
 }
 
-/// «عن التطبيق» — the privacy-policy and supported-document-types rows, the
-/// usage-limit pill, and the version line (F11-T12).
+/// «عن التطبيق» — the privacy-policy, terms, support and
+/// supported-document-types rows, the usage-limit pill, and the version line
+/// (F11-T12; the terms and support rows are F27-T20's).
 ///
 /// The version line sits under the card rather than inside it, as its own
 /// centered caption — the design draws it outside the card's white
@@ -1185,53 +1189,89 @@ class _AboutSection extends StatelessWidget {
     final strings = context.strings;
     final colors = AppColors.of(context);
 
-    return BlocBuilder<SettingsCubit, SettingsState>(
-      builder: (context, state) => switch (state) {
-        // Privacy policy, supported types, usage limit — three rows.
-        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 3),
-        SettingsReady(:final dailyUsage, :final appVersion) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SettingsSection(
-              title: strings.settingsAboutSection,
-              rows: [
-                SettingsNavRow(
-                  label: strings.settingsPrivacyPolicyLabel,
-                  onTap: onOpenPrivacyPolicy,
+    // F27-T20: the two rows below leave the app, and on a device with no
+    // browser or no mail app nothing happens at all. The listener is what
+    // turns that into a sentence instead of a tap that looks ignored
+    // (CLAUDE.md §A3: no silent failures).
+    return BlocListener<LegalLinksCubit, LegalLinksState>(
+      listener: (context, linkState) {
+        if (linkState is! LegalLinkUnavailable) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(switch (linkState.link) {
+                // The support case names the address, so a user with no
+                // mail app can still write to us.
+                LegalLink.support => strings.legalSupportOpenFailed(
+                  supportEmailAddress,
                 ),
-                SettingsNavRow(
-                  label: strings.settingsSupportedDocumentTypesLabel,
-                  onTap: () => _showSupportedDocumentTypesSheet(context),
-                ),
-                SettingsStatusRow(
-                  label: strings.settingsUsageLimitLabel,
-                  statusLabel: _usageLimitValue(dailyUsage, strings),
-                  statusBackground: colors.surfaceNeutral,
-                  statusForeground: colors.iconInfo,
-                ),
-              ],
+                LegalLink.privacyPolicy ||
+                LegalLink.termsOfUse => strings.legalPageOpenFailed,
+              }),
             ),
-            Padding(
-              // `SettingsSection` already added its own `_cardGapBelow` gap
-              // above this line — the design draws the version line tighter
-              // to the card than that, but reusing the section's shared
-              // spacing (rather than fighting it with negative padding) keeps
-              // the screen's vertical rhythm consistent with every section
-              // above it.
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                strings.settingsVersionLabel(appVersion),
-                textAlign: TextAlign.center,
-                style: AppTypography.caption.copyWith(
-                  fontSize: 12.5,
-                  fontWeight: AppTypography.semiBold,
-                  color: colors.textMuted,
+          );
+      },
+      child: BlocBuilder<SettingsCubit, SettingsState>(
+        builder: (context, state) => switch (state) {
+          // Privacy policy, terms, support, supported types, usage limit —
+          // five rows (F27-T20 added the middle two).
+          SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 5),
+          SettingsReady(:final dailyUsage, :final appVersion) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SettingsSection(
+                title: strings.settingsAboutSection,
+                rows: [
+                  SettingsNavRow(
+                    label: strings.settingsPrivacyPolicyLabel,
+                    onTap: onOpenPrivacyPolicy,
+                  ),
+                  SettingsNavRow(
+                    label: strings.settingsTermsOfUseLabel,
+                    onTap: () => context.read<LegalLinksCubit>().open(
+                      LegalLink.termsOfUse,
+                    ),
+                  ),
+                  SettingsNavRow(
+                    label: strings.settingsSupportLabel,
+                    onTap: () =>
+                        context.read<LegalLinksCubit>().open(LegalLink.support),
+                  ),
+                  SettingsNavRow(
+                    label: strings.settingsSupportedDocumentTypesLabel,
+                    onTap: () => _showSupportedDocumentTypesSheet(context),
+                  ),
+                  SettingsStatusRow(
+                    label: strings.settingsUsageLimitLabel,
+                    statusLabel: _usageLimitValue(dailyUsage, strings),
+                    statusBackground: colors.surfaceNeutral,
+                    statusForeground: colors.iconInfo,
+                  ),
+                ],
+              ),
+              Padding(
+                // `SettingsSection` already added its own `_cardGapBelow` gap
+                // above this line — the design draws the version line tighter
+                // to the card than that, but reusing the section's shared
+                // spacing (rather than fighting it with negative padding) keeps
+                // the screen's vertical rhythm consistent with every section
+                // above it.
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  strings.settingsVersionLabel(appVersion),
+                  textAlign: TextAlign.center,
+                  style: AppTypography.caption.copyWith(
+                    fontSize: 12.5,
+                    fontWeight: AppTypography.semiBold,
+                    color: colors.textMuted,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      },
+            ],
+          ),
+        },
+      ),
     );
   }
 }

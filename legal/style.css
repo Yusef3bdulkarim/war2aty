@@ -1,0 +1,182 @@
+/* F27-T20 · The policy pages' only stylesheet.
+   Brand tokens from CLAUDE.md's design system (Waraqti.dc.html). Written for
+   the same reader the app is written for: Arabic, right to left, on a phone,
+   possibly with the system text size turned up. So: one column, large type,
+   generous line height, no layout that depends on width. */
+
+:root {
+  --brand: #0e7c86;
+  --brand-deep: #0a5c64;
+  --ink: #1d2b30;
+  --text: #5a686e;
+  --muted: #8a969b;
+  --surface: #f5f4ef;
+  --card: #ffffff;
+  --line: #e9e6df;
+  --warn-bg: #fbefd8;
+  --warn-ink: #c77b12;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* Respect the reader's own font size instead of pinning px. */
+  font-size: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0 0 4rem;
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Cairo', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.9;
+}
+
+header {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-deep) 100%);
+  color: #fff;
+  padding: 2.25rem 1.25rem 1.75rem;
+}
+
+header .wrap {
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+header h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+header p {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.92;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+section {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1.25rem 1.25rem 1.5rem;
+  margin: 1.25rem 0;
+}
+
+h2 {
+  color: var(--ink);
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+
+h3 {
+  color: var(--ink);
+  font-size: 1.02rem;
+  font-weight: 700;
+  margin: 1.25rem 0 0.4rem;
+}
+
+p {
+  margin: 0 0 0.85rem;
+}
+
+ul {
+  margin: 0 0 0.85rem;
+  padding-inline-start: 1.35rem;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+a {
+  color: var(--brand);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--brand-deep);
+}
+
+/* The one thing on these pages that must not be skimmed past. */
+.callout {
+  background: var(--warn-bg);
+  border: 1px solid #f0d9ae;
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  margin: 0 0 1rem;
+}
+
+.callout strong {
+  color: var(--warn-ink);
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 1.25rem 0 0;
+}
+
+.nav a {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+footer {
+  max-width: 44rem;
+  margin: 1.5rem auto 0;
+  padding: 0 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* The English half of each page reads left to right inside an RTL document. */
+[dir='ltr'] {
+  text-align: left;
+}
+
+[dir='ltr'] ul {
+  padding-inline-start: 1.35rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f2efe8;
+    --text: #cfd6d8;
+    --muted: #9aa5a9;
+    --surface: #14201f;
+    --card: #1b2a2b;
+    --line: #2a3a3b;
+    --warn-bg: #3a2c12;
+  }
+}

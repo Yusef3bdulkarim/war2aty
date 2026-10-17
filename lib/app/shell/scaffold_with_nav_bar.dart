@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,7 +13,6 @@ const double _barTopPadding = 8;
 const double _barSidePadding = 12;
 const double _barBottomPadding = 26;
 const double _destinationIcon = 25;
-const double _blurSigma = 6;
 
 /// Ceiling on how far the tiny nav labels scale up. See the note where it is
 /// applied — this is deliberately the only capped text in the app.
@@ -107,8 +104,11 @@ class _ScaffoldWithNavBarState extends State<ScaffoldWithNavBar> {
     final s = context.strings;
 
     return Scaffold(
-      // The bar is translucent, so content scrolls under it rather than
-      // stopping short of it.
+      // Content still extends under the bar, so a screen's own bottom
+      // padding — written for the bar's height — keeps working unchanged. The
+      // bar itself is opaque now (F27-T21, owner's decision): it used to be
+      // 94% opaque over a blur, and the cards scrolled beneath it showed
+      // through as faint grey smudges that read as dirt rather than glass.
       extendBody: true,
       body: widget.navigationShell,
       bottomNavigationBar: _NavBar(
@@ -141,39 +141,35 @@ class _NavBar extends StatelessWidget {
     final colors = AppColors.of(context);
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: _blurSigma, sigmaY: _blurSigma),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.card.withValues(alpha: 0.94),
-            border: Border(top: BorderSide(color: colors.borderSoft)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: _barTopPadding,
-              left: _barSidePadding,
-              right: _barSidePadding,
-              // The design's 26px bottom padding stands in for the home
-              // indicator; on hardware reporting a real inset, use that.
-              bottom: bottomInset > 0 ? bottomInset : _barBottomPadding,
-            ),
-            child: Row(
-              children: [
-                for (final (index, (glyph, label)) in destinations.indexed)
-                  // Equal shares: four fixed-width destinations cannot fit a
-                  // scaled-up label, and would overflow the row.
-                  Expanded(
-                    child: _Destination(
-                      glyph: glyph,
-                      label: label,
-                      selected: index == currentIndex,
-                      onTap: () => onSelected(index),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // Fully opaque — see `extendBody` above for why.
+        color: colors.card,
+        border: Border(top: BorderSide(color: colors.borderSoft)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(
+          top: _barTopPadding,
+          left: _barSidePadding,
+          right: _barSidePadding,
+          // The design's 26px bottom padding stands in for the home
+          // indicator; on hardware reporting a real inset, use that.
+          bottom: bottomInset > 0 ? bottomInset : _barBottomPadding,
+        ),
+        child: Row(
+          children: [
+            for (final (index, (glyph, label)) in destinations.indexed)
+              // Equal shares: four fixed-width destinations cannot fit a
+              // scaled-up label, and would overflow the row.
+              Expanded(
+                child: _Destination(
+                  glyph: glyph,
+                  label: label,
+                  selected: index == currentIndex,
+                  onTap: () => onSelected(index),
+                ),
+              ),
+          ],
         ),
       ),
     );

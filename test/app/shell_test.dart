@@ -31,6 +31,9 @@ import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/env/app_environment.dart';
 import 'package:war2aty/core/env/usecases/get_app_version.dart';
+import 'package:war2aty/core/legal/presentation/legal_links_cubit.dart';
+import 'package:war2aty/core/legal/system_legal_link_repository.dart';
+import 'package:war2aty/core/legal/usecases/open_legal_link.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/localization/locale_cubit.dart';
@@ -219,6 +222,15 @@ void main() {
           getAppVersion: GetAppVersion(AppEnvironment.dev(isAndroid: false)),
         );
       })
+      // F27-T20: app-scoped in `WaraqtiApp`, so every test that builds it
+      // needs one. A fake that records rather than leaving the app.
+      ..registerFactory<LegalLinksCubit>(
+        () => LegalLinksCubit(
+          openLegalLink: OpenLegalLink(
+            SystemLegalLinkRepository(FakeExternalLinkService()),
+          ),
+        ),
+      )
       ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<ReminderNotificationTaps>(
         ReminderNotificationTaps.new,
@@ -293,6 +305,32 @@ void main() {
     expect(find.text(ar.navReminders), findsWidgets);
     expect(find.text(ar.navSettings), findsWidgets);
     expect(navDirection(tester), TextDirection.rtl);
+  });
+
+  testWidgets('the nav bar is opaque, so nothing shows through it (F27-T21)', (
+    tester,
+  ) async {
+    // It was 94% opaque over a blur. Home's content runs on under the bar,
+    // and its cards' shadows showed through as faint grey smudges — visible
+    // in the store screenshots, and reading as dirt rather than glass. The
+    // owner chose an opaque bar.
+    await pumpShell(tester);
+
+    expect(
+      find.descendant(of: navBar(), matching: find.byType(BackdropFilter)),
+      findsNothing,
+      reason: 'a blur only exists to be seen through',
+    );
+
+    final bars = tester
+        .widgetList<DecoratedBox>(
+          find.descendant(of: navBar(), matching: find.byType(DecoratedBox)),
+        )
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.border != null);
+    expect(bars, hasLength(1), reason: 'the bar is the one bordered box');
+    expect(bars.single.color?.a, 1.0, reason: 'fully opaque');
   });
 
   testWidgets('runs the deferred housekeeping once the shell is up (F27-P01)', (

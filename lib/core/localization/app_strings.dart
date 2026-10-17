@@ -501,6 +501,29 @@ abstract interface class AppStrings {
   /// its points make on first run, read back at any time.
   String get settingsPrivacyPolicyLabel;
 
+  /// Opens the published «شروط الاستخدام» page in the browser (F27-T20).
+  ///
+  /// The page that carries the "not legal/medical/financial advice"
+  /// disclaimer, which is the most consequential thing the app publishes
+  /// about itself (F27-M5).
+  String get settingsTermsOfUseLabel;
+
+  /// Opens a mail to the published support address (F27-T20, Q17).
+  String get settingsSupportLabel;
+
+  /// The privacy screen's footer link out to the full published policy
+  /// (F27-T20) — the four promises above it are the summary, not the whole
+  /// document.
+  String get privacyFullPolicyLabel;
+
+  /// Shown when nothing on the device could open a page the app offered —
+  /// a phone with no browser. Never a silent no-op (CLAUDE.md §3).
+  String get legalPageOpenFailed;
+
+  /// Shown when no mail app could be opened: the address itself, so the user
+  /// can still write it down or copy it from the screen.
+  String legalSupportOpenFailed(String address);
+
   /// Opens the read-only sheet listing every [DocumentCategory] the app
   /// recognises — reuses the `documentCategory*` labels, nothing new.
   String get settingsSupportedDocumentTypesLabel;
@@ -958,15 +981,41 @@ abstract interface class AppStrings {
   String get reminderTabCompleted;
 
   String get reminderEmptyTitle;
+
+  /// Reworded in F29-T03: it used to name the two ways in («اعمل تذكير
+  /// يدوي، أو أنشئ تذكير من تاريخ…»), which the quick rows underneath now
+  /// *show*. It points at them instead, and promises the date stays editable
+  /// — the one thing a ready-made date has to reassure the user about.
   String get reminderEmptySubtitle;
+
+  // The quick-create rows filling the empty library's middle (F29). Each row
+  // offers a ready event date; the second line under a label is the resolved
+  // date itself, built from `formatDocumentDate`/`formatWallClockTime`, not
+  // from a string here.
+  String get reminderQuickCreateKicker;
+  String get reminderQuickTomorrow;
+  String get reminderQuickNextWeek;
+  String get reminderQuickEndOfMonth;
 
   /// The way out of [reminderEmptyTitle] besides [reminderAddAction] —
   /// mirrors the scan action Home and the documents list offer for the
   /// same "nothing yet" moment.
   String get reminderEmptyScanCta;
 
+  /// Points back at [reminderAddAction] in the header, for a reminder the
+  /// quick rows do not cover (F29). The empty state deliberately does not
+  /// repeat that button; this sentence is the pointer instead.
+  String get reminderEmptyScanHint;
+
+  // An empty «الفائتة» or «المكتملة» while the library itself is not empty
+  // (F29-T10). Each is a title plus a sentence, and each ends in a way back
+  // to «القادمة» — a bucket with nothing in it used to be one grey line with
+  // nowhere to go.
   String get reminderEmptyMissedTitle;
+  String get reminderEmptyMissedSubtitle;
   String get reminderEmptyCompletedTitle;
+  String get reminderEmptyCompletedSubtitle;
+  String get reminderEmptyBackToUpcoming;
 
   /// The list card's own status pill — also the details screen's (F09-T12).
   String get reminderStatusUpcoming;
