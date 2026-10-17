@@ -13,6 +13,12 @@ import '../entities/tts_event.dart';
 abstract interface class TextToSpeechService {
   /// Speaks [text], replacing whatever is currently speaking.
   ///
+  /// Answers only once the engine has taken the utterance — not when the
+  /// reading ends. An engine that declines it, or never answers at all, is a
+  /// failure and not a quiet success (F30-T09): the caller turns an `Ok`
+  /// into a mini-player, and a bar over a silent engine never goes away
+  /// (F30 RC-3).
+  ///
   /// Failures:
   /// - [TtsFailure] — the engine could not start speaking.
   Future<Result<void, AppFailure>> speak(String text);

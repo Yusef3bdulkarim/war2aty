@@ -108,15 +108,63 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
     };
   }
 
+  /// The longest the engine may take to *accept* an utterance (F30-T09).
+  ///
+  /// Not how long a reading may take: with `awaitSpeakCompletion` left off —
+  /// this app never turns it on — the platform answers as soon as it has
+  /// taken the text, which is immediate on a warm engine (F30-T06 makes sure
+  /// it is warm). Generous on purpose, because one of the two refusals below
+  /// recovers by itself and is worth waiting out.
+  static const _acceptanceBound = Duration(seconds: 5);
+
   @override
   Future<Result<void, AppFailure>> speak(String text) async {
     try {
       _lastSpokenText = text;
-      await _tts.speak(text);
+      // `1` means the platform took the utterance; `0` means it declined it
+      // — on iOS, a paused synthesizer that would not continue. Anything
+      // else is not an answer we know how to trust, and before T09 all of
+      // them returned `Ok`.
+      final accepted = await _tts
+          .speak(text)
+          .timeout(_acceptanceBound, onTimeout: () => null);
+      if (accepted != 1) return _couldNotSpeak(text);
       return const Ok(null);
     } on Object {
-      return const Err(TtsFailure());
+      return _couldNotSpeak(text);
     }
+  }
+
+  /// The engine never took [text], so nothing is being read (F30-T09).
+  ///
+  /// Reported rather than swallowed, because the caller's `Ok` used to
+  /// become an `AudioReaderReading`: the mini-player appeared over an engine
+  /// that was saying nothing, and since no completion event was coming
+  /// either, it stayed there (F30 RC-3).
+  ///
+  /// On Android the refusal does not arrive as an answer at all. The plugin
+  /// parks the call and re-runs it the next time the engine initialises, so
+  /// the future simply never completes — which is why [_acceptanceBound] is
+  /// here. Two things reach it: an engine whose service connection had gone
+  /// stale, where the plugin builds a new engine and the parked call then
+  /// succeeds on its own, usually well inside the bound; and a native
+  /// `speak()` that failed outright, most often text longer than
+  /// `getMaxSpeechInputLength` (4000 characters), where nothing re-triggers
+  /// initialisation and the call would hang for the rest of the session.
+  /// T15's chunking removes that second trigger; this keeps the screen
+  /// honest in the meantime.
+  ///
+  /// The one case the bound cannot cover: a parked call that lands *after*
+  /// it starts the engine speaking with the bar already gone, so there is
+  /// nothing on screen to stop it with. That is why five seconds and not
+  /// one — the self-healing case has to finish inside the bound, not race
+  /// it.
+  Result<void, AppFailure> _couldNotSpeak(String text) {
+    // Only if nothing else has started since: a second tap that is already
+    // reading must keep its own text for [resume] to replay.
+    if (_lastSpokenText == text) _lastSpokenText = null;
+    _logger.failure(const TtsFailure());
+    return const Err(TtsFailure());
   }
 
   @override

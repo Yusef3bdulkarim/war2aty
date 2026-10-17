@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_tts/flutter_tts.dart' as ft;
 import 'package:war2aty/core/audio/tts_error_code.dart';
@@ -5,6 +7,7 @@ import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/logging/app_logger.dart';
 import 'package:war2aty/core/logging/log_event.dart';
+import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
@@ -347,7 +350,7 @@ void main() {
 
       final failure = built.failureFrom('Error from TextToSpeech (speak)');
 
-      expect(await failure, const TtsFailed(code: TtsErrorCode.unknown));
+      expect((await failure as TtsFailed).code, TtsErrorCode.unknown);
       expect(TtsErrorCode.unknown.isTransient, isTrue);
     });
 
@@ -356,7 +359,7 @@ void main() {
 
       final failure = built.failureFrom('Error from TextToSpeech (speak) - -1');
 
-      expect(await failure, const TtsFailed(code: TtsErrorCode.unknown));
+      expect((await failure as TtsFailed).code, TtsErrorCode.unknown);
     });
 
     test('a payload that is not a message at all is unknown', () async {
@@ -364,12 +367,95 @@ void main() {
 
       final failure = built.failureFrom(const <String, String>{});
 
-      expect(await failure, const TtsFailed(code: TtsErrorCode.unknown));
+      expect((await failure as TtsFailed).code, TtsErrorCode.unknown);
     });
   });
 
   // The other half of RC-2: none of this reached F27's logging, so
   // production could not see it at all.
+  // F30-T09. The wrapper threw the answer away and returned `Ok`, so the
+  // cubit put a mini-player over an engine that was saying nothing — and
+  // with no completion event coming either, the bar stayed (F30 RC-3).
+  group('FlutterTtsTextToSpeechService honours what speak() answers', () {
+    test('an utterance the engine takes is a success', () async {
+      final tts = _SpeakingFlutterTts(answer: 1);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
+
+      expect((await service.speak('ورقة')).failureOrNull, isNull);
+      expect(tts.spoken, ['ورقة']);
+    });
+
+    test('an utterance the engine declines is a failure, not a silent '
+        'success', () async {
+      // `0` is iOS's answer when a paused synthesizer will not continue.
+      final service = FlutterTtsTextToSpeechService(
+        _RecordingLogger(),
+        _SpeakingFlutterTts(answer: 0),
+      );
+
+      expect((await service.speak('ورقة')).failureOrNull, isA<TtsFailure>());
+    });
+
+    test(
+      'an answer that is not one of the engine\'s own is not trusted',
+      () async {
+        final service = FlutterTtsTextToSpeechService(
+          _RecordingLogger(),
+          _SpeakingFlutterTts(answer: null),
+        );
+
+        expect((await service.speak('ورقة')).failureOrNull, isA<TtsFailure>());
+      },
+    );
+
+    test('a declined utterance leaves nothing for resume to replay', () async {
+      // Otherwise «استكمال القراءة» would replay a reading that never
+      // started.
+      final tts = _SpeakingFlutterTts(answer: 0);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
+
+      await service.speak('ورقة');
+      final resumed = await service.resume();
+
+      expect(resumed.failureOrNull, isNull);
+      expect(tts.spoken, ['ورقة']);
+    });
+
+    test('a refusal is logged, so production can see a reading that never '
+        'started', () async {
+      final logger = _RecordingLogger();
+      final service = FlutterTtsTextToSpeechService(
+        logger,
+        _SpeakingFlutterTts(answer: 0),
+      );
+
+      await service.speak('ورقة');
+
+      expect(logger.codes, ['TTS']);
+    });
+
+    // On Android a refusal is not an answer at all: the plugin parks the
+    // call and re-runs it on the next engine initialisation, which for a
+    // native `speak()` that failed outright — text over
+    // `getMaxSpeechInputLength` — never comes.
+    testWidgets('a call the engine never answers is reported once the '
+        'bound passes', (tester) async {
+      final service = FlutterTtsTextToSpeechService(
+        _RecordingLogger(),
+        _SpeakingFlutterTts.silent(),
+      );
+
+      Result<void, AppFailure>? outcome;
+      unawaited(service.speak('ورقة').then((result) => outcome = result));
+      await tester.pump(const Duration(seconds: 4));
+      expect(outcome, isNull, reason: 'a slow engine is waited out, not cut');
+
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(outcome?.failureOrNull, isA<TtsFailure>());
+    });
+  });
+
   group('FlutterTtsTextToSpeechService logs the engine\'s error', () {
     test('the classified code is recorded, never the message', () async {
       final built = _reportingService();
@@ -500,4 +586,29 @@ final class _RecordingLogger implements AppLogger {
 
   List<String?> get codes =>
       events.map((e) => e.toLogMap()['errorCode'] as String?).toList();
+}
+
+/// `FlutterTts` whose `speak` answers however the test needs it to — or,
+/// [_SpeakingFlutterTts.silent], never answers at all, the way the Android
+/// plugin leaves a parked call.
+final class _SpeakingFlutterTts extends ft.FlutterTts {
+  _SpeakingFlutterTts({required Object? answer})
+    : _answer = answer,
+      _answers = true;
+
+  _SpeakingFlutterTts.silent() : _answer = null, _answers = false;
+
+  final Object? _answer;
+
+  /// Whether the platform answers at all — false is the parked call.
+  final bool _answers;
+  final List<String> spoken = [];
+
+  @override
+  Future<dynamic> speak(String text, {bool focus = false}) {
+    spoken.add(text);
+    return _answers
+        ? Future<Object?>.value(_answer)
+        : Completer<Object?>().future;
+  }
 }

@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 10 / 22
+- **Progress:** 11 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -84,6 +84,34 @@ Our wrapper ignores the result and returns `Ok`, so the cubit emits
 `AudioReaderReading`: the bar appears, nothing is spoken, and because no
 `TtsCompleted` ever arrives, **the bar never goes away**. Nothing in `lib/`
 calls `getMaxSpeechInputLength`, so `readAll` on a long paper has no guard.
+
+**Corrected in T09, from the plugin's own source (flutter_tts 4.2.5).** The
+Android side does not return `false` in either case. Its private `speak()`
+returns false, and `onMethodCall` then **parks the whole call** in
+`pendingMethodCalls` and returns *without answering the channel at all*, to
+re-run it the next time the engine initialises. So `await tts.speak(text)`
+does not resolve false — it **never resolves**. Which is worse than the
+description above, and differently shaped:
+
+- **Service connection stale** — the plugin builds a new `TextToSpeech`, its
+  `onInit` fires, the parked call re-runs and usually succeeds. Self-healing,
+  typically in well under a second, and worth waiting out rather than
+  failing.
+- **Native `speak()` failed outright** (the >4000-character case) — the
+  connection was fine, so no new engine is built, so **no `onInit` will ever
+  fire** and the call is parked for the rest of the session. The reading hangs
+  with no bar, no error and no recovery.
+
+`0` *is* returned, but for other things: iOS answers `0` when a paused
+synthesizer will not continue, and Android answers `0` when it is already
+speaking in `QUEUE_FLUSH` mode — unreachable here, since that needs
+`awaitSpeakCompletion`, which this app never turns on. `1` is the only
+answer that means the utterance was taken.
+
+T09 therefore does two things rather than one: it treats any answer but `1`
+as a failure, and bounds the wait at 5 seconds so the second case above
+becomes a reported failure instead of a reading that never starts. T15's
+chunking removes that case's trigger; the bound stays as the floor under it.
 
 ### RC-4 · One voice for the whole utterance; no language segmentation
 
@@ -223,7 +251,7 @@ preceded this doc.
 | 8 | F30-T06 | Warm the engine when the result screen mounts, so the first tap is not the cold start | RC-6 | DONE 2026-10-17 |
 | 9 | F30-T07 | Detect "no Arabic voice on this device", surface it as a real explained failure, route to system TTS settings | RC-1 | DONE 2026-10-17 |
 | 10 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | DONE 2026-10-17 |
-| 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | TODO |
+| 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | DONE 2026-10-17 |
 | 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | TODO |
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | TODO |
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |

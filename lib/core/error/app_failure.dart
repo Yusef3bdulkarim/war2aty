@@ -90,9 +90,10 @@ final class NotificationSchedulingFailure extends LocalFailure {
 /// The reader could not speak, and trying again might still work.
 ///
 /// [code] is the engine's own reason, when the engine gave one (F30-T08):
-/// `null` for the wrapper's own exception paths, where nothing was reported
-/// at all, and otherwise a [TtsErrorCode] whose [TtsErrorCode.isTransient] is
-/// true — the permanent ones are [TtsEngineUnavailableFailure] instead.
+/// `null` where it reported nothing at all — it threw, or it simply would
+/// not take the utterance (F30-T09) — and otherwise a [TtsErrorCode] whose
+/// [TtsErrorCode.isTransient] is true; the permanent ones are
+/// [TtsEngineUnavailableFailure] instead.
 /// Either way the user is told «حصلت مشكلة. جرّب تاني.»; the code exists so
 /// the log line says which of them it was, which before T08 it could not
 /// (F30 RC-2).
