@@ -21,12 +21,12 @@ final class StartRawReading {
 
   final ReadingQueue _queue;
 
-  Future<Result<int, AppFailure>> call({required String text}) async {
-    final normalized = normalizeSpokenNumbers(text).trim();
-    // The queue refuses an empty reading too, but an OCR review screen with
-    // nothing on it is the one place a caller can realistically ask for one,
-    // so it is named here rather than left to be inferred.
-    if (normalized.isEmpty) return const Err(TtsFailure());
-    return _queue.speak(normalized);
-  }
+  /// An empty reading is the queue's to refuse — the OCR review screen can
+  /// ask for one when the page came back blank, and the queue answers the
+  /// same `TtsFailure` whether the emptiness arrived from here or from a
+  /// reading mode with no content. Checking it here as well would be a second
+  /// path to the same answer, and the one that skipped the queue would leave
+  /// a previous reading talking (F30-T11).
+  Future<Result<int, AppFailure>> call({required String text}) =>
+      _queue.speak(normalizeSpokenNumbers(text).trim());
 }

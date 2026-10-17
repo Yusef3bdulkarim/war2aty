@@ -73,8 +73,8 @@ _cubitFor({
     StartReading(const BuildReadingText(), queue),
     StartRawReading(queue),
     StopReading(queue),
-    PauseReading(tts),
-    ResumeReading(tts),
+    PauseReading(queue),
+    ResumeReading(queue),
     SetReadingSpeed(tts),
     WatchReadingEvents(queue),
     GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
@@ -756,6 +756,47 @@ void main() {
 
         expect(built.cubit.state, const AudioReaderIdle());
         expect(built.tts.spoken, const ['فاتورة', ' invoice', ' لازم تتدفع']);
+      },
+    );
+
+    test(
+      'pausing between two runs stops the device talking too (F30-T11)',
+      () async {
+        // The bar and the engine have to agree: a pause that lands in the
+        // gap between two runs used to pause an engine that was not
+        // speaking, so the next run started under a player that said paused.
+        final built = _cubitFor();
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+        await built.cubit.startRaw(
+          text: 'فاتورة invoice لازم تتدفع',
+          speed: ReadingSpeed.normal,
+        );
+        built.tts.emitEvent(const TtsStarted());
+        await Future<void>.delayed(Duration.zero);
+
+        await built.cubit.pause();
+        built.tts.emitEvent(const TtsCompleted());
+        for (var turn = 0; turn < 4; turn++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        expect(
+          built.cubit.state,
+          isA<AudioReaderReading>().having(
+            (state) => state.isPaused,
+            'isPaused',
+            isTrue,
+          ),
+        );
+        expect(built.tts.spoken, const ['فاتورة']);
+
+        await built.cubit.resume();
+        for (var turn = 0; turn < 4; turn++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        expect(built.tts.spoken, const ['فاتورة', ' invoice']);
       },
     );
 

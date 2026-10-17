@@ -19,13 +19,24 @@ import 'text_to_speech_service.dart';
 /// with English words in it was one utterance in one voice, and whichever
 /// script lost got named character by character.
 ///
-/// **Everything that speaks goes through here.** The queue is what the
-/// engine's events are read against, so a `speak` issued behind its back
-/// would have its completion taken for the end of a run and advance someone
-/// else's reading. The one exception is the voice preview in Settings
+/// **Everything that plays goes through here** — speaking, pausing, resuming
+/// and stopping. The queue is what the engine's events are read against, so a
+/// `speak` issued behind its back would have its completion taken for the end
+/// of a run and advance someone else's reading, and a `pause` issued behind
+/// its back would be a player that says paused while the next run talks over
+/// it. The one exception is the voice preview in Settings
 /// (`PreviewDefaultVoice`), which previews a specific voice rather than
 /// reading a paper — see [_onEngineEvent]'s cancel case for what keeps that
 /// honest.
+///
+/// Two invariants hold across every path in here, and the tests assert both:
+///
+/// * **Either the reading is installed and playing, or nothing is installed
+///   and the engine is silent.** A [speak] that fails never leaves the
+///   previous reading talking on under a screen that is about to show a
+///   failure.
+/// * **Nothing is spoken while the player is paused.** A run that comes due
+///   during a pause is parked, and [resume] is what lets it go.
 ///
 /// Driven by completion events rather than `QUEUE_ADD` (F30 locked decision
 /// 6): whether Android captures a per-utterance voice at queue time is
@@ -35,13 +46,13 @@ import 'text_to_speech_service.dart';
 /// F30-T12 spikes `QUEUE_ADD` on a real device and adopts it only if the
 /// voice is honoured per utterance.
 ///
-/// Stateful, and therefore the one thing in this layer that is not a
-/// value or a pure function: it is registered as a lazy singleton because
-/// the engine it drives is itself a single shared resource, and two queues
-/// over one engine would each take the other's completions for their own.
-/// It holds no platform dependency — only [TextToSpeechService], the same
-/// interface every other use case here depends on — so the domain layer
-/// stays free of plugins.
+/// Stateful, and therefore the one thing in this layer that is not a value or
+/// a pure function: it is registered as a lazy singleton because the engine
+/// it drives is itself a single shared resource, and two queues over one
+/// engine would each take the other's completions for their own. It holds no
+/// platform dependency — only [TextToSpeechService], the same interface every
+/// other use case here depends on — so the domain layer stays free of
+/// plugins.
 final class ReadingQueue {
   ReadingQueue(this._tts, this._segment, this._selectVoice) {
     // Subscribed for as long as this object lives, which is as long as the
@@ -66,23 +77,46 @@ final class ReadingQueue {
   int _index = 0;
 
   /// Where the utterance now speaking begins in the whole reading, in UTF-16
-  /// code units — what turns the engine's per-utterance progress offsets
-  /// into offsets into the reading. Held as a field rather than read off
+  /// code units — what turns the engine's per-utterance progress offsets into
+  /// offsets into the reading. Held as a field rather than read off
   /// [_utterances] so an event arriving after the queue was cleared cannot
   /// index an empty list.
   int _offset = 0;
 
-  /// Whether the engine has reported that the utterance last handed to it
-  /// began. See [_onEngineEvent]'s cancel case, which is the only thing that
-  /// reads it.
+  /// Whether the engine has reported that the utterance last handed to it is
+  /// speaking. See [_onEngineEvent]'s cancel case, which is the only thing
+  /// that reads it.
   bool _currentStarted = false;
 
-  /// Bumped every time a caller claims the engine — by [speak] and by
-  /// [stop]. An asynchronous step that was already in flight when that
-  /// happened compares against the value it captured and stands down, so a
-  /// reading the user has moved on from cannot speak its next run over the
-  /// one they asked for instead (the same rule `OcrReviewCubit` follows for
-  /// answers to requests the user left behind, F20 §4).
+  /// Whether the player is paused. Nothing is handed to the engine while this
+  /// is set — see [_parked].
+  bool _paused = false;
+
+  /// The run that came due while the player was paused, waiting for
+  /// [resume].
+  ///
+  /// This is the gap the queue created and that nothing else could close: a
+  /// pause that lands *between* two runs pauses an engine that is not
+  /// speaking, so the engine has nothing to continue later and reports
+  /// nothing now. Without parking the next run, the player would either talk
+  /// under a paused bar or never speak again.
+  _Utterance? _parked;
+
+  /// Whether a hand-over is in flight — between choosing an utterance and the
+  /// engine accepting it.
+  ///
+  /// Nothing of this queue's is speaking during that window, so a completion
+  /// arriving in it belongs to something else: the reading a [speak] is in
+  /// the middle of replacing, or an engine reporting one utterance twice.
+  /// Acting on it would advance the queue by two and skip a run.
+  bool _handingOver = false;
+
+  /// Bumped every time a caller claims the engine — by [speak] and by [stop].
+  /// An asynchronous step that was already in flight when that happened
+  /// compares against the value it captured and stands down, so a reading the
+  /// user has moved on from cannot speak its next run over the one they asked
+  /// for instead (the same rule `OcrReviewCubit` follows for answers to
+  /// requests the user left behind, F20 §4).
   int _generation = 0;
 
   /// The reading's lifecycle, rather than the engine's (F30-T11).
@@ -94,9 +128,9 @@ final class ReadingQueue {
   ///   completion is a [TtsCompleted], because only that one means the
   ///   reading is over — the mini-player closes on it (F10-T08).
   /// * [TtsProgressed]'s offsets are moved into the whole reading's
-  ///   coordinates. The engine counts them from the start of the utterance
-  ///   it is speaking; a consumer measuring progress against the length of
-  ///   the *reading* would otherwise see the fraction restart at every run.
+  ///   coordinates. The engine counts them from the start of the utterance it
+  ///   is speaking; a consumer measuring progress against the length of the
+  ///   *reading* would otherwise see the fraction restart at every run.
   Stream<TtsEvent> get events => _readingEvents.stream;
 
   /// Speaks [text], replacing whatever was reading before.
@@ -107,42 +141,87 @@ final class ReadingQueue {
   /// its own; a later run that the engine refuses is reported as a
   /// [TtsFailed] on [events], since by then there is no call left to answer.
   ///
-  /// Answers with [text]'s own length in UTF-16 code units, the unit
-  /// [events]' progress offsets are now measured in.
+  /// Answers with [text]'s own length in UTF-16 code units, the unit [events]'
+  /// progress offsets are now measured in.
+  ///
+  /// Every failure here leaves the engine silent and nothing installed, and
+  /// that is the point of [_abandon]: the caller is about to replace a player
+  /// with an error, and a reading the user has already been told has failed
+  /// must not still be talking behind it.
   ///
   /// Failures:
   /// - [NoArabicVoiceFailure] — the reading is mostly Arabic and the device
   ///   has no Arabic voice at all (F30-T07). Decided on the whole reading
-  ///   rather than per run on purpose: a mostly-English paper with one
-  ///   Arabic word in it still reads usefully in an English voice, and
-  ///   refusing it outright over that one word would be worse than mangling
-  ///   it. What RC-1 is about is the other case — a mostly-Arabic paper
-  ///   handed to an English voice produces nothing audible at all.
-  /// - [TtsFailure] — there was nothing to speak, or the engine would not
-  ///   take the first utterance.
+  ///   rather than per run on purpose: a mostly-English paper with one Arabic
+  ///   word in it still reads usefully in an English voice, and refusing it
+  ///   outright over that one word would be worse than mangling it. What RC-1
+  ///   is about is the other case — a mostly-Arabic paper handed to an English
+  ///   voice produces nothing audible at all.
+  /// - [TtsFailure] — there was nothing to speak, or the engine would not take
+  ///   the first utterance.
   Future<Result<int, AppFailure>> speak(String text) async {
+    // Claimed before the first check, not after: every path below ends either
+    // with this reading installed or with nothing installed, and a run of the
+    // previous reading that is mid-hand-over has to stand down either way.
+    final generation = ++_generation;
+
     // An empty utterance behaves differently on every engine, so it is never
     // sent (F30 "Secondary"). F30-T19 is what stops a mode with no content
     // being offered in the first place.
-    if (text.trim().isEmpty) return const Err(TtsFailure());
+    if (text.trim().isEmpty) return Err(await _abandon(const TtsFailure()));
 
-    final generation = ++_generation;
     final runs = _segment(text);
-    // Cached since F30-T04, so this is not the round trip per reading it
-    // used to be (F30 RC-6).
+    // Cached since F30-T04, so this is not the round trip per reading it used
+    // to be (F30 RC-6).
     final voices = (await _tts.getVoices()).valueOrNull ?? const <TtsVoice>[];
-    if (_noVoiceForAnArabicReading(text, voices)) {
-      return const Err(NoArabicVoiceFailure());
-    }
-    // Somebody else claimed the engine while the voices were being fetched.
-    // Not a failure to report: their reading is the one the user asked for,
-    // and theirs is the answer that counts.
     if (_generation != generation) return Ok(text.length);
+    if (_noVoiceForAnArabicReading(text, voices)) {
+      return Err(await _abandon(const NoArabicVoiceFailure()));
+    }
 
-    _utterances = _queueFor(runs, voices);
-    _index = 0;
+    _install(_queueFor(runs, voices));
     final outcome = await _handOver(_utterances.first, generation);
-    return outcome.map((_) => text.length);
+    // Somebody else claimed the engine while this was being handed over. Not
+    // ours to report on and not ours to silence: their reading is the one the
+    // user asked for.
+    if (_generation != generation) return Ok(text.length);
+    if (outcome.failureOrNull case final failure?) {
+      return Err(await _abandon(failure));
+    }
+    return Ok(text.length);
+  }
+
+  /// Pauses the reading where it is, including between two runs.
+  ///
+  /// Sets the flag before asking the engine, so a run that comes due while
+  /// the pause is being applied is parked rather than spoken. A pause the
+  /// engine refuses puts the flag back: the reading is still playing, and a
+  /// queue that thought otherwise would fall silent at the end of the current
+  /// run.
+  Future<Result<void, AppFailure>> pause() async {
+    _paused = true;
+    final outcome = await _tts.pause();
+    if (outcome.failureOrNull != null) _paused = false;
+    return outcome;
+  }
+
+  /// Resumes a reading previously [pause]d.
+  ///
+  /// Either the engine still has the run it was speaking — and continues it,
+  /// which on Android means a fresh utterance covering the remainder
+  /// (F10-T08) — or the pause landed between two runs and the one that came
+  /// due was parked, in which case resuming is what finally speaks it.
+  Future<Result<void, AppFailure>> resume() async {
+    final parked = _parked;
+    _paused = false;
+    _parked = null;
+    if (parked == null) return _tts.resume();
+
+    final outcome = await _handOver(parked, _generation);
+    if (outcome.failureOrNull case final failure?) {
+      return Err(await _abandon(failure));
+    }
+    return const Ok(null);
   }
 
   /// Stops the reading and drops the runs it had not reached yet.
@@ -160,34 +239,52 @@ final class ReadingQueue {
 
   /// Hands one utterance to the engine, after switching to its voice.
   ///
-  /// The voice switch is best-effort, the same as it has been since F10-T07:
-  /// a `setVoice` that fails leaves the engine on whatever voice it had, and
+  /// The voice switch is best-effort, the same as it has been since F10-T07: a
+  /// `setVoice` that fails leaves the engine on whatever voice it had, and
   /// that is not worth losing a reading over.
+  ///
+  /// Answers `Ok` without speaking when the user has moved on or paused in the
+  /// middle of it — neither is a failure, and in the paused case the utterance
+  /// is kept for [resume] rather than dropped.
   Future<Result<void, AppFailure>> _handOver(
     _Utterance utterance,
     int generation,
   ) async {
-    _currentStarted = false;
-    _offset = utterance.offset;
-    if (utterance.voice case final voice?) await _tts.setVoice(voice);
-    // Checked after the voice switch and before speaking, so a [stop] that
-    // lands in the middle of it does not get a run spoken over it.
-    if (_generation != generation) return const Ok(null);
-    return _tts.speak(utterance.text);
+    _handingOver = true;
+    try {
+      _currentStarted = false;
+      _offset = utterance.offset;
+      if (utterance.voice case final voice?) await _tts.setVoice(voice);
+      // Both checked after the voice switch and before speaking, so a [stop]
+      // or a [pause] that lands in the middle of it does not get a run spoken
+      // over it.
+      if (_generation != generation) return const Ok(null);
+      if (_paused) {
+        _parked = utterance;
+        return const Ok(null);
+      }
+      // Awaited rather than returned, so [_handingOver] stays set until the
+      // engine has actually taken the utterance — that window is the whole
+      // point of the flag.
+      return await _tts.speak(utterance.text);
+    } finally {
+      _handingOver = false;
+    }
   }
 
   /// Speaks the run after the one that just finished.
   ///
-  /// Nothing awaits this — the engine's completion event is what triggered
-  /// it — so a failure here has no call to answer and is published on
-  /// [events] instead. It reads as retryable: a run the engine would not
-  /// take is the same kind of refusal a first run's would have been, and
-  /// «جرّب تاني» is the right offer.
+  /// Nothing awaits this — the engine's completion event is what triggered it
+  /// — so a failure here has no call to answer and is published on [events]
+  /// instead. It reads as retryable: a run the engine would not take is the
+  /// same kind of refusal a first run's would have been, and «جرّب تاني» is
+  /// the right offer.
   Future<void> _advanceTo(_Utterance utterance, int generation) async {
     final outcome = await _handOver(utterance, generation);
     if (_generation != generation) return;
     if (outcome.failureOrNull != null) {
       _clear();
+      unawaited(_tts.stop());
       _readingEvents.add(const TtsFailed());
     }
   }
@@ -202,18 +299,33 @@ final class ReadingQueue {
         // nothing the consumer did not already know about.
         if (_index == 0) _readingEvents.add(event);
 
+      case TtsContinued():
+        // Also a report that the current utterance is speaking — Android
+        // sends this instead of a start for the first utterance after a
+        // pause, including the first run of a reading begun while the engine
+        // was left paused.
+        _currentStarted = true;
+        _readingEvents.add(event);
+
       case TtsProgressed(:final start, :final end):
         _readingEvents.add(
           TtsProgressed(start: _offset + start, end: _offset + end),
         );
 
       case TtsCompleted():
+        // Not this queue's to act on: see [_handingOver].
+        if (_handingOver) return;
         final next = _index + 1;
         if (next < _utterances.length) {
           _index = next;
           // Read out of the list here, while it is known to be in range,
           // rather than inside the asynchronous step below.
-          unawaited(_advanceTo(_utterances[next], _generation));
+          final utterance = _utterances[next];
+          if (_paused) {
+            _parked = utterance;
+            return;
+          }
+          unawaited(_advanceTo(utterance, _generation));
           return;
         }
         _clear();
@@ -226,19 +338,18 @@ final class ReadingQueue {
         _readingEvents.add(event);
 
       case TtsCancelled():
-        // A cancel is not only what a [stop] produces. The engine reports
-        // one for the utterance a *newly* started reading just flushed, and
-        // that one arrives after the new reading is already installed — so
-        // clearing on every cancel would throw away the queue of the
-        // reading the user just asked for. A cancel that interrupts a run
-        // the engine had told us began is the other kind: something outside
-        // this queue took the engine (the Settings voice preview is the one
-        // thing that can), and the runs behind it are not going to be read.
+        // A cancel is not only what a [stop] produces. The engine reports one
+        // for the utterance a *newly* started reading just flushed, and that
+        // one arrives after the new reading is already installed — so
+        // clearing on every cancel would throw away the queue of the reading
+        // the user just asked for. A cancel that interrupts a run the engine
+        // had told us was speaking is the other kind: something outside this
+        // queue took the engine (the Settings voice preview is the one thing
+        // that can), and the runs behind it are not going to be read.
         if (_currentStarted) _clear();
         _readingEvents.add(event);
 
       case TtsPaused():
-      case TtsContinued():
         _readingEvents.add(event);
     }
   }
@@ -246,12 +357,12 @@ final class ReadingQueue {
   /// One utterance per run, each knowing where it starts in the reading and
   /// which voice reads it.
   ///
-  /// A run whose language the device has no voice for keeps `null` and is
-  /// read in whatever voice the engine already had — today that means an
-  /// English run on a device with no English voice is still named
-  /// letter-by-letter, which is exactly what F30-T17's transliteration
-  /// fallback is for. Dropping the run instead would be worse: it would read
-  /// the paper with a piece of it missing and say nothing about it.
+  /// A run whose language the device has no voice for keeps `null` and is read
+  /// in whatever voice the engine already had — today that means an English
+  /// run on a device with no English voice is still named letter-by-letter,
+  /// which is exactly what F30-T17's transliteration fallback is for. Dropping
+  /// the run instead would be worse: it would read the paper with a piece of
+  /// it missing and say nothing about it.
   List<_Utterance> _queueFor(List<LanguageRun> runs, List<TtsVoice> voices) {
     final utterances = <_Utterance>[];
     var offset = 0;
@@ -281,6 +392,25 @@ final class ReadingQueue {
       _selectVoice.languageFor(text) == ReadingLanguage.arabic &&
       _selectVoice(text, voices) == null;
 
+  /// Installs a reading, from a clean slate — a new reading is never paused
+  /// and never inherits a parked run from the one before it.
+  void _install(List<_Utterance> utterances) {
+    _clear();
+    _utterances = utterances;
+  }
+
+  /// Gives up the reading and leaves the engine silent, answering with
+  /// [failure] so the caller can report it.
+  ///
+  /// A `stop` that itself fails is not reported over the failure that brought
+  /// us here: the caller asked for a reading, and that is the answer it is
+  /// owed.
+  Future<AppFailure> _abandon(AppFailure failure) async {
+    _clear();
+    await _tts.stop();
+    return failure;
+  }
+
   /// Forgets the installed reading. Does **not** touch [_generation]: a
   /// [speak] that is mid-flight has already claimed it, and invalidating it
   /// here would stand that reading down before it ever spoke.
@@ -289,6 +419,8 @@ final class ReadingQueue {
     _index = 0;
     _offset = 0;
     _currentStarted = false;
+    _paused = false;
+    _parked = null;
   }
 }
 

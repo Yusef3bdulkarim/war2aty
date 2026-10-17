@@ -256,7 +256,7 @@ preceded this doc.
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | DONE 2026-10-17 |
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
-| 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO |
+| 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO — code landed in T11; device pass left |
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
@@ -315,25 +315,59 @@ settled, rather than being assumed:
 - `onDone` clears the plugin's `pauseText`, so speaking the next run is clean —
   no interference with Android's resume-the-remainder mechanism.
 
-**What this leaves T13 and T14.** Progress already spans the queue, and F10-T08's
-high-water mark still does its job — Android's resume gives a fresh utterance
-covering the remainder of the *run*, whose shifted offsets land below the peak
-and are clamped exactly as before — so T13 looks closer to "verify and test"
-than to rework. T14 has a real new case, created by the queue: a pause that
-lands in the **gap between two runs** pauses an engine that is not speaking, so
-the bar says paused and the next run starts anyway. It cannot be fixed from the
-event stream (nothing was speaking, so no `TtsPaused` is reported) — it needs
-`PauseReading` routed through the queue, which is T14's own scope, so it is
-recorded here rather than half-built.
+**Two invariants, asserted across the queue's tests.** The owner asked (same
+day, after the first pass) for every gap the queue opened to be closed rather
+than deferred, so pause and resume went through it as well:
+
+1. *Either the reading is installed and playing, or nothing is installed and
+   the engine is silent.* Every `speak` that answers with an `Err` — nothing to
+   say, no Arabic voice, a first utterance the engine refuses — clears the
+   queue and stops the engine before it answers. Before that, a new reading
+   that failed before speaking left the **previous** one talking on under a
+   screen that was about to show «حصلت مشكلة»; as one long utterance that was
+   already true, and the queue would have made it last through every remaining
+   run. A `speak` that another `speak` superseded is the one failure-shaped
+   case that silences nothing: the newer reading is the one the user asked for.
+2. *Nothing is spoken while the player is paused.* A pause landing in the
+   **gap between two runs** pauses an engine that is not speaking, so it
+   reports nothing then and has nothing to continue later: the next run used to
+   start under a bar that said paused, and after that the reading could not be
+   resumed at all, because the plugin had already cleared the text `resume`
+   replays. The queue parks a run that comes due while paused — including one
+   caught mid-hand-over, between the voice switch and the utterance — and
+   `resume` either continues what the engine still holds or speaks the parked
+   run itself.
+
+A completion arriving while a hand-over is in flight is also ignored now:
+nothing of the queue's is speaking between choosing an utterance and the engine
+accepting it, so such a completion belongs to the reading being replaced, or to
+an engine reporting one utterance twice — and acting on it would advance the
+queue by two and skip a run. And a `TtsContinued` counts as the current run
+speaking, the same as a start, because Android reports a continue rather than a
+start for the first utterance after a pause.
+
+**What this leaves T13 and T14.** Progress already spans the queue, and
+F10-T08's high-water mark still does its job — Android's resume gives a fresh
+utterance covering the remainder of the *run*, whose shifted offsets land below
+the peak and are clamped exactly as before — so T13 looks closer to "verify and
+test" than to rework. T14's substance landed here with the two invariants
+above: `PauseReading`, `ResumeReading` and `StopReading` all go through the
+queue, and pause/resume/stop are covered between runs, mid-run and
+mid-hand-over. What is left for it is the device pass — the gap between runs,
+and Android's resume-the-remainder behaviour, as heard rather than as unit
+tested — and whatever F30-T12's `QUEUE_ADD` spike changes about the gap.
 
 **Accepted for now:** an English run on a device with no English voice is still
 named letter-by-letter — it is spoken with whatever voice the engine had rather
-than dropped, which is what T17's transliteration fallback is for. And the
+than dropped, which is what T17's transliteration fallback is for. The
 `NoArabicVoiceFailure` refusal stays a whole-reading decision, not a per-run
 one: a mostly-English paper with one Arabic word in it still reads usefully in
 an English voice, and refusing it over that word would be worse than mangling
 it. RC-1 is the other case — a mostly-Arabic paper in an English voice makes no
-sound at all.
+sound at all. And `PreviewDefaultVoice` still speaks straight to the engine
+rather than through the queue, because it previews one specific voice rather
+than reading a paper; the cancel rule above is what keeps it from advancing
+somebody else's reading.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,

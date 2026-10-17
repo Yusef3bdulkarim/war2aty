@@ -1566,9 +1566,16 @@ final class FakeTextToSpeechService implements TextToSpeechService {
     return setSpeechRateFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
+  /// Holds [setVoice] open until it is completed, so a test can stand inside
+  /// the queue's hand-over — between choosing an utterance and speaking it —
+  /// and see what happens if the user pauses or the engine reports something
+  /// in that window (F30-T11).
+  Completer<void>? setVoiceGate;
+
   @override
   Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async {
     voicesSet.add(voice);
+    if (setVoiceGate case final gate?) await gate.future;
     return setVoiceFails ? const Err(TtsFailure()) : const Ok(null);
   }
 

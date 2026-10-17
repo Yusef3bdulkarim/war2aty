@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -196,6 +198,162 @@ void main() {
     });
   });
 
+  // The first of the queue's two invariants: either the reading is installed
+  // and playing, or nothing is installed and the engine is silent. A caller
+  // that is told a reading failed is about to replace the player with an
+  // error, and the reading before it must not still be talking behind that.
+  group('ReadingQueue · a reading that fails leaves nothing talking', () {
+    test('a reading with nothing to say silences the one before it', () async {
+      await queue.speak(_mixed);
+
+      final outcome = await queue.speak('   ');
+
+      expect(outcome, const Err<int, AppFailure>(TtsFailure()));
+      expect(tts.stopCount, 1);
+      await completeUtterance();
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test('a missing Arabic voice silences the reading before it', () async {
+      await queue.speak(_mixed);
+      tts.voices = [_englishVoice];
+
+      final outcome = await queue.speak('فاتورة كهرباء');
+
+      expect(outcome, const Err<int, AppFailure>(NoArabicVoiceFailure()));
+      expect(tts.stopCount, 1);
+      await completeUtterance();
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test('the engine refusing the new reading silences the old one', () async {
+      await queue.speak(_mixed);
+      tts.speakFails = true;
+
+      final outcome = await queue.speak('فاتورة كهرباء');
+
+      expect(outcome, const Err<int, AppFailure>(TtsFailure()));
+      expect(tts.stopCount, 1);
+      tts.speakFails = false;
+      await completeUtterance();
+      expect(tts.spoken, [_mixedRuns.first, 'فاتورة كهرباء']);
+    });
+
+    test('a run refused mid-queue silences the engine as well', () async {
+      await queue.speak(_mixed);
+      tts.speakFails = true;
+      await completeUtterance();
+
+      expect(events.whereType<TtsFailed>(), const [TtsFailed()]);
+      expect(tts.stopCount, 1);
+    });
+
+    test('a reading another one superseded silences nothing', () async {
+      // Both in flight at once: the first stands down when it finds the
+      // engine claimed, and must not stop the reading that claimed it.
+      final first = queue.speak(_mixed);
+      final second = queue.speak('فاتورة تانية');
+
+      expect(await first, const Ok<int, AppFailure>(_mixed.length));
+      expect(await second, const Ok<int, AppFailure>(12));
+      expect(tts.stopCount, 0);
+      expect(tts.spoken, const ['فاتورة تانية']);
+    });
+  });
+
+  // The second invariant: nothing is spoken while the player is paused. The
+  // gap between two runs is what made this worth its own code — a pause
+  // landing there pauses an engine that is not speaking, so it has nothing to
+  // report now and nothing to continue later.
+  group('ReadingQueue · paused', () {
+    test('a run that comes due while paused waits for resume', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsStarted());
+      await settle();
+
+      await queue.pause();
+      await completeUtterance();
+
+      expect(tts.spoken, [_mixedRuns.first]);
+
+      expect(await queue.resume(), const Ok<void, AppFailure>(null));
+      await settle();
+      expect(tts.spoken, _mixedRuns.take(2));
+      // The engine had nothing paused to continue, so resuming was the
+      // hand-over itself and not a continue.
+      expect(tts.resumeCount, 0);
+    });
+
+    test('resuming a run the engine still holds continues it', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsStarted());
+      await settle();
+
+      await queue.pause();
+      await queue.resume();
+
+      expect(tts.pauseCount, 1);
+      expect(tts.resumeCount, 1);
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test('a pause the engine refuses does not hold the queue up', () async {
+      tts.pauseFails = true;
+      await queue.speak(_mixed);
+
+      expect(await queue.pause(), const Err<void, AppFailure>(TtsFailure()));
+      await completeUtterance();
+
+      // Still reading, as the engine still is.
+      expect(tts.spoken, _mixedRuns.take(2));
+    });
+
+    test(
+      'a pause mid-hand-over parks the run instead of speaking it',
+      () async {
+        await queue.speak(_mixed);
+        final gate = Completer<void>();
+        tts.setVoiceGate = gate;
+
+        // The completion starts the hand-over for the second run, which blocks
+        // on the voice switch; the user pauses inside that window.
+        tts.emitEvent(const TtsCompleted());
+        await settle();
+        await queue.pause();
+        gate.complete();
+        tts.setVoiceGate = null;
+        await settle();
+
+        expect(tts.spoken, [_mixedRuns.first]);
+
+        await queue.resume();
+        await settle();
+        expect(tts.spoken, _mixedRuns.take(2));
+      },
+    );
+
+    test('stopping while paused drops the run that was waiting', () async {
+      await queue.speak(_mixed);
+      await queue.pause();
+      await completeUtterance();
+
+      await queue.stop();
+      await queue.resume();
+      await settle();
+
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test('a new reading is never paused by the one before it', () async {
+      await queue.speak(_mixed);
+      await queue.pause();
+
+      await queue.speak('فاتورة تانية');
+
+      expect(tts.spoken, [_mixedRuns.first, 'فاتورة تانية']);
+    });
+  });
+
   group('ReadingQueue · being interrupted', () {
     test('stop drops the runs it had not reached', () async {
       await queue.speak(_mixed);
@@ -271,6 +429,49 @@ void main() {
 
         expect(tts.spoken, [_mixedRuns.first]);
         expect(events.whereType<TtsFailed>(), const [TtsFailed()]);
+      },
+    );
+
+    test(
+      'a continue counts as the run speaking, the same as a start',
+      () async {
+        // Android reports a continue rather than a start for the first
+        // utterance after a pause — including the first run of a reading begun
+        // while the engine was left paused. A queue that did not count it
+        // would then mistake an outsider's cancel for the flush of its own
+        // reading and keep queueing into an engine somebody else has.
+        await queue.speak(_mixed);
+        tts.emitEvent(const TtsContinued());
+        await settle();
+
+        tts.emitEvent(const TtsCancelled());
+        await settle();
+        await completeUtterance();
+
+        expect(tts.spoken, [_mixedRuns.first]);
+      },
+    );
+
+    test(
+      'a completion arriving during a hand-over is not a run of ours',
+      () async {
+        // Nothing of the queue's is speaking between choosing an utterance and
+        // the engine accepting it, so a completion in that window belongs to
+        // something else — the reading being replaced, or an engine reporting
+        // one utterance twice. Acting on it would skip a run.
+        await queue.speak(_mixed);
+        final gate = Completer<void>();
+        tts.setVoiceGate = gate;
+
+        tts.emitEvent(const TtsCompleted());
+        await settle();
+        tts.emitEvent(const TtsCompleted());
+        await settle();
+        gate.complete();
+        tts.setVoiceGate = null;
+        await settle();
+
+        expect(tts.spoken, _mixedRuns.take(2));
       },
     );
   });
