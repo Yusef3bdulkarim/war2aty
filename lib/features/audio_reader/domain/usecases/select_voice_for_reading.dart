@@ -1,4 +1,5 @@
 import '../../../../core/audio/tts_voice.dart';
+import '../entities/language_run.dart';
 
 /// Picks which of the device's [TtsVoice]s should read a piece of text aloud
 /// (F10-T07).
@@ -74,14 +75,25 @@ final class SelectVoiceForReading {
   /// dominates the text being read, not the whole document — and ties
   /// (including no letters at all, e.g. a purely numeric reading) fall to
   /// Arabic, the app's primary language.
+  ///
+  /// Counts through [ReadingLanguage.ofCodeUnit] since F30-T10 — it covers
+  /// the same two Arabic blocks the regexes here used to, and keeping one
+  /// definition of "what script is this character" means this and the
+  /// segmentation that now splits the reading up cannot disagree about where
+  /// a language starts.
   String _dominantScript(String text) {
-    final arabic = _arabicLetters.allMatches(text).length;
-    final latin = _latinLetters.allMatches(text).length;
+    var arabic = 0;
+    var latin = 0;
+    for (var i = 0; i < text.length; i++) {
+      switch (ReadingLanguage.ofCodeUnit(text.codeUnitAt(i))) {
+        case ReadingLanguage.arabic:
+          arabic++;
+        case ReadingLanguage.english:
+          latin++;
+        case null:
+          break;
+      }
+    }
     return arabic >= latin ? 'ar' : 'en';
   }
 }
-
-/// The Arabic and Arabic Supplement Unicode blocks, `U+0600`-`U+06FF` and
-/// `U+0750`-`U+077F` — covers the letters Egyptian documents are written in.
-final _arabicLetters = RegExp('[؀-ۿݐ-ݿ]');
-final _latinLetters = RegExp('[A-Za-z]');

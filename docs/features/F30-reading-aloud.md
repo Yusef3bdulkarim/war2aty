@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 11 / 22
+- **Progress:** 12 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -252,7 +252,7 @@ preceded this doc.
 | 9 | F30-T07 | Detect "no Arabic voice on this device", surface it as a real explained failure, route to system TTS settings | RC-1 | DONE 2026-10-17 |
 | 10 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | DONE 2026-10-17 |
 | 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | DONE 2026-10-17 |
-| 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | TODO |
+| 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | DONE 2026-10-17 |
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | TODO |
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
@@ -273,6 +273,19 @@ queue without losing that.
 T02 is independent of everything and could land in any order. T03 → T04 → T05
 is a chain (the fields must exist before they can be cached or preferred), and
 T10 → T11 → T13 → T14 is the hard chain of the queue work.
+
+**T10 built the segmenter and wired nothing to it yet.** `SegmentLanguageRuns`
+and `LanguageRun` exist with their three guarantees under test — the runs
+concatenate back to the reading exactly, none is empty, no two neighbours
+share a language — which is what T11's queue and T13's progress will lean on.
+Two choices worth recording: a neutral stretch (digits, spaces, punctuation)
+binds to the run that **follows** it, because a number binds to the word after
+it in both languages the app reads («15 March», «500 جنيه»), and splitting at
+every digit would otherwise turn «المبلغ 500 جنيه» into three utterances with
+two gaps. And `SelectVoiceForReading` now counts script through the same
+`ReadingLanguage.ofCodeUnit` the segmenter classifies with, so the two cannot
+disagree about where a language starts. Nothing calls the use case and it is
+not in `get_it`: T11 registers it with the queue that consumes it.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,
