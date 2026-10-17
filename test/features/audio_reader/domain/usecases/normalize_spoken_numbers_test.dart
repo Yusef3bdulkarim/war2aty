@@ -143,11 +143,11 @@ void main() {
     });
 
     test('a decimal part in the crashing band reads too', () {
-      // `_amountWords` runs the piastres through the same number words, so
-      // the band had to be fixed on both sides of the dot, not just the left.
+      // The piastres go through the same number words, so the band had to be
+      // fixed on both sides of the dot, not just the left.
       expect(
         normalizeSpokenNumbers('المبلغ 1200.10500 جنيه'),
-        'المبلغ ألف ومئتين وعشرة آلاف وخمسمائة قرش جنيه',
+        'المبلغ ألف ومئتين جنيه وعشرة آلاف وخمسمائة قرش',
       );
     });
 
@@ -196,6 +196,46 @@ void main() {
         'المبلغ تسعمائة وتسعة وتسعين مليون '
         'وتسعمائة وتسعة وتسعين ألف '
         'وتسعمائة وتسعة وتسعين جنيه',
+      );
+    });
+  });
+
+  // F30-T21. The currency word belongs between the pounds and the piastres.
+  // It used to be appended after both, so every bill with piastres on it —
+  // which is most of them — read as «… وخمسين قرش جنيه».
+  group('normalizeSpokenNumbers · piastres', () {
+    test('the currency word sits between the pounds and the piastres', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 250.50 جنيه'),
+        'المبلغ مئتين وخمسين جنيه وخمسين قرش',
+      );
+    });
+
+    test('an amount with no piastres is unchanged by the split', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 250 جنيه'),
+        'المبلغ مئتين وخمسين جنيه',
+      );
+    });
+
+    test('a zero piastres part is dropped, not read as «وصفر قرش»', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 250.00 جنيه'),
+        'المبلغ مئتين وخمسين جنيه',
+      );
+    });
+
+    test('piastres work with «ج.م» too, not only «جنيه»', () {
+      expect(
+        normalizeSpokenNumbers('المبلغ 250.50 ج.م'),
+        'المبلغ مئتين وخمسين ج.م وخمسين قرش',
+      );
+    });
+
+    test('an amount stated before the currency word keeps source order', () {
+      expect(
+        normalizeSpokenNumbers('جنيه 250.50 هو المطلوب'),
+        'جنيه مئتين وخمسين وخمسين قرش هو المطلوب',
       );
     });
   });

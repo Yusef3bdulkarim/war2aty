@@ -133,9 +133,10 @@ final RegExp _currencyBeforePattern = RegExp(
 /// 5. A number directly adjacent to a currency word ("جنيه"، "ج.م") →
 ///    Arabic number words (with hundreds/thousands agreement — 1200 →
 ///    "ألف ومئتين", 1500 → "ألف وخمسمائة", 10500 → "عشرة آلاف وخمسمائة",
-///    1500000 → "مليون وخمسمائة ألف"); a decimal part reads as its own
-///    number of قرش. A run too long to be a real amount is left alone, under
-///    rule 6.
+///    1500000 → "مليون وخمسمائة ألف"). A decimal part reads as its own
+///    number of قرش, *after* the currency word rather than before it —
+///    «مئتين وخمسين جنيه وخمسين قرش» — and a zero one is dropped. A run too
+///    long to be a real amount is left alone, under rule 6.
 /// 6. Anything else passes through unchanged — no guessing on genuinely
 ///    ambiguous input.
 String normalizeSpokenNumbers(String text) {
@@ -154,12 +155,14 @@ String normalizeSpokenNumbers(String text) {
     return '$prefix${_digitByDigit(digits)}';
   });
   result = result.replaceAllMapped(_currencyAfterPattern, (m) {
-    final words = _amountWords(m[1]!);
-    return words == null ? m[0]! : '$words ${m[2]}';
+    final amount = _amountParts(m[1]!);
+    if (amount == null) return m[0]!;
+    return '${amount.whole} ${m[2]}${amount.piastres}';
   });
   result = result.replaceAllMapped(_currencyBeforePattern, (m) {
-    final words = _amountWords(m[2]!);
-    return words == null ? m[0]! : '${m[1]} $words';
+    final amount = _amountParts(m[2]!);
+    if (amount == null) return m[0]!;
+    return '${m[1]} ${amount.whole}${amount.piastres}';
   });
   return result;
 }
@@ -202,20 +205,33 @@ String _normalizeTimes(String text) {
 }
 
 /// [numberText] (an integer, optionally with one `.`-separated decimal part)
-/// as Arabic number words. The decimal part, if present, reads as its own
-/// number of قرش.
+/// split into the words for the pounds and the words for the piastres.
+///
+/// Handed back in two pieces rather than one string because the currency word
+/// belongs *between* them — «مئتين وخمسين جنيه وخمسين قرش», not «مئتين
+/// وخمسين وخمسين قرش جنيه» (F30-T21). Only the caller knows where the
+/// currency word sat on the page, so only the caller can place it.
+/// [piastres] is the whole suffix, ready to append, and empty when the amount
+/// has no decimal part.
 ///
 /// `null` for a run too long to speak, which leaves the digits on the page
 /// untouched for the engine to read. The alternative is worse than useless:
 /// [_parseDigits] wraps around silently past 2^63, so a 20-digit OCR smudge
 /// would otherwise be read aloud, confidently, as a number the paper does not
 /// carry — the invented figure CLAUDE.md §7 forbids.
-String? _amountWords(String numberText) {
+({String whole, String piastres})? _amountParts(String numberText) {
   final parts = numberText.split('.');
   if (parts.any((part) => part.length > _maxSpokenDigits)) return null;
   final whole = _arabicNumberWords(_parseDigits(parts[0]));
-  if (parts.length < 2 || parts[1].isEmpty) return whole;
-  return '$whole و${_arabicNumberWords(_parseDigits(parts[1]))} قرش';
+  if (parts.length < 2 || parts[1].isEmpty) {
+    return (whole: whole, piastres: '');
+  }
+  // `250.00` is two hundred and fifty pounds, full stop — reading "and zero
+  // piastres" after it is noise, and this app is read aloud to people who
+  // cannot easily re-read what they just heard.
+  final piastres = _parseDigits(parts[1]);
+  if (piastres == 0) return (whole: whole, piastres: '');
+  return (whole: whole, piastres: ' و${_arabicNumberWords(piastres)} قرش');
 }
 
 /// [digits] (either script) read one at a time — the phone/reference-number

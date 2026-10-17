@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 2 / 20
+- **Progress:** 3 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -191,6 +191,23 @@ preceded this doc.
 8. **Straight through, T01 → T20.** The owner chose sequential execution over
    front-loading the quickly-verifiable half (the error cases, the delay and
    the copy) ahead of the queue rework.
+9. **The privacy screen is not touched.** Investigating RC-6 turned up
+   something nobody had considered: a network-synthesised voice sends the
+   text being read to the device's voice service to be turned into audio, so
+   reading a paper aloud can put its text on the network — which the privacy
+   copy covers for the analysis service but says nothing about for reading.
+   Put to the owner on 2026-10-17 with three options. **Their decision:
+   prefer offline voices (T05) as planned, and leave the privacy screen
+   exactly as it is.** T05 is therefore a privacy improvement as well as a
+   latency one, and no copy changes follow from it.
+10. **The copy drafted for T07 and T08/T16 was approved as drafted** on
+    2026-10-17 — see "The copy end" below for the approved wording. The
+    auto-retry in T16 stays silent, with no string of its own.
+11. **Two further reading bugs, found while testing T02, are in scope.** The
+    owner asked for both to be added and fixed: the piastres word order
+    (T21) and the clock reading (T22). They are run directly after T02
+    rather than at the end, because they live in the file T02 had just
+    rewritten.
 
 ## Tasks
 
@@ -198,7 +215,9 @@ preceded this doc.
 |---|---|---|---|---|
 | 1 | F30-T01 | Feature doc, branch, index row | — | DONE 2026-10-17 |
 | 2 | F30-T02 | Fix the normalizer's two crashes + tests (10k–10,999, ≥1M, the decimal part) | RC-5 | DONE 2026-10-17 |
-| 3 | F30-T03 | Extend `TtsVoice` with `quality`, `latency`, `networkRequired`; parse all six fields the plugin sends | RC-6 | TODO |
+| 3 | F30-T21 | The currency word belongs between the pounds and the piastres — «مئتين وخمسين جنيه وخمسين قرش», and a zero piastres part is dropped | found in T02 | DONE 2026-10-17 |
+| 4 | F30-T22 | The clock: stop «الساعة» doubling when the text already says it, and read a 24-hour hour as a 12-hour one | found in T02 | TODO |
+| 5 | F30-T03 | Extend `TtsVoice` with `quality`, `latency`, `networkRequired`; parse all six fields the plugin sends | RC-6 | TODO |
 | 4 | F30-T04 | Cache the voice list; drop the always-null `getDefaultReadingVoice` from the hot path; retire the dead `SetDefaultReadingVoice` plumbing | RC-6 | TODO |
 | 5 | F30-T05 | Voice selection prefers **offline, low-latency** voices over network ones | RC-6 | TODO |
 | 6 | F30-T06 | Warm the engine when the result screen mounts, so the first tap is not the cold start | RC-6 | TODO |
@@ -229,5 +248,31 @@ T10 → T11 → T13 → T14 is the hard chain of the queue work.
 
 ## The copy end
 
-New strings drafted for the owner's approval before T07 and T08/T16 land —
-recorded here once approved.
+Drafted and **approved as drafted** by the owner on 2026-10-17. Both
+languages, plus a row each in `app_strings_test`'s accessor table. None names
+a provider and none makes a privacy claim (§7).
+
+**T07 — the device has no Arabic voice:**
+
+| Key | Arabic |
+|---|---|
+| `audioReaderNoArabicVoiceTitle` | «الموبايل مفيهوش صوت عربي» |
+| `audioReaderNoArabicVoiceMessage` | «علشان نقدر نقرأ لك الورقة بصوت، لازم يكون في صوت عربي مثبّت على الموبايل. تقدر تضيفه من إعدادات الموبايل، وبعدين ترجع تجرّب تاني.» |
+| `audioReaderNoArabicVoiceAction` | «افتح إعدادات الموبايل» |
+| `audioReaderNoArabicVoiceDismiss` | «مش دلوقتي» |
+
+**T08/T16 — a permanent failure told apart from a retryable one:**
+
+| Key | Arabic | When |
+|---|---|---|
+| `audioReaderFailedFeedback` *(existing, unchanged)* | «حصلت مشكلة. جرّب تاني.» | retryable, and the silent auto-retry has already failed once |
+| `audioReaderEngineUnavailableFeedback` *(new)* | «القراءة بصوت مش متاحة على الموبايل دلوقتي.» | permanent engine failure |
+
+**T18 — the two labels the owner asked to reword:**
+
+| Key | From | To |
+|---|---|---|
+| `audioReaderModeSummary` | «الخلاصة فقط» | «التلخيص فقط» |
+| `audioReaderModeSummaryAndKeyInformation` | «الخلاصة وأهم المعلومات» | «التلخيص وأهم المعلومات» |
+
+The hamza in «وأهم» is kept, and the English strings are reworded to match.
