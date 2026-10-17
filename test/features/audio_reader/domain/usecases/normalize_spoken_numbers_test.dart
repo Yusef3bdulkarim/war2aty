@@ -200,6 +200,77 @@ void main() {
     });
   });
 
+  // F30-T22. Two faults in the clock reading, found while testing T02:
+  // «الساعة» was prepended even when the text already said it, and a
+  // 24-hour hour was read as its own number — «14:30» as «أربعة عشر»,
+  // which is not how anybody says half past two.
+  group('normalizeSpokenNumbers · the clock', () {
+    test('«الساعة» in the text is not doubled', () {
+      expect(
+        normalizeSpokenNumbers('الموعد الساعة 10:30 ص'),
+        'الموعد الساعة عشرة وثلاثين دقيقة صباحًا',
+      );
+    });
+
+    test('«الساعه» with a final ه is swallowed the same way', () {
+      expect(
+        normalizeSpokenNumbers('الموعد الساعه 10:30 ص'),
+        'الموعد الساعة عشرة وثلاثين دقيقة صباحًا',
+      );
+    });
+
+    test('a 24-hour hour reads as the 12-hour one, with مساءً', () {
+      expect(
+        normalizeSpokenNumbers('الجلسة 14:30'),
+        'الجلسة الساعة اثنين وثلاثين دقيقة مساءً',
+      );
+    });
+
+    test('a 24-hour hour and a written «الساعة» both resolve at once', () {
+      expect(
+        normalizeSpokenNumbers('الجلسة الساعة 14:30 م'),
+        'الجلسة الساعة اثنين وثلاثين دقيقة مساءً',
+      );
+    });
+
+    test('23:00 reads as eleven in the evening, on the hour', () {
+      expect(
+        normalizeSpokenNumbers('يقفل 23:00'),
+        'يقفل الساعة أحد عشر تمامًا مساءً',
+      );
+    });
+
+    test('midnight reads as twelve in the morning', () {
+      expect(
+        normalizeSpokenNumbers('من 0:30'),
+        'من الساعة اثنا عشر وثلاثين دقيقة صباحًا',
+      );
+    });
+
+    test('a marker contradicting a 24-hour hour loses to the clock', () {
+      // «14:30 ص» cannot both be 2:30pm and morning. The 24-hour reading is
+      // the one that cannot be misread, so it wins.
+      expect(
+        normalizeSpokenNumbers('الموعد 14:30 ص'),
+        'الموعد الساعة اثنين وثلاثين دقيقة مساءً',
+      );
+    });
+
+    test('hours 1-12 still take no period word unless one was written', () {
+      expect(
+        normalizeSpokenNumbers('الموعد 12:00'),
+        'الموعد الساعة اثنا عشر تمامًا',
+      );
+    });
+
+    test('an out-of-range hour is left alone, «الساعة» included', () {
+      expect(
+        normalizeSpokenNumbers('الكود الساعة 99:99'),
+        'الكود الساعة 99:99',
+      );
+    });
+  });
+
   // F30-T21. The currency word belongs between the pounds and the piastres.
   // It used to be appended after both, so every bill with piastres on it —
   // which is most of them — read as «… وخمسين قرش جنيه».

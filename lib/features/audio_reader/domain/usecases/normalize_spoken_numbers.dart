@@ -95,8 +95,13 @@ final RegExp _datePattern = RegExp(
   '($_digit{1,2})[/-]($_digit{1,2})[/-]($_digit{4})(?=\$|[^0-9٠-٩])',
 );
 
+/// A clock reading, with the «الساعة» in front of it swallowed if the text
+/// already wrote one (F30-T22) — the replacement puts exactly one back, so
+/// «الساعة 14:30» no longer reads as «الساعة الساعة …». Spelled with either
+/// final letter, since «الساعه» is how plenty of Egyptian text writes it and
+/// OCR passes through whichever was printed.
 final RegExp _timePattern = RegExp(
-  '($_digit{1,2}):($_digit{2})'
+  '(?:الساع[ةه]\\s+)?($_digit{1,2}):($_digit{2})'
   r'\s*(صباح\S*|مساء\S*|ص(?![ء-ي])|م(?![ء-ي])|AM|PM|am|pm)?',
 );
 
@@ -125,8 +130,11 @@ final RegExp _currencyBeforePattern = RegExp(
 ///    already reads a short bare number correctly) + Arabic month name +
 ///    year spelled out in words (a bare 4-digit run reads naturally as
 ///    digit-by-digit, which is wrong for a year).
-/// 2. `H:MM`, optionally followed by `ص`/`م`/`AM`/`PM` → "الساعة … [و…
-///    دقيقة] صباحًا/مساءً".
+/// 2. `H:MM`, optionally preceded by «الساعة» and optionally followed by
+///    `ص`/`م`/`AM`/`PM` → "الساعة … [و… دقيقة] صباحًا/مساءً". An «الساعة»
+///    already in the text is swallowed rather than doubled, and a 24-hour
+///    hour is read as the 12-hour one (`14:30` → "الساعة اثنين وثلاثين
+///    دقيقة مساءً").
 /// 3. A 10-11 digit contiguous run (phone numbers) → spoken digit-by-digit.
 /// 4. A number preceded within a couple of words by a reference-number
 ///    keyword ("رقم"، "محضر"، "قضية"، "طلب"، "إيصال") → digit-by-digit.
@@ -185,7 +193,7 @@ String _normalizeTimes(String text) {
     final minute = _parseDigits(m[2]!);
     if (hour > 23 || minute > 59) return m[0]!;
 
-    final period = switch (m[3]) {
+    final writtenPeriod = switch (m[3]) {
       null => '',
       'ص' => ' صباحًا',
       'م' => ' مساءً',
@@ -196,11 +204,27 @@ String _normalizeTimes(String text) {
       _ => '',
     };
 
+    // A 24-hour hour, read as the 12-hour one an Egyptian ear expects
+    // (F30-T22): «14:30» used to read as «أربعة عشر», which is not how
+    // anybody says half past two. 13 and up are unambiguously afternoon and
+    // 0 unambiguously morning, so those two get their period word even when
+    // the paper wrote none — and a marker contradicting a 24-hour hour
+    // («14:30 ص») loses to the clock, which cannot be misread.
+    //
+    // 1 to 12 keep today's behaviour exactly: the hour as written, and a
+    // period word only if the paper carried one. Noon and midday stay
+    // unqualified rather than guessed at.
+    final (spokenHour, period) = switch (hour) {
+      0 => (12, writtenPeriod.isEmpty ? ' صباحًا' : writtenPeriod),
+      >= 13 => (hour - 12, ' مساءً'),
+      _ => (hour, writtenPeriod),
+    };
+
     // "on the hour" has no minute to join with "و" — everything else does.
     final minutePhrase = minute == 0
         ? ' تمامًا'
         : ' و${_arabicNumberWords(minute)} دقيقة';
-    return 'الساعة ${_arabicNumberWords(hour)}$minutePhrase$period';
+    return 'الساعة ${_arabicNumberWords(spokenHour)}$minutePhrase$period';
   });
 }
 
