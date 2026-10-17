@@ -26,6 +26,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
@@ -124,6 +125,7 @@ void main() {
       SetReadingSpeed(tts),
       WatchReadingEvents(tts),
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
+      WarmUpReader(tts),
     );
   });
 

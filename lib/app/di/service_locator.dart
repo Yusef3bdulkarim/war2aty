@@ -142,6 +142,7 @@ import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/warm_up_reader.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
@@ -991,6 +992,7 @@ void _registerAudioReader() {
     ..registerFactory<SetResumeReadingEnabled>(
       () => SetResumeReadingEnabled(getIt()),
     )
+    ..registerFactory<WarmUpReader>(() => WarmUpReader(getIt()))
     ..registerFactory<GetAvailableVoices>(() => GetAvailableVoices(getIt()))
     ..registerFactory<PreviewDefaultVoice>(
       () => PreviewDefaultVoice(getIt(), getIt()),
@@ -999,6 +1001,7 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

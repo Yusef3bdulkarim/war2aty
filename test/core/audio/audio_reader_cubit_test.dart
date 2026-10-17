@@ -18,6 +18,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 
 import '../../features/analysis/analysis_fixtures.dart';
@@ -64,6 +65,7 @@ final AnalysisResult _result = _buildResult(
     SetReadingSpeed(tts),
     WatchReadingEvents(tts),
     GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
+    WarmUpReader(tts),
   );
   return (cubit: cubit, tts: tts);
 }
@@ -468,12 +470,35 @@ void main() {
       expect(await built.cubit.loadDefaultSpeed(), ReadingSpeed.normal);
     });
 
+    test('the engine is warmed up as soon as the cubit exists', () async {
+      // F30-T06. The screen that owns the mini-player builds this cubit
+      // seconds before anyone reaches for «الاستماع», so the slow first
+      // call belongs here rather than on the tap.
+      final built = _cubitFor(
+        voices: const [TtsVoice(name: 'ar-EG-local', locale: 'ar-EG')],
+      );
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      // The warm-up is deliberately not awaited by the constructor, so give
+      // the microtask it was fired on a chance to run.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(built.tts.getVoicesCount, 1);
+      // And it stays silent — a warm-up that spoke would have the result
+      // screen talking the moment it opened.
+      expect(built.tts.spoken, isEmpty);
+      expect(built.cubit.state, isA<AudioReaderIdle>());
+    });
+
     test(
-      'start reads the device\'s voices once, not the database as well',
+      'start asks the engine for the voice, and nothing else for it',
       () async {
         // F30-T04. Starting a reading used to open the settings table twice
         // for a voice preference nothing could write, before it even reached
-        // the engine. The only thing it should ask now is the engine.
+        // the engine. That dependency is gone from the constructor
+        // altogether, so the only proof left to assert is that the voice
+        // still arrives — the engine is now the single source of it.
         const arabicVoice = TtsVoice(name: 'Voice A', locale: 'ar-EG');
         final built = _cubitFor(voices: [arabicVoice]);
         addTearDown(built.cubit.close);
@@ -486,7 +511,6 @@ void main() {
           strings: _ar,
         );
 
-        expect(built.tts.getVoicesCount, 1);
         expect(built.tts.voicesSet, [arabicVoice]);
       },
     );

@@ -27,6 +27,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import 'package:war2aty/features/saved_papers/presentation/screens/document_details_screen.dart';
@@ -71,6 +72,7 @@ void main() {
       SetReadingSpeed(tts),
       WatchReadingEvents(tts),
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
+      WarmUpReader(tts),
     );
   });
   tearDown(() async {

@@ -9,6 +9,7 @@ import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/warm_up_reader.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../documents/analysis_result.dart';
 import '../documents/reading_mode.dart';
@@ -40,8 +41,14 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     this._setReadingSpeed,
     this._watchReadingEvents,
     this._getDefaultReadingSpeed,
+    this._warmUpReader,
   ) : super(const AudioReaderIdle()) {
     _eventsSubscription = _watchReadingEvents().listen(_onEvent);
+    // Fire-and-forget on purpose (F30-T06): this cubit is built as the screen
+    // that owns the mini-player mounts, which is seconds before anyone
+    // reaches for «الاستماع», and the warm-up has nothing to report. See
+    // [WarmUpReader] for what it is buying.
+    unawaited(_warmUpReader());
   }
 
   final StartReading _startReading;
@@ -55,6 +62,10 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// «سرعة القراءة الافتراضية» (F11-T07) — read once per fresh sheet open,
   /// not cached: Settings can change it between one reading and the next.
   final GetDefaultReadingSpeed _getDefaultReadingSpeed;
+
+  /// Primes the engine the moment this cubit exists, so the first tap is not
+  /// the one that pays for it (F30-T06).
+  final WarmUpReader _warmUpReader;
 
   /// Listens for the rest of this cubit's life — one shared engine, one
   /// subscription — and is cancelled in [close].
