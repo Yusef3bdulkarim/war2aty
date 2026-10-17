@@ -1012,4 +1012,94 @@ void main() {
       },
     );
   });
+
+  group('progress across a queued reading (F30-T13)', () {
+    // Every progress test above reads the invoice fixture, which is wholly
+    // Arabic and so reaches the engine as a single utterance — none of them
+    // ever sees a run boundary. This reading segments into three runs,
+    // Arabic then English then Arabic, which is the shape the owner's paper
+    // had (F30 RC-4).
+    const reading = 'فاتورة invoice لازم تتدفع';
+    const firstRun = 'فاتورة';
+    const secondRun = ' invoice';
+
+    /// Lets the queue's own `setVoice`/`speak` round trip for the next run
+    /// finish after the engine says the current one is done.
+    Future<void> settle() async {
+      for (var i = 0; i < 4; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('progress keeps climbing across a run boundary', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.startRaw(text: reading, speed: ReadingSpeed.normal);
+
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: firstRun.length));
+      await settle();
+      final atEndOfFirstRun =
+          (built.cubit.state as AudioReaderReading).progress;
+
+      built.tts.emitEvent(const TtsCompleted());
+      await settle();
+      // The engine counts the second run's offsets from zero. Measured
+      // against the whole reading they have to carry on from where the
+      // first run left off rather than start the bar over.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: secondRun.length));
+      await settle();
+
+      expect(atEndOfFirstRun, firstRun.length / reading.length);
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(
+          ReadingMode.extractedText,
+          progress: (firstRun.length + secondRun.length) / reading.length,
+        ),
+      );
+    });
+
+    test('progress holds through a resume inside a middle run, then climbs '
+        'again at the next one', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.startRaw(text: reading, speed: ReadingSpeed.normal);
+      built.tts.emitEvent(const TtsCompleted());
+      await settle();
+
+      // To the end of the second run, then paused.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: secondRun.length));
+      await settle();
+      final atPause = (built.cubit.state as AudioReaderReading).progress;
+      await built.cubit.pause();
+      await built.cubit.resume();
+
+      // Android resumes by speaking the run's unread remainder as a fresh
+      // utterance, so its offsets count from zero inside that remainder —
+      // which, shifted by the run's own start, still lands well behind
+      // where the reading actually is. F10-T08's high-water mark is what
+      // keeps the bar from jumping backward, and it has to go on working
+      // now that the shift is a run's offset rather than zero.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 1));
+      await settle();
+      final afterResume = (built.cubit.state as AudioReaderReading).progress;
+
+      // The third run overtakes the high-water mark, so the bar moves again
+      // — it is only frozen for the remainder of the run that was paused,
+      // not for the rest of the reading.
+      built.tts.emitEvent(const TtsCompleted());
+      await settle();
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 2));
+      await settle();
+
+      expect(atPause, (firstRun.length + secondRun.length) / reading.length);
+      expect(afterResume, atPause, reason: 'the bar must not jump backward');
+      expect(
+        (built.cubit.state as AudioReaderReading).progress,
+        greaterThan(atPause),
+      );
+    });
+  });
 }

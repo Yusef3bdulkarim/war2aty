@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 14 / 22
+- **Progress:** 15 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -257,7 +257,7 @@ preceded this doc.
 | 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | DONE 2026-10-17 |
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | DONE 2026-10-17 |
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | DONE 2026-10-18 — not adopted; the voice *is* honoured per utterance, but pause loses the queue |
-| 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
+| 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | DONE 2026-10-18 — no rework needed; the gap was the tests |
 | 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO — code landed in T11; device pass left |
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
@@ -371,6 +371,27 @@ sound at all. And `PreviewDefaultVoice` still speaks straight to the engine
 rather than through the queue, because it previews one specific voice rather
 than reading a paper; the cancel rule above is what keeps it from advancing
 somebody else's reading.
+
+**T13 changed no code, and the reason is worth recording.** T11's note
+predicted it would be closer to "verify and test" than to rework, and that
+held: progress is already measured against the whole reading, because the
+queue shifts each utterance's offsets by the run's start and `speak` answers
+with the whole reading's length rather than the first run's. F10-T08's
+high-water mark goes on doing its job underneath that, and the queue has in
+fact *improved* it — an Android resume hands back a fresh utterance covering
+the remainder of the **run**, so the clamp freezes the bar only until the
+next run overtakes the peak, where before the queue existed it froze for the
+remainder of the whole reading.
+
+What was missing was the coverage. Every progress test wrote before this one
+read the invoice fixture, which is wholly Arabic and therefore reaches the
+engine as a single utterance — so nothing exercised a run boundary
+end-to-end, and the interaction this task was flagged ⚠️ for was the one
+thing untested. Three tests close that: progress climbing across a run
+boundary at the cubit level, the high-water mark holding through a resume
+inside a *middle* run and then climbing again at the next one, and, at the
+queue level, a resume inside a run still counting from that run's start
+rather than from the top of the paper.
 
 **T12's premise turned out to be wrong, and something else is in the way.**
 Locked decision 6 held `QUEUE_ADD` back because "whether the voice is captured

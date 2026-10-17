@@ -196,6 +196,32 @@ void main() {
         const TtsProgressed(start: _mixed.length - 1, end: _mixed.length),
       );
     });
+
+    test(
+      'a resume inside a run keeps counting from that run\'s start',
+      () async {
+        await queue.speak(_mixed);
+        await completeUtterance();
+
+        // Paused partway through the second run, then resumed. Android hands
+        // back a fresh utterance covering only the run's unread remainder, so
+        // the engine counts from zero again — but the run still begins where
+        // it began, and shifting by zero instead would put the bar back at
+        // the top of the paper (F30-T13).
+        tts.emitEvent(const TtsProgressed(start: 0, end: 5));
+        await settle();
+        await queue.pause();
+        await queue.resume();
+        tts.emitEvent(const TtsProgressed(start: 0, end: 1));
+        await settle();
+
+        const secondRunStart = 6;
+        expect(
+          events.whereType<TtsProgressed>().last,
+          const TtsProgressed(start: secondRunStart, end: secondRunStart + 1),
+        );
+      },
+    );
   });
 
   // The first of the queue's two invariants: either the reading is installed
