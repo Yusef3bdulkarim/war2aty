@@ -110,8 +110,13 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
     }
   }
 
+  /// The device's voices, once asked for — see [forgetVoices] for why they
+  /// are kept at all, and for the one thing that clears them.
+  List<TtsVoice>? _cachedVoices;
+
   @override
   Future<Result<List<TtsVoice>, AppFailure>> getVoices() async {
+    if (_cachedVoices case final cached?) return Ok(cached);
     try {
       final raw = (await _tts.getVoices) as List<dynamic>?;
       final voices = (raw ?? const [])
@@ -119,11 +124,19 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
           .map(_parseVoice)
           .whereType<TtsVoice>()
           .toList(growable: false);
+      // An empty answer is never cached. Android reports no voices at all
+      // while its engine is still binding, and remembering that would mean
+      // "this device has no voices" for the rest of the session — which
+      // F30-T07 would then report to the user as a missing Arabic voice.
+      if (voices.isNotEmpty) _cachedVoices = voices;
       return Ok(voices);
     } on Object {
       return const Err(TtsFailure());
     }
   }
+
+  @override
+  void forgetVoices() => _cachedVoices = null;
 
   /// One entry from `getVoices`, or `null` if it carries no name or locale —
   /// without both there is nothing to select it by later.

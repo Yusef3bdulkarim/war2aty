@@ -8,7 +8,6 @@ import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -119,7 +118,6 @@ void main() {
       SetReadingSpeed(tts),
       WatchReadingEvents(tts),
       GetDefaultReadingSpeed(speedStore),
-      GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
     );
   });
 

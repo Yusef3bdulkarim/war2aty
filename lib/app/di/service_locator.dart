@@ -29,7 +29,6 @@ import '../../core/audio/usecases/get_default_reading_voice.dart';
 import '../../core/audio/usecases/get_resume_reading_enabled.dart';
 import '../../core/audio/usecases/preview_default_voice.dart';
 import '../../core/audio/usecases/set_default_reading_speed.dart';
-import '../../core/audio/usecases/set_default_reading_voice.dart';
 import '../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
@@ -983,9 +982,6 @@ void _registerAudioReader() {
     ..registerFactory<GetDefaultReadingVoice>(
       () => GetDefaultReadingVoice(getIt()),
     )
-    ..registerFactory<SetDefaultReadingVoice>(
-      () => SetDefaultReadingVoice(getIt()),
-    )
     ..registerLazySingleton<ResumeReadingEnabledStore>(
       () => DriftResumeReadingEnabledStore(getIt()),
     )
@@ -1003,7 +999,6 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
-        getIt(),
         getIt(),
         getIt(),
         getIt(),

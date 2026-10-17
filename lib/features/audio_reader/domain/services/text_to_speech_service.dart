@@ -41,6 +41,19 @@ abstract interface class TextToSpeechService {
   /// Lists the voices installed on this device.
   Future<Result<List<TtsVoice>, AppFailure>> getVoices();
 
+  /// Throws away whatever [getVoices] is holding, so the next call asks the
+  /// device again (F30-T04).
+  ///
+  /// [getVoices] is answered from a cache, because enumerating every voice of
+  /// every installed engine is a slow platform call and it used to run on
+  /// every single reading — a good part of the delay F30 RC-6 describes. The
+  /// list only changes when the user installs or removes a voice, which means
+  /// leaving the app, so this exists for the one flow that sends them out to
+  /// do exactly that: F30-T07 tells a user with no Arabic voice to go and add
+  /// one, and the answer must not still be "you have none" when they come
+  /// back.
+  void forgetVoices();
+
   /// The playback lifecycle, one event per state change — see [TtsEvent].
   Stream<TtsEvent> get events;
 }

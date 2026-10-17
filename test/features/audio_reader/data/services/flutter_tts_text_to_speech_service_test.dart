@@ -156,6 +156,83 @@ void main() {
     });
   });
 
+  // F30-T04. Enumerating every voice of every installed engine is a slow
+  // platform call, and it used to run on every single reading — a good part
+  // of the 1-3 second delay the owner reported (F30 RC-6).
+  group('FlutterTtsTextToSpeechService caches the voice list', () {
+    test('the device is asked once, however many times we ask', () async {
+      final tts = _CountingFlutterTts([
+        {'name': 'ar-EG-local', 'locale': 'ar-EG'},
+      ]);
+      final service = FlutterTtsTextToSpeechService(tts);
+
+      await service.getVoices();
+      await service.getVoices();
+      await service.getVoices();
+
+      expect(tts.calls, 1);
+    });
+
+    test('the cached answer is the same list, not a stale empty one', () async {
+      final tts = _CountingFlutterTts([
+        {'name': 'ar-EG-local', 'locale': 'ar-EG', 'quality': 'high'},
+      ]);
+      final service = FlutterTtsTextToSpeechService(tts);
+
+      final first = (await service.getVoices()).valueOrNull;
+      final second = (await service.getVoices()).valueOrNull;
+
+      expect(second, first);
+      expect(second!.single.quality, TtsVoiceQuality.high);
+    });
+
+    test('forgetVoices makes the next call ask the device again', () async {
+      final tts = _CountingFlutterTts([
+        {'name': 'ar-EG-local', 'locale': 'ar-EG'},
+      ]);
+      final service = FlutterTtsTextToSpeechService(tts);
+
+      await service.getVoices();
+      service.forgetVoices();
+      await service.getVoices();
+
+      // F30-T07 sends a user with no Arabic voice out to install one; the
+      // answer must not still be "you have none" when they come back.
+      expect(tts.calls, 2);
+    });
+
+    test('an empty answer is never cached', () async {
+      // Android reports no voices at all while its engine is still binding.
+      // Remembering that would mean "this device has no voices" for the rest
+      // of the session, which T07 would then report as a missing Arabic
+      // voice on a phone that has one.
+      final tts = _CountingFlutterTts(null);
+      final service = FlutterTtsTextToSpeechService(tts);
+
+      expect((await service.getVoices()).valueOrNull, isEmpty);
+      tts.answer = [
+        {'name': 'ar-EG-local', 'locale': 'ar-EG'},
+      ];
+
+      expect((await service.getVoices()).valueOrNull, hasLength(1));
+      expect(tts.calls, 2);
+    });
+
+    test('a failure is not cached either', () async {
+      final tts = _CountingFlutterTts(null, throws: true);
+      final service = FlutterTtsTextToSpeechService(tts);
+
+      expect((await service.getVoices()).failureOrNull, isA<TtsFailure>());
+      tts
+        ..throws = false
+        ..answer = [
+          {'name': 'ar-EG-local', 'locale': 'ar-EG'},
+        ];
+
+      expect((await service.getVoices()).valueOrNull, hasLength(1));
+    });
+  });
+
   group('TtsVoice', () {
     test('identity is the name and locale, not how the voice sounds', () {
       // `DefaultReadingVoiceStore` only ever persisted those two, so a voice
@@ -232,4 +309,21 @@ final class _FakeFlutterTts extends ft.FlutterTts {
 final class _ThrowingFlutterTts extends ft.FlutterTts {
   @override
   Future<dynamic> get getVoices async => throw Exception('no engine');
+}
+
+/// Counts how often the platform is actually asked, so the cache can be
+/// measured rather than assumed, and lets the answer change between calls.
+final class _CountingFlutterTts extends ft.FlutterTts {
+  _CountingFlutterTts(this.answer, {this.throws = false});
+
+  Object? answer;
+  bool throws;
+  int calls = 0;
+
+  @override
+  Future<dynamic> get getVoices async {
+    calls++;
+    if (throws) throw Exception('no engine');
+    return answer;
+  }
 }

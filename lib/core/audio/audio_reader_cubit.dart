@@ -17,7 +17,6 @@ import '../localization/app_strings.dart';
 import 'audio_reader_state.dart';
 import 'reading_speed.dart';
 import 'usecases/get_default_reading_speed.dart';
-import 'usecases/get_default_reading_voice.dart';
 
 /// Drives the result screen's mini-player: what [ReadingMode] is reading, and
 /// starting/stopping the engine behind it (F10-T04).
@@ -41,7 +40,6 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     this._setReadingSpeed,
     this._watchReadingEvents,
     this._getDefaultReadingSpeed,
-    this._getDefaultReadingVoice,
   ) : super(const AudioReaderIdle()) {
     _eventsSubscription = _watchReadingEvents().listen(_onEvent);
   }
@@ -57,10 +55,6 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// «سرعة القراءة الافتراضية» (F11-T07) — read once per fresh sheet open,
   /// not cached: Settings can change it between one reading and the next.
   final GetDefaultReadingSpeed _getDefaultReadingSpeed;
-
-  /// «صوت القراءة» (F11-T07) — applied automatically on every [start], the
-  /// same reasoning [_getDefaultReadingSpeed] documents for itself.
-  final GetDefaultReadingVoice _getDefaultReadingVoice;
 
   /// Listens for the rest of this cubit's life — one shared engine, one
   /// subscription — and is cancelled in [close].
@@ -124,13 +118,10 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
       emit(AudioReaderFailed(failure));
       if (isClosed) return;
     }
-    final preferredVoice = await _getDefaultReadingVoice();
-    if (isClosed) return;
     final outcome = await _startReading(
       result: result,
       mode: mode,
       strings: strings,
-      preferredVoice: preferredVoice,
     );
     if (isClosed) return;
     emit(
@@ -162,12 +153,7 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
       emit(AudioReaderFailed(failure));
       if (isClosed) return;
     }
-    final preferredVoice = await _getDefaultReadingVoice();
-    if (isClosed) return;
-    final outcome = await _startRawReading(
-      text: text,
-      preferredVoice: preferredVoice,
-    );
+    final outcome = await _startRawReading(text: text);
     if (isClosed) return;
     emit(
       outcome.when(

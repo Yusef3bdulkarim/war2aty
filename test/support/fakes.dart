@@ -1527,8 +1527,19 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   }
 
   @override
-  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async =>
-      getVoicesFails ? const Err(TtsFailure()) : Ok(voices);
+  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async {
+    getVoicesCount++;
+    return getVoicesFails ? const Err(TtsFailure()) : Ok(voices);
+  }
+
+  /// How many times [getVoices] was asked (F30-T04) — so a test can prove the
+  /// real service's cache is what keeps this slow call off every reading.
+  int getVoicesCount = 0;
+
+  @override
+  void forgetVoices() => forgetVoicesCount++;
+
+  int forgetVoicesCount = 0;
 
   @override
   Stream<TtsEvent> get events => _events.stream;

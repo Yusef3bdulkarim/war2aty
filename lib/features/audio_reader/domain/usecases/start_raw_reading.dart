@@ -1,4 +1,3 @@
-import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../services/text_to_speech_service.dart';
@@ -23,28 +22,19 @@ final class StartRawReading {
   final SelectVoiceForReading _selectVoice;
   final TextToSpeechService _tts;
 
-  Future<Result<int, AppFailure>> call({
-    required String text,
-    TtsVoice? preferredVoice,
-  }) async {
+  Future<Result<int, AppFailure>> call({required String text}) async {
     final normalized = normalizeSpokenNumbers(text).trim();
     if (normalized.isEmpty) {
       return const Err(TtsFailure());
     }
-    await _applyDefaultVoiceFor(normalized, preferredVoice);
+    await _applySelectedVoiceFor(normalized);
     return (await _tts.speak(normalized)).map((_) => normalized.length);
   }
 
   /// Best-effort voice selection — same reasoning as [StartReading]'s own
-  /// `_applyDefaultVoiceFor`: a failure here should not stop the reading.
-  Future<void> _applyDefaultVoiceFor(
-    String text,
-    TtsVoice? preferredVoice,
-  ) async {
-    if (preferredVoice != null) {
-      await _tts.setVoice(preferredVoice);
-      return;
-    }
+  /// `_applySelectedVoiceFor`, including why there is no user-chosen voice to
+  /// honour any more (F30-T04).
+  Future<void> _applySelectedVoiceFor(String text) async {
     final voices = (await _tts.getVoices()).valueOrNull;
     if (voices == null) return;
     final voice = _selectVoice(text, voices);

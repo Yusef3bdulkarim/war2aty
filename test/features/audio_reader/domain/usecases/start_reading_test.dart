@@ -185,13 +185,36 @@ void main() {
     });
   });
 
-  group('preferred voice override (F11-T07)', () {
+  // F30-T04. There is no stored Settings choice to override the automatic
+  // match any more: the «صوت القراءة» picker was removed, which left nothing
+  // able to write one, so every reading paid two database reads to learn it
+  // was null. Voice choice is automatic, full stop.
+  group('automatic voice choice (F30-T04)', () {
     const arabicVoice = TtsVoice(name: 'Maged', locale: 'ar-EG');
     const englishVoice = TtsVoice(name: 'Samantha', locale: 'en-US');
 
-    test('a persisted preferred voice wins over the automatic match', () async {
-      // The automatic match would pick the Arabic voice for this Arabic
-      // summary — the user's own Settings pick must win instead.
+    test(
+      'an Arabic summary gets the Arabic voice, not whichever is first',
+      () async {
+        // English listed first, so passing this means the script match ran
+        // rather than the list order deciding.
+        tts.voices = [englishVoice, arabicVoice];
+        final result = _buildResult(
+          analysis: invoiceAnalysis(),
+          extractedText: '',
+        );
+
+        await useCase(
+          result: result,
+          mode: ReadingMode.summaryOnly,
+          strings: _ar,
+        );
+
+        expect(tts.voicesSet, [arabicVoice]);
+      },
+    );
+
+    test('the device is asked for its voices once per reading', () async {
       tts.voices = [arabicVoice, englishVoice];
       final result = _buildResult(
         analysis: invoiceAnalysis(),
@@ -202,26 +225,11 @@ void main() {
         result: result,
         mode: ReadingMode.summaryOnly,
         strings: _ar,
-        preferredVoice: englishVoice,
       );
 
-      expect(tts.voicesSet, [englishVoice]);
-    });
-
-    test('nothing preferred falls back to the automatic match', () async {
-      tts.voices = [arabicVoice, englishVoice];
-      final result = _buildResult(
-        analysis: invoiceAnalysis(),
-        extractedText: '',
-      );
-
-      await useCase(
-        result: result,
-        mode: ReadingMode.summaryOnly,
-        strings: _ar,
-      );
-
-      expect(tts.voicesSet, [arabicVoice]);
+      // The real service answers this from a cache (F30-T04), so the slow
+      // platform call behind it no longer runs on every reading.
+      expect(tts.getVoicesCount, 1);
     });
   });
 
