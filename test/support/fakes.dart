@@ -57,7 +57,10 @@ import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
+import 'package:war2aty/features/audio_reader/domain/services/reading_queue.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/segment_language_runs.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
@@ -1469,6 +1472,20 @@ final class FakeAppSettingsRepository implements AppSettingsRepository {
     return clearOutcome;
   }
 }
+
+/// A [ReadingQueue] over [tts], with the real segmentation and voice
+/// selection behind it — the path every reading has gone through since
+/// F30-T11.
+///
+/// One instance per test, shared by every reading use case the test builds:
+/// the app registers the queue as a singleton because it reads the one
+/// engine's completion events as its own runs finishing, and two queues over
+/// one fake would misread each other's just as readily.
+ReadingQueue readingQueueOver(TextToSpeechService tts) => ReadingQueue(
+  tts,
+  const SegmentLanguageRuns(),
+  const SelectVoiceForReading(),
+);
 
 /// Scriptable [TextToSpeechService] — no plugin, no OS engine (F10).
 ///

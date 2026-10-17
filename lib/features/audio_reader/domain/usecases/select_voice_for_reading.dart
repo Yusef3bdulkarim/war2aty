@@ -24,11 +24,21 @@ import '../entities/language_run.dart';
 final class SelectVoiceForReading {
   const SelectVoiceForReading();
 
-  TtsVoice? call(String text, List<TtsVoice> voices) {
-    final languageCode = _dominantScript(text);
+  TtsVoice? call(String text, List<TtsVoice> voices) =>
+      forLanguage(_dominantScript(text), voices);
+
+  /// The best installed voice for [language], or `null` when the device has
+  /// none in it.
+  ///
+  /// Asked for by language rather than by text since F30-T11: the queue
+  /// already knows what language each run of a reading is in — that is what
+  /// `SegmentLanguageRuns` decided — so having this re-infer it from the
+  /// run's own characters would be two answers to one question, and only one
+  /// of them would be the one the run is queued under.
+  TtsVoice? forLanguage(ReadingLanguage language, List<TtsVoice> voices) {
     TtsVoice? best;
     for (final voice in voices) {
-      if (!voice.locale.toLowerCase().startsWith(languageCode)) continue;
+      if (!voice.locale.toLowerCase().startsWith(language.code)) continue;
       if (best == null || _isBetterThan(voice, best)) best = voice;
     }
     return best;
@@ -62,14 +72,13 @@ final class SelectVoiceForReading {
     return candidate.quality.rank > incumbent.quality.rank;
   }
 
-  /// The language code a voice for [text] has to be in — public since
-  /// F30-T07, which needs to know *which* language was missing when nothing
-  /// matched: Arabic has no fallback and has to be reported to the user,
-  /// while English falls back to transliteration (F30 locked decisions 3 and
-  /// 4).
-  String languageFor(String text) => _dominantScript(text);
+  /// The language a voice for [text] has to be in — public since F30-T07,
+  /// which needs to know *which* language was missing when nothing matched:
+  /// Arabic has no fallback and has to be reported to the user, while English
+  /// falls back to transliteration (F30 locked decisions 3 and 4).
+  ReadingLanguage languageFor(String text) => _dominantScript(text);
 
-  /// `ar` if [text] has at least as many Arabic-script letters as Latin
+  /// Arabic if [text] has at least as many Arabic-script letters as Latin
   /// ones, `en` otherwise. A mixed document (project context: papers may be
   /// "Arabic/English/mixed") is judged by whichever script actually
   /// dominates the text being read, not the whole document — and ties
@@ -81,7 +90,7 @@ final class SelectVoiceForReading {
   /// definition of "what script is this character" means this and the
   /// segmentation that now splits the reading up cannot disagree about where
   /// a language starts.
-  String _dominantScript(String text) {
+  ReadingLanguage _dominantScript(String text) {
     var arabic = 0;
     var latin = 0;
     for (var i = 0; i < text.length; i++) {
@@ -94,6 +103,6 @@ final class SelectVoiceForReading {
           break;
       }
     }
-    return arabic >= latin ? 'ar' : 'en';
+    return arabic >= latin ? ReadingLanguage.arabic : ReadingLanguage.english;
   }
 }

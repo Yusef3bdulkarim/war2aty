@@ -136,10 +136,12 @@ import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
+import '../../features/audio_reader/domain/services/reading_queue.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
+import '../../features/audio_reader/domain/usecases/segment_language_runs.dart';
 import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
@@ -958,12 +960,18 @@ void _registerAudioReader() {
     ..registerFactory<BuildReadingText>(BuildReadingText.new)
     // F10-T07. Stateless and total, the same shape as `BuildReadingText`.
     ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
-    // F10-T04.
-    ..registerFactory<StartReading>(
-      () => StartReading(getIt(), getIt(), getIt()),
+    // F30-T10. Stateless and total, the same shape again.
+    ..registerFactory<SegmentLanguageRuns>(SegmentLanguageRuns.new)
+    // F30-T11. A singleton, and for the same reason `TextToSpeechService` is
+    // one: it is the queue *of the one engine*, and a second instance would
+    // read the first's completion events as its own runs finishing.
+    ..registerLazySingleton<ReadingQueue>(
+      () => ReadingQueue(getIt(), getIt(), getIt()),
     )
+    // F10-T04.
+    ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))
     // Raw-text TTS for the OCR review screen (pre-analysis).
-    ..registerFactory<StartRawReading>(() => StartRawReading(getIt(), getIt()))
+    ..registerFactory<StartRawReading>(() => StartRawReading(getIt()))
     ..registerFactory<StopReading>(() => StopReading(getIt()))
     // F10-T05.
     ..registerFactory<PauseReading>(() => PauseReading(getIt()))

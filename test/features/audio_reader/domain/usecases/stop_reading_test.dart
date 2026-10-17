@@ -1,17 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/features/audio_reader/domain/services/reading_queue.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
 
 import '../../../../support/fakes.dart';
 
 void main() {
   late FakeTextToSpeechService tts;
+  late ReadingQueue queue;
   late StopReading useCase;
 
   setUp(() {
     tts = FakeTextToSpeechService();
-    useCase = StopReading(tts);
+    queue = readingQueueOver(tts);
+    useCase = StopReading(queue);
   });
 
   tearDown(() => tts.dispose());

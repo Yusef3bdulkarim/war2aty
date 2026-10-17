@@ -6,7 +6,6 @@ import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 
 import '../../../../support/fakes.dart';
@@ -14,7 +13,6 @@ import '../../../analysis/analysis_fixtures.dart';
 
 const _buildResult = BuildAnalysisResult();
 const _buildReadingText = BuildReadingText();
-const _selectVoice = SelectVoiceForReading();
 const _ar = ArStrings();
 
 void main() {
@@ -23,7 +21,7 @@ void main() {
 
   setUp(() {
     tts = FakeTextToSpeechService();
-    useCase = StartReading(_buildReadingText, _selectVoice, tts);
+    useCase = StartReading(_buildReadingText, readingQueueOver(tts));
   });
 
   tearDown(() => tts.dispose());

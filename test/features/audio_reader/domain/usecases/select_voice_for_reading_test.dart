@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/language_run.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 
 const _select = SelectVoiceForReading();
@@ -61,6 +62,30 @@ void main() {
       final voice = _select('١٢٣ - 2026/04/15', [_englishVoice, _arabicVoice]);
 
       expect(voice, _arabicVoice);
+    });
+
+    test('asked for a language, pays no attention to any text (F30-T11)', () {
+      // What the queue asks: this run is queued as English, so give it an
+      // English voice — not whatever a second look at its characters would
+      // have concluded.
+      expect(
+        _select.forLanguage(ReadingLanguage.english, [
+          _arabicVoice,
+          _englishVoice,
+        ]),
+        _englishVoice,
+      );
+      expect(
+        _select.forLanguage(ReadingLanguage.arabic, [
+          _englishVoice,
+          _arabicVoice,
+        ]),
+        _arabicVoice,
+      );
+      expect(
+        _select.forLanguage(ReadingLanguage.english, [_arabicVoice]),
+        isNull,
+      );
     });
   });
 

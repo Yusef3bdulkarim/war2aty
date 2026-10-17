@@ -15,7 +15,6 @@ import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
@@ -69,14 +68,15 @@ _cubitFor({
     available: settingsAvailable,
     opensSuccessfully: settingsOpen,
   );
+  final queue = readingQueueOver(tts);
   final cubit = AudioReaderCubit(
-    StartReading(const BuildReadingText(), const SelectVoiceForReading(), tts),
-    StartRawReading(const SelectVoiceForReading(), tts),
-    StopReading(tts),
+    StartReading(const BuildReadingText(), queue),
+    StartRawReading(queue),
+    StopReading(queue),
     PauseReading(tts),
     ResumeReading(tts),
     SetReadingSpeed(tts),
-    WatchReadingEvents(tts),
+    WatchReadingEvents(queue),
     GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
     WarmUpReader(tts),
     OpenSystemTtsSettings(ttsSettings, tts),
@@ -723,6 +723,41 @@ void main() {
 
       expect(built.cubit.state, const AudioReaderIdle());
     });
+
+    test(
+      'a run finishing mid-reading does not hide the mini-player (F30-T11)',
+      () async {
+        // The paper is Arabic with an English word in it, so the reading is
+        // three utterances now. The bar belongs to the reading, not to
+        // whichever of them the engine happens to be on.
+        final built = _cubitFor();
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+        await built.cubit.startRaw(
+          text: 'فاتورة invoice لازم تتدفع',
+          speed: ReadingSpeed.normal,
+        );
+
+        for (var run = 0; run < 2; run++) {
+          built.tts.emitEvent(const TtsCompleted());
+          for (var turn = 0; turn < 4; turn++) {
+            await Future<void>.delayed(Duration.zero);
+          }
+          expect(
+            built.cubit.state,
+            isA<AudioReaderReading>(),
+            reason: 'after run ${run + 1} of 3',
+          );
+        }
+
+        // Only the last one ends it.
+        built.tts.emitEvent(const TtsCompleted());
+        await Future<void>.delayed(Duration.zero);
+
+        expect(built.cubit.state, const AudioReaderIdle());
+        expect(built.tts.spoken, const ['فاتورة', ' invoice', ' لازم تتدفع']);
+      },
+    );
 
     test('pausing keeps whatever progress was last reported', () async {
       final built = _cubitFor();

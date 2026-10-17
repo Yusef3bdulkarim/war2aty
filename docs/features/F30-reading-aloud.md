@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 12 / 22
+- **Progress:** 13 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -253,7 +253,7 @@ preceded this doc.
 | 10 | F30-T08 | Carry the engine's error code on `TtsFailed`; classify transient vs permanent | RC-2 | DONE 2026-10-17 |
 | 11 | F30-T09 | Honour `speak()`'s return value → `Err` instead of a dead mini-player | RC-3 | DONE 2026-10-17 |
 | 12 | F30-T10 | Language-run segmentation use case (Arabic / Latin / neutral runs) + tests | RC-4 | DONE 2026-10-17 |
-| 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | TODO |
+| 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | DONE 2026-10-17 |
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | TODO |
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | TODO |
 | 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO |
@@ -286,6 +286,54 @@ two gaps. And `SelectVoiceForReading` now counts script through the same
 `ReadingLanguage.ofCodeUnit` the segmenter classifies with, so the two cannot
 disagree about where a language starts. Nothing calls the use case and it is
 not in `get_it`: T11 registers it with the queue that consumes it.
+
+**T11 put the queue behind `StartReading`, not inside the cubit.** `ReadingQueue`
+(`domain/services/`) owns the sequencing: it segments the reading, assigns a
+voice per run, speaks the first, and advances on the engine's completion. It
+publishes a *reading-level* event stream that `WatchReadingEvents` now forwards
+instead of the engine's own, which is what keeps the cubit out of it — a run
+finishing mid-reading is swallowed, so the mini-player still closes on one
+`TtsCompleted`, and `TtsProgressed`'s offsets are moved into whole-reading
+coordinates, because a stream that claims to be about the reading cannot report
+offsets into one utterance of it. `StartReading` is back to deciding only which
+mode to read; `StartRawReading`, `StopReading` and `WatchReadingEvents` go
+through the queue too, so **nothing speaks except through it** — a `speak`
+behind its back would have its completion read as a run finishing and advance
+someone else's reading.
+
+Three things the plugin's own source (flutter_tts 4.2.5, `FlutterTtsPlugin.kt`)
+settled, rather than being assumed:
+
+- A flushed utterance fires `onStop(interrupted)` → `speak.onCancel`, **never**
+  `onDone`. So a stale completion cannot advance the queue early — the only
+  event an abandoned utterance produces is a cancel.
+- That cancel arrives *after* the new reading is installed, so clearing the
+  queue on every cancel would throw away the queue of the reading the user just
+  asked for. The queue therefore clears on a cancel only when the engine had
+  told it the current run began, which separates "a new reading flushed the old
+  one" from "something outside the queue took the engine".
+- `onDone` clears the plugin's `pauseText`, so speaking the next run is clean —
+  no interference with Android's resume-the-remainder mechanism.
+
+**What this leaves T13 and T14.** Progress already spans the queue, and F10-T08's
+high-water mark still does its job — Android's resume gives a fresh utterance
+covering the remainder of the *run*, whose shifted offsets land below the peak
+and are clamped exactly as before — so T13 looks closer to "verify and test"
+than to rework. T14 has a real new case, created by the queue: a pause that
+lands in the **gap between two runs** pauses an engine that is not speaking, so
+the bar says paused and the next run starts anyway. It cannot be fixed from the
+event stream (nothing was speaking, so no `TtsPaused` is reported) — it needs
+`PauseReading` routed through the queue, which is T14's own scope, so it is
+recorded here rather than half-built.
+
+**Accepted for now:** an English run on a device with no English voice is still
+named letter-by-letter — it is spoken with whatever voice the engine had rather
+than dropped, which is what T17's transliteration fallback is for. And the
+`NoArabicVoiceFailure` refusal stays a whole-reading decision, not a per-run
+one: a mostly-English paper with one Arabic word in it still reads usefully in
+an English voice, and refusing it over that word would be worse than mangling
+it. RC-1 is the other case — a mostly-Arabic paper in an English voice makes no
+sound at all.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,

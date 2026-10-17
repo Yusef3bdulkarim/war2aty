@@ -22,7 +22,6 @@ import 'package:war2aty/features/analysis/presentation/screens/ocr_review_screen
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
@@ -113,18 +112,15 @@ void main() {
 
   setUp(() {
     tts = FakeTextToSpeechService();
+    final queue = readingQueueOver(tts);
     audioReaderCubit = AudioReaderCubit(
-      StartReading(
-        const BuildReadingText(),
-        const SelectVoiceForReading(),
-        tts,
-      ),
-      StartRawReading(const SelectVoiceForReading(), tts),
-      StopReading(tts),
+      StartReading(const BuildReadingText(), queue),
+      StartRawReading(queue),
+      StopReading(queue),
       PauseReading(tts),
       ResumeReading(tts),
       SetReadingSpeed(tts),
-      WatchReadingEvents(tts),
+      WatchReadingEvents(queue),
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
       WarmUpReader(tts),
       OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
