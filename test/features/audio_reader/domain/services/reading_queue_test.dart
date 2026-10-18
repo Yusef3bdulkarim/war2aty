@@ -614,18 +614,18 @@ void main() {
     );
 
     test(
-      'reads a run it has no voice for with whatever the engine has',
+      'reads a run it has no voice for in the letters it does have',
       () async {
-        // No English voice: the English run is still spoken rather than
-        // dropped, just not switched to — F30-T17's transliteration is what
-        // makes it intelligible.
+        // No English voice: the English run is written in Arabic letters and
+        // read by the Arabic voice (F30-T17), rather than handed to a voice
+        // that would name its characters one at a time.
         tts.voices = [_arabicVoice];
 
         await queue.speak(_mixed);
         await completeUtterance();
 
-        expect(tts.spoken, _mixedRuns.take(2));
-        expect(tts.voicesSet, const [_arabicVoice]);
+        expect(tts.spoken, const ['فاتورة', ' إنفويس']);
+        expect(tts.voicesSet, const [_arabicVoice, _arabicVoice]);
       },
     );
 
@@ -954,6 +954,115 @@ void main() {
         'فاتورة تانية',
         'فاتورة تانية',
       ]);
+    });
+  });
+
+  // F30-T17, the last of RC-4 and the fallback inside locked decision 2's
+  // Option A. A device with Arabic voices and no English one would hand the
+  // English run to a voice that names its characters one at a time; written
+  // in Arabic letters, the same words come out as words.
+  group('ReadingQueue · an English run with no English voice', () {
+    setUp(() => tts.voices = [_arabicVoice]);
+
+    test('is written in Arabic letters and read by the Arabic voice', () async {
+      await queue.speak(_mixed);
+      await completeUtterance();
+
+      expect(tts.spoken, const ['فاتورة', ' إنفويس']);
+      expect(tts.voicesSet, const [_arabicVoice, _arabicVoice]);
+    });
+
+    test('still answers with the reading\'s own length', () async {
+      // What the user sees is the paper, not what the engine was handed —
+      // «إنفويس» is six letters where `invoice` is seven, and a bar measured
+      // against the shorter one would never reach its end.
+      final outcome = await queue.speak(_mixed);
+
+      expect(outcome, const Ok<int, AppFailure>(_mixed.length));
+    });
+
+    test('progress still spans the run it covers', () async {
+      await queue.speak(_mixed);
+      await completeUtterance();
+
+      const transliterated = ' إنفويس';
+      const runStart = 6;
+      const runLength = 8;
+
+      // The start of the transliterated utterance is the start of the run,
+      // and its end is the end of the run — whatever happened to the
+      // character count in between.
+      tts.emitEvent(const TtsProgressed(start: 0, end: 0));
+      await settle();
+      expect(
+        events.whereType<TtsProgressed>().last,
+        const TtsProgressed(start: runStart, end: runStart),
+      );
+
+      tts.emitEvent(const TtsProgressed(start: 0, end: transliterated.length));
+      await settle();
+      expect(
+        events.whereType<TtsProgressed>().last,
+        const TtsProgressed(start: runStart, end: runStart + runLength),
+      );
+    });
+
+    test('the run after it starts where it always did', () async {
+      await queue.speak(_mixed);
+      await completeUtterance();
+      await completeUtterance();
+
+      // The third run is Arabic and untouched, so its offsets are a plain
+      // shift again — by the *paper's* lengths, not the spoken ones.
+      tts.emitEvent(const TtsProgressed(start: 0, end: 4));
+      await settle();
+
+      const thirdRunStart = 14;
+      expect(
+        events.whereType<TtsProgressed>().last,
+        const TtsProgressed(start: thirdRunStart, end: thirdRunStart + 4),
+      );
+    });
+
+    test('is cut to the engine\'s limit after it is rewritten', () async {
+      // The ceiling is on what the engine is handed, and that is the Arabic
+      // text — the Latin it came from is never spoken (F30-T15).
+      tts.maxInputLength = 4;
+
+      await queue.speak('Pay before Friday');
+
+      expect(tts.spoken.single.length, lessThanOrEqualTo(4));
+    });
+
+    test('leaves the run alone when an English voice exists', () async {
+      tts.voices = [_arabicVoice, _englishVoice];
+
+      await queue.speak(_mixed);
+      await completeUtterance();
+
+      expect(tts.spoken, _mixedRuns.take(2));
+    });
+
+    test('leaves it alone when there is no Arabic voice either', () async {
+      // Nothing to rewrite it into: the device has a voice, but not one of
+      // either language the app reads.
+      tts.voices = const [TtsVoice(name: 'Amélie', locale: 'fr-FR')];
+
+      await queue.speak('Pay before Friday');
+
+      expect(tts.spoken, const ['Pay before Friday']);
+      expect(tts.voicesSet, isEmpty);
+    });
+
+    test('leaves it alone when the device reports no voices at all', () async {
+      // Android answers with an empty list while its engine is binding, and
+      // that is not evidence that an English voice is missing.
+      tts.voices = const [];
+
+      await queue.speak(_mixed);
+      await completeUtterance();
+
+      expect(tts.spoken, _mixedRuns.take(2));
     });
   });
 }

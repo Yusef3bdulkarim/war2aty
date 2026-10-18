@@ -62,6 +62,7 @@ import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_ser
 import 'package:war2aty/features/audio_reader/domain/usecases/chunk_text_for_speaking.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/segment_language_runs.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/transliterate_latin_to_arabic.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
@@ -1487,6 +1488,7 @@ ReadingQueue readingQueueOver(TextToSpeechService tts) => ReadingQueue(
   const SegmentLanguageRuns(),
   const SelectVoiceForReading(),
   const ChunkTextForSpeaking(),
+  const TransliterateLatinToArabic(),
 );
 
 /// Scriptable [TextToSpeechService] — no plugin, no OS engine (F10).

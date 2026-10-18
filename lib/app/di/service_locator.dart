@@ -148,6 +148,7 @@ import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/transliterate_latin_to_arabic.dart';
 import '../../features/audio_reader/domain/usecases/warm_up_reader.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
@@ -965,11 +966,15 @@ void _registerAudioReader() {
     ..registerFactory<SegmentLanguageRuns>(SegmentLanguageRuns.new)
     // F30-T15, and the same shape once more.
     ..registerFactory<ChunkTextForSpeaking>(ChunkTextForSpeaking.new)
+    // F30-T17, likewise.
+    ..registerFactory<TransliterateLatinToArabic>(
+      TransliterateLatinToArabic.new,
+    )
     // F30-T11. A singleton, and for the same reason `TextToSpeechService` is
     // one: it is the queue *of the one engine*, and a second instance would
     // read the first's completion events as its own runs finishing.
     ..registerLazySingleton<ReadingQueue>(
-      () => ReadingQueue(getIt(), getIt(), getIt(), getIt()),
+      () => ReadingQueue(getIt(), getIt(), getIt(), getIt(), getIt()),
     )
     // F10-T04.
     ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))

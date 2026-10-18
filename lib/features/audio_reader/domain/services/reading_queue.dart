@@ -9,6 +9,7 @@ import '../entities/tts_event.dart';
 import '../usecases/chunk_text_for_speaking.dart';
 import '../usecases/segment_language_runs.dart';
 import '../usecases/select_voice_for_reading.dart';
+import '../usecases/transliterate_latin_to_arabic.dart';
 import 'text_to_speech_service.dart';
 
 /// Speaks a reading as a queue of one-language utterances, one after the
@@ -20,6 +21,12 @@ import 'text_to_speech_service.dart';
 /// when the engine says the current one finished. Before it, an Arabic paper
 /// with English words in it was one utterance in one voice, and whichever
 /// script lost got named character by character.
+///
+/// An English run on a device that has an Arabic voice and no English one is
+/// written in Arabic letters before it is queued (F30-T17), and read by the
+/// Arabic voice: «إنفويس» rather than `invoice` named one character at a
+/// time. What such an item covers of the reading is then no longer the
+/// length of what it says, which is why [_Utterance] carries both.
 ///
 /// A run the engine would refuse for its length is cut into several queue
 /// items first (F30-T15), so what is queued is "a piece of the reading in one
@@ -74,7 +81,13 @@ import 'text_to_speech_service.dart';
 /// other use case here depends on — so the domain layer stays free of
 /// plugins.
 final class ReadingQueue {
-  ReadingQueue(this._tts, this._segment, this._selectVoice, this._chunk) {
+  ReadingQueue(
+    this._tts,
+    this._segment,
+    this._selectVoice,
+    this._chunk,
+    this._transliterate,
+  ) {
     // Subscribed for as long as this object lives, which is as long as the
     // engine does — both are app-lifetime singletons, and the engine's own
     // event controller is never closed either, so there is no point at which
@@ -88,6 +101,7 @@ final class ReadingQueue {
   final SegmentLanguageRuns _segment;
   final SelectVoiceForReading _selectVoice;
   final ChunkTextForSpeaking _chunk;
+  final TransliterateLatinToArabic _transliterate;
 
   final _readingEvents = StreamController<TtsEvent>.broadcast();
 
@@ -97,12 +111,12 @@ final class ReadingQueue {
   List<_Utterance> _utterances = const [];
   int _index = 0;
 
-  /// Where the utterance now speaking begins in the whole reading, in UTF-16
-  /// code units — what turns the engine's per-utterance progress offsets into
-  /// offsets into the reading. Held as a field rather than read off
+  /// The utterance now speaking — what turns the engine's per-utterance
+  /// progress offsets into offsets into the reading, through
+  /// [_Utterance.readingOffsetFor]. Held as a field rather than read off
   /// [_utterances] so an event arriving after the queue was cleared cannot
   /// index an empty list.
-  int _offset = 0;
+  _Utterance? _speaking;
 
   /// Whether the engine has reported that the utterance last handed to it is
   /// speaking. See [_onEngineEvent]'s cancel case, which is the only thing
@@ -302,7 +316,7 @@ final class ReadingQueue {
     _handingOver = true;
     try {
       _currentStarted = false;
-      _offset = utterance.offset;
+      _speaking = utterance;
       if (utterance.voice case final voice?) await _tts.setVoice(voice);
       // Both checked after the voice switch and before speaking, so a [stop]
       // or a [pause] that lands in the middle of it does not get a run spoken
@@ -383,8 +397,16 @@ final class ReadingQueue {
         _readingEvents.add(event);
 
       case TtsProgressed(:final start, :final end):
+        final speaking = _speaking;
+        if (speaking == null) {
+          _readingEvents.add(event);
+          return;
+        }
         _readingEvents.add(
-          TtsProgressed(start: _offset + start, end: _offset + end),
+          TtsProgressed(
+            start: speaking.readingOffsetFor(start),
+            end: speaking.readingOffsetFor(end),
+          ),
         );
 
       case TtsCompleted():
@@ -448,19 +470,22 @@ final class ReadingQueue {
   /// will take — each knowing where it starts in the reading and which voice
   /// reads it.
   ///
-  /// A run whose language the device has no voice for keeps `null` and is read
-  /// in whatever voice the engine already had — today that means an English
-  /// run on a device with no English voice is still named letter-by-letter,
-  /// which is exactly what F30-T17's transliteration fallback is for. Dropping
-  /// the run instead would be worse: it would read the paper with a piece of
-  /// it missing and say nothing about it.
+  /// An English run on a device with no English voice is written in Arabic
+  /// letters and read by the Arabic voice (F30-T17) — «إنفويس» for `invoice`
+  /// — because an Arabic voice handed Latin script names the characters one
+  /// at a time, which is the owner's own symptom (RC-4). Dropping the run
+  /// instead would be worse still: it would read the paper with a piece of
+  /// it missing and say nothing about that.
+  ///
+  /// A run with no voice and nothing to fall back on keeps `null` and is read
+  /// in whatever voice the engine already had. That is the device with no
+  /// voices at all, where there is nothing to prefer and no evidence either —
+  /// Android answers with an empty list while it is still binding.
   ///
   /// [limit] is the engine's own ceiling on one utterance, `null` when the
-  /// platform declares none (F30-T15). A run over it is cut into pieces that
-  /// are under it: every piece is a queue item like any other, spoken by the
-  /// run's voice, and the offsets below go on being sums of the lengths
-  /// before them — which is what keeps progress measured against the whole
-  /// reading whether a run was cut or not.
+  /// platform declares none (F30-T15). Anything over it is cut into pieces
+  /// that are under it, after transliteration rather than before, so the
+  /// ceiling holds against what is actually spoken.
   List<_Utterance> _queueFor(
     List<LanguageRun> runs,
     List<TtsVoice> voices,
@@ -469,15 +494,58 @@ final class ReadingQueue {
     final utterances = <_Utterance>[];
     var offset = 0;
     for (final run in runs) {
-      final voice = voices.isEmpty
+      var voice = voices.isEmpty
           ? null
           : _selectVoice.forLanguage(run.language, voices);
-      for (final chunk in _chunk(run.text, limit: limit)) {
-        utterances.add(_Utterance(text: chunk, offset: offset, voice: voice));
-        offset += chunk.length;
+      var spoken = run.text;
+      if (voice == null && run.language == ReadingLanguage.english) {
+        final arabic = _selectVoice.forLanguage(ReadingLanguage.arabic, voices);
+        if (arabic != null) {
+          voice = arabic;
+          spoken = _transliterate(run.text);
+        }
       }
+      utterances.addAll(
+        _piecesOf(spoken, run.text.length, offset, voice, limit),
+      );
+      offset += run.text.length;
     }
     return utterances;
+  }
+
+  /// [spoken] as queue items the engine will take, together covering
+  /// [sourceLength] code units of the reading from [offset].
+  ///
+  /// The pieces divide what they cover in proportion to what each of them
+  /// says, which is an identity when [spoken] is the reading's own
+  /// characters and an approximation when it was transliterated — see
+  /// [_Utterance.readingOffsetFor], which the progress offsets inside one
+  /// piece go through for the same reason.
+  Iterable<_Utterance> _piecesOf(
+    String spoken,
+    int sourceLength,
+    int offset,
+    TtsVoice? voice,
+    int? limit,
+  ) sync* {
+    final pieces = _chunk(spoken, limit: limit);
+    var saidSoFar = 0;
+    var covered = 0;
+    for (var i = 0; i < pieces.length; i++) {
+      saidSoFar += pieces[i].length;
+      // The last piece takes whatever is left rather than its own share, so
+      // rounding cannot leave a code unit of the reading uncovered.
+      final end = i == pieces.length - 1
+          ? sourceLength
+          : (saidSoFar * sourceLength / spoken.length).round();
+      yield _Utterance(
+        text: pieces[i],
+        offset: offset + covered,
+        length: end - covered,
+        voice: voice,
+      );
+      covered = end;
+    }
   }
 
   /// Whether this reading cannot usefully be spoken at all for want of an
@@ -516,7 +584,7 @@ final class ReadingQueue {
   void _clear() {
     _utterances = const [];
     _index = 0;
-    _offset = 0;
+    _speaking = null;
     _currentStarted = false;
     _paused = false;
     _parked = null;
@@ -524,21 +592,50 @@ final class ReadingQueue {
   }
 }
 
-/// One queued utterance: a slice of the reading, where it starts, and the
-/// voice to read it with.
+/// One queued utterance: what the engine is told to say, which part of the
+/// reading that covers, and the voice to say it with.
 final class _Utterance {
   const _Utterance({
     required this.text,
     required this.offset,
+    required this.length,
     required this.voice,
   });
 
+  /// What the engine is asked to speak.
+  ///
+  /// Usually a verbatim slice of the reading, and not always: a run
+  /// transliterated into Arabic (F30-T17) says the same words in different
+  /// letters, and in a different number of them.
   final String text;
 
-  /// Where [text] begins in the whole reading, in UTF-16 code units.
+  /// Where this utterance begins in the whole reading, in UTF-16 code units.
   final int offset;
+
+  /// How much of the reading it covers, in UTF-16 code units — [text]'s own
+  /// length except when [text] was transliterated.
+  ///
+  /// Progress is reported against the reading the user can see, so it is
+  /// this and not [text] that the bar is measured in.
+  final int length;
 
   /// `null` to read it with whatever voice the engine already has — see
   /// [ReadingQueue._queueFor].
   final TtsVoice? voice;
+
+  /// [spokenOffset], which the engine counts from the start of [text], as an
+  /// offset into the whole reading.
+  ///
+  /// A plain shift while [text] is the reading's own characters. For a
+  /// transliterated utterance there is no character-for-character answer —
+  /// «إنفويس» is six letters where `invoice` is seven — so the offset is
+  /// scaled, which is monotonic, starts at [offset] and ends exactly at the
+  /// end of what this utterance covers. That is everything a progress bar
+  /// asks of it.
+  int readingOffsetFor(int spokenOffset) {
+    if (text.length == length) return offset + spokenOffset;
+    if (text.isEmpty) return offset;
+    final scaled = (spokenOffset * length / text.length).round();
+    return offset + scaled.clamp(0, length);
+  }
 }
