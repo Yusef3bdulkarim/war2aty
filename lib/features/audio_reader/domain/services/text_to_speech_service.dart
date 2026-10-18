@@ -47,6 +47,21 @@ abstract interface class TextToSpeechService {
   /// Lists the voices installed on this device.
   Future<Result<List<TtsVoice>, AppFailure>> getVoices();
 
+  /// The longest text the engine will take in one [speak], in UTF-16 code
+  /// units — or `null` when the platform declares no limit (F30-T15).
+  ///
+  /// Android answers with `TextToSpeech.getMaxSpeechInputLength()`, 4000, and
+  /// refuses anything longer in a way nothing downstream can see: the plugin
+  /// parks the call, so [speak] never answers and no event ever arrives (F30
+  /// RC-3). `ReadingQueue` asks for this so it can cut a long run into
+  /// several utterances before the engine has the chance.
+  ///
+  /// Not a [Result]: there is nothing for a caller to report or recover
+  /// from. A platform that does not implement the call — iOS does not — is
+  /// indistinguishable here from one that declares no limit, and both mean
+  /// the same thing to the only caller there is.
+  Future<int?> getMaxInputLength();
+
   /// Throws away whatever [getVoices] is holding, so the next call asks the
   /// device again (F30-T04).
   ///

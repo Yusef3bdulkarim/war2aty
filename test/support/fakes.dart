@@ -59,6 +59,7 @@ import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/reading_queue.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/chunk_text_for_speaking.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/segment_language_runs.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
@@ -1485,6 +1486,7 @@ ReadingQueue readingQueueOver(TextToSpeechService tts) => ReadingQueue(
   tts,
   const SegmentLanguageRuns(),
   const SelectVoiceForReading(),
+  const ChunkTextForSpeaking(),
 );
 
 /// Scriptable [TextToSpeechService] — no plugin, no OS engine (F10).
@@ -1593,6 +1595,22 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   void forgetVoices() => forgetVoicesCount++;
 
   int forgetVoicesCount = 0;
+
+  /// The engine's ceiling on one utterance (F30-T15) — `null` by default,
+  /// which is a platform that declares none, so a test that is not about
+  /// chunking sees the whole run spoken as one utterance exactly as before.
+  int? maxInputLength;
+
+  /// How many times [getMaxInputLength] was asked, for the same reason
+  /// [getVoicesCount] exists: the real service caches it, and the warm-up is
+  /// what fills that cache.
+  int maxInputLengthCount = 0;
+
+  @override
+  Future<int?> getMaxInputLength() async {
+    maxInputLengthCount++;
+    return maxInputLength;
+  }
 
   @override
   Stream<TtsEvent> get events => _events.stream;

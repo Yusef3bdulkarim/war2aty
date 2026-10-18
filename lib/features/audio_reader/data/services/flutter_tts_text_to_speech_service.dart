@@ -243,6 +243,32 @@ final class FlutterTtsTextToSpeechService implements TextToSpeechService {
   @override
   void forgetVoices() => _cachedVoices = null;
 
+  /// The limit once the platform has given one — a constant per platform
+  /// (`TextToSpeech.getMaxSpeechInputLength()` is a fixed 4000), so asking
+  /// twice can only get the same answer, and asking at all is a channel
+  /// round trip on a path F30 RC-6 is about keeping short.
+  int? _cachedMaxInputLength;
+
+  @override
+  Future<int?> getMaxInputLength() async {
+    if (_cachedMaxInputLength case final cached?) return cached;
+    try {
+      final length = await _tts.getMaxSpeechInputLength;
+      // A missing or nonsensical answer is "no limit declared", and is not
+      // remembered — for the same reason an empty voice list is not
+      // (`getVoices` above). Caching it would turn one bad answer into a
+      // session with no chunking at all, and that session's long paper is
+      // the reading that hangs.
+      if (length == null || length <= 0) return null;
+      return _cachedMaxInputLength = length;
+    } on Object {
+      // iOS lands here every time: its side does not implement the call, so
+      // the channel throws. Nothing to log — the absence of a limit is the
+      // platform's normal answer, not a fault.
+      return null;
+    }
+  }
+
   /// One entry from `getVoices`, or `null` if it carries no name or locale —
   /// without both there is nothing to select it by later.
   ///

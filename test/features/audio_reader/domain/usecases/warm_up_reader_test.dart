@@ -27,6 +27,14 @@ void main() {
     },
   );
 
+  test('asks for the engine\'s utterance limit as well', () async {
+    await warmUp();
+
+    // The second channel round trip the reading would otherwise make, and
+    // cached the same way the voices are (F30-T15).
+    expect(tts.maxInputLengthCount, 1);
+  });
+
   test('speaks nothing — a warm-up is silent', () async {
     tts.voices = const [TtsVoice(name: 'ar-EG-local', locale: 'ar-EG')];
 

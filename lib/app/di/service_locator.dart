@@ -139,6 +139,7 @@ import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_ser
 import '../../features/audio_reader/domain/services/reading_queue.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
+import '../../features/audio_reader/domain/usecases/chunk_text_for_speaking.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/segment_language_runs.dart';
@@ -962,11 +963,13 @@ void _registerAudioReader() {
     ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
     // F30-T10. Stateless and total, the same shape again.
     ..registerFactory<SegmentLanguageRuns>(SegmentLanguageRuns.new)
+    // F30-T15, and the same shape once more.
+    ..registerFactory<ChunkTextForSpeaking>(ChunkTextForSpeaking.new)
     // F30-T11. A singleton, and for the same reason `TextToSpeechService` is
     // one: it is the queue *of the one engine*, and a second instance would
     // read the first's completion events as its own runs finishing.
     ..registerLazySingleton<ReadingQueue>(
-      () => ReadingQueue(getIt(), getIt(), getIt()),
+      () => ReadingQueue(getIt(), getIt(), getIt(), getIt()),
     )
     // F10-T04.
     ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))

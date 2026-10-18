@@ -5,6 +5,7 @@ import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../entities/language_run.dart';
 import '../entities/tts_event.dart';
+import '../usecases/chunk_text_for_speaking.dart';
 import '../usecases/segment_language_runs.dart';
 import '../usecases/select_voice_for_reading.dart';
 import 'text_to_speech_service.dart';
@@ -18,6 +19,14 @@ import 'text_to_speech_service.dart';
 /// when the engine says the current one finished. Before it, an Arabic paper
 /// with English words in it was one utterance in one voice, and whichever
 /// script lost got named character by character.
+///
+/// A run the engine would refuse for its length is cut into several queue
+/// items first (F30-T15), so what is queued is "a piece of the reading in one
+/// language, short enough to speak" rather than strictly one run. Nothing
+/// else in here distinguishes the two: a cut run advances, pauses, resumes
+/// and reports progress exactly as an uncut one does. The cost is the gap
+/// between two pieces of the same run, which is the same gap a language
+/// switch pays and is paid only by a run over 4000 characters.
 ///
 /// **Everything that plays goes through here** — speaking, pausing, resuming
 /// and stopping. The queue is what the engine's events are read against, so a
@@ -58,7 +67,7 @@ import 'text_to_speech_service.dart';
 /// other use case here depends on — so the domain layer stays free of
 /// plugins.
 final class ReadingQueue {
-  ReadingQueue(this._tts, this._segment, this._selectVoice) {
+  ReadingQueue(this._tts, this._segment, this._selectVoice, this._chunk) {
     // Subscribed for as long as this object lives, which is as long as the
     // engine does — both are app-lifetime singletons, and the engine's own
     // event controller is never closed either, so there is no point at which
@@ -71,6 +80,7 @@ final class ReadingQueue {
   final TextToSpeechService _tts;
   final SegmentLanguageRuns _segment;
   final SelectVoiceForReading _selectVoice;
+  final ChunkTextForSpeaking _chunk;
 
   final _readingEvents = StreamController<TtsEvent>.broadcast();
 
@@ -175,15 +185,20 @@ final class ReadingQueue {
     if (text.trim().isEmpty) return Err(await _abandon(const TtsFailure()));
 
     final runs = _segment(text);
-    // Cached since F30-T04, so this is not the round trip per reading it used
-    // to be (F30 RC-6).
-    final voices = (await _tts.getVoices()).valueOrNull ?? const <TtsVoice>[];
+    // Both cached after the first reading of the session — the voices since
+    // F30-T04, the limit since F30-T15 — and asked for together rather than
+    // one after the other, so a cold start pays for the slower of the two
+    // instead of for both (F30 RC-6).
+    final askedForVoices = _tts.getVoices();
+    final askedForLimit = _tts.getMaxInputLength();
+    final voices = (await askedForVoices).valueOrNull ?? const <TtsVoice>[];
+    final limit = await askedForLimit;
     if (_generation != generation) return Ok(text.length);
     if (_noVoiceForAnArabicReading(text, voices)) {
       return Err(await _abandon(const NoArabicVoiceFailure()));
     }
 
-    _install(_queueFor(runs, voices));
+    _install(_queueFor(runs, voices, limit));
     final outcome = await _handOver(_utterances.first, generation);
     // Somebody else claimed the engine while this was being handed over. Not
     // ours to report on and not ours to silence: their reading is the one the
@@ -372,8 +387,9 @@ final class ReadingQueue {
     }
   }
 
-  /// One utterance per run, each knowing where it starts in the reading and
-  /// which voice reads it.
+  /// One utterance per run — or several, when a run is longer than the engine
+  /// will take — each knowing where it starts in the reading and which voice
+  /// reads it.
   ///
   /// A run whose language the device has no voice for keeps `null` and is read
   /// in whatever voice the engine already had — today that means an English
@@ -381,20 +397,28 @@ final class ReadingQueue {
   /// which is exactly what F30-T17's transliteration fallback is for. Dropping
   /// the run instead would be worse: it would read the paper with a piece of
   /// it missing and say nothing about it.
-  List<_Utterance> _queueFor(List<LanguageRun> runs, List<TtsVoice> voices) {
+  ///
+  /// [limit] is the engine's own ceiling on one utterance, `null` when the
+  /// platform declares none (F30-T15). A run over it is cut into pieces that
+  /// are under it: every piece is a queue item like any other, spoken by the
+  /// run's voice, and the offsets below go on being sums of the lengths
+  /// before them — which is what keeps progress measured against the whole
+  /// reading whether a run was cut or not.
+  List<_Utterance> _queueFor(
+    List<LanguageRun> runs,
+    List<TtsVoice> voices,
+    int? limit,
+  ) {
     final utterances = <_Utterance>[];
     var offset = 0;
     for (final run in runs) {
-      utterances.add(
-        _Utterance(
-          text: run.text,
-          offset: offset,
-          voice: voices.isEmpty
-              ? null
-              : _selectVoice.forLanguage(run.language, voices),
-        ),
-      );
-      offset += run.text.length;
+      final voice = voices.isEmpty
+          ? null
+          : _selectVoice.forLanguage(run.language, voices);
+      for (final chunk in _chunk(run.text, limit: limit)) {
+        utterances.add(_Utterance(text: chunk, offset: offset, voice: voice));
+        offset += chunk.length;
+      }
     }
     return utterances;
   }

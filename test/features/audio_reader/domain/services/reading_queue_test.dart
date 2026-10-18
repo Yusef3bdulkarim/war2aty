@@ -654,4 +654,132 @@ void main() {
       expect(tts.getVoicesCount, 1);
     });
   });
+
+  // F30-T15. Android refuses an utterance over `getMaxSpeechInputLength()`
+  // by parking the call — it never answers and emits no event — so a run
+  // over the limit used to hang the reader with a bar that never went away
+  // (F30 RC-3). A run too long for the engine is several queue items now,
+  // and everything the queue does has to go on working across them.
+  group('ReadingQueue · a run too long for the engine', () {
+    /// A wholly Arabic reading of 30 code units, in words of 4 so a cut can
+    /// land on a space wherever the limit falls.
+    const long = 'اااا اااا اااا اااا اااا اااا';
+
+    test('is spoken as several utterances, none over the limit', () async {
+      tts.maxInputLength = 10;
+
+      final outcome = await queue.speak(long);
+
+      expect(outcome, const Ok<int, AppFailure>(long.length));
+      expect(tts.spoken, const ['اااا اااا ']);
+
+      await completeUtterance();
+      await completeUtterance();
+      expect(tts.spoken.join(), long);
+      expect(tts.spoken.every((u) => u.length <= 10), isTrue);
+    });
+
+    test('is still one reading, finishing once at the end', () async {
+      tts.maxInputLength = 10;
+
+      await queue.speak(long);
+      await completeUtterance();
+      expect(events.whereType<TtsCompleted>(), isEmpty);
+
+      await completeUtterance();
+      await completeUtterance();
+      expect(events.whereType<TtsCompleted>(), const [TtsCompleted()]);
+    });
+
+    test('keeps the run\'s own voice across its pieces', () async {
+      tts.maxInputLength = 10;
+
+      await queue.speak(long);
+      await completeUtterance();
+      await completeUtterance();
+
+      // Cutting a run is about the engine's ceiling, not about language:
+      // every piece of an Arabic run is still Arabic.
+      expect(tts.voicesSet, const [_arabicVoice, _arabicVoice, _arabicVoice]);
+    });
+
+    test('progress goes on counting against the whole reading', () async {
+      tts.maxInputLength = 10;
+
+      await queue.speak(long);
+      await completeUtterance();
+      tts.emitEvent(const TtsProgressed(start: 0, end: 4));
+      await settle();
+
+      // The second piece starts 10 code units in, and the engine counts
+      // from zero inside it — the bar must not jump back to the top of the
+      // paper at a cut any more than it does at a language switch.
+      expect(
+        events.whereType<TtsProgressed>().last,
+        const TtsProgressed(start: 10, end: 14),
+      );
+    });
+
+    test('a pause between two pieces parks the next one', () async {
+      tts.maxInputLength = 10;
+
+      await queue.speak(long);
+      await queue.pause();
+      await completeUtterance();
+
+      // The second invariant, at a cut rather than at a language boundary:
+      // nothing is spoken while the player is paused.
+      expect(tts.spoken, const ['اااا اااا ']);
+
+      await queue.resume();
+      await settle();
+      expect(tts.spoken, hasLength(2));
+    });
+
+    test('cuts each run separately, not the reading as a whole', () async {
+      // A limit short enough to cut the Arabic runs of the mixed reading but
+      // not its English one: a piece never spans two languages, or the voice
+      // switch the queue exists for would be lost.
+      tts.maxInputLength = 8;
+
+      await queue.speak(_mixed);
+      for (var i = 0; i < 4; i++) {
+        await completeUtterance();
+      }
+
+      expect(tts.spoken.join(), _mixed);
+      expect(tts.spoken, hasLength(greaterThan(_mixedRuns.length)));
+      expect(tts.voicesSet.first, _arabicVoice);
+      expect(tts.voicesSet[1], _englishVoice);
+    });
+
+    test('leaves a reading inside the limit as one utterance', () async {
+      tts.maxInputLength = 4000;
+
+      await queue.speak(long);
+
+      expect(tts.spoken, const [long]);
+    });
+
+    test('asks the engine for its limit once per reading', () async {
+      tts.maxInputLength = 10;
+
+      await queue.speak(long);
+      await completeUtterance();
+      await completeUtterance();
+
+      // Same reason `getVoices` is asked once: it is a channel round trip on
+      // the path F30 RC-6 is about keeping short.
+      expect(tts.maxInputLengthCount, 1);
+    });
+
+    test('speaks the whole reading when no limit is declared', () async {
+      // iOS, where the call is not implemented at all.
+      tts.maxInputLength = null;
+
+      await queue.speak(long);
+
+      expect(tts.spoken, const [long]);
+    });
+  });
 }

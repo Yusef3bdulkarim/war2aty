@@ -244,6 +244,59 @@ void main() {
     });
   });
 
+  // F30-T15. The ceiling the queue cuts a long run against — and the one
+  // refusal in the whole engine that answers with nothing at all, since the
+  // plugin parks a `speak` it cannot make rather than failing it (F30 RC-3).
+  group('FlutterTtsTextToSpeechService.getMaxInputLength', () {
+    test('reports the limit the platform declares', () async {
+      final service = FlutterTtsTextToSpeechService(
+        _RecordingLogger(),
+        _LimitedFlutterTts(4000),
+      );
+
+      expect(await service.getMaxInputLength(), 4000);
+    });
+
+    test('the device is asked once, however many times we ask', () async {
+      final tts = _LimitedFlutterTts(4000);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
+
+      await service.getMaxInputLength();
+      await service.getMaxInputLength();
+
+      // A constant per platform, so a second round trip could only get the
+      // same answer — on a path F30 RC-6 is about keeping short.
+      expect(tts.calls, 1);
+    });
+
+    test('a platform that does not implement the call declares no limit', () {
+      // iOS: the channel throws `MissingPluginException`, which is its
+      // normal answer rather than a fault, so nothing is logged for it.
+      final logger = _RecordingLogger();
+      final service = FlutterTtsTextToSpeechService(
+        logger,
+        _LimitedFlutterTts.throwing(),
+      );
+
+      expect(service.getMaxInputLength(), completion(isNull));
+      expect(logger.events, isEmpty);
+    });
+
+    test('a missing or nonsensical answer is no limit, and is not cached', () {
+      final tts = _LimitedFlutterTts(null);
+      final service = FlutterTtsTextToSpeechService(_RecordingLogger(), tts);
+
+      expect(service.getMaxInputLength(), completion(isNull));
+      tts.answer = 0;
+      expect(service.getMaxInputLength(), completion(isNull));
+
+      // Remembering one bad answer would leave the session with no chunking
+      // at all, and that session's long paper is the reading that hangs.
+      tts.answer = 4000;
+      expect(service.getMaxInputLength(), completion(4000));
+    });
+  });
+
   group('TtsVoice', () {
     test('identity is the name and locale, not how the voice sounds', () {
       // `DefaultReadingVoiceStore` only ever persisted those two, so a voice
@@ -514,6 +567,26 @@ final class _FakeFlutterTts extends ft.FlutterTts {
 final class _ThrowingFlutterTts extends ft.FlutterTts {
   @override
   Future<dynamic> get getVoices async => throw Exception('no engine');
+}
+
+/// `FlutterTts` that answers the maximum-utterance-length call however the
+/// test needs it to — or, [_LimitedFlutterTts.throwing], the way a platform
+/// that does not implement it at all does (F30-T15).
+final class _LimitedFlutterTts extends ft.FlutterTts {
+  _LimitedFlutterTts(this.answer) : _throws = false;
+
+  _LimitedFlutterTts.throwing() : answer = null, _throws = true;
+
+  int? answer;
+  final bool _throws;
+  int calls = 0;
+
+  @override
+  Future<int?> get getMaxSpeechInputLength async {
+    calls++;
+    if (_throws) throw Exception('not implemented on this platform');
+    return answer;
+  }
 }
 
 /// Counts how often the platform is actually asked, so the cache can be
