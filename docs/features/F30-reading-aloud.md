@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 20 / 22
+- **Progress:** 21 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -263,7 +263,7 @@ preceded this doc.
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | DONE 2026-10-18 |
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | DONE 2026-10-18 |
 | 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | DONE 2026-10-18 — the English already matched |
-| 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
+| 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | DONE 2026-10-18 |
 | 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass (carries T14's listening check) → PR | — | TODO |
 
 **T13 and T14 carry the highest regression risk** in the feature: today
@@ -689,6 +689,38 @@ a code comment, three of which describe the one-line `summary.short` field
 two modes read is headed **«ملخص المستند»** on the screen above them, so the
 new wording is also the one that agrees with what the user is looking at,
 which the old one did not.
+
+**T19 had already half landed.** "Never speak an empty string" was closed by
+T11: `ReadingQueue.speak` refuses a reading with nothing in it and leaves the
+engine silent, with a note in the code saying T19 was what would stop such a
+mode being offered in the first place. This is that half — and the order
+matters, because a mode that cannot be read should not be offered and then
+refused.
+
+`OfferableReadingModes` asks `BuildReadingText` for each candidate mode and
+keeps the ones that produce something. **Asking the builder is the whole
+point**: "this mode has something to read" and "this is what it reads" are
+then one answer rather than two that can drift — the same reasoning T10
+followed when it made `SelectVoiceForReading` count script through the
+segmenter's own classifier. The list of candidate modes moved out of the
+sheet widget and into the use case with it, since which modes are offered is
+a decision and not a layout.
+
+The sheet is now told what to offer. Both screens ask the cubit on the tap
+that opens it, not at build time: it costs a pass over the paper, and the
+answer is only ever needed when the sheet is about to open. The fresh-open
+highlight moved from a hard-coded `summaryOnly` to the first mode actually
+offered, which is the bug in miniature — that constant is what the sheet
+opened on even when the summary was blank.
+
+**The empty case** — no mode with anything to read — means the paper has
+nothing readable at all, and since `readAll` reads every section the screen
+draws, it also means the screen behind the sheet is blank. The sheet is then
+not opened. The «استمع» button is still drawn in that case, so the tap does
+nothing; hiding it would mean computing this at build time on both screens,
+which is a real cost for a state no result that renders anything can reach.
+Worth revisiting only if a blank result screen ever turns out to be
+reachable — at which point the blank screen is the bug.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,
