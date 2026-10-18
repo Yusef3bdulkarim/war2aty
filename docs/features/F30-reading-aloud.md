@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 16 / 22
+- **Progress:** 17 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -259,7 +259,7 @@ preceded this doc.
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | DONE 2026-10-18 — not adopted; the voice *is* honoured per utterance, but pause loses the queue |
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | DONE 2026-10-18 — no rework needed; the gap was the tests |
 | 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | DONE 2026-10-18 — two holes the queue had left, closed; the listening pass rolls into T20 |
-| 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
+| 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | DONE 2026-10-18 |
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
 | 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
@@ -547,6 +547,38 @@ measured run lengths confirm it does not disturb it. That takes the awaited
 no change to the queue's shape, to its two invariants, or to F10-T08's
 resume. It is not part of T12, which was only ever a go/no-go, and is left
 with the owner as a possible follow-up.
+
+**T15 closes the last of RC-3, and the queue is what made it cheap.** The
+engine's ceiling is 4000 characters, and the refusal above it is the
+worst-shaped failure in the feature: the plugin parks the call rather than
+answering it, so T09's five-second bound is the only thing that turns it into
+anything at all. Chunking removes the trigger, and because `ReadingQueue`
+already speaks a reading as several utterances, a run over the limit simply
+becomes more than one queue item — nothing about advancing, pausing,
+resuming or counting progress needed changing, and the tests prove each of
+those still holds across a cut.
+
+Three things worth recording:
+
+- **Where a cut lands is heard.** Every boundary between queue items is the
+  gap T12 measured, so `ChunkTextForSpeaking` takes the *latest* sentence end
+  inside the window, then the latest space, and cuts where the limit falls
+  only for a stretch with neither — 4000 characters with no space in them,
+  which no photographed paper produces. Taking the latest break rather than
+  the first also means the fewest pieces, and so the fewest gaps. A cut never
+  lands inside a surrogate pair, the same boundary T10's segmentation had to
+  respect.
+- **Each run is cut on its own**, after segmentation rather than before it,
+  so a piece never spans two languages and the voice switch the queue exists
+  for is never lost. The pieces of one run share that run's voice.
+- **The limit is asked for the way the voice list is.** `getMaxInputLength`
+  is a new method on `TextToSpeechService` answering `int?` rather than a
+  `Result` — there is nothing for a caller to report, and a platform that
+  does not implement the call (iOS does not) is indistinguishable from one
+  that declares no limit. It is cached in the data layer like the voices,
+  only when the answer is a positive one for the same reason an empty voice
+  list is never cached, and `WarmUpReader` now asks for both together so the
+  first reading pays for neither.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,
