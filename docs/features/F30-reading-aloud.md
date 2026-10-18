@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 21 / 22
+- **Progress:** 22 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -264,7 +264,7 @@ preceded this doc.
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | DONE 2026-10-18 |
 | 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | DONE 2026-10-18 — the English already matched |
 | 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | DONE 2026-10-18 |
-| 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass (carries T14's listening check) → PR | — | TODO |
+| 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass (carries T14's listening check) → PR | — | DONE 2026-10-18 — one defect found and fixed; device pass reported passing by the owner |
 
 **T13 and T14 carry the highest regression risk** in the feature: today
 `_totalLength` / `_peakProgress` measure a single utterance, including
@@ -840,6 +840,15 @@ construction, so the only sign of it is a reading that stumbles and
 recovers by itself; and T19 needs a paper whose summary came back blank. If
 either turns up, the modes offered and the absence of a snackbar are what to
 look at.
+
+**One that this phone cannot show at all:** T17's transliteration. The
+RMX2001 has an English voice, so an English run takes the ordinary per-run
+path; «إنفويس» in place of spelled-out letters needs a device with an Arabic
+voice and no English one, which may not exist among the three phones to
+hand. It stays covered by its own tests only.
+
+**Outcome: the owner reported the device pass as passing on 2026-10-18**, and
+T20 is closed on that.
 
 ## Exit DoD
 
