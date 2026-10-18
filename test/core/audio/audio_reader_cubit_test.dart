@@ -213,6 +213,28 @@ void main() {
       expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
     });
 
+    test('a failed pause stops the reading rather than talking on', () async {
+      // An engine that refuses the pause keeps reading, and reporting the
+      // failure hides the bar — so the paper would be read aloud with no
+      // pause and no stop to reach for, and leaving the page would not
+      // silence it either, since `close` only stops a reading the state
+      // still calls one.
+      final built = _cubitFor(pauseFails: true);
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      await built.cubit.pause();
+
+      expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
+      expect(built.tts.stopCount, 1);
+    });
+
     test('a failed resume reports the failure instead', () async {
       final built = _cubitFor(resumeFails: true);
       addTearDown(built.cubit.close);

@@ -202,21 +202,37 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// it is already paused — the toggle button that drives this only ever
   /// offers one direction at a time, but a stray second tap should not
   /// re-pause an already-paused engine.
+  ///
+  /// An engine that refuses the pause keeps reading, so the reading is
+  /// stopped before the failure is reported (F30-T14). Reporting alone would
+  /// put the player into [AudioReaderFailed], which hides the bar — leaving
+  /// the paper being read aloud with no pause and no stop to reach for, and
+  /// not even silenced by leaving the page, since [close] only stops a
+  /// reading the state still calls one. The user asked for silence; if the
+  /// pause cannot give it to them, stopping is closer to the ask than
+  /// carrying on talking.
   Future<void> pause() async {
     if (isClosed) return;
     final current = state;
     if (current is! AudioReaderReading || current.isPaused) return;
     final outcome = await _pauseReading();
     if (isClosed) return;
+    if (outcome.failureOrNull case final failure?) {
+      // The stop's own outcome is not reported over this one: the user asked
+      // for a pause, and that is the answer they are owed (the reasoning
+      // `ReadingQueue._abandon` follows for the same reason).
+      await _stopReading();
+      if (isClosed) return;
+      _resetProgress();
+      emit(AudioReaderFailed(failure));
+      return;
+    }
     emit(
-      outcome.when(
-        ok: (_) => AudioReaderReading(
-          current.mode,
-          isPaused: true,
-          speed: current.speed,
-          progress: current.progress,
-        ),
-        err: AudioReaderFailed.new,
+      AudioReaderReading(
+        current.mode,
+        isPaused: true,
+        speed: current.speed,
+        progress: current.progress,
       ),
     );
   }

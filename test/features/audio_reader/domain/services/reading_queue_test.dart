@@ -334,6 +334,62 @@ void main() {
       expect(tts.spoken, _mixedRuns.take(2));
     });
 
+    test('a resume the engine refuses gives the reading up', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsStarted());
+      await settle();
+      await queue.pause();
+
+      tts.resumeFails = true;
+      expect(await queue.resume(), const Err<void, AppFailure>(TtsFailure()));
+
+      // Nothing is going to speak this reading now, so nothing of it may be
+      // left installed: the Settings voice preview is outside this queue, and
+      // its completion would otherwise advance a reading the user has already
+      // been told failed.
+      expect(tts.stopCount, 1);
+      await completeUtterance();
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test(
+      'a refused resume silences nothing if a reading replaced it',
+      () async {
+        await queue.speak(_mixed);
+        tts.emitEvent(const TtsStarted());
+        await settle();
+        await queue.pause();
+        tts.resumeFails = true;
+
+        // Both in flight at once: the user taps resume, and starts a fresh
+        // reading from the options sheet before the engine has answered. The
+        // refusal belongs to a reading that has been replaced — reporting it
+        // would put a failure over the new one, and giving up on it would
+        // silence the reading the user actually asked for.
+        final resumed = queue.resume();
+        final second = queue.speak('فاتورة تانية');
+
+        expect(await resumed, const Ok<void, AppFailure>(null));
+        expect(await second, const Ok<int, AppFailure>(12));
+        expect(tts.stopCount, 0);
+        expect(tts.spoken, [_mixedRuns.first, 'فاتورة تانية']);
+      },
+    );
+
+    test('a parked run the engine refuses gives the reading up', () async {
+      await queue.speak(_mixed);
+      await queue.pause();
+      await completeUtterance();
+
+      tts.speakFails = true;
+      expect(await queue.resume(), const Err<void, AppFailure>(TtsFailure()));
+
+      expect(tts.stopCount, 1);
+      tts.speakFails = false;
+      await completeUtterance();
+      expect(tts.spoken, [_mixedRuns.first, _mixedRuns.elementAt(1)]);
+    });
+
     test(
       'a pause mid-hand-over parks the run instead of speaking it',
       () async {
@@ -392,6 +448,29 @@ void main() {
       // nothing to silence, so only dropping the queue keeps the next run
       // from starting on its own.
       await completeUtterance();
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test('stop mid-hand-over keeps the run from being spoken', () async {
+      await queue.speak(_mixed);
+      final gate = Completer<void>();
+      tts.setVoiceGate = gate;
+
+      // The completion starts the second run's hand-over, which blocks on the
+      // voice switch; the user stops inside that window — the mirror of the
+      // pause that lands there, and the other half of «including mid-run».
+      tts.emitEvent(const TtsCompleted());
+      await settle();
+      await queue.stop();
+      gate.complete();
+      tts.setVoiceGate = null;
+      await settle();
+
+      expect(tts.spoken, [_mixedRuns.first]);
+      // Nothing was parked either: a stop drops the reading, and resuming
+      // after it must not find a run to speak.
+      await queue.resume();
+      await settle();
       expect(tts.spoken, [_mixedRuns.first]);
     });
 

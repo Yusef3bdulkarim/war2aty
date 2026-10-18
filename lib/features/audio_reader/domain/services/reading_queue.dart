@@ -215,14 +215,28 @@ final class ReadingQueue {
   /// which on Android means a fresh utterance covering the remainder
   /// (F10-T08) — or the pause landed between two runs and the one that came
   /// due was parked, in which case resuming is what finally speaks it.
+  ///
+  /// A resume the engine refuses gives the reading up, whichever of those two
+  /// it was (F30-T14). Nothing is going to speak after it and no completion is
+  /// going to arrive, so a queue that stayed installed would be a reading the
+  /// user has been told failed, waiting for somebody else's completion — the
+  /// Settings voice preview's, the one thing outside this queue that speaks —
+  /// to advance it a run and start talking again. That is the first invariant,
+  /// and before this only the parked half of this method kept it.
+  ///
+  /// With the same one exception [speak] has: a reading that started while
+  /// this one was being resumed is the reading the user asked for, so a
+  /// refusal arriving after it is neither reported nor allowed to silence it.
   Future<Result<void, AppFailure>> resume() async {
+    final generation = _generation;
     final parked = _parked;
     _paused = false;
     _parked = null;
-    if (parked == null) return _tts.resume();
-
-    final outcome = await _handOver(parked, _generation);
+    final outcome = parked == null
+        ? await _tts.resume()
+        : await _handOver(parked, generation);
     if (outcome.failureOrNull case final failure?) {
+      if (_generation != generation) return const Ok(null);
       return Err(await _abandon(failure));
     }
     return const Ok(null);

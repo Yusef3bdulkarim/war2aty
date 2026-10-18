@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 15 / 22
+- **Progress:** 16 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -258,7 +258,7 @@ preceded this doc.
 | 13 | F30-T11 | The sequential utterance queue, completion-event-driven | RC-4 | DONE 2026-10-17 |
 | 14 | F30-T12 | **Spike:** `QUEUE_ADD` with per-run voices on a real device; adopt only if the voice is honoured per utterance | RC-4 | DONE 2026-10-18 — not adopted; the voice *is* honoured per utterance, but pause loses the queue |
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | DONE 2026-10-18 — no rework needed; the gap was the tests |
-| 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | TODO — code landed in T11; device pass left |
+| 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | DONE 2026-10-18 — two holes the queue had left, closed; the listening pass rolls into T20 |
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | TODO |
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
@@ -392,6 +392,58 @@ boundary at the cubit level, the high-water mark holding through a resume
 inside a *middle* run and then climbing again at the next one, and, at the
 queue level, a resume inside a run still counting from that run's start
 rather than from the top of the paper.
+
+**T14 needed no rework either, but the audit it amounted to found two holes
+— both on a failure path, both now closed.** T11's substance did hold:
+pause, resume and stop all go through the queue, and between runs, mid-run
+and mid-hand-over are each covered. What the two invariants had not been
+read against was what happens when the *engine refuses* one of the three.
+
+1. **A resume the engine refuses left the reading installed with nothing
+   speaking.** Only the parked half of `resume` gave the reading up on
+   failure; the half that asks the engine to continue the run it still holds
+   handed the `Err` back raw. So the user is told «حصلت مشكلة», the bar goes,
+   and the runs behind the one that would not continue stay in the queue
+   waiting for a completion to advance them — and one can arrive, because the
+   Settings voice preview is outside the queue and its completion would have
+   started a run of a reading the user had already been told had failed. That
+   is the first invariant, and now both halves of `resume` keep it.
+2. **A pause the engine refuses kept reading under a bar that was no longer
+   there.** The queue is right to leave the reading playing — a queue that
+   fell silent on its own would stop at the end of the current run, which is
+   what T11's note argues — but the cubit turned the refusal into
+   `AudioReaderFailed`, and that state renders the mini-player as
+   `SizedBox.shrink()`. The paper went on being read aloud with no pause and
+   no stop to reach for, and leaving the page did not silence it either:
+   `close()` only stops a reading the state still calls one. So the player now
+   stops the reading before it reports the failure. The user asked for
+   silence; a pause that cannot give it to them is closer to a stop than to
+   talking on.
+
+Closing the first of those put `resume` one rule short of `speak`, and the
+review caught it: a refusal that arrives *after* a new reading has been
+installed — the user taps resume, then starts a fresh reading from the
+options sheet before the engine has answered — would have cleared the new
+reading's queue and stopped it. So `resume` now stands down on a superseded
+generation exactly as `speak` does: that refusal is neither reported nor
+allowed to silence the reading the user actually asked for.
+
+The queue's own behaviour on a refused pause is unchanged, and so is the
+wrapper's: `pause()` reports `Ok` for anything the channel answers, because
+iOS answers `0` for a `pauseSpeaking` on a synthesizer that is not speaking —
+which is exactly the gap between two runs, where a pause is honest and the
+parked run is what holds it. Reading that `0` as a failure the way T09 reads
+`speak`'s would turn every between-runs pause on iOS into a stopped reading.
+
+One test short of the mirror, as well: T11 had a pause landing inside a
+hand-over and no stop landing there, so that is covered now too.
+
+**What is left is a listening pass**, which no unit test answers: the gap
+between runs as heard, and Android's resume-the-remainder on a mid-run pause
+as heard. T12's instrumented run already measured the gap (0.4–1.5s per
+language switch, warm engine to cold), so what the ear is for is whether a
+resumed run picks up where it stopped rather than restarting or skipping. It
+rolls into T20's device pass rather than being carried as a task of its own.
 
 **T12's premise turned out to be wrong, and something else is in the way.**
 Locked decision 6 held `QUEUE_ADD` back because "whether the voice is captured
