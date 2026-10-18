@@ -1065,4 +1065,84 @@ void main() {
       expect(tts.spoken, _mixedRuns.take(2));
     });
   });
+
+  // F30-T20's review. Two hand-overs overlap whenever a new reading
+  // supersedes a run that is already being handed over, and the superseded
+  // one finishes first — so "a hand-over is in flight" has to be counted
+  // rather than flagged, or the one still in flight is treated as though it
+  // had finished.
+  group('ReadingQueue · two hand-overs at once', () {
+    test('a completion in the overlap is nobody\'s run', () async {
+      final heldVoice = Completer<void>();
+      final heldSpeak = Completer<void>();
+
+      // The first reading reaches the engine; its second run is then handed
+      // over and blocks on the voice switch.
+      await queue.speak(_mixed);
+      tts.setVoiceGate = heldVoice;
+      tts.emitEvent(const TtsCompleted());
+      await settle();
+
+      // A new reading supersedes it and blocks in `speak` instead — past the
+      // voice switch, with the engine not yet having taken it.
+      tts.setVoiceGate = null;
+      tts.speakGate = heldSpeak;
+      final second = queue.speak('فاتورة تانية');
+      await settle();
+
+      // The superseded hand-over now stands down, which is what used to
+      // clear the flag out from under the live one.
+      heldVoice.complete();
+      await settle();
+
+      tts.emitEvent(const TtsCompleted());
+      await settle();
+
+      // The new reading is one run, so a completion read as its own would
+      // have ended it: the player closes, the queue is wiped, and then the
+      // engine starts speaking under no bar — the first invariant, broken.
+      expect(events.whereType<TtsCompleted>(), isEmpty);
+
+      // And once the engine does take it, the reading is still installed and
+      // behaves: its own completion is the one that ends it.
+      tts.speakGate = null;
+      heldSpeak.complete();
+      expect(await second, const Ok<int, AppFailure>(12));
+      await settle();
+      tts.emitEvent(const TtsCompleted());
+      await settle();
+
+      expect(events.whereType<TtsCompleted>(), const [TtsCompleted()]);
+      expect(tts.spoken, [_mixedRuns.first, 'فاتورة تانية']);
+    });
+
+    test('a passing failure in the overlap is not retried over it', () async {
+      final heldVoice = Completer<void>();
+      final heldSpeak = Completer<void>();
+
+      await queue.speak(_mixed);
+      tts.setVoiceGate = heldVoice;
+      tts.emitEvent(const TtsCompleted());
+      await settle();
+
+      tts.setVoiceGate = null;
+      tts.speakGate = heldSpeak;
+      final second = queue.speak('فاتورة تانية');
+      await settle();
+      heldVoice.complete();
+      await settle();
+
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      // Retrying here would have spoken the new reading's own run a second
+      // time, while the engine was still being handed it (F30-T16).
+      tts.speakGate = null;
+      heldSpeak.complete();
+      await second;
+      await settle();
+
+      expect(tts.spoken, [_mixedRuns.first, 'فاتورة تانية']);
+    });
+  });
 }

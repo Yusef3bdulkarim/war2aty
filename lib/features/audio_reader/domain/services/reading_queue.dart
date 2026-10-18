@@ -146,14 +146,26 @@ final class ReadingQueue {
   /// Cleared when the queue moves on to the next item, and by [_clear].
   bool _retriedCurrent = false;
 
-  /// Whether a hand-over is in flight — between choosing an utterance and the
-  /// engine accepting it.
+  /// How many hand-overs are in flight — between choosing an utterance and
+  /// the engine accepting it.
   ///
   /// Nothing of this queue's is speaking during that window, so a completion
   /// arriving in it belongs to something else: the reading a [speak] is in
   /// the middle of replacing, or an engine reporting one utterance twice.
   /// Acting on it would advance the queue by two and skip a run.
-  bool _handingOver = false;
+  ///
+  /// Counted rather than flagged, because two hand-overs do overlap: a
+  /// [speak] that supersedes a run already being handed over leaves both
+  /// bodies live, and the superseded one finishes first — its `finally`
+  /// would have cleared a single flag while the reading the user actually
+  /// asked for was still mid-hand-over. A completion landing in *that*
+  /// window would have been read as the new reading's own: with one run
+  /// installed it takes the "reading over" branch, so the player closes and
+  /// the queue is wiped — and then the engine starts speaking under no bar
+  /// at all, which is the first invariant broken. Found in T20's review.
+  int _handOversInFlight = 0;
+
+  bool get _handingOver => _handOversInFlight > 0;
 
   /// Bumped every time a caller claims the engine — by [speak] and by [stop].
   /// An asynchronous step that was already in flight when that happened
@@ -313,7 +325,7 @@ final class ReadingQueue {
     _Utterance utterance,
     int generation,
   ) async {
-    _handingOver = true;
+    _handOversInFlight++;
     try {
       _currentStarted = false;
       _speaking = utterance;
@@ -326,12 +338,12 @@ final class ReadingQueue {
         _parked = utterance;
         return const Ok(null);
       }
-      // Awaited rather than returned, so [_handingOver] stays set until the
-      // engine has actually taken the utterance — that window is the whole
-      // point of the flag.
+      // Awaited rather than returned, so this hand-over is still counted
+      // until the engine has actually taken the utterance — that window is
+      // the whole point of the count.
       return await _tts.speak(utterance.text);
     } finally {
-      _handingOver = false;
+      _handOversInFlight--;
     }
   }
 

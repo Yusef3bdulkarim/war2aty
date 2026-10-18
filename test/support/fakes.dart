@@ -1540,9 +1540,15 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   /// native handlers would.
   void emitEvent(TtsEvent event) => _events.add(event);
 
+  /// Holds [speak] open until it is completed, so a test can stand in the
+  /// other half of the queue's hand-over — after the voice switch, with the
+  /// engine not yet having taken the utterance (F30-T20).
+  Completer<void>? speakGate;
+
   @override
   Future<Result<void, AppFailure>> speak(String text) async {
     spoken.add(text);
+    if (speakGate case final gate?) await gate.future;
     return speakFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
