@@ -92,17 +92,42 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     super.dispose();
   }
 
+  /// Set when the camera was released because the app left the foreground, so
+  /// that only a resume which actually follows one re-opens it.
+  ///
+  /// Without this the viewfinder re-opened the camera on *any* resume, and on
+  /// a first grant it mounts in the middle of the permission prompt's own
+  /// lifecycle transition: the tail of that transition arrived here as a
+  /// release and a re-open while [initState]'s own `start()` was still opening
+  /// the device. Three sessions overlapped, the last found the camera still
+  /// held by the first, and the user was shown the error screen for a camera
+  /// that was working perfectly.
+  bool _releasedForBackground = false;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
     final cubit = context.read<CameraCaptureCubit>();
     switch (state) {
       case AppLifecycleState.resumed:
+        if (!_releasedForBackground) return;
+        _releasedForBackground = false;
         cubit.start();
+      // Every transient interruption passes through `inactive`: the camera
+      // permission prompt, the notification shade, control centre, a call
+      // banner. None of them takes the camera away, and a real backgrounding
+      // always follows with `paused`, so there is nothing to release here —
+      // releasing it here is what made the first grant race itself.
       case AppLifecycleState.inactive:
+        return;
+      // Going down the platform reports `hidden` and then `paused`, so the
+      // flag also keeps this to one release per backgrounding rather than a
+      // redundant second teardown on the way.
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
+        if (_releasedForBackground) return;
+        _releasedForBackground = true;
         cubit.suspend();
     }
   }

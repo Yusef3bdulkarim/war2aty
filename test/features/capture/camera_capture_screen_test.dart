@@ -74,6 +74,42 @@ Future<_Result> _pumpViewfinder(
   return result;
 }
 
+/// Walks the app through [states] the way the platform reports them, one at a
+/// time with a frame in between — no step skipped, since the binding only
+/// accepts legal transitions.
+Future<void> _lifecycle(
+  WidgetTester tester,
+  List<AppLifecycleState> states,
+) async {
+  for (final state in states) {
+    tester.binding.handleAppLifecycleStateChanged(state);
+    await tester.pump();
+  }
+}
+
+/// A transient interruption: the camera permission prompt, the notification
+/// shade, control centre. The app goes `inactive` and comes straight back
+/// without ever reaching `paused`, and never loses the camera.
+Future<void> _interrupt(WidgetTester tester) => _lifecycle(tester, const [
+  AppLifecycleState.inactive,
+  AppLifecycleState.resumed,
+]);
+
+/// A real backgrounding — all the way down to `paused`, where another app may
+/// take the camera.
+Future<void> _background(WidgetTester tester) => _lifecycle(tester, const [
+  AppLifecycleState.inactive,
+  AppLifecycleState.hidden,
+  AppLifecycleState.paused,
+]);
+
+/// Coming back to the foreground from [_background].
+Future<void> _foreground(WidgetTester tester) => _lifecycle(tester, const [
+  AppLifecycleState.hidden,
+  AppLifecycleState.inactive,
+  AppLifecycleState.resumed,
+]);
+
 /// The opacity the status line gives the pill holding [text].
 double _opacityOf(WidgetTester tester, String text) => tester
     .widget<AnimatedOpacity>(
@@ -252,6 +288,74 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('CameraCaptureScreen · app lifecycle', () {
+    testWidgets('a transient interruption while the camera is still opening '
+        'does not start a second session (regression, bug: the camera error '
+        'screen on the first launch after allowing the camera)', (
+      tester,
+    ) async {
+      final camera = FakeCameraService();
+      // Hold the camera "opening" — where it is while the permission prompt's
+      // own lifecycle transition is still being delivered to this screen.
+      final opening = Completer<void>();
+      camera.initializeGate = opening;
+      await _pumpViewfinder(tester, camera);
+      expect(camera.initializeCount, 1);
+
+      await _interrupt(tester);
+
+      expect(
+        camera.initializeCount,
+        1,
+        reason: 'a second open would find the camera still held by the first',
+      );
+      expect(
+        camera.disposeCount,
+        0,
+        reason: 'the camera was never lost, so nothing should be released',
+      );
+
+      opening.complete();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
+    });
+
+    testWidgets('a transient interruption leaves a live camera alone', (
+      tester,
+    ) async {
+      final camera = FakeCameraService();
+      await _pumpViewfinder(tester, camera);
+
+      await _interrupt(tester);
+
+      expect(camera.initializeCount, 1);
+      expect(camera.disposeCount, 0);
+      expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
+    });
+
+    testWidgets('a real backgrounding releases the camera, and coming back '
+        'opens it again', (tester) async {
+      final camera = FakeCameraService();
+      await _pumpViewfinder(tester, camera);
+      expect(camera.initializeCount, 1);
+
+      await _background(tester);
+      expect(
+        camera.disposeCount,
+        1,
+        reason: 'the camera must not be held while another app wants it',
+      );
+
+      await _foreground(tester);
+      await tester.pump();
+
+      expect(camera.initializeCount, 2);
+      expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
     });
   });
 
