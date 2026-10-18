@@ -7,12 +7,14 @@ import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_result.dart';
+import 'package:war2aty/core/documents/analysis_summary.dart';
 import 'package:war2aty/core/documents/reading_mode.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -80,6 +82,7 @@ _cubitFor({
     GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
     WarmUpReader(tts),
     OpenSystemTtsSettings(ttsSettings, tts),
+    const OfferableReadingModes(BuildReadingText()),
   );
   return (cubit: cubit, tts: tts, ttsSettings: ttsSettings);
 }
@@ -513,6 +516,27 @@ void main() {
       addTearDown(built.tts.dispose);
 
       expect(await built.cubit.loadDefaultSpeed(), ReadingSpeed.normal);
+    });
+
+    // F30-T19. The sheet asks before it opens, so a mode with nothing to
+    // read is never on it to be picked.
+    test('offerableModes leaves out a mode with nothing to read', () {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      final modes = built.cubit.offerableModes(
+        result: const BuildAnalysisResult()(
+          analysis: invoiceAnalysis(
+            summary: const AnalysisSummary(short: '', detailed: 'الشرح.'),
+          ),
+          extractedText: 'فاتورة كهرباء',
+        ),
+        strings: _ar,
+      );
+
+      expect(modes, isNot(contains(ReadingMode.summaryOnly)));
+      expect(modes, contains(ReadingMode.fullExplanation));
     });
 
     // F30-T07. The one voice problem the user can fix, and the one worth

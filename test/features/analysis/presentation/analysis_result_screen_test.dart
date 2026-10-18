@@ -11,6 +11,7 @@ import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
+import 'package:war2aty/core/documents/analysis_summary.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -38,6 +39,7 @@ import 'package:war2aty/features/analysis/presentation/widgets/analysis_progress
 import 'package:war2aty/features/analysis/presentation/widgets/extracted_text_only_view.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -120,6 +122,7 @@ void main() {
       GetDefaultReadingSpeed(speedStore),
       WarmUpReader(tts),
       OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+      const OfferableReadingModes(BuildReadingText()),
     );
   });
 
@@ -539,6 +542,38 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    // F30-T19. The screen only draws a section that has something in it, but
+    // the sheet used to offer all four modes regardless — so a paper whose
+    // summary came back blank still offered «التلخيص فقط», and picking it
+    // sent the empty string to the engine (F30 "Secondary").
+    testWidgets('a paper with no summary is not offered «التلخيص فقط»', (
+      tester,
+    ) async {
+      repository.answer = Ok(
+        invoiceAnalysis(
+          summary: const AnalysisSummary(
+            short: '',
+            detailed: 'الفاتورة دي عن استهلاك شهر مارس.',
+          ),
+        ),
+      );
+      await cubit.analyze();
+      await pumpScreen(tester);
+
+      await tester.tap(find.text(_strings.resultListen));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_strings.audioReaderModeSummary), findsNothing);
+      // And the modes that do have something to read are still there, with
+      // the first of them highlighted in place of the one that went.
+      expect(find.text(_strings.audioReaderModeFull), findsOneWidget);
+      await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.spoken, isNotEmpty);
+      expect(tts.spoken.single.trim(), isNotEmpty);
     });
 
     testWidgets('dismissing the sheet without a mode starts nothing', (

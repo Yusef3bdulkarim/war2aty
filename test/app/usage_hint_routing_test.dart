@@ -34,6 +34,7 @@ import 'package:war2aty/features/analysis/domain/repositories/analysis_repositor
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -157,6 +158,7 @@ void main() {
           GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
           WarmUpReader(tts),
           OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+          const OfferableReadingModes(BuildReadingText()),
         ),
       )
       // Denied: «صوّر ورقة تانية» lands on the permission gate, which is

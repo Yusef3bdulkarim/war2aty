@@ -20,6 +20,7 @@ import 'package:war2aty/features/analysis/presentation/cubit/ocr_review_cubit.da
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/analysis/presentation/screens/ocr_review_screen.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -124,6 +125,7 @@ void main() {
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
       WarmUpReader(tts),
       OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+      const OfferableReadingModes(BuildReadingText()),
     );
   });
 

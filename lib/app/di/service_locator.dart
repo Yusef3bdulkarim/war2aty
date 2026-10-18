@@ -140,6 +140,7 @@ import '../../features/audio_reader/domain/services/reading_queue.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
 import '../../features/audio_reader/domain/usecases/chunk_text_for_speaking.dart';
+import '../../features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/segment_language_runs.dart';
@@ -960,6 +961,11 @@ void _registerAudioReader() {
     )
     // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
     ..registerFactory<BuildReadingText>(BuildReadingText.new)
+    // F30-T19. Asks the builder above which modes this paper has anything to
+    // read for, so the sheet cannot offer one that would speak nothing.
+    ..registerFactory<OfferableReadingModes>(
+      () => OfferableReadingModes(getIt()),
+    )
     // F10-T07. Stateless and total, the same shape as `BuildReadingText`.
     ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
     // F30-T10. Stateless and total, the same shape again.
@@ -1031,6 +1037,7 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

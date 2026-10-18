@@ -39,16 +39,6 @@ const double _speedPillFontSize = 13;
 const double _speedPillPaddingH = 12;
 const double _speedPillPaddingV = 6;
 
-/// The modes this sheet offers, in display order. [ReadingMode.extractedText]
-/// is not among them: it has no analysis to summarise, and is only reached by
-/// reading a fallback screen's text straight away.
-const List<ReadingMode> _offeredModes = [
-  ReadingMode.summaryOnly,
-  ReadingMode.summaryAndKeyInformation,
-  ReadingMode.fullExplanation,
-  ReadingMode.readAll,
-];
-
 /// What the sheet answers with once the user taps the play control: both the
 /// [ReadingMode] and the [ReadingSpeed] (F10-T06) chosen alongside it — one
 /// choice, since both are confirmed by the same tap.
@@ -59,11 +49,17 @@ typedef AudioReadingChoice = ({ReadingMode mode, ReadingSpeed speed});
 /// dismissed without choosing: either way nothing starts speaking from this
 /// call alone.
 ///
+/// [modes] are the modes to offer, in display order — only those this paper
+/// actually has something to read for (F30-T19), which the caller asks
+/// `AudioReaderCubit.offerableModes` for. Never empty: a paper with nothing
+/// readable opens no sheet at all.
+///
 /// [initialMode] highlights whichever mode is already reading (reopened from
-/// the mini-player's «خيارات»), or the first mode the first time this is
-/// opened for a paper. [initialSpeed] does the same for the speed row.
+/// the mini-player's «خيارات»), or the first offered mode the first time this
+/// is opened for a paper. [initialSpeed] does the same for the speed row.
 Future<AudioReadingChoice?> showAudioOptionsSheet(
   BuildContext context, {
+  required List<ReadingMode> modes,
   required ReadingMode initialMode,
   required ReadingSpeed initialSpeed,
 }) => showModalBottomSheet<AudioReadingChoice>(
@@ -76,13 +72,16 @@ Future<AudioReadingChoice?> showAudioOptionsSheet(
   shape: const RoundedRectangleBorder(
     borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
   ),
-  builder: (_) =>
-      AudioOptionsSheet(initialMode: initialMode, initialSpeed: initialSpeed),
+  builder: (_) => AudioOptionsSheet(
+    modes: modes,
+    initialMode: initialMode,
+    initialSpeed: initialSpeed,
+  ),
 );
 
-/// The body of that sheet: a three-way choice of [ReadingMode], a four-way
-/// choice of [ReadingSpeed] (F10-T06), and a play control that confirms
-/// whichever of each is picked.
+/// The body of that sheet: a choice between the [ReadingMode]s this paper
+/// has something to read for, a four-way choice of [ReadingSpeed] (F10-T06),
+/// and a play control that confirms whichever of each is picked.
 ///
 /// The rewind/forward controls flanking play are drawn to match the design
 /// but stay disabled — nothing in F10 yet seeks within a reading, so a
@@ -94,10 +93,14 @@ Future<AudioReadingChoice?> showAudioOptionsSheet(
 /// sibling `DateSelectionSheet` sits here instead of in `reminders`.
 class AudioOptionsSheet extends StatefulWidget {
   const AudioOptionsSheet({
+    required this.modes,
     required this.initialMode,
     required this.initialSpeed,
     super.key,
   });
+
+  /// The modes to offer, in display order — see [showAudioOptionsSheet].
+  final List<ReadingMode> modes;
 
   final ReadingMode initialMode;
   final ReadingSpeed initialSpeed;
@@ -160,7 +163,7 @@ class _AudioOptionsSheetState extends State<AudioOptionsSheet> {
               ),
             ),
             const SizedBox(height: _titleGapBelow),
-            for (final (index, mode) in _offeredModes.indexed) ...[
+            for (final (index, mode) in widget.modes.indexed) ...[
               if (index > 0) const SizedBox(height: _optionGap),
               _ModeOption(
                 label: readingModeLabel(strings, mode),

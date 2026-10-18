@@ -28,6 +28,7 @@ import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/widgets/date_selection_sheet.dart';
 import 'package:war2aty/core/widgets/result_action_bar.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -119,6 +120,7 @@ void main() {
           GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
           WarmUpReader(tts),
           OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+          const OfferableReadingModes(BuildReadingText()),
         ),
       )
       ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)

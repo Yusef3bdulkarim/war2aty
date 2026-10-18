@@ -6,7 +6,6 @@ import '../../../../core/audio/audio_reader_state.dart';
 import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/documents/analysis_result.dart';
 import '../../../../core/documents/analysis_section.dart';
-import '../../../../core/documents/reading_mode.dart';
 import '../../../../core/documents/reading_mode_label.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/icons/stroke_icon.dart';
@@ -246,6 +245,17 @@ class _ResultBodyState extends State<_ResultBody> {
   /// always the same fixed default.
   Future<void> _openAudioSheet() async {
     final cubit = context.read<AudioReaderCubit>();
+    // Only the modes this paper has something to read for (F30-T19) — a
+    // blank summary used to leave «التلخيص فقط» on offer and send the empty
+    // string to the engine. Asked for here rather than at build time: it
+    // costs a pass over the paper, and the answer is only needed on a tap.
+    final modes = cubit.offerableModes(
+      result: widget.result,
+      strings: context.strings,
+    );
+    // Nothing readable at all, which means this page is blank as well —
+    // there would be nothing in the sheet to pick.
+    if (modes.isEmpty) return;
     final currentlyReading = cubit.state;
     final defaultSpeed = currentlyReading is AudioReaderReading
         ? currentlyReading.speed
@@ -253,9 +263,10 @@ class _ResultBodyState extends State<_ResultBody> {
     if (!mounted) return;
     final choice = await showAudioOptionsSheet(
       context,
+      modes: modes,
       initialMode: currentlyReading is AudioReaderReading
           ? currentlyReading.mode
-          : ReadingMode.summaryOnly,
+          : modes.first,
       initialSpeed: defaultSpeed,
     );
     if (choice == null || !mounted) return;

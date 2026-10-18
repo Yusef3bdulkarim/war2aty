@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../features/audio_reader/domain/entities/tts_event.dart';
+import '../../features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -44,6 +45,7 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
     this._getDefaultReadingSpeed,
     this._warmUpReader,
     this._openSystemTtsSettings,
+    this._offerableReadingModes,
   ) : super(const AudioReaderIdle()) {
     _eventsSubscription = _watchReadingEvents().listen(_onEvent);
     // Fire-and-forget on purpose (F30-T06): this cubit is built as the screen
@@ -72,6 +74,9 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// The way out of [NoArabicVoiceFailure] — the one reading failure the
   /// user can fix themselves (F30-T07).
   final OpenSystemTtsSettings _openSystemTtsSettings;
+
+  /// Which modes this paper actually has something to read for (F30-T19).
+  final OfferableReadingModes _offerableReadingModes;
 
   /// Listens for the rest of this cubit's life — one shared engine, one
   /// subscription — and is cancelled in [close].
@@ -102,6 +107,21 @@ final class AudioReaderCubit extends Cubit<AudioReaderState> {
   /// reading — reopening it mid-reading highlights the *current* reading's
   /// own speed instead, which the caller already holds in [state].
   Future<ReadingSpeed> loadDefaultSpeed() => _getDefaultReadingSpeed();
+
+  /// Which reading modes [result] has something to read for, in the order
+  /// the options sheet lists them (F30-T19).
+  ///
+  /// Asked for before the sheet opens rather than being state: nothing about
+  /// the player changes by finding out, and the answer belongs to the paper
+  /// the caller is holding rather than to whatever is reading now — the same
+  /// shape [loadDefaultSpeed] has.
+  ///
+  /// An empty answer means the paper has nothing readable at all, and the
+  /// caller opens no sheet: there would be nothing in it to pick.
+  List<ReadingMode> offerableModes({
+    required AnalysisResult result,
+    required AppStrings strings,
+  }) => _offerableReadingModes(result: result, strings: strings);
 
   /// Whether this device has text-to-speech settings to send the user to
   /// (F30-T07), asked before the way out of [NoArabicVoiceFailure] is

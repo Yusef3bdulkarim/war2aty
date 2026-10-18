@@ -21,6 +21,7 @@ import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
 import 'package:war2aty/core/widgets/result_hero_scroll_view.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -71,6 +72,7 @@ void main() {
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
       WarmUpReader(tts),
       OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+      const OfferableReadingModes(BuildReadingText()),
     );
   });
   tearDown(() async {

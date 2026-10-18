@@ -34,6 +34,7 @@ import 'package:war2aty/features/analysis/presentation/widgets/failure/limit_res
 import 'package:war2aty/features/analysis/presentation/widgets/failure/privacy_text_note.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
@@ -114,6 +115,7 @@ void main() {
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
       WarmUpReader(tts),
       OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+      const OfferableReadingModes(BuildReadingText()),
     );
   });
 
