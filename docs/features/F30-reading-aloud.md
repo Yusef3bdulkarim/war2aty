@@ -763,6 +763,41 @@ The hamza in «وأهم» is kept, and the English strings are reworded to match
 *(T18 found the English already said it: `Summary only` and `Summary and key
 information` needed no edit.)*
 
+## What T20's review found
+
+`dart format`, `flutter analyze` (21 pre-existing issues, none from this
+branch) and `flutter test` all pass, and `@code-reviewer` passed the branch
+on architecture, privacy, security, performance and the queue's state
+machine. It raised **one real defect**, which is fixed rather than carried
+into the PR.
+
+**`_handingOver` was a flag where it had to be a count.** Two hand-overs
+overlap whenever a [speak] supersedes a run that is already being handed
+over: both bodies stay live, and the superseded one finishes first. Its
+`finally` cleared the flag while the reading the user had actually asked for
+was still between its voice switch and the engine taking its utterance — so
+an engine event landing in that window was read as belonging to a reading
+that nothing of ours was speaking for.
+
+The review called it cosmetic. It is not, for a one-run reading: a
+`TtsCompleted` there takes the "reading over" branch, which publishes the
+completion and clears the queue — the player closes, the queue is wiped, and
+*then* the held `speak` resolves and the engine starts reading a paper with
+no bar over it and no stop to reach for. That is the first invariant broken,
+by the same shape of fault T14 closed on the pause path. A transient
+`TtsFailed` in the same window would have retried the incoming reading's own
+run while the engine was still being handed it.
+
+So the window is counted now, not flagged: `_handOversInFlight`, with
+`_handingOver` as a getter over it. Two tests pin it — a completion and a
+passing failure, each landing in the overlap — and both fail against the old
+single flag, which is what makes them worth having.
+
+The review's other observation — a stale progress event scaled through the
+incoming utterance during a supersede — is left alone. F10-T08's high-water
+mark and `start`'s reset of it between them make it unobservable, and the
+engine does not emit progress after a completion anyway.
+
 ## The device pass (T20)
 
 What no unit test answers, on the owner's phone. The RMX2001 has both the
