@@ -1291,10 +1291,10 @@ final class ArStrings implements AppStrings {
   @override
   String get audioReaderSheetTitle => 'الاستماع للورقة';
   @override
-  String get audioReaderModeSummary => 'الخلاصة فقط';
+  String get audioReaderModeSummary => 'التلخيص فقط';
   @override
   String get audioReaderModeSummaryAndKeyInformation =>
-      'الخلاصة وأهم المعلومات';
+      'التلخيص وأهم المعلومات';
   @override
   String get audioReaderModeFull => 'الشرح كامل';
   @override

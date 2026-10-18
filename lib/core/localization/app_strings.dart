@@ -1083,6 +1083,10 @@ abstract interface class AppStrings {
   /// (`ReadingMode.extractedText`) exists too, but is only reached from the
   /// OCR-only fallback screens, which read it straight away rather than
   /// asking — there is no analysis there to summarise.
+  ///
+  /// The first two say «التلخيص» rather than «الخلاصة» since F30-T18: the
+  /// section they read is headed «ملخص المستند» on the screen above them,
+  /// and two words for one thing is one more than the reader needs.
   String get audioReaderModeSummary;
   String get audioReaderModeSummaryAndKeyInformation;
   String get audioReaderModeFull;
