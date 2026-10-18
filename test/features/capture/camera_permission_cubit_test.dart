@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
@@ -140,6 +142,71 @@ void main() {
 
       await cubit.allow();
       expect(cubit.state, const CameraPermissionDenied());
+    });
+
+    // The first-grant bug: the gate watches app resumes so a trip to Settings
+    // is noticed, but the system prompt is a trip out of the foreground too.
+    // Dismissing it resumed the app and fired a refresh at an OS that had not
+    // finished committing the grant, and that stale read landed on top of the
+    // answer — leaving the user looking at the sheet (or the viewfinder's
+    // error) until they pressed the button a second time.
+    test('the resume from its own prompt cannot undo the answer', () async {
+      final repository = FakeCameraPermissionRepository(
+        status: PermissionOutcome.denied,
+        afterRequest: PermissionOutcome.granted,
+      );
+      final cubit = cubitFor(repository);
+      addTearDown(cubit.close);
+
+      await cubit.refresh();
+      expect(cubit.state, const CameraPermissionDenied());
+      expect(repository.currentStatusCount, 1);
+
+      // The prompt is on screen: the request has not answered yet.
+      final prompt = Completer<void>();
+      repository.requestGate = prompt;
+      final allowing = cubit.allow();
+
+      // Dismissing it takes the app through `resumed`, so the gate re-checks.
+      await cubit.refresh();
+      expect(
+        repository.currentStatusCount,
+        1,
+        reason:
+            'the platform must not be read while the prompt owns the answer',
+      );
+      expect(cubit.state, const CameraPermissionDenied());
+
+      prompt.complete();
+      await allowing;
+
+      expect(cubit.state, const CameraPermissionGranted());
+    });
+
+    test('a second tap does not fire a second prompt', () async {
+      final repository = FakeCameraPermissionRepository(
+        status: PermissionOutcome.denied,
+        afterRequest: PermissionOutcome.granted,
+      );
+      final cubit = cubitFor(repository);
+      addTearDown(cubit.close);
+
+      await cubit.refresh();
+
+      final prompt = Completer<void>();
+      repository.requestGate = prompt;
+      final first = cubit.allow();
+      final second = cubit.allow();
+
+      prompt.complete();
+      await Future.wait([first, second]);
+
+      expect(
+        repository.requestCount,
+        1,
+        reason: 'Android rejects a request made while one is already running',
+      );
+      expect(cubit.state, const CameraPermissionGranted());
     });
 
     test('does nothing once closed', () async {
