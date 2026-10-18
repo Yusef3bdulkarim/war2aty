@@ -8,7 +8,7 @@ import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/save_document.dart';
@@ -34,13 +34,14 @@ import 'package:war2aty/features/analysis/domain/repositories/analysis_repositor
 import 'package:war2aty/features/analysis/domain/usecases/analyze_document.dart';
 import 'package:war2aty/features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -107,6 +108,7 @@ void main() {
     final upcomingReminders = FakeUpcomingReminderRepository();
     addTearDown(upcomingReminders.dispose);
     final tts = FakeTextToSpeechService();
+    final queue = readingQueueOver(tts);
     addTearDown(tts.dispose);
     final repository = _FakeAnalysisRepository(answer ?? Ok(invoiceAnalysis()));
 
@@ -146,19 +148,17 @@ void main() {
       })
       ..registerFactory<AudioReaderCubit>(
         () => AudioReaderCubit(
-          StartReading(
-            const BuildReadingText(),
-            const SelectVoiceForReading(),
-            tts,
-          ),
-          StartRawReading(const SelectVoiceForReading(), tts),
-          StopReading(tts),
-          PauseReading(tts),
-          ResumeReading(tts),
+          StartReading(const BuildReadingText(), queue),
+          StartRawReading(queue),
+          StopReading(queue),
+          PauseReading(queue),
+          ResumeReading(queue),
           SetReadingSpeed(tts),
-          WatchReadingEvents(tts),
+          WatchReadingEvents(queue),
           GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
-          GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
+          WarmUpReader(tts),
+          OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+          const OfferableReadingModes(BuildReadingText()),
         ),
       )
       // Denied: «صوّر ورقة تانية» lands on the permission gate, which is

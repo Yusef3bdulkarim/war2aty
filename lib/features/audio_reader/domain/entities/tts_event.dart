@@ -1,3 +1,5 @@
+import '../../../../core/audio/tts_error_code.dart';
+
 /// A playback lifecycle event emitted by `TextToSpeechService.events`.
 ///
 /// Mirrors the handlers `flutter_tts` reports natively (start / progress /
@@ -53,6 +55,20 @@ final class TtsCancelled extends TtsEvent {
 }
 
 /// The engine reported an error mid-utterance.
+///
+/// [code] is the engine's own reason for it, as far as the platform said
+/// (F30-T08) — [TtsErrorCode.unknown] when it said nothing usable. Before
+/// T08 the payload was discarded at the handler and this event carried
+/// nothing, so a voice that was still downloading and an engine that was
+/// gone were indistinguishable (F30 RC-2).
 final class TtsFailed extends TtsEvent {
-  const TtsFailed();
+  const TtsFailed({this.code = TtsErrorCode.unknown});
+
+  final TtsErrorCode code;
+
+  @override
+  bool operator ==(Object other) => other is TtsFailed && other.code == code;
+
+  @override
+  int get hashCode => code.hashCode;
 }

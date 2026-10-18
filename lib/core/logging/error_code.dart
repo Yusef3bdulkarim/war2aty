@@ -20,7 +20,12 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   FileStorageFailure() => 'FILE_STORAGE',
   NotificationPermissionFailure() => 'NOTIFICATION_PERMISSION',
   NotificationSchedulingFailure() => 'NOTIFICATION_SCHEDULING',
-  TtsFailure() => 'TTS',
+  // The engine's own reason when it gave one (F30-T08) — `TTS` is kept for
+  // the paths where nothing was reported, so the two stay distinguishable in
+  // production rather than collapsing into one unexplained code.
+  TtsFailure(:final code) => code?.logCode ?? 'TTS',
+  TtsEngineUnavailableFailure(:final code) => code.logCode,
+  NoArabicVoiceFailure() => 'TTS_NO_ARABIC_VOICE',
   ExternalLinkFailure() => 'EXTERNAL_LINK',
   AnalysisConsentDeclinedFailure() => 'ANALYSIS_CONSENT_DECLINED',
   // Network

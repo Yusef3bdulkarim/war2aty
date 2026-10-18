@@ -10,7 +10,7 @@ void main() {
 
   setUp(() {
     tts = FakeTextToSpeechService();
-    useCase = WatchReadingEvents(tts);
+    useCase = WatchReadingEvents(readingQueueOver(tts));
   });
 
   tearDown(() => tts.dispose());

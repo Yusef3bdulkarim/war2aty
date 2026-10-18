@@ -5,7 +5,7 @@ import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_date.dart';
 import 'package:war2aty/core/documents/confidence_band.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -28,13 +28,14 @@ import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/widgets/date_selection_sheet.dart';
 import 'package:war2aty/core/widgets/result_action_bar.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -79,6 +80,7 @@ void main() {
     final upcomingReminders = FakeUpcomingReminderRepository();
     addTearDown(upcomingReminders.dispose);
     final tts = FakeTextToSpeechService();
+    final queue = readingQueueOver(tts);
     addTearDown(tts.dispose);
 
     getIt
@@ -108,19 +110,17 @@ void main() {
       // to reach the route at all, unrelated to the bug itself.
       ..registerFactory<AudioReaderCubit>(
         () => AudioReaderCubit(
-          StartReading(
-            const BuildReadingText(),
-            const SelectVoiceForReading(),
-            tts,
-          ),
-          StartRawReading(const SelectVoiceForReading(), tts),
-          StopReading(tts),
-          PauseReading(tts),
-          ResumeReading(tts),
+          StartReading(const BuildReadingText(), queue),
+          StartRawReading(queue),
+          StopReading(queue),
+          PauseReading(queue),
+          ResumeReading(queue),
           SetReadingSpeed(tts),
-          WatchReadingEvents(tts),
+          WatchReadingEvents(queue),
           GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
-          GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
+          WarmUpReader(tts),
+          OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+          const OfferableReadingModes(BuildReadingText()),
         ),
       )
       ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)

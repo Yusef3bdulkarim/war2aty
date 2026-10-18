@@ -13,7 +13,7 @@ const _strings = ArStrings();
 void main() {
   Future<void> pumpBar(
     WidgetTester tester, {
-    String modeLabel = 'الخلاصة فقط',
+    String modeLabel = 'التلخيص فقط',
     bool isPlaying = true,
     double progress = 0.42,
     VoidCallback? onTogglePlayPause,
@@ -95,7 +95,7 @@ void main() {
     testWidgets('lays out under Large Text', (tester) async {
       await pumpBar(
         tester,
-        modeLabel: 'الخلاصة وأهم المعلومات',
+        modeLabel: 'التلخيص وأهم المعلومات',
         textScaler: const TextScaler.linear(2),
       );
 

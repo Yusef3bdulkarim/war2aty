@@ -6,6 +6,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/widgets/audio_options_sheet.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 
 import '../../support/pump_app.dart';
 
@@ -18,6 +19,7 @@ void main() {
   // what is drawn, or that dismissing/never-choosing answers `null`.
   Future<AudioReadingChoice?> openSheet(
     WidgetTester tester, {
+    List<ReadingMode> modes = OfferableReadingModes.candidates,
     ReadingMode initialMode = ReadingMode.summaryOnly,
     ReadingSpeed initialSpeed = ReadingSpeed.normal,
     Locale locale = AppLocalizations.arabic,
@@ -30,6 +32,7 @@ void main() {
         builder: (context) => ElevatedButton(
           onPressed: () async => result = await showAudioOptionsSheet(
             context,
+            modes: modes,
             initialMode: initialMode,
             initialSpeed: initialSpeed,
           ),
@@ -59,6 +62,25 @@ void main() {
       expect(find.text(_strings.audioReaderModeExtractedText), findsNothing);
     });
 
+    // F30-T19. What has something to read is the caller's answer, not this
+    // sheet's: a paper whose summary came back blank used to be offered
+    // «التلخيص فقط» all the same, and picking it spoke nothing.
+    testWidgets('offers the modes it was given and no others', (tester) async {
+      await openSheet(
+        tester,
+        modes: const [ReadingMode.fullExplanation, ReadingMode.readAll],
+        initialMode: ReadingMode.fullExplanation,
+      );
+
+      expect(find.text(_strings.audioReaderModeFull), findsOneWidget);
+      expect(find.text(_strings.audioReaderModeReadAll), findsOneWidget);
+      expect(find.text(_strings.audioReaderModeSummary), findsNothing);
+      expect(
+        find.text(_strings.audioReaderModeSummaryAndKeyInformation),
+        findsNothing,
+      );
+    });
+
     testWidgets('exposes which mode is selected to assistive tech (F12-T01)', (
       tester,
     ) async {
@@ -84,6 +106,7 @@ void main() {
           builder: (context) => ElevatedButton(
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
+              modes: OfferableReadingModes.candidates,
               initialMode: ReadingMode.summaryOnly,
               initialSpeed: ReadingSpeed.normal,
             ),
@@ -108,6 +131,7 @@ void main() {
           builder: (context) => ElevatedButton(
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
+              modes: OfferableReadingModes.candidates,
               initialMode: ReadingMode.summaryOnly,
               initialSpeed: ReadingSpeed.normal,
             ),
@@ -134,6 +158,7 @@ void main() {
           builder: (context) => ElevatedButton(
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
+              modes: OfferableReadingModes.candidates,
               initialMode: ReadingMode.summaryAndKeyInformation,
               initialSpeed: ReadingSpeed.normal,
             ),
@@ -254,6 +279,7 @@ void main() {
           builder: (context) => ElevatedButton(
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
+              modes: OfferableReadingModes.candidates,
               initialMode: ReadingMode.summaryOnly,
               initialSpeed: ReadingSpeed.normal,
             ),
@@ -278,6 +304,7 @@ void main() {
           builder: (context) => ElevatedButton(
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
+              modes: OfferableReadingModes.candidates,
               initialMode: ReadingMode.summaryOnly,
               initialSpeed: ReadingSpeed.normal,
             ),
@@ -306,6 +333,7 @@ void main() {
           builder: (context) => ElevatedButton(
             onPressed: () async => result = await showAudioOptionsSheet(
               context,
+              modes: OfferableReadingModes.candidates,
               initialMode: ReadingMode.summaryOnly,
               initialSpeed: ReadingSpeed.faster,
             ),

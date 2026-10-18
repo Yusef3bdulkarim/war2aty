@@ -11,7 +11,7 @@ void main() {
 
   setUp(() {
     tts = FakeTextToSpeechService();
-    useCase = PauseReading(tts);
+    useCase = PauseReading(readingQueueOver(tts));
   });
 
   tearDown(() => tts.dispose());

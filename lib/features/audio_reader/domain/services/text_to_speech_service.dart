@@ -13,6 +13,12 @@ import '../entities/tts_event.dart';
 abstract interface class TextToSpeechService {
   /// Speaks [text], replacing whatever is currently speaking.
   ///
+  /// Answers only once the engine has taken the utterance — not when the
+  /// reading ends. An engine that declines it, or never answers at all, is a
+  /// failure and not a quiet success (F30-T09): the caller turns an `Ok`
+  /// into a mini-player, and a bar over a silent engine never goes away
+  /// (F30 RC-3).
+  ///
   /// Failures:
   /// - [TtsFailure] — the engine could not start speaking.
   Future<Result<void, AppFailure>> speak(String text);
@@ -40,6 +46,34 @@ abstract interface class TextToSpeechService {
 
   /// Lists the voices installed on this device.
   Future<Result<List<TtsVoice>, AppFailure>> getVoices();
+
+  /// The longest text the engine will take in one [speak], in UTF-16 code
+  /// units — or `null` when the platform declares no limit (F30-T15).
+  ///
+  /// Android answers with `TextToSpeech.getMaxSpeechInputLength()`, 4000, and
+  /// refuses anything longer in a way nothing downstream can see: the plugin
+  /// parks the call, so [speak] never answers and no event ever arrives (F30
+  /// RC-3). `ReadingQueue` asks for this so it can cut a long run into
+  /// several utterances before the engine has the chance.
+  ///
+  /// Not a [Result]: there is nothing for a caller to report or recover
+  /// from. A platform that does not implement the call — iOS does not — is
+  /// indistinguishable here from one that declares no limit, and both mean
+  /// the same thing to the only caller there is.
+  Future<int?> getMaxInputLength();
+
+  /// Throws away whatever [getVoices] is holding, so the next call asks the
+  /// device again (F30-T04).
+  ///
+  /// [getVoices] is answered from a cache, because enumerating every voice of
+  /// every installed engine is a slow platform call and it used to run on
+  /// every single reading — a good part of the delay F30 RC-6 describes. The
+  /// list only changes when the user installs or removes a voice, which means
+  /// leaving the app, so this exists for the one flow that sends them out to
+  /// do exactly that: F30-T07 tells a user with no Arabic voice to go and add
+  /// one, and the answer must not still be "you have none" when they come
+  /// back.
+  void forgetVoices();
 
   /// The playback lifecycle, one event per state change — see [TtsEvent].
   Stream<TtsEvent> get events;

@@ -43,7 +43,8 @@ class AudioMiniPlayerBar extends StatelessWidget {
     super.key,
   });
 
-  /// The reading mode's own label — e.g. «الخلاصة فقط» — shown after «بيقرأ:».
+  /// The reading mode's own label — e.g. «التلخيص فقط» — shown after
+  /// «بيقرأ:».
   final String modeLabel;
 
   /// Whether the icon shows "tap to pause" (true) or "tap to resume" (false).

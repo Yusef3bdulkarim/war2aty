@@ -34,14 +34,23 @@ void main() {
       .join('\n');
 
   /// Every code `errorCodeOf` can return, read from its source.
+  ///
+  /// Every quoted upper-case literal in the file, not only the ones directly
+  /// after a `=>`: since F30-T08 a leaf can answer with a code carried on the
+  /// failure (`code?.logCode ?? 'TTS'`), and an extractor that only read the
+  /// arrow would have quietly stopped seeing the fallback. Those carried
+  /// codes are a closed enum of their own, read below.
   Set<String> dartFailureCodes() {
     final source = withoutComments(
       File('lib/core/logging/error_code.dart').readAsStringSync(),
     );
+    final carried = withoutComments(
+      File('lib/core/audio/tts_error_code.dart').readAsStringSync(),
+    );
 
     return RegExp(
-      r"=>\s*'([A-Z][A-Z0-9_]*)'",
-    ).allMatches(source).map((m) => m.group(1)!).toSet();
+      r"'([A-Z][A-Z0-9_]*)'",
+    ).allMatches('$source\n$carried').map((m) => m.group(1)!).toSet();
   }
 
   /// Every code `LogCrashKind` can produce.

@@ -7,7 +7,6 @@ import '../../../../core/audio/audio_reader_cubit.dart';
 import '../../../../core/audio/audio_reader_state.dart';
 import '../../../../core/documents/analysis_date.dart';
 import '../../../../core/documents/analysis_section.dart';
-import '../../../../core/documents/reading_mode.dart';
 import '../../../../core/documents/reading_mode_label.dart';
 import '../../../../core/documents/saved_document.dart';
 import '../../../../core/documents/usecases/build_analysis_result.dart';
@@ -19,6 +18,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/audio_mini_player_bar.dart';
 import '../../../../core/widgets/audio_options_sheet.dart';
+import '../../../../core/widgets/audio_reader_failure_listener.dart';
 import '../../../../core/widgets/expandable_panel.dart';
 import '../../../../core/widgets/partial_result_banner.dart';
 import '../../../../core/widgets/result_action_bar.dart';
@@ -174,15 +174,7 @@ class _DetailsBodyState extends State<_DetailsBody> {
     // Same reasoning as `_ResultBodyState`: a `BlocListener` here, not a
     // `BlocBuilder` around the whole page, so a reading's progress ticks
     // only rebuild `_MiniPlayerSlot` below (CLAUDE.md §B8).
-    return BlocListener<AudioReaderCubit, AudioReaderState>(
-      listenWhen: (previous, current) => current is AudioReaderFailed,
-      listener: (context, state) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
-          );
-      },
+    return AudioReaderFailureListener(
       child: Column(
         children: [
           Expanded(
@@ -240,6 +232,19 @@ class _DetailsBodyState extends State<_DetailsBody> {
   /// rather than always the same fixed default.
   Future<void> _openAudioSheet() async {
     final cubit = context.read<AudioReaderCubit>();
+    final document = widget.document;
+    // The same result the reading itself is built from, so what the sheet
+    // offers and what the engine is given cannot disagree.
+    final result = const BuildAnalysisResult()(
+      analysis: document.analysis,
+      extractedText: document.extractedText,
+    );
+    // Only the modes this paper has something to read for (F30-T19).
+    final modes = cubit.offerableModes(
+      result: result,
+      strings: context.strings,
+    );
+    if (modes.isEmpty) return;
     final currentlyReading = cubit.state;
     final defaultSpeed = currentlyReading is AudioReaderReading
         ? currentlyReading.speed
@@ -247,19 +252,16 @@ class _DetailsBodyState extends State<_DetailsBody> {
     if (!mounted) return;
     final choice = await showAudioOptionsSheet(
       context,
+      modes: modes,
       initialMode: currentlyReading is AudioReaderReading
           ? currentlyReading.mode
-          : ReadingMode.summaryOnly,
+          : modes.first,
       initialSpeed: defaultSpeed,
     );
     if (choice == null || !mounted) return;
 
-    final document = widget.document;
     await cubit.start(
-      result: const BuildAnalysisResult()(
-        analysis: document.analysis,
-        extractedText: document.extractedText,
-      ),
+      result: result,
       mode: choice.mode,
       speed: choice.speed,
       strings: context.strings,

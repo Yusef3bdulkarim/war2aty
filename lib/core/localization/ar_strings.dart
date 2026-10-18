@@ -1291,10 +1291,10 @@ final class ArStrings implements AppStrings {
   @override
   String get audioReaderSheetTitle => 'الاستماع للورقة';
   @override
-  String get audioReaderModeSummary => 'الخلاصة فقط';
+  String get audioReaderModeSummary => 'التلخيص فقط';
   @override
   String get audioReaderModeSummaryAndKeyInformation =>
-      'الخلاصة وأهم المعلومات';
+      'التلخيص وأهم المعلومات';
   @override
   String get audioReaderModeFull => 'الشرح كامل';
   @override
@@ -1317,4 +1317,23 @@ final class ArStrings implements AppStrings {
   String get audioReaderFailedFeedback => 'حصلت مشكلة. جرّب تاني.';
   @override
   String get audioReaderSpeedLabel => 'سرعة القراءة';
+
+  // No Arabic reading voice on the device (F30-T07) — approved by the owner
+  // on 2026-10-17.
+  @override
+  String get audioReaderNoArabicVoiceTitle => 'الموبايل مفيهوش صوت عربي';
+  @override
+  String get audioReaderNoArabicVoiceMessage =>
+      'علشان نقدر نقرأ لك الورقة بصوت، لازم يكون في صوت عربي مثبّت على '
+      'الموبايل. تقدر تضيفه من إعدادات الموبايل، وبعدين ترجع تجرّب تاني.';
+  @override
+  String get audioReaderNoArabicVoiceAction => 'افتح إعدادات الموبايل';
+  @override
+  String get audioReaderNoArabicVoiceDismiss => 'مش دلوقتي';
+
+  // A permanent engine failure, told apart from the retryable one
+  // (F30-T08/T16).
+  @override
+  String get audioReaderEngineUnavailableFeedback =>
+      'القراءة بصوت مش متاحة على الموبايل دلوقتي.';
 }
