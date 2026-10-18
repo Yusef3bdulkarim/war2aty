@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 18 / 22
+- **Progress:** 19 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -261,7 +261,7 @@ preceded this doc.
 | 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | DONE 2026-10-18 — two holes the queue had left, closed; the listening pass rolls into T20 |
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | DONE 2026-10-18 |
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | DONE 2026-10-18 |
-| 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
+| 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | DONE 2026-10-18 |
 | 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
 | 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
 | 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass (carries T14's listening check) → PR | — | TODO |
@@ -360,9 +360,10 @@ and Android's resume-the-remainder behaviour, as heard rather than as unit
 tested. The gap F30-T12 went on to measure is left as it is: see its
 findings below for why `QUEUE_ADD` was not the way to close it.
 
-**Accepted for now:** an English run on a device with no English voice is still
-named letter-by-letter — it is spoken with whatever voice the engine had rather
-than dropped, which is what T17's transliteration fallback is for. The
+**Accepted for now** *(and no longer so: T17 closed it — see below)*: an
+English run on a device with no English voice is still named letter-by-letter
+— it is spoken with whatever voice the engine had rather than dropped, which
+is what T17's transliteration fallback is for. The
 `NoArabicVoiceFailure` refusal stays a whole-reading decision, not a per-run
 one: a mostly-English paper with one Arabic word in it still reads usefully in
 an English voice, and refusing it over that word would be worse than mangling
@@ -632,6 +633,47 @@ construction. And production still sees it, because the data layer logs
 every engine error as it arrives (T08) — a recovered one leaves its
 `TTS_NETWORK` line behind exactly as a fatal one does, which is the
 difference between knowing how often this happens and guessing.
+
+**T17 closes RC-4, and it cost the queue one assumption.** An English run on
+a device with an Arabic voice and no English one is written in Arabic letters
+and read by the Arabic voice — «إنفويس» for `invoice` — instead of being
+handed to a voice that names its characters one at a time. T11 had left that
+run spoken in whatever voice the engine had and said so in writing; this is
+the thing it was waiting for.
+
+**It is an approximation, deliberately.** English spelling does not say how a
+word sounds, so nothing short of a pronunciation dictionary is right every
+time, and the bar here is "an Egyptian listener recognises the word" against
+an alternative of being spelled out letter by letter. The rules are the ones
+that earn their place on a bill: letter groups that are one sound (`sh`,
+`ch`, `th`, `ph`, `igh`, `tion`), a silent final `e` that lengthens the vowel
+before it (`name` → «نيم», `mobile` → «موبايل») but not over a soft `c`
+(`notice` → «نوتيس»), a final `er` as one letter (`meter` → «ميتر»), `c` as
+`s` before `e`/`i`/`y`, doubled consonants written once, and an initial vowel
+carrying an alef, since «ي» at the start of an Arabic word is the consonant
+`y`. Short all-capital words are spelled out instead — `EGP` → «إي جي بي» —
+because the rules would otherwise make three consonants nobody can say.
+Digits, spaces and punctuation pass through untouched; the number normalizer
+has already prepared the digits. What comes out: «فودافون», «توتال»,
+«بيفور فريداي», «أوكتوبر», «ستاشن».
+
+**The assumption it cost:** a queue item used to be a verbatim slice of the
+reading, so where it started and how much it covered were the same number. A
+transliterated item says the same words in a different number of letters, so
+`_Utterance` now carries `length` — what it covers of the paper — beside
+`text` — what the engine is told to say. Progress offsets inside such an item
+are scaled between the two (`readingOffsetFor`), which is monotonic, starts
+at the run's start and ends exactly at its end: everything a bar asks, and
+an identity for every item that was not transliterated, which is almost all
+of them. The chunker (T15) runs *after* the rewrite, so the engine's ceiling
+holds against what is actually spoken rather than against the Latin it came
+from.
+
+Three cases deliberately left alone: a device with an English voice (nothing
+to fall back from), a device with neither an Arabic nor an English voice
+(nothing to fall back *to* — and a mostly-Arabic reading there is refused by
+T07 instead), and a device reporting no voices at all, which is Android still
+binding rather than evidence of anything.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,
