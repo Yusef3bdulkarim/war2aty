@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 17 / 22
+- **Progress:** 18 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -260,7 +260,7 @@ preceded this doc.
 | 15 | F30-T13 | Rework progress to span the queue, preserving F10-T08's Android resume behaviour | RC-4 ⚠️ | DONE 2026-10-18 — no rework needed; the gap was the tests |
 | 16 | F30-T14 | Rework pause/resume/stop across the queue, including mid-run | RC-4 ⚠️ | DONE 2026-10-18 — two holes the queue had left, closed; the listening pass rolls into T20 |
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | DONE 2026-10-18 |
-| 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | TODO |
+| 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | DONE 2026-10-18 |
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
 | 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
 | 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
@@ -579,6 +579,59 @@ Three things worth recording:
   only when the answer is a positive one for the same reason an empty voice
   list is never cached, and `WarmUpReader` now asks for both together so the
   first reading pays for neither.
+
+**T16 is the tap the owner was making by hand.** The engine names conditions
+that pass on their own — `ERROR_NOT_INSTALLED_YET` while a voice's data is
+still downloading, `ERROR_NETWORK` and `ERROR_NETWORK_TIMEOUT` from a
+network-synthesised voice — and T08 gave each of them a code. T16 is what
+acts on it: a queue item that fails on one of those is spoken again, once,
+and nothing is published while that happens, so no bar closes and no message
+appears. «حصلت مشكلة. جرّب تاني.» now only reaches the user after the app has
+already tried for them, which is what the copy table's "the silent auto-retry
+has already failed once" means.
+
+Four conditions gate it, and the reasons are worth keeping:
+
+- **Transient only.** A permanent failure retried is a second failure and a
+  longer wait before the user is told the truth. `TtsErrorCode.unknown`
+  counts as transient on purpose — "we do not know" is exactly the kind the
+  owner retried by hand until it worked.
+- **Once per queue item, not once per reading.** A long paper is many items
+  now (T15), and a network voice that drops one of them may drop another
+  later without either being a reading the user should have to restart.
+  Twice on the same item would be a loop they can neither see nor escape.
+- **Only with an item installed.** An error reaching the queue with nothing
+  installed belongs to something outside it — the Settings voice preview is
+  the one thing that speaks there — and is passed on untouched.
+- **Never during a hand-over.** Nothing of the queue's is speaking between
+  choosing an utterance and the engine accepting it, so a failure in that
+  window belongs to the reading being replaced; retrying on it would speak
+  the incoming item twice, which is worse than reporting a failure that had
+  already happened. Same reasoning the completion case has followed since
+  T11.
+
+Three choices behind it:
+
+- **The retry re-speaks the whole item rather than resuming inside it.** The
+  engine does not say how far it got, and `ERROR_NETWORK` usually fires
+  before anything is heard, so there is most often nothing to repeat.
+  F10-T08's high-water mark is what keeps the bar from rewinding when there
+  is.
+- **No delay before it.** A timer would have to be cancelled on stop, on
+  pause and on a superseding reading, and it would open a window in which
+  the reading is neither playing nor failed — for a wait that is too short
+  to finish a voice download anyway. The engine's error already arrives
+  after its own attempt, so the retry is a moment later as it is.
+- **The failure the wrapper returns from `speak` is *not* retried.** That is
+  T09's bound, not an engine error: on Android the plugin parks the call and
+  may still run it later, so speaking again there is how a paper gets read
+  twice at once.
+
+Nothing was needed in the cubit or the UI: the retry is invisible by
+construction. And production still sees it, because the data layer logs
+every engine error as it arrives (T08) — a recovered one leaves its
+`TTS_NETWORK` line behind exactly as a fatal one does, which is the
+difference between knowing how often this happens and guessing.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,
