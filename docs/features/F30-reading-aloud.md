@@ -2,7 +2,7 @@
 
 - **Branch:** `fix/reading-aloud`, based on `develop` (after PR #31 merged F27 Phase 4 + F29 into it) · **Milestone:** post-F29
 - **Depends on:** F10 (the audio reader this fixes — the mini-player, the four reading modes, progress tracking), F11-T07 (the reading defaults in Settings, whose voice picker has since been removed), F21 (the result screen the mini-player lives in), F27-T12 (the global error handlers and the logger this reports through)
-- **Progress:** 19 / 22
+- **Progress:** 20 / 22
 - **PR:** one PR into `develop` at the end
 
 The owner reported three faults in the reader on 2026-10-17, from three
@@ -262,7 +262,7 @@ preceded this doc.
 | 17 | F30-T15 | Chunk any run over `getMaxSpeechInputLength()` into queue items | RC-3 | DONE 2026-10-18 |
 | 18 | F30-T16 | Per-chunk transient-error retry (once) before surfacing anything | RC-2 | DONE 2026-10-18 |
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | DONE 2026-10-18 |
-| 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
+| 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | DONE 2026-10-18 — the English already matched |
 | 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
 | 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass (carries T14's listening check) → PR | — | TODO |
 
@@ -674,6 +674,21 @@ to fall back from), a device with neither an Arabic nor an English voice
 (nothing to fall back *to* — and a mostly-Arabic reading there is refused by
 T07 instead), and a device reporting no voices at all, which is Android still
 binding rather than evidence of anything.
+
+**T18 changed the Arabic and left the English where it was.** «الخلاصة فقط»
+→ «التلخيص فقط» and «الخلاصة وأهم المعلومات» → «التلخيص وأهم المعلومات», as
+approved. The English rows were already `Summary only` and `Summary and key
+information`, which is what «التلخيص» means and is a looser fit for the
+«الخلاصة» they used to sit beside — so matching them was a matter of
+checking rather than editing, and inventing a change would have been one.
+
+Two things the grep turned up and are worth recording. Those were the **only
+two user-visible strings** in the app carrying «الخلاصة» — everything else is
+a code comment, three of which describe the one-line `summary.short` field
+(«الخلاصة السريعة») and are a different thing entirely. And the section these
+two modes read is headed **«ملخص المستند»** on the screen above them, so the
+new wording is also the one that agrees with what the user is looking at,
+which the old one did not.
 
 **T08 owes a deploy.** RC-2's "we are blind in production" half is closed by
 giving each engine error its own log code (`TTS_NETWORK`,
