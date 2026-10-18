@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
@@ -34,13 +34,14 @@ import 'package:war2aty/features/analysis/presentation/widgets/failure/limit_res
 import 'package:war2aty/features/analysis/presentation/widgets/failure/privacy_text_note.dart';
 import 'package:war2aty/features/analysis/presentation/widgets/failure/supported_documents_section.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
@@ -102,20 +103,19 @@ void main() {
       discardSession: DiscardAnalysisSession(FakeAnalysisSessionStorage()),
     );
     tts = FakeTextToSpeechService();
+    final queue = readingQueueOver(tts);
     audioReaderCubit = AudioReaderCubit(
-      StartReading(
-        const BuildReadingText(),
-        const SelectVoiceForReading(),
-        tts,
-      ),
-      StartRawReading(const SelectVoiceForReading(), tts),
-      StopReading(tts),
-      PauseReading(tts),
-      ResumeReading(tts),
+      StartReading(const BuildReadingText(), queue),
+      StartRawReading(queue),
+      StopReading(queue),
+      PauseReading(queue),
+      ResumeReading(queue),
       SetReadingSpeed(tts),
-      WatchReadingEvents(tts),
+      WatchReadingEvents(queue),
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
-      GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
+      WarmUpReader(tts),
+      OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+      const OfferableReadingModes(BuildReadingText()),
     );
   });
 

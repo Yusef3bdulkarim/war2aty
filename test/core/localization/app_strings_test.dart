@@ -519,6 +519,12 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'audioReaderStopLabel': (s) => s.audioReaderStopLabel,
   'audioReaderFailedFeedback': (s) => s.audioReaderFailedFeedback,
   'audioReaderSpeedLabel': (s) => s.audioReaderSpeedLabel,
+  'audioReaderNoArabicVoiceTitle': (s) => s.audioReaderNoArabicVoiceTitle,
+  'audioReaderNoArabicVoiceMessage': (s) => s.audioReaderNoArabicVoiceMessage,
+  'audioReaderNoArabicVoiceAction': (s) => s.audioReaderNoArabicVoiceAction,
+  'audioReaderNoArabicVoiceDismiss': (s) => s.audioReaderNoArabicVoiceDismiss,
+  'audioReaderEngineUnavailableFeedback': (s) =>
+      s.audioReaderEngineUnavailableFeedback,
 };
 
 void main() {

@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_status.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/documents/usecases/delete_document.dart';
@@ -21,13 +21,14 @@ import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/widgets/result_details_card.dart';
 import 'package:war2aty/core/widgets/result_hero_scroll_view.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 import 'package:war2aty/features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import 'package:war2aty/features/saved_papers/presentation/screens/document_details_screen.dart';
@@ -59,20 +60,19 @@ void main() {
       documentId: 'doc-1',
     );
     tts = FakeTextToSpeechService();
+    final queue = readingQueueOver(tts);
     audioReaderCubit = AudioReaderCubit(
-      StartReading(
-        const BuildReadingText(),
-        const SelectVoiceForReading(),
-        tts,
-      ),
-      StartRawReading(const SelectVoiceForReading(), tts),
-      StopReading(tts),
-      PauseReading(tts),
-      ResumeReading(tts),
+      StartReading(const BuildReadingText(), queue),
+      StartRawReading(queue),
+      StopReading(queue),
+      PauseReading(queue),
+      ResumeReading(queue),
       SetReadingSpeed(tts),
-      WatchReadingEvents(tts),
+      WatchReadingEvents(queue),
       GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore()),
-      GetDefaultReadingVoice(FakeDefaultReadingVoiceStore()),
+      WarmUpReader(tts),
+      OpenSystemTtsSettings(FakeSystemTtsSettings(), tts),
+      const OfferableReadingModes(BuildReadingText()),
     );
   });
   tearDown(() async {

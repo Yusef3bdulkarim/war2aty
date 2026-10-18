@@ -1316,4 +1316,23 @@ final class EnStrings implements AppStrings {
   String get audioReaderFailedFeedback => 'Something went wrong. Try again.';
   @override
   String get audioReaderSpeedLabel => 'Reading speed';
+
+  // No Arabic reading voice on the device (F30-T07).
+  @override
+  String get audioReaderNoArabicVoiceTitle => 'This phone has no Arabic voice';
+  @override
+  String get audioReaderNoArabicVoiceMessage =>
+      'To read the paper aloud, the phone needs an Arabic reading voice '
+      'installed. You can add one in the phone\'s settings, then come back '
+      'and try again.';
+  @override
+  String get audioReaderNoArabicVoiceAction => 'Open phone settings';
+  @override
+  String get audioReaderNoArabicVoiceDismiss => 'Not now';
+
+  // A permanent engine failure, told apart from the retryable one
+  // (F30-T08/T16).
+  @override
+  String get audioReaderEngineUnavailableFeedback =>
+      'Reading aloud is not available on this phone right now.';
 }

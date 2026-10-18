@@ -27,9 +27,9 @@ import '../../core/audio/usecases/get_available_voices.dart';
 import '../../core/audio/usecases/get_default_reading_speed.dart';
 import '../../core/audio/usecases/get_default_reading_voice.dart';
 import '../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../core/audio/usecases/open_system_tts_settings.dart';
 import '../../core/audio/usecases/preview_default_voice.dart';
 import '../../core/audio/usecases/set_default_reading_speed.dart';
-import '../../core/audio/usecases/set_default_reading_voice.dart';
 import '../../core/audio/usecases/set_resume_reading_enabled.dart';
 import '../../core/audio/usecases/stop_voice_preview.dart';
 import '../../core/audio/usecases/watch_voice_preview_events.dart';
@@ -85,6 +85,8 @@ import '../../core/permissions/usecases/get_notification_permission.dart';
 import '../../core/permissions/usecases/open_notification_permission_settings.dart';
 import '../../core/permissions/usecases/request_notification_permission.dart';
 import '../../core/platform/external_link_service.dart';
+import '../../core/platform/method_channel_system_tts_settings.dart';
+import '../../core/platform/system_tts_settings.dart';
 import '../../core/platform/url_launcher_external_link_service.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
@@ -136,15 +138,21 @@ import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
 import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
+import '../../features/audio_reader/domain/services/reading_queue.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
 import '../../features/audio_reader/domain/usecases/build_reading_text.dart';
+import '../../features/audio_reader/domain/usecases/chunk_text_for_speaking.dart';
+import '../../features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import '../../features/audio_reader/domain/usecases/pause_reading.dart';
 import '../../features/audio_reader/domain/usecases/resume_reading.dart';
+import '../../features/audio_reader/domain/usecases/segment_language_runs.dart';
 import '../../features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import '../../features/audio_reader/domain/usecases/set_reading_speed.dart';
 import '../../features/audio_reader/domain/usecases/start_raw_reading.dart';
 import '../../features/audio_reader/domain/usecases/start_reading.dart';
 import '../../features/audio_reader/domain/usecases/stop_reading.dart';
+import '../../features/audio_reader/domain/usecases/transliterate_latin_to_arabic.dart';
+import '../../features/audio_reader/domain/usecases/warm_up_reader.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
@@ -949,18 +957,37 @@ void _registerAudioReader() {
   // instance app-wide: the OS TTS engine is itself a single shared resource.
   getIt
     ..registerLazySingleton<TextToSpeechService>(
-      FlutterTtsTextToSpeechService.new,
+      // The logger is F30-T08's: an engine error reports its own code to
+      // F27's logging from the boundary that parses it.
+      () => FlutterTtsTextToSpeechService(getIt()),
     )
     // F10-T02. Stateless and total — a factory, like `BuildAnalysisResult`.
     ..registerFactory<BuildReadingText>(BuildReadingText.new)
+    // F30-T19. Asks the builder above which modes this paper has anything to
+    // read for, so the sheet cannot offer one that would speak nothing.
+    ..registerFactory<OfferableReadingModes>(
+      () => OfferableReadingModes(getIt()),
+    )
     // F10-T07. Stateless and total, the same shape as `BuildReadingText`.
     ..registerFactory<SelectVoiceForReading>(SelectVoiceForReading.new)
-    // F10-T04.
-    ..registerFactory<StartReading>(
-      () => StartReading(getIt(), getIt(), getIt()),
+    // F30-T10. Stateless and total, the same shape again.
+    ..registerFactory<SegmentLanguageRuns>(SegmentLanguageRuns.new)
+    // F30-T15, and the same shape once more.
+    ..registerFactory<ChunkTextForSpeaking>(ChunkTextForSpeaking.new)
+    // F30-T17, likewise.
+    ..registerFactory<TransliterateLatinToArabic>(
+      TransliterateLatinToArabic.new,
     )
+    // F30-T11. A singleton, and for the same reason `TextToSpeechService` is
+    // one: it is the queue *of the one engine*, and a second instance would
+    // read the first's completion events as its own runs finishing.
+    ..registerLazySingleton<ReadingQueue>(
+      () => ReadingQueue(getIt(), getIt(), getIt(), getIt(), getIt()),
+    )
+    // F10-T04.
+    ..registerFactory<StartReading>(() => StartReading(getIt(), getIt()))
     // Raw-text TTS for the OCR review screen (pre-analysis).
-    ..registerFactory<StartRawReading>(() => StartRawReading(getIt(), getIt()))
+    ..registerFactory<StartRawReading>(() => StartRawReading(getIt()))
     ..registerFactory<StopReading>(() => StopReading(getIt()))
     // F10-T05.
     ..registerFactory<PauseReading>(() => PauseReading(getIt()))
@@ -985,9 +1012,6 @@ void _registerAudioReader() {
     ..registerFactory<GetDefaultReadingVoice>(
       () => GetDefaultReadingVoice(getIt()),
     )
-    ..registerFactory<SetDefaultReadingVoice>(
-      () => SetDefaultReadingVoice(getIt()),
-    )
     ..registerLazySingleton<ResumeReadingEnabledStore>(
       () => DriftResumeReadingEnabledStore(getIt()),
     )
@@ -996,6 +1020,16 @@ void _registerAudioReader() {
     )
     ..registerFactory<SetResumeReadingEnabled>(
       () => SetResumeReadingEnabled(getIt()),
+    )
+    ..registerFactory<WarmUpReader>(() => WarmUpReader(getIt()))
+    // F30-T07. The app's own method channel rather than an intent plugin —
+    // one intent is not worth a dependency, the same call `MainActivity`
+    // makes for the splash API.
+    ..registerLazySingleton<SystemTtsSettings>(
+      MethodChannelSystemTtsSettings.new,
+    )
+    ..registerFactory<OpenSystemTtsSettings>(
+      () => OpenSystemTtsSettings(getIt(), getIt()),
     )
     ..registerFactory<GetAvailableVoices>(() => GetAvailableVoices(getIt()))
     ..registerFactory<PreviewDefaultVoice>(
@@ -1011,6 +1045,8 @@ void _registerAudioReader() {
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
       () => AudioReaderCubit(
+        getIt(),
+        getIt(),
         getIt(),
         getIt(),
         getIt(),

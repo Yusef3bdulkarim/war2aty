@@ -38,6 +38,7 @@ import 'package:war2aty/core/logging/log_sink.dart';
 import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/platform/external_link_service.dart';
+import 'package:war2aty/core/platform/system_tts_settings.dart';
 import 'package:war2aty/core/reminders/local_notifications_port.dart';
 import 'package:war2aty/core/reminders/notification_privacy_store.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
@@ -56,7 +57,12 @@ import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
+import 'package:war2aty/features/audio_reader/domain/services/reading_queue.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/chunk_text_for_speaking.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/segment_language_runs.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/transliterate_latin_to_arabic.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
@@ -96,6 +102,34 @@ final class FakeLocaleStore implements LocaleStore {
 ///
 /// Every test that builds a screen with the legal rows needs one, because the
 /// real implementation would hand the link to the platform.
+/// Stands in for the app's own method channel to Android's text-to-speech
+/// settings (F30-T07).
+///
+/// [available] models a phone with no such screen — iOS, or an Android build
+/// that does not register it — where the way out must not be offered at all;
+/// [opensSuccessfully] models the intent failing once it is actually fired.
+final class FakeSystemTtsSettings implements SystemTtsSettings {
+  FakeSystemTtsSettings({this.available = true, this.opensSuccessfully = true});
+
+  bool available;
+  bool opensSuccessfully;
+
+  int availableCount = 0;
+  int openCount = 0;
+
+  @override
+  Future<bool> isAvailable() async {
+    availableCount++;
+    return available;
+  }
+
+  @override
+  Future<bool> open() async {
+    openCount++;
+    return opensSuccessfully;
+  }
+}
+
 final class FakeExternalLinkService implements ExternalLinkService {
   FakeExternalLinkService({this.result = true});
 
@@ -1441,6 +1475,22 @@ final class FakeAppSettingsRepository implements AppSettingsRepository {
   }
 }
 
+/// A [ReadingQueue] over [tts], with the real segmentation and voice
+/// selection behind it — the path every reading has gone through since
+/// F30-T11.
+///
+/// One instance per test, shared by every reading use case the test builds:
+/// the app registers the queue as a singleton because it reads the one
+/// engine's completion events as its own runs finishing, and two queues over
+/// one fake would misread each other's just as readily.
+ReadingQueue readingQueueOver(TextToSpeechService tts) => ReadingQueue(
+  tts,
+  const SegmentLanguageRuns(),
+  const SelectVoiceForReading(),
+  const ChunkTextForSpeaking(),
+  const TransliterateLatinToArabic(),
+);
+
 /// Scriptable [TextToSpeechService] — no plugin, no OS engine (F10).
 ///
 /// [speakFails] / [stopFails] drive the two error paths a cubit test needs;
@@ -1490,9 +1540,15 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   /// native handlers would.
   void emitEvent(TtsEvent event) => _events.add(event);
 
+  /// Holds [speak] open until it is completed, so a test can stand in the
+  /// other half of the queue's hand-over — after the voice switch, with the
+  /// engine not yet having taken the utterance (F30-T20).
+  Completer<void>? speakGate;
+
   @override
   Future<Result<void, AppFailure>> speak(String text) async {
     spoken.add(text);
+    if (speakGate case final gate?) await gate.future;
     return speakFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
@@ -1520,15 +1576,49 @@ final class FakeTextToSpeechService implements TextToSpeechService {
     return setSpeechRateFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
+  /// Holds [setVoice] open until it is completed, so a test can stand inside
+  /// the queue's hand-over — between choosing an utterance and speaking it —
+  /// and see what happens if the user pauses or the engine reports something
+  /// in that window (F30-T11).
+  Completer<void>? setVoiceGate;
+
   @override
   Future<Result<void, AppFailure>> setVoice(TtsVoice voice) async {
     voicesSet.add(voice);
+    if (setVoiceGate case final gate?) await gate.future;
     return setVoiceFails ? const Err(TtsFailure()) : const Ok(null);
   }
 
   @override
-  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async =>
-      getVoicesFails ? const Err(TtsFailure()) : Ok(voices);
+  Future<Result<List<TtsVoice>, AppFailure>> getVoices() async {
+    getVoicesCount++;
+    return getVoicesFails ? const Err(TtsFailure()) : Ok(voices);
+  }
+
+  /// How many times [getVoices] was asked (F30-T04) — so a test can prove the
+  /// real service's cache is what keeps this slow call off every reading.
+  int getVoicesCount = 0;
+
+  @override
+  void forgetVoices() => forgetVoicesCount++;
+
+  int forgetVoicesCount = 0;
+
+  /// The engine's ceiling on one utterance (F30-T15) — `null` by default,
+  /// which is a platform that declares none, so a test that is not about
+  /// chunking sees the whole run spoken as one utterance exactly as before.
+  int? maxInputLength;
+
+  /// How many times [getMaxInputLength] was asked, for the same reason
+  /// [getVoicesCount] exists: the real service caches it, and the warm-up is
+  /// what fills that cache.
+  int maxInputLengthCount = 0;
+
+  @override
+  Future<int?> getMaxInputLength() async {
+    maxInputLengthCount++;
+    return maxInputLength;
+  }
 
   @override
   Stream<TtsEvent> get events => _events.stream;

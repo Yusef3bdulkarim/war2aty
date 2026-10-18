@@ -14,6 +14,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/audio_mini_player_bar.dart';
+import '../../../../core/widgets/audio_reader_failure_listener.dart';
 import '../cubit/ocr_review_cubit.dart';
 import '../cubit/ocr_review_state.dart';
 
@@ -266,15 +267,7 @@ class _ReadyBodyState extends State<_ReadyBody> {
     final state = widget.state;
     final isOfflineRoute = state.readMode == OcrReadMode.offline;
 
-    return BlocListener<AudioReaderCubit, AudioReaderState>(
-      listenWhen: (previous, current) => current is AudioReaderFailed,
-      listener: (context, audioState) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(strings.audioReaderFailedFeedback)),
-          );
-      },
+    return AudioReaderFailureListener(
       child: Column(
         children: [
           Padding(

@@ -2,23 +2,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/audio_reader_state.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
-import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/documents/analysis_result.dart';
+import 'package:war2aty/core/documents/analysis_summary.dart';
 import 'package:war2aty/core/documents/reading_mode.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/offerable_reading_modes.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/pause_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/resume_reading.dart';
-import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/set_reading_speed.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_raw_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart';
+import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 
 import '../../features/analysis/analysis_fixtures.dart';
@@ -34,9 +37,17 @@ final AnalysisResult _result = _buildResult(
 
 /// A cubit and the fake engine behind it, wired the same way DI does.
 ///
-/// [defaultSpeed]/[defaultVoice] model Settings' own persisted picks
-/// (F11-T07) — `null` defaults, same as a user who has never touched either.
-({AudioReaderCubit cubit, FakeTextToSpeechService tts}) _cubitFor({
+/// [defaultSpeed] models Settings' own persisted pick (F11-T07) — `null` for
+/// a user who has never touched it. There is no voice counterpart any more:
+/// F30-T04 took the stored choice out of the reading path, since the picker
+/// that wrote it was removed and the two database reads it cost happened on
+/// every single reading.
+({
+  AudioReaderCubit cubit,
+  FakeTextToSpeechService tts,
+  FakeSystemTtsSettings ttsSettings,
+})
+_cubitFor({
   bool speakFails = false,
   bool stopFails = false,
   bool pauseFails = false,
@@ -44,7 +55,8 @@ final AnalysisResult _result = _buildResult(
   bool setSpeechRateFails = false,
   List<TtsVoice> voices = const [],
   ReadingSpeed? defaultSpeed,
-  TtsVoice? defaultVoice,
+  bool settingsAvailable = true,
+  bool settingsOpen = true,
 }) {
   final tts = FakeTextToSpeechService(
     speakFails: speakFails,
@@ -54,18 +66,34 @@ final AnalysisResult _result = _buildResult(
     setSpeechRateFails: setSpeechRateFails,
     voices: voices,
   );
-  final cubit = AudioReaderCubit(
-    StartReading(const BuildReadingText(), const SelectVoiceForReading(), tts),
-    StartRawReading(const SelectVoiceForReading(), tts),
-    StopReading(tts),
-    PauseReading(tts),
-    ResumeReading(tts),
-    SetReadingSpeed(tts),
-    WatchReadingEvents(tts),
-    GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
-    GetDefaultReadingVoice(FakeDefaultReadingVoiceStore(defaultVoice)),
+  final ttsSettings = FakeSystemTtsSettings(
+    available: settingsAvailable,
+    opensSuccessfully: settingsOpen,
   );
-  return (cubit: cubit, tts: tts);
+  final queue = readingQueueOver(tts);
+  final cubit = AudioReaderCubit(
+    StartReading(const BuildReadingText(), queue),
+    StartRawReading(queue),
+    StopReading(queue),
+    PauseReading(queue),
+    ResumeReading(queue),
+    SetReadingSpeed(tts),
+    WatchReadingEvents(queue),
+    GetDefaultReadingSpeed(FakeDefaultReadingSpeedStore(defaultSpeed)),
+    WarmUpReader(tts),
+    OpenSystemTtsSettings(ttsSettings, tts),
+    const OfferableReadingModes(BuildReadingText()),
+  );
+  return (cubit: cubit, tts: tts, ttsSettings: ttsSettings);
+}
+
+/// Lets an engine event reach the queue, and the queue's own `setVoice` /
+/// `speak` round trip for whatever it decides to speak next finish — the
+/// silent retry of a passing error (F30-T16) among them.
+Future<void> _settle() async {
+  for (var i = 0; i < 4; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
 }
 
 void main() {
@@ -195,6 +223,28 @@ void main() {
       await built.cubit.pause();
 
       expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
+    });
+
+    test('a failed pause stops the reading rather than talking on', () async {
+      // An engine that refuses the pause keeps reading, and reporting the
+      // failure hides the bar — so the paper would be read aloud with no
+      // pause and no stop to reach for, and leaving the page would not
+      // silence it either, since `close` only stops a reading the state
+      // still calls one.
+      final built = _cubitFor(pauseFails: true);
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      await built.cubit.pause();
+
+      expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
+      expect(built.tts.stopCount, 1);
     });
 
     test('a failed resume reports the failure instead', () async {
@@ -468,28 +518,139 @@ void main() {
       expect(await built.cubit.loadDefaultSpeed(), ReadingSpeed.normal);
     });
 
+    // F30-T19. The sheet asks before it opens, so a mode with nothing to
+    // read is never on it to be picked.
+    test('offerableModes leaves out a mode with nothing to read', () {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      final modes = built.cubit.offerableModes(
+        result: const BuildAnalysisResult()(
+          analysis: invoiceAnalysis(
+            summary: const AnalysisSummary(short: '', detailed: 'الشرح.'),
+          ),
+          extractedText: 'فاتورة كهرباء',
+        ),
+        strings: _ar,
+      );
+
+      expect(modes, isNot(contains(ReadingMode.summaryOnly)));
+      expect(modes, contains(ReadingMode.fullExplanation));
+    });
+
+    // F30-T07. The one voice problem the user can fix, and the one worth
+    // stopping a reading over. Silently reading on with an English voice is
+    // what made a Samsung phone spell out the Latin characters of an Arabic
+    // paper and do nothing at all for «الخلاصة» (F30 RC-1).
+    test('a device with no Arabic voice is told, not read to anyway', () async {
+      final built = _cubitFor(
+        voices: const [TtsVoice(name: 'Samantha', locale: 'en-US')],
+      );
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(
+        built.cubit.state,
+        isA<AudioReaderFailed>().having(
+          (s) => s.failure,
+          'failure',
+          isA<NoArabicVoiceFailure>(),
+        ),
+      );
+      // And nothing was read with the wrong voice.
+      expect(built.tts.spoken, isEmpty);
+      expect(built.tts.voicesSet, isEmpty);
+    });
+
+    test('an engine still binding is not accused of missing a voice', () async {
+      // Android reports no voices at all until it finishes binding. Claiming
+      // a missing Arabic voice on that basis would be wrong, and would send
+      // the user off to install one they already have.
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(built.cubit.state, isA<AudioReaderReading>());
+      expect(built.tts.spoken, hasLength(1));
+    });
+
+    test('opening the settings forgets the cached voice list', () async {
+      // The point of sending the user there is that they install a voice;
+      // the cached list would still say they have none (F30-T04).
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      expect(await built.cubit.openSystemTtsSettings(), isTrue);
+
+      expect(built.ttsSettings.openCount, 1);
+      expect(built.tts.forgetVoicesCount, 1);
+    });
+
     test(
-      'start applies the persisted default voice ahead of speaking',
+      'a phone with no settings screen says so before offering it',
       () async {
-        const voice = TtsVoice(name: 'Voice A', locale: 'ar-EG');
-        final built = _cubitFor(defaultVoice: voice);
+        final built = _cubitFor(settingsAvailable: false);
         addTearDown(built.cubit.close);
         addTearDown(built.tts.dispose);
 
-        await built.cubit.start(
-          result: _result,
-          mode: ReadingMode.summaryOnly,
-          speed: ReadingSpeed.normal,
-          strings: _ar,
-        );
-
-        expect(built.tts.voicesSet, [voice]);
+        expect(await built.cubit.canOpenSystemTtsSettings(), isFalse);
+        expect(built.ttsSettings.availableCount, 1);
       },
     );
 
+    test('an intent that fails once fired is reported as false', () async {
+      final built = _cubitFor(settingsOpen: false);
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      expect(await built.cubit.openSystemTtsSettings(), isFalse);
+    });
+
+    test('the engine is warmed up as soon as the cubit exists', () async {
+      // F30-T06. The screen that owns the mini-player builds this cubit
+      // seconds before anyone reaches for «الاستماع», so the slow first
+      // call belongs here rather than on the tap.
+      final built = _cubitFor(
+        voices: const [TtsVoice(name: 'ar-EG-local', locale: 'ar-EG')],
+      );
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      // The warm-up is deliberately not awaited by the constructor, so give
+      // the microtask it was fired on a chance to run.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(built.tts.getVoicesCount, 1);
+      // And it stays silent — a warm-up that spoke would have the result
+      // screen talking the moment it opened.
+      expect(built.tts.spoken, isEmpty);
+      expect(built.cubit.state, isA<AudioReaderIdle>());
+    });
+
     test(
-      'start falls back to the automatic script match with no default voice',
+      'start asks the engine for the voice, and nothing else for it',
       () async {
+        // F30-T04. Starting a reading used to open the settings table twice
+        // for a voice preference nothing could write, before it even reached
+        // the engine. That dependency is gone from the constructor
+        // altogether, so the only proof left to assert is that the voice
+        // still arrives — the engine is now the single source of it.
         const arabicVoice = TtsVoice(name: 'Voice A', locale: 'ar-EG');
         final built = _cubitFor(voices: [arabicVoice]);
         addTearDown(built.cubit.close);
@@ -505,6 +666,22 @@ void main() {
         expect(built.tts.voicesSet, [arabicVoice]);
       },
     );
+
+    test('start picks the voice matching the text\'s own script', () async {
+      const arabicVoice = TtsVoice(name: 'Voice A', locale: 'ar-EG');
+      final built = _cubitFor(voices: [arabicVoice]);
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(built.tts.voicesSet, [arabicVoice]);
+    });
   });
 
   group('progress tracking (F10-T08)', () {
@@ -601,6 +778,82 @@ void main() {
 
       expect(built.cubit.state, const AudioReaderIdle());
     });
+
+    test(
+      'a run finishing mid-reading does not hide the mini-player (F30-T11)',
+      () async {
+        // The paper is Arabic with an English word in it, so the reading is
+        // three utterances now. The bar belongs to the reading, not to
+        // whichever of them the engine happens to be on.
+        final built = _cubitFor();
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+        await built.cubit.startRaw(
+          text: 'فاتورة invoice لازم تتدفع',
+          speed: ReadingSpeed.normal,
+        );
+
+        for (var run = 0; run < 2; run++) {
+          built.tts.emitEvent(const TtsCompleted());
+          for (var turn = 0; turn < 4; turn++) {
+            await Future<void>.delayed(Duration.zero);
+          }
+          expect(
+            built.cubit.state,
+            isA<AudioReaderReading>(),
+            reason: 'after run ${run + 1} of 3',
+          );
+        }
+
+        // Only the last one ends it.
+        built.tts.emitEvent(const TtsCompleted());
+        await Future<void>.delayed(Duration.zero);
+
+        expect(built.cubit.state, const AudioReaderIdle());
+        expect(built.tts.spoken, const ['فاتورة', ' invoice', ' لازم تتدفع']);
+      },
+    );
+
+    test(
+      'pausing between two runs stops the device talking too (F30-T11)',
+      () async {
+        // The bar and the engine have to agree: a pause that lands in the
+        // gap between two runs used to pause an engine that was not
+        // speaking, so the next run started under a player that said paused.
+        final built = _cubitFor();
+        addTearDown(built.cubit.close);
+        addTearDown(built.tts.dispose);
+        await built.cubit.startRaw(
+          text: 'فاتورة invoice لازم تتدفع',
+          speed: ReadingSpeed.normal,
+        );
+        built.tts.emitEvent(const TtsStarted());
+        await Future<void>.delayed(Duration.zero);
+
+        await built.cubit.pause();
+        built.tts.emitEvent(const TtsCompleted());
+        for (var turn = 0; turn < 4; turn++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        expect(
+          built.cubit.state,
+          isA<AudioReaderReading>().having(
+            (state) => state.isPaused,
+            'isPaused',
+            isTrue,
+          ),
+        );
+        expect(built.tts.spoken, const ['فاتورة']);
+
+        await built.cubit.resume();
+        for (var turn = 0; turn < 4; turn++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+
+        expect(built.tts.spoken, const ['فاتورة', ' invoice']);
+      },
+    );
 
     test('pausing keeps whatever progress was last reported', () async {
       final built = _cubitFor();
@@ -699,12 +952,118 @@ void main() {
           strings: _ar,
         );
 
+        // Twice: the first of a passing kind is spoken again in silence
+        // (F30-T16), and it is the second that the user is told about.
         built.tts.emitEvent(const TtsFailed());
-        await Future<void>.delayed(Duration.zero);
+        await _settle();
+        built.tts.emitEvent(const TtsFailed());
+        await _settle();
 
-        expect(built.cubit.state, const AudioReaderFailed(TtsFailure()));
+        expect(
+          built.cubit.state,
+          const AudioReaderFailed(TtsFailure(TtsErrorCode.unknown)),
+        );
       },
     );
+
+    // F30-T08. One generic «حصلت مشكلة. جرّب تاني.» for every engine error is
+    // what made the owner tap three times before a reading worked (RC-2).
+    test('a transient engine error stays the retryable failure', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await _settle();
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await _settle();
+
+      expect(
+        built.cubit.state,
+        const AudioReaderFailed(TtsFailure(TtsErrorCode.network)),
+      );
+    });
+
+    // F30-T16. The app makes the tap the owner was making by hand.
+    test('a passing engine error is retried without saying anything', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await _settle();
+
+      // The bar stays, nothing is said, and the paper is being read again.
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(ReadingMode.summaryOnly),
+      );
+      expect(built.tts.spoken, hasLength(2));
+    });
+
+    test('a permanent engine error is not offered as a retry', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.service));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        built.cubit.state,
+        const AudioReaderFailed(
+          TtsEngineUnavailableFailure(TtsErrorCode.service),
+        ),
+      );
+    });
+
+    test('a failed reading still clears the bar\'s progress', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 5));
+      await Future<void>.delayed(Duration.zero);
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.service));
+      await Future<void>.delayed(Duration.zero);
+      // A second reading starts from zero, not from where the failed one
+      // stopped.
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(ReadingMode.summaryOnly),
+      );
+    });
 
     test('an engine failure while idle is ignored', () async {
       final built = _cubitFor();
@@ -736,5 +1095,95 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       },
     );
+  });
+
+  group('progress across a queued reading (F30-T13)', () {
+    // Every progress test above reads the invoice fixture, which is wholly
+    // Arabic and so reaches the engine as a single utterance — none of them
+    // ever sees a run boundary. This reading segments into three runs,
+    // Arabic then English then Arabic, which is the shape the owner's paper
+    // had (F30 RC-4).
+    const reading = 'فاتورة invoice لازم تتدفع';
+    const firstRun = 'فاتورة';
+    const secondRun = ' invoice';
+
+    /// Lets the queue's own `setVoice`/`speak` round trip for the next run
+    /// finish after the engine says the current one is done.
+    Future<void> settle() async {
+      for (var i = 0; i < 4; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('progress keeps climbing across a run boundary', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.startRaw(text: reading, speed: ReadingSpeed.normal);
+
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: firstRun.length));
+      await settle();
+      final atEndOfFirstRun =
+          (built.cubit.state as AudioReaderReading).progress;
+
+      built.tts.emitEvent(const TtsCompleted());
+      await settle();
+      // The engine counts the second run's offsets from zero. Measured
+      // against the whole reading they have to carry on from where the
+      // first run left off rather than start the bar over.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: secondRun.length));
+      await settle();
+
+      expect(atEndOfFirstRun, firstRun.length / reading.length);
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(
+          ReadingMode.extractedText,
+          progress: (firstRun.length + secondRun.length) / reading.length,
+        ),
+      );
+    });
+
+    test('progress holds through a resume inside a middle run, then climbs '
+        'again at the next one', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.startRaw(text: reading, speed: ReadingSpeed.normal);
+      built.tts.emitEvent(const TtsCompleted());
+      await settle();
+
+      // To the end of the second run, then paused.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: secondRun.length));
+      await settle();
+      final atPause = (built.cubit.state as AudioReaderReading).progress;
+      await built.cubit.pause();
+      await built.cubit.resume();
+
+      // Android resumes by speaking the run's unread remainder as a fresh
+      // utterance, so its offsets count from zero inside that remainder —
+      // which, shifted by the run's own start, still lands well behind
+      // where the reading actually is. F10-T08's high-water mark is what
+      // keeps the bar from jumping backward, and it has to go on working
+      // now that the shift is a run's offset rather than zero.
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 1));
+      await settle();
+      final afterResume = (built.cubit.state as AudioReaderReading).progress;
+
+      // The third run overtakes the high-water mark, so the bar moves again
+      // — it is only frozen for the remainder of the run that was paused,
+      // not for the rest of the reading.
+      built.tts.emitEvent(const TtsCompleted());
+      await settle();
+      built.tts.emitEvent(const TtsProgressed(start: 0, end: 2));
+      await settle();
+
+      expect(atPause, (firstRun.length + secondRun.length) / reading.length);
+      expect(afterResume, atPause, reason: 'the bar must not jump backward');
+      expect(
+        (built.cubit.state as AudioReaderReading).progress,
+        greaterThan(atPause),
+      );
+    });
   });
 }

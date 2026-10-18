@@ -1094,6 +1094,10 @@ abstract interface class AppStrings {
   /// (`ReadingMode.extractedText`) exists too, but is only reached from the
   /// OCR-only fallback screens, which read it straight away rather than
   /// asking — there is no analysis there to summarise.
+  ///
+  /// The first two say «التلخيص» rather than «الخلاصة» since F30-T18: the
+  /// section they read is headed «ملخص المستند» on the screen above them,
+  /// and two words for one thing is one more than the reader needs.
   String get audioReaderModeSummary;
   String get audioReaderModeSummaryAndKeyInformation;
   String get audioReaderModeFull;
@@ -1128,4 +1132,29 @@ abstract interface class AppStrings {
   /// labels themselves (`0.75x`, `1x`, …) are not localized; see
   /// `ReadingSpeed.label`.
   String get audioReaderSpeedLabel;
+
+  /// F30-T07. Shown when the device has no Arabic reading voice installed, so
+  /// there is nothing that can read an Arabic paper aloud at all.
+  ///
+  /// This is not a passing engine error and it is not something the app can
+  /// work around — the user is the only one who can fix it, by installing a
+  /// voice from the system's own text-to-speech settings. Hence a sheet with
+  /// a way out rather than [audioReaderFailedFeedback]'s snackbar.
+  ///
+  /// Names no engine and no vendor (§7): which engine ships which voice is
+  /// not the user's problem, and the wording has to hold on every phone.
+  String get audioReaderNoArabicVoiceTitle;
+  String get audioReaderNoArabicVoiceMessage;
+
+  /// Opens the system's text-to-speech settings. Hidden when the platform has
+  /// no such screen to open, rather than offered as a button that does
+  /// nothing.
+  String get audioReaderNoArabicVoiceAction;
+  String get audioReaderNoArabicVoiceDismiss;
+
+  /// F30-T08/T16. A reading the engine cannot do at all, as distinct from
+  /// [audioReaderFailedFeedback]'s "try again" — which is kept for the
+  /// retryable kind, and only shown after the silent retry has already
+  /// failed once.
+  String get audioReaderEngineUnavailableFeedback;
 }
