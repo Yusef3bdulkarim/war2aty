@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../core/audio/tts_error_code.dart';
 import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
@@ -27,6 +28,12 @@ import 'text_to_speech_service.dart';
 /// and reports progress exactly as an uncut one does. The cost is the gap
 /// between two pieces of the same run, which is the same gap a language
 /// switch pays and is paid only by a run over 4000 characters.
+///
+/// An item the engine fails on for a reason the engine itself called a
+/// passing one is spoken again, once, in silence (F30-T16) — see
+/// [_shouldRetry]. That is the half of RC-2 the user feels: before it, a
+/// voice whose data was still downloading and a network voice that could not
+/// reach its audio both closed the player and asked the user to tap again.
 ///
 /// **Everything that plays goes through here** — speaking, pausing, resuming
 /// and stopping. The queue is what the engine's events are read against, so a
@@ -115,6 +122,15 @@ final class ReadingQueue {
   /// nothing now. Without parking the next run, the player would either talk
   /// under a paused bar or never speak again.
   _Utterance? _parked;
+
+  /// Whether the utterance the queue is on has already been spoken a second
+  /// time after a transient engine error (F30-T16).
+  ///
+  /// One retry per queue item, not per reading: a long paper is many items,
+  /// and a network voice that drops one of them may well drop another later
+  /// without either being a reading the user should be made to restart.
+  /// Cleared when the queue moves on to the next item, and by [_clear].
+  bool _retriedCurrent = false;
 
   /// Whether a hand-over is in flight — between choosing an utterance and the
   /// engine accepting it.
@@ -305,10 +321,11 @@ final class ReadingQueue {
     }
   }
 
-  /// Speaks the run after the one that just finished.
+  /// Speaks the queue item after the one that just finished — or the one
+  /// that just failed, over again (F30-T16).
   ///
-  /// Nothing awaits this — the engine's completion event is what triggered it
-  /// — so a failure here has no call to answer and is published on [events]
+  /// Nothing awaits this — an engine event is what triggered it — so a
+  /// failure here has no call to answer and is published on [events]
   /// instead. It reads as retryable: a run the engine would not take is the
   /// same kind of refusal a first run's would have been, and «جرّب تاني» is
   /// the right offer.
@@ -321,6 +338,31 @@ final class ReadingQueue {
       _readingEvents.add(const TtsFailed());
     }
   }
+
+  /// Whether the item the queue is on is worth speaking again rather than
+  /// giving the reading up over (F30-T16).
+  ///
+  /// Four conditions, and each one of them has to hold:
+  ///
+  /// * The engine called the condition a passing one. A permanent failure
+  ///   retried is a second failure and a longer wait before the user is told
+  ///   the truth — and `TtsErrorCode.unknown` counts as passing, which is
+  ///   deliberate: "we do not know" is the kind the owner retried by hand
+  ///   until it worked.
+  /// * This item has not been retried already. Twice is a loop the user
+  ///   cannot see and cannot get out of.
+  /// * There is an item to speak again. An error with nothing installed
+  ///   belongs to something outside the queue — the Settings voice preview —
+  ///   and is passed on untouched.
+  /// * No hand-over is in flight. Nothing of the queue's is speaking in that
+  ///   window, so the failure belongs to the reading being replaced; retrying
+  ///   on it would speak the incoming item twice, which is the one outcome
+  ///   worse than reporting a failure that had already happened.
+  bool _shouldRetry(TtsErrorCode code) =>
+      code.isTransient &&
+      !_retriedCurrent &&
+      !_handingOver &&
+      _index < _utterances.length;
 
   /// Turns the engine's own events into the reading's (see [events]), and
   /// moves the queue along.
@@ -351,6 +393,8 @@ final class ReadingQueue {
         final next = _index + 1;
         if (next < _utterances.length) {
           _index = next;
+          // A fresh queue item gets its own retry (F30-T16).
+          _retriedCurrent = false;
           // Read out of the list here, while it is known to be in range,
           // rather than inside the asynchronous step below.
           final utterance = _utterances[next];
@@ -364,7 +408,20 @@ final class ReadingQueue {
         _clear();
         _readingEvents.add(event);
 
-      case TtsFailed():
+      case TtsFailed(:final code):
+        // The engine names conditions that pass on their own — a voice whose
+        // data is still downloading, a network voice that could not fetch
+        // its audio — and until F30-T16 every one of them reached the user
+        // as «حصلت مشكلة. جرّب تاني.» and made them tap again by hand. That
+        // is RC-2, and the owner's reading working on the third attempt is
+        // what it looks like. The app does that one tap itself now, in
+        // silence: nothing is published, so no bar closes and no message
+        // appears, and the paper carries on from the item that failed.
+        if (_shouldRetry(code)) {
+          _retriedCurrent = true;
+          unawaited(_advanceTo(_utterances[_index], _generation));
+          return;
+        }
         // The reading is over however many runs were left: the engine has
         // stopped, and nothing will complete to carry the queue forward.
         _clear();
@@ -463,6 +520,7 @@ final class ReadingQueue {
     _currentStarted = false;
     _paused = false;
     _parked = null;
+    _retriedCurrent = false;
   }
 }
 

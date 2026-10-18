@@ -84,6 +84,15 @@ _cubitFor({
   return (cubit: cubit, tts: tts, ttsSettings: ttsSettings);
 }
 
+/// Lets an engine event reach the queue, and the queue's own `setVoice` /
+/// `speak` round trip for whatever it decides to speak next finish — the
+/// silent retry of a passing error (F30-T16) among them.
+Future<void> _settle() async {
+  for (var i = 0; i < 4; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
 void main() {
   group('AudioReaderCubit', () {
     test('starts idle', () {
@@ -919,8 +928,12 @@ void main() {
           strings: _ar,
         );
 
+        // Twice: the first of a passing kind is spoken again in silence
+        // (F30-T16), and it is the second that the user is told about.
         built.tts.emitEvent(const TtsFailed());
-        await Future<void>.delayed(Duration.zero);
+        await _settle();
+        built.tts.emitEvent(const TtsFailed());
+        await _settle();
 
         expect(
           built.cubit.state,
@@ -943,12 +956,37 @@ void main() {
       );
 
       built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
-      await Future<void>.delayed(Duration.zero);
+      await _settle();
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await _settle();
 
       expect(
         built.cubit.state,
         const AudioReaderFailed(TtsFailure(TtsErrorCode.network)),
       );
+    });
+
+    // F30-T16. The app makes the tap the owner was making by hand.
+    test('a passing engine error is retried without saying anything', () async {
+      final built = _cubitFor();
+      addTearDown(built.cubit.close);
+      addTearDown(built.tts.dispose);
+      await built.cubit.start(
+        result: _result,
+        mode: ReadingMode.summaryOnly,
+        speed: ReadingSpeed.normal,
+        strings: _ar,
+      );
+
+      built.tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await _settle();
+
+      // The bar stays, nothing is said, and the paper is being read again.
+      expect(
+        built.cubit.state,
+        const AudioReaderReading(ReadingMode.summaryOnly),
+      );
+      expect(built.tts.spoken, hasLength(2));
     });
 
     test('a permanent engine error is not offered as a retry', () async {

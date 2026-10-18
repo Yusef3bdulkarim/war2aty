@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/tts_error_code.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -527,13 +528,17 @@ void main() {
     test(
       'an engine failure ends the reading rather than queueing on',
       () async {
+        // A permanent one: a transient error is spoken again once before
+        // anything is reported (F30-T16), which the group below covers.
+        const failed = TtsFailed(code: TtsErrorCode.service);
+
         await queue.speak(_mixed);
-        tts.emitEvent(const TtsFailed());
+        tts.emitEvent(failed);
         await settle();
         await completeUtterance();
 
         expect(tts.spoken, [_mixedRuns.first]);
-        expect(events.whereType<TtsFailed>(), const [TtsFailed()]);
+        expect(events.whereType<TtsFailed>(), const [failed]);
       },
     );
 
@@ -780,6 +785,175 @@ void main() {
       await queue.speak(long);
 
       expect(tts.spoken, const [long]);
+    });
+  });
+
+  // F30-T16, and the half of RC-2 the user feels. Android reports conditions
+  // that pass on their own — a voice still downloading, a network voice that
+  // could not fetch its audio — through the same handler as a dead engine,
+  // and every one of them used to close the player and ask the user to tap
+  // again. The owner's reading working on the third attempt is what that
+  // looks like from the outside.
+  group('ReadingQueue · a passing engine error is tried again', () {
+    test('speaks the item that failed again, saying nothing', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      expect(tts.spoken, [_mixedRuns.first, _mixedRuns.first]);
+      // Silent: no failure reaches the player, so no bar closes and no
+      // message appears (locked decision 10 — the retry has no string).
+      expect(events.whereType<TtsFailed>(), isEmpty);
+    });
+
+    test('carries on through the rest of the reading afterwards', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.notInstalledYet));
+      await settle();
+      await completeUtterance();
+
+      expect(tts.spoken, [
+        _mixedRuns.first,
+        _mixedRuns.first,
+        _mixedRuns.elementAt(1),
+      ]);
+    });
+
+    test('an error the engine did not explain is tried again too', () async {
+      // "We do not know" is the kind the owner retried by hand until it
+      // worked, and the kind `TtsErrorCode.unknown` is deliberately
+      // transient for.
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsFailed());
+      await settle();
+
+      expect(tts.spoken, [_mixedRuns.first, _mixedRuns.first]);
+    });
+
+    test('gives the reading up when the retry fails too', () async {
+      const failed = TtsFailed(code: TtsErrorCode.network);
+
+      await queue.speak(_mixed);
+      tts.emitEvent(failed);
+      await settle();
+      tts.emitEvent(failed);
+      await settle();
+
+      // Twice would be a loop the user can neither see nor get out of.
+      expect(tts.spoken, [_mixedRuns.first, _mixedRuns.first]);
+      expect(events.whereType<TtsFailed>(), const [failed]);
+      // And the queue is gone with it.
+      await completeUtterance();
+      expect(tts.spoken, hasLength(2));
+    });
+
+    test('a permanent error is not tried again at all', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.service));
+      await settle();
+
+      // Retrying what the engine called permanent is a second failure and a
+      // longer wait before the user is told the truth.
+      expect(tts.spoken, [_mixedRuns.first]);
+      expect(events.whereType<TtsFailed>(), const [
+        TtsFailed(code: TtsErrorCode.service),
+      ]);
+    });
+
+    test('each queue item gets its own retry', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+      await completeUtterance();
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      // A long paper is many items, and a network voice that drops one of
+      // them may drop another later without either being a reading the user
+      // should have to restart.
+      expect(tts.spoken, [
+        _mixedRuns.first,
+        _mixedRuns.first,
+        _mixedRuns.elementAt(1),
+        _mixedRuns.elementAt(1),
+      ]);
+      expect(events.whereType<TtsFailed>(), isEmpty);
+    });
+
+    test('a retry that comes due while paused is parked, not spoken', () async {
+      await queue.speak(_mixed);
+      await queue.pause();
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      // The second invariant holds over the retry as well: nothing is
+      // spoken while the player is paused.
+      expect(tts.spoken, [_mixedRuns.first]);
+
+      await queue.resume();
+      await settle();
+      expect(tts.spoken, [_mixedRuns.first, _mixedRuns.first]);
+    });
+
+    test('a stopped reading is not retried', () async {
+      await queue.speak(_mixed);
+      await queue.stop();
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      expect(tts.spoken, [_mixedRuns.first]);
+    });
+
+    test('an error with nothing installed is passed on untouched', () async {
+      // The Settings voice preview is the one thing that speaks outside the
+      // queue, and its failure is not a reading to retry.
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      expect(tts.spoken, isEmpty);
+      expect(events.whereType<TtsFailed>(), const [
+        TtsFailed(code: TtsErrorCode.network),
+      ]);
+    });
+
+    test(
+      'an error arriving during a hand-over is not retried over it',
+      () async {
+        await queue.speak(_mixed);
+        final gate = Completer<void>();
+        tts.setVoiceGate = gate;
+
+        // The completion starts the second run's hand-over, which blocks on
+        // the voice switch; the failure that lands in that window belongs to
+        // the utterance being replaced. Retrying on it would speak the
+        // incoming run twice.
+        tts.emitEvent(const TtsCompleted());
+        await settle();
+        tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+        await settle();
+        gate.complete();
+        tts.setVoiceGate = null;
+        await settle();
+
+        expect(tts.spoken, _mixedRuns.take(2));
+      },
+    );
+
+    test('a fresh reading gets its own retry', () async {
+      await queue.speak(_mixed);
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      await queue.speak('فاتورة تانية');
+      tts.emitEvent(const TtsFailed(code: TtsErrorCode.network));
+      await settle();
+
+      expect(tts.spoken, [
+        _mixedRuns.first,
+        _mixedRuns.first,
+        'فاتورة تانية',
+        'فاتورة تانية',
+      ]);
     });
   });
 }

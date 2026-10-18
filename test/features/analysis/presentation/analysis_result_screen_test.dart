@@ -652,6 +652,13 @@ void main() {
       await tester.tap(find.byTooltip(_strings.audioReaderStartLabel));
       await tester.pumpAndSettle();
 
+      // The first of a passing kind is read again in silence (F30-T16), so
+      // the sentence belongs to the second — «جرّب تاني» is only offered
+      // once the app has already tried for the user.
+      await reportEngineError(tester, const TtsFailed());
+      expect(find.text(_strings.audioReaderFailedFeedback), findsNothing);
+      expect(find.byType(AudioMiniPlayerBar), findsOneWidget);
+
       await reportEngineError(tester, const TtsFailed());
 
       expect(find.text(_strings.audioReaderFailedFeedback), findsOneWidget);
