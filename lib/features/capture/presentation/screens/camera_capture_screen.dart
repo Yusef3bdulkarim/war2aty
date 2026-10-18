@@ -69,6 +69,27 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   CameraFlashMode? _flashChip;
   Timer? _chipTimer;
 
+  /// Set when the camera was released because the app left the foreground, so
+  /// that only a resume which actually follows one re-opens it.
+  ///
+  /// Without this the viewfinder re-opened the camera on *any* resume, and on
+  /// a first grant it mounts in the middle of the permission prompt's own
+  /// lifecycle transition: the tail of that transition arrived here as a
+  /// release and a re-open while [initState]'s own `start()` was still opening
+  /// the device. Three sessions overlapped, the last found the camera still
+  /// held by the first, and the user was shown the error screen for a camera
+  /// that was working perfectly.
+  bool _releasedForBackground = false;
+
+  /// Set while another route covers this one — the crop/preview screen, or the
+  /// OCR screens a "retake" replaced it with.
+  ///
+  /// In-app navigation never changes the app's lifecycle state, so without
+  /// this nothing noticed at all: the camera route stayed mounted underneath
+  /// the pushed one with the device still open and streaming, for the whole
+  /// rest of the flow — the crop, the OCR, the review, the result.
+  bool _coveredByRoute = false;
+
   @override
   void initState() {
     super.initState();
@@ -91,27 +112,6 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-
-  /// Set when the camera was released because the app left the foreground, so
-  /// that only a resume which actually follows one re-opens it.
-  ///
-  /// Without this the viewfinder re-opened the camera on *any* resume, and on
-  /// a first grant it mounts in the middle of the permission prompt's own
-  /// lifecycle transition: the tail of that transition arrived here as a
-  /// release and a re-open while [initState]'s own `start()` was still opening
-  /// the device. Three sessions overlapped, the last found the camera still
-  /// held by the first, and the user was shown the error screen for a camera
-  /// that was working perfectly.
-  bool _releasedForBackground = false;
-
-  /// Set while another route covers this one — the crop/preview screen, or the
-  /// OCR screens a "retake" replaced it with.
-  ///
-  /// In-app navigation never changes the app's lifecycle state, so without
-  /// this nothing noticed at all: the camera route stayed mounted underneath
-  /// the pushed one with the device still open and streaming, for the whole
-  /// rest of the flow — the crop, the OCR, the review, the result.
-  bool _coveredByRoute = false;
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
