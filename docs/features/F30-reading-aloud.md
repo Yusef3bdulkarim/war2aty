@@ -264,7 +264,7 @@ preceded this doc.
 | 19 | F30-T17 | Latin→Arabic transliteration as the fallback when no `en-*` voice exists | RC-4 | TODO |
 | 20 | F30-T18 | Copy: «التلخيص فقط» / «التلخيص وأهم المعلومات», both languages | owner request | TODO |
 | 21 | F30-T19 | Only offer modes that have content; never speak an empty string | secondary | TODO |
-| 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass → PR | — | TODO |
+| 22 | F30-T20 | Quality gate → `/flutter-code-review` → `@code-reviewer` → device pass (carries T14's listening check) → PR | — | TODO |
 
 **T13 and T14 carry the highest regression risk** in the feature: today
 `_totalLength` / `_peakProgress` measure a single utterance, including
@@ -442,8 +442,10 @@ hand-over and no stop landing there, so that is covered now too.
 between runs as heard, and Android's resume-the-remainder on a mid-run pause
 as heard. T12's instrumented run already measured the gap (0.4–1.5s per
 language switch, warm engine to cold), so what the ear is for is whether a
-resumed run picks up where it stopped rather than restarting or skipping. It
-rolls into T20's device pass rather than being carried as a task of its own.
+resumed run picks up where it stopped rather than restarting or skipping.
+**The owner approved rolling it into T20's device pass** on 2026-10-18, so
+T14 is closed and T20's row carries the check rather than this task staying
+open for it.
 
 **T12's premise turned out to be wrong, and something else is in the way.**
 Locked decision 6 held `QUEUE_ADD` back because "whether the voice is captured
