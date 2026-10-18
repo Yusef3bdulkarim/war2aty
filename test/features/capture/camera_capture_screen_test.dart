@@ -359,6 +359,90 @@ void main() {
     });
   });
 
+  group('CameraCaptureScreen · a route on top', () {
+    testWidgets('releases the camera while it is covered (regression, bug: '
+        'the camera stayed open behind the rest of the flow)', (tester) async {
+      final camera = FakeCameraService();
+      await _pumpViewfinder(
+        tester,
+        camera,
+        navigatorObservers: [appRouteObserver],
+      );
+      expect(camera.disposeCount, 0);
+
+      await _cover(tester);
+
+      expect(
+        camera.disposeCount,
+        1,
+        reason: 'the hardware must not be held while the viewfinder is hidden',
+      );
+    });
+
+    testWidgets('opens it again when the viewfinder is revealed', (
+      tester,
+    ) async {
+      final camera = FakeCameraService();
+      await _pumpViewfinder(
+        tester,
+        camera,
+        navigatorObservers: [appRouteObserver],
+      );
+
+      await _cover(tester);
+      await _reveal(tester);
+
+      expect(camera.initializeCount, 2);
+      expect(find.byKey(FakeCameraPreview.key), findsOneWidget);
+    });
+
+    testWidgets('a backgrounding while covered does not open the camera '
+        'behind the route on the way back', (tester) async {
+      final camera = FakeCameraService();
+      await _pumpViewfinder(
+        tester,
+        camera,
+        navigatorObservers: [appRouteObserver],
+      );
+
+      await _cover(tester);
+      await _background(tester);
+      await _foreground(tester);
+
+      expect(
+        camera.initializeCount,
+        1,
+        reason: 'the viewfinder is still covered — there is nothing to show',
+      );
+
+      // And it still comes back once the route above is gone.
+      await _reveal(tester);
+      expect(camera.initializeCount, 2);
+    });
+
+    testWidgets('a backgrounding after being revealed still releases the '
+        'camera', (tester) async {
+      final camera = FakeCameraService();
+      await _pumpViewfinder(
+        tester,
+        camera,
+        navigatorObservers: [appRouteObserver],
+      );
+
+      await _cover(tester);
+      await _background(tester);
+      await _foreground(tester);
+      await _reveal(tester);
+      expect(camera.initializeCount, 2);
+
+      // The flag that held the re-open back must not have been left set, or
+      // this backgrounding is the one that quietly keeps the camera open.
+      await _background(tester);
+
+      expect(camera.disposeCount, 3);
+    });
+  });
+
   group('CameraCaptureScreen · flash (F24)', () {
     testWidgets('each tap names the next mode on the button and in the '
         'status line', (tester) async {
@@ -537,6 +621,27 @@ void main() {
       expect(_opacityOf(tester, _strings.cameraFocusHint), 0);
     });
   });
+}
+
+/// Pushes a stand-in for the preview screen over the viewfinder, without
+/// taking a shot first — the viewfinder is covered but never popped, which is
+/// the state nothing but [RouteAware] can notice.
+Future<void> _cover(WidgetTester tester) async {
+  final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+  unawaited(
+    navigator.push(
+      MaterialPageRoute<void>(builder: (_) => const SizedBox.shrink()),
+    ),
+  );
+  await tester.pump();
+  await tester.pump();
+}
+
+/// Pops whatever [_cover] pushed, revealing the viewfinder again.
+Future<void> _reveal(WidgetTester tester) async {
+  tester.state<NavigatorState>(find.byType(Navigator)).pop();
+  await tester.pump();
+  await tester.pump();
 }
 
 /// Takes a shot, then pushes and pops a stand-in for the preview screen —

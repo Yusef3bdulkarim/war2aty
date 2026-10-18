@@ -104,6 +104,15 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// that was working perfectly.
   bool _releasedForBackground = false;
 
+  /// Set while another route covers this one — the crop/preview screen, or the
+  /// OCR screens a "retake" replaced it with.
+  ///
+  /// In-app navigation never changes the app's lifecycle state, so without
+  /// this nothing noticed at all: the camera route stayed mounted underneath
+  /// the pushed one with the device still open and streaming, for the whole
+  /// rest of the flow — the crop, the OCR, the review, the result.
+  bool _coveredByRoute = false;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
@@ -111,7 +120,10 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     switch (state) {
       case AppLifecycleState.resumed:
         if (!_releasedForBackground) return;
+        // Cleared either way, so a later backgrounding still releases; only
+        // the re-open waits, for [didPopNext] to uncover the viewfinder.
         _releasedForBackground = false;
+        if (_coveredByRoute) return;
         cubit.start();
       // Every transient interruption passes through `inactive`: the camera
       // permission prompt, the notification shade, control centre, a call
@@ -132,6 +144,20 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     }
   }
 
+  /// Fires when a route is pushed on top of this one — the crop/preview
+  /// screen after a shot, and anything the user reaches from there.
+  ///
+  /// The camera goes with it. A pushed route does not pop this screen or
+  /// change the app's lifecycle state, so nothing else here would notice:
+  /// the device was left open and streaming behind the preview, the OCR, the
+  /// review and the result, holding the hardware for the entire flow when the
+  /// viewfinder was not even on screen.
+  @override
+  void didPushNext() {
+    _coveredByRoute = true;
+    context.read<CameraCaptureCubit>().suspend();
+  }
+
   /// Fires when a route pushed on top of this one (the crop/preview screen,
   /// or — via a "retake" that replaced it — the OCR/OCR-review screen) is
   /// popped back to it. A finished capture leaves the cubit parked on the
@@ -142,6 +168,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// reveals it again.
   @override
   void didPopNext() {
+    _coveredByRoute = false;
     context.read<CameraCaptureCubit>().start();
   }
 
