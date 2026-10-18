@@ -31,6 +31,8 @@ import '../../core/audio/usecases/open_system_tts_settings.dart';
 import '../../core/audio/usecases/preview_default_voice.dart';
 import '../../core/audio/usecases/set_default_reading_speed.dart';
 import '../../core/audio/usecases/set_resume_reading_enabled.dart';
+import '../../core/audio/usecases/stop_voice_preview.dart';
+import '../../core/audio/usecases/watch_voice_preview_events.dart';
 import '../../core/config/local_runtime_config_repository.dart';
 import '../../core/config/runtime_config_repository.dart';
 import '../../core/config/runtime_config_store.dart';
@@ -1033,6 +1035,12 @@ void _registerAudioReader() {
     ..registerFactory<PreviewDefaultVoice>(
       () => PreviewDefaultVoice(getIt(), getIt()),
     )
+    // F31. The preview's own stop and its own event stream — it speaks
+    // outside `ReadingQueue`, so both stay on that side of the line.
+    ..registerFactory<StopVoicePreview>(() => StopVoicePreview(getIt()))
+    ..registerFactory<WatchVoicePreviewEvents>(
+      () => WatchVoicePreviewEvents(getIt()),
+    )
     // One per result screen visit, like `AnalysisResultCubit` and
     // `SaveDocumentCubit` beside it.
     ..registerFactory<AudioReaderCubit>(
@@ -1113,6 +1121,8 @@ void _registerSettings() {
         getResumeReadingEnabled: getIt(),
         setResumeReadingEnabled: getIt(),
         previewDefaultVoice: getIt(),
+        stopVoicePreview: getIt(),
+        watchVoicePreviewEvents: getIt(),
         getCameraPermission: getIt(),
         openPermissionSettings: getIt(),
         getNotificationPermission: getIt(),

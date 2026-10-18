@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analysis/processing_mode.dart';
@@ -12,6 +14,8 @@ import '../../../../core/audio/usecases/get_resume_reading_enabled.dart';
 import '../../../../core/audio/usecases/preview_default_voice.dart';
 import '../../../../core/audio/usecases/set_default_reading_speed.dart';
 import '../../../../core/audio/usecases/set_resume_reading_enabled.dart';
+import '../../../../core/audio/usecases/stop_voice_preview.dart';
+import '../../../../core/audio/usecases/watch_voice_preview_events.dart';
 import '../../../../core/documents/usecases/delete_all_documents.dart';
 import '../../../../core/env/usecases/get_app_version.dart';
 import '../../../../core/localization/app_strings.dart';
@@ -23,6 +27,7 @@ import '../../../../core/reminders/usecases/get_hide_sensitive_notification_deta
 import '../../../../core/reminders/usecases/set_hide_sensitive_notification_details.dart';
 import '../../../../core/settings/usecases/delete_all_app_data.dart';
 import '../../../../core/usage/usecases/get_daily_usage.dart';
+import '../../../audio_reader/domain/entities/tts_event.dart';
 import '../../../capture/domain/usecases/get_camera_permission.dart';
 import '../../../capture/domain/usecases/open_permission_settings.dart';
 import 'settings_state.dart';
@@ -40,6 +45,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required GetResumeReadingEnabled getResumeReadingEnabled,
     required SetResumeReadingEnabled setResumeReadingEnabled,
     required PreviewDefaultVoice previewDefaultVoice,
+    required StopVoicePreview stopVoicePreview,
+    required WatchVoicePreviewEvents watchVoicePreviewEvents,
     required GetCameraPermission getCameraPermission,
     required OpenPermissionSettings openPermissionSettings,
     required GetNotificationPermission getNotificationPermission,
@@ -63,6 +70,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _getResumeReadingEnabled = getResumeReadingEnabled,
        _setResumeReadingEnabled = setResumeReadingEnabled,
        _previewDefaultVoice = previewDefaultVoice,
+       _stopVoicePreview = stopVoicePreview,
+       _watchVoicePreviewEvents = watchVoicePreviewEvents,
        _getCameraPermission = getCameraPermission,
        _openPermissionSettings = openPermissionSettings,
        _getNotificationPermission = getNotificationPermission,
@@ -88,6 +97,8 @@ final class SettingsCubit extends Cubit<SettingsState> {
   final GetResumeReadingEnabled _getResumeReadingEnabled;
   final SetResumeReadingEnabled _setResumeReadingEnabled;
   final PreviewDefaultVoice _previewDefaultVoice;
+  final StopVoicePreview _stopVoicePreview;
+  final WatchVoicePreviewEvents _watchVoicePreviewEvents;
   final GetCameraPermission _getCameraPermission;
   final OpenPermissionSettings _openPermissionSettings;
   final GetNotificationPermission _getNotificationPermission;
@@ -197,15 +208,107 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// they are about to confirm. Answers whether it played, for the screen to
   /// surface a failure rather than leaving a silent tap unexplained (no
   /// silent failures, CLAUDE.md §A3).
+  ///
+  /// While it plays, [SettingsReady.voicePreviewPlaying] is set so the row
+  /// offers [stopVoicePreview] instead (F31). The sample says what the app
+  /// does and takes about twenty seconds; before this there was no way to
+  /// cut it short, and leaving the screen did not stop it either.
   Future<bool> previewVoice(AppStrings strings) async {
     final current = state;
     if (current is! SettingsReady) return false;
+    // Subscribed before the engine is asked to speak: a sample short enough
+    // to finish inside the call would otherwise complete before anything was
+    // listening, and the row would offer to stop a silence.
+    _listenForPreviewEnd();
     final outcome = await _previewDefaultVoice(
       sampleText: strings.settingsAudioPreviewSample,
       speed: current.defaultReadingSpeed,
       voice: current.defaultReadingVoice,
     );
+    if (isClosed) return outcome.isOk;
+    if (outcome.failureOrNull != null) {
+      _forgetPreview();
+      return false;
+    }
+    final afterSpeaking = state;
+    // The sample may already have finished — the subscription above would
+    // have cleared the flag, and setting it now would strand the row on
+    // «إيقاف» for a preview that is over.
+    if (afterSpeaking is SettingsReady && _previewEvents != null) {
+      emit(afterSpeaking.copyWith(voicePreviewPlaying: true));
+    }
+    return true;
+  }
+
+  /// Silences «تجربة الصوت» part-way through (F31).
+  ///
+  /// The flag goes down whatever the engine answers: the user asked for
+  /// silence, and a row still offering «إيقاف» after a refused stop would
+  /// offer it for the rest of the sample. Answers whether the engine
+  /// actually stopped, so the screen can say so rather than leave a tap
+  /// unexplained — the same contract [previewVoice] has.
+  Future<bool> stopVoicePreview() async {
+    if (state is! SettingsReady) return false;
+    final outcome = await _stopVoicePreview();
+    if (isClosed) return outcome.isOk;
+    _forgetPreview();
     return outcome.isOk;
+  }
+
+  /// Watches the engine for the end of the sample, so the row stops offering
+  /// «إيقاف» once there is nothing left to stop.
+  ///
+  /// Nothing else can say when it ended: `speak` answers as soon as the
+  /// engine accepts the utterance, not when it stops talking (F30-T09). The
+  /// subscription lasts one sample — it is the preview's, not the screen's.
+  void _listenForPreviewEnd() {
+    _previewEvents?.cancel();
+    _previewEvents = _watchVoicePreviewEvents().listen((event) {
+      switch (event) {
+        // Every way a sample can end: on its own, silenced, or refused
+        // mid-utterance.
+        case TtsCompleted():
+        case TtsCancelled():
+        case TtsFailed():
+          _forgetPreview();
+        case TtsStarted():
+        case TtsProgressed():
+        case TtsPaused():
+        case TtsContinued():
+          break;
+      }
+    });
+  }
+
+  /// Drops the subscription and lowers the flag — the one place both happen,
+  /// so neither can be left behind without the other.
+  ///
+  /// Synchronous, and the cancel is not awaited: nothing here depends on the
+  /// subscription having finished tearing down, and awaiting it put a
+  /// suspension point between the user's tap and the row changing — which
+  /// the row's own tests caught, the label never coming back.
+  void _forgetPreview() {
+    unawaited(_previewEvents?.cancel());
+    _previewEvents = null;
+    if (isClosed) return;
+    final current = state;
+    if (current is SettingsReady && current.voicePreviewPlaying) {
+      emit(current.copyWith(voicePreviewPlaying: false));
+    }
+  }
+
+  /// Live only while a sample is playing — see [_listenForPreviewEnd].
+  StreamSubscription<TtsEvent>? _previewEvents;
+
+  /// Leaving the settings screen must not leave the phone talking about
+  /// itself, and must not leave [_previewEvents] listening past this cubit.
+  @override
+  Future<void> close() {
+    unawaited(_previewEvents?.cancel());
+    if (state case SettingsReady(voicePreviewPlaying: true)) {
+      unawaited(_stopVoicePreview());
+    }
+    return super.close();
   }
 
   /// Re-reads «إذن الكاميرا» without prompting (F11-T08) — call this on app

@@ -20,6 +20,8 @@ import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
 import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/audio/usecases/stop_voice_preview.dart';
+import 'package:war2aty/core/audio/usecases/watch_voice_preview_events.dart';
 import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/env/app_environment.dart';
 import 'package:war2aty/core/env/usecases/get_app_version.dart';
@@ -44,6 +46,7 @@ import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/widgets/skeleton.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -120,6 +123,8 @@ void main() {
         tts,
         const SelectVoiceForReading(),
       ),
+      stopVoicePreview: StopVoicePreview(tts),
+      watchVoicePreviewEvents: WatchVoicePreviewEvents(tts),
       getCameraPermission: GetCameraPermission(cameraPermissionRepo),
       openPermissionSettings: OpenPermissionSettings(cameraPermissionRepo),
       getNotificationPermission: GetNotificationPermission(
@@ -661,6 +666,72 @@ void main() {
         );
       },
     );
+
+    // F31. The sample says what the app does and runs about twenty seconds,
+    // and it speaks straight to the engine — so the row that started it is
+    // the only way to cut it short.
+    testWidgets('the row offers to stop the sample while it plays', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioPreviewLabel));
+      await tester.tap(find.text(ar.settingsAudioPreviewLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.settingsAudioPreviewStopLabel), findsOneWidget);
+      expect(find.text(ar.settingsAudioPreviewLabel), findsNothing);
+    });
+
+    testWidgets('tapping it again stops the engine', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioPreviewLabel));
+      await tester.tap(find.text(ar.settingsAudioPreviewLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(ar.settingsAudioPreviewStopLabel));
+      await tester.pumpAndSettle();
+
+      expect(tts.stopCount, 1);
+      // And the row goes back to offering the sample.
+      expect(find.text(ar.settingsAudioPreviewLabel), findsOneWidget);
+      expect(find.text(ar.settingsAudioPreviewStopLabel), findsNothing);
+    });
+
+    testWidgets('the row returns when the sample ends on its own', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioPreviewLabel));
+      await tester.tap(find.text(ar.settingsAudioPreviewLabel));
+      await tester.pumpAndSettle();
+
+      await tester.runAsync(() async {
+        tts.emitEvent(const TtsCompleted());
+        await Future<void>.delayed(Duration.zero);
+      });
+      await tester.pumpAndSettle();
+
+      expect(find.text(ar.settingsAudioPreviewLabel), findsOneWidget);
+    });
+
+    testWidgets('a stop the engine refuses says so', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.ensureVisible(find.text(ar.settingsAudioPreviewLabel));
+      await tester.tap(find.text(ar.settingsAudioPreviewLabel));
+      await tester.pumpAndSettle();
+      tts.stopFails = true;
+      await tester.tap(find.text(ar.settingsAudioPreviewStopLabel));
+      await tester.pumpAndSettle();
+
+      // The engine may still be talking; that is not left unsaid.
+      expect(
+        find.text(ar.settingsAudioPreviewStopFailedFeedback),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('turning resume off persists through the cubit', (
       tester,

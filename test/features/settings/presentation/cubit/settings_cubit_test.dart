@@ -12,6 +12,8 @@ import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
 import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/audio/usecases/stop_voice_preview.dart';
+import 'package:war2aty/core/audio/usecases/watch_voice_preview_events.dart';
 import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/env/app_environment.dart';
 import 'package:war2aty/core/env/usecases/get_app_version.dart';
@@ -26,6 +28,7 @@ import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
+import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
@@ -87,6 +90,8 @@ void main() {
         ttsService,
         const SelectVoiceForReading(),
       ),
+      stopVoicePreview: StopVoicePreview(ttsService),
+      watchVoicePreviewEvents: WatchVoicePreviewEvents(ttsService),
       getCameraPermission: GetCameraPermission(cameraPermission),
       openPermissionSettings: OpenPermissionSettings(cameraPermission),
       getNotificationPermission: GetNotificationPermission(
@@ -299,6 +304,118 @@ void main() {
 
       expect(played, isFalse);
       expect(tts.spoken, isEmpty);
+    });
+
+    // F31. The sample now says what the app does and runs about twenty
+    // seconds, and it speaks straight to the engine rather than through the
+    // reading queue — so the row has to be able to cut it short.
+    test('previewVoice() marks the sample as playing', () async {
+      final tts = FakeTextToSpeechService();
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+
+      await cubit.previewVoice(_ar);
+
+      expect((cubit.state as SettingsReady).voicePreviewPlaying, isTrue);
+    });
+
+    test('the engine finishing the sample clears the flag', () async {
+      final tts = FakeTextToSpeechService();
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+      await cubit.previewVoice(_ar);
+
+      tts.emitEvent(const TtsCompleted());
+      await Future<void>.delayed(Duration.zero);
+
+      // Nothing else could say when it ended: `speak` answers when the
+      // engine accepts the utterance, not when it stops talking (F30-T09).
+      expect((cubit.state as SettingsReady).voicePreviewPlaying, isFalse);
+    });
+
+    test('an engine failure mid-sample clears it too', () async {
+      final tts = FakeTextToSpeechService();
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+      await cubit.previewVoice(_ar);
+
+      tts.emitEvent(const TtsFailed());
+      await Future<void>.delayed(Duration.zero);
+
+      expect((cubit.state as SettingsReady).voicePreviewPlaying, isFalse);
+    });
+
+    test('a sample the engine refuses is never marked as playing', () async {
+      final tts = FakeTextToSpeechService(speakFails: true);
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+
+      await cubit.previewVoice(_ar);
+
+      expect((cubit.state as SettingsReady).voicePreviewPlaying, isFalse);
+    });
+
+    test(
+      'stopVoicePreview() silences the engine and lowers the flag',
+      () async {
+        final tts = FakeTextToSpeechService();
+        final cubit = buildCubit(tts: tts);
+        await cubit.load();
+        await cubit.previewVoice(_ar);
+
+        final stopped = await cubit.stopVoicePreview();
+
+        expect(stopped, isTrue);
+        expect(tts.stopCount, 1);
+        expect((cubit.state as SettingsReady).voicePreviewPlaying, isFalse);
+      },
+    );
+
+    test('a stop the engine refuses is reported, not swallowed', () async {
+      final tts = FakeTextToSpeechService(stopFails: true);
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+      await cubit.previewVoice(_ar);
+
+      final stopped = await cubit.stopVoicePreview();
+
+      // The engine may still be talking — the screen says so. But the row
+      // stops offering «إيقاف», since it has already been asked once.
+      expect(stopped, isFalse);
+      expect((cubit.state as SettingsReady).voicePreviewPlaying, isFalse);
+    });
+
+    test('stopVoicePreview() before load() is a no-op', () async {
+      final tts = FakeTextToSpeechService();
+      final cubit = buildCubit(tts: tts);
+
+      expect(await cubit.stopVoicePreview(), isFalse);
+      expect(tts.stopCount, 0);
+    });
+
+    test('leaving the screen silences a sample still playing', () async {
+      final tts = FakeTextToSpeechService();
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+      await cubit.previewVoice(_ar);
+
+      await cubit.close();
+      await Future<void>.delayed(Duration.zero);
+
+      // Before F31 the sample played on after the screen was gone, with
+      // nothing left on screen to stop it.
+      expect(tts.stopCount, 1);
+    });
+
+    test('leaving the screen with nothing playing stops nothing', () async {
+      final tts = FakeTextToSpeechService();
+      final cubit = buildCubit(tts: tts);
+      await cubit.load();
+
+      await cubit.close();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(tts.stopCount, 0);
     });
   });
 

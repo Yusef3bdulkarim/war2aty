@@ -27,6 +27,8 @@ import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
 import 'package:war2aty/core/audio/usecases/preview_default_voice.dart';
 import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/set_resume_reading_enabled.dart';
+import 'package:war2aty/core/audio/usecases/stop_voice_preview.dart';
+import 'package:war2aty/core/audio/usecases/watch_voice_preview_events.dart';
 import 'package:war2aty/core/documents/usecases/delete_all_documents.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/env/app_environment.dart';
@@ -196,6 +198,8 @@ void main() {
             tts,
             const SelectVoiceForReading(),
           ),
+          stopVoicePreview: StopVoicePreview(tts),
+          watchVoicePreviewEvents: WatchVoicePreviewEvents(tts),
           getCameraPermission: GetCameraPermission(cameraPermissions),
           openPermissionSettings: OpenPermissionSettings(cameraPermissions),
           getNotificationPermission: GetNotificationPermission(

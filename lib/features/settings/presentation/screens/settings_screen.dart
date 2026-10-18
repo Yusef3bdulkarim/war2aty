@@ -48,6 +48,10 @@ const Key settingsResumeReadingToggleKey = Key(
   'settings-resume-reading-toggle',
 );
 
+/// The «تجربة الصوت» row (F11-T07), which also stops the sample (F31) — so a
+/// test can tap the one row through both of its states.
+const Key settingsAudioPreviewRowKey = Key('settings-audio-preview-row');
+
 /// The «فتح إعدادات الكاميرا» row (F11-T08).
 const Key settingsOpenCameraSettingsButtonKey = Key(
   'settings-open-camera-settings-button',
@@ -992,6 +996,7 @@ class _AudioSection extends StatelessWidget {
         SettingsReady(
           :final defaultReadingSpeed,
           :final resumeReadingEnabled,
+          :final voicePreviewPlaying,
         ) =>
           SettingsSection(
             title: strings.settingsAudioSection,
@@ -1003,10 +1008,23 @@ class _AudioSection extends StatelessWidget {
                 onTap: () =>
                     _showReadingSpeedPicker(context, defaultReadingSpeed),
               ),
+              // One row, two jobs: it starts the sample and, while that is
+              // playing, stops it (F31). The sample says what the app does
+              // and runs about twenty seconds, so the row is the only way to
+              // cut it short — the preview speaks straight to the engine
+              // rather than through the mini-player. The label carries the
+              // state, never the colour alone (design rules).
               SettingsActionRow(
-                glyph: StrokeGlyph.play,
-                label: strings.settingsAudioPreviewLabel,
-                onTap: () => _previewVoice(context, strings),
+                key: settingsAudioPreviewRowKey,
+                glyph: voicePreviewPlaying
+                    ? StrokeGlyph.speaker
+                    : StrokeGlyph.play,
+                label: voicePreviewPlaying
+                    ? strings.settingsAudioPreviewStopLabel
+                    : strings.settingsAudioPreviewLabel,
+                onTap: () => voicePreviewPlaying
+                    ? _stopVoicePreview(context, strings)
+                    : _previewVoice(context, strings),
               ),
               SettingsToggleRow(
                 key: settingsResumeReadingToggleKey,
@@ -1439,6 +1457,20 @@ Future<void> _previewVoice(BuildContext context, AppStrings strings) async {
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(content: Text(strings.settingsAudioPreviewFailedFeedback)),
+    );
+}
+
+/// Stops the sample part-way through (F31), and says so if the engine would
+/// not — it may still be talking, which is not something to leave the user to
+/// work out (no silent failures, CLAUDE.md §A3).
+Future<void> _stopVoicePreview(BuildContext context, AppStrings strings) async {
+  final cubit = context.read<SettingsCubit>();
+  final stopped = await cubit.stopVoicePreview();
+  if (stopped || !context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(content: Text(strings.settingsAudioPreviewStopFailedFeedback)),
     );
 }
 

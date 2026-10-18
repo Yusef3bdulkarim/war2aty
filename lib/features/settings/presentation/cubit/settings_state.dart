@@ -34,6 +34,7 @@ final class SettingsReady extends SettingsState {
     required this.hideSensitiveNotificationDetails,
     required this.dailyUsage,
     required this.appVersion,
+    this.voicePreviewPlaying = false,
   });
 
   /// «السماح بإرسال النص للتحليل» (F11-T02).
@@ -72,6 +73,14 @@ final class SettingsReady extends SettingsState {
   /// «الإصدار» line (F11-T12), read from the platform bundle at launch.
   final String appVersion;
 
+  /// Whether «تجربة الصوت» is speaking right now, so the row can offer to
+  /// stop it (F31).
+  ///
+  /// The sample is longer than it used to be — it says what the app does —
+  /// and the preview goes straight to the engine, so without this the user
+  /// had no way to cut it short and leaving the screen did not either.
+  final bool voicePreviewPlaying;
+
   SettingsReady copyWith({
     bool? analysisConsent,
     ProcessingMode? processingMode,
@@ -85,6 +94,7 @@ final class SettingsReady extends SettingsState {
     DailyUsage? dailyUsage,
     bool clearDailyUsage = false,
     String? appVersion,
+    bool? voicePreviewPlaying,
   }) => SettingsReady(
     analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
@@ -101,6 +111,7 @@ final class SettingsReady extends SettingsState {
         this.hideSensitiveNotificationDetails,
     dailyUsage: clearDailyUsage ? null : dailyUsage ?? this.dailyUsage,
     appVersion: appVersion ?? this.appVersion,
+    voicePreviewPlaying: voicePreviewPlaying ?? this.voicePreviewPlaying,
   );
 
   @override
@@ -117,7 +128,8 @@ final class SettingsReady extends SettingsState {
           other.hideSensitiveNotificationDetails ==
               hideSensitiveNotificationDetails &&
           other.dailyUsage == dailyUsage &&
-          other.appVersion == appVersion;
+          other.appVersion == appVersion &&
+          other.voicePreviewPlaying == voicePreviewPlaying;
 
   @override
   int get hashCode => Object.hash(
@@ -131,5 +143,6 @@ final class SettingsReady extends SettingsState {
     hideSensitiveNotificationDetails,
     dailyUsage,
     appVersion,
+    voicePreviewPlaying,
   );
 }
