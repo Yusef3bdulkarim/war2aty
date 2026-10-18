@@ -434,6 +434,17 @@ abstract interface class AppStrings {
   /// Shown when «تجربة الصوت» fails to play (F11-T07).
   String get settingsAudioPreviewFailedFeedback;
 
+  /// What the «تجربة الصوت» row says while the sample is playing (F31).
+  ///
+  /// The sample describes what the app does and takes about twenty seconds,
+  /// and it speaks straight to the engine rather than through the reading
+  /// queue — so the row itself is the only way to cut it short.
+  String get settingsAudioPreviewStopLabel;
+
+  /// Shown when stopping the sample fails (F31) — the engine may still be
+  /// talking, which is not something to leave unsaid.
+  String get settingsAudioPreviewStopFailedFeedback;
+
   /// The resume-reading toggle's row label (F11-T07).
   String get settingsAudioResumeLabel;
 

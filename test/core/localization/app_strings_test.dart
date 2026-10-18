@@ -199,6 +199,9 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'settingsAudioPreviewSample': (s) => s.settingsAudioPreviewSample,
   'settingsAudioPreviewFailedFeedback': (s) =>
       s.settingsAudioPreviewFailedFeedback,
+  'settingsAudioPreviewStopLabel': (s) => s.settingsAudioPreviewStopLabel,
+  'settingsAudioPreviewStopFailedFeedback': (s) =>
+      s.settingsAudioPreviewStopFailedFeedback,
   'settingsAudioResumeLabel': (s) => s.settingsAudioResumeLabel,
   'settingsPermissionsSection': (s) => s.settingsPermissionsSection,
   'settingsCameraPermissionLabel': (s) => s.settingsCameraPermissionLabel,
