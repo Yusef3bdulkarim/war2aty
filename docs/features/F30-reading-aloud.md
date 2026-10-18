@@ -760,3 +760,67 @@ a provider and none makes a privacy claim (§7).
 | `audioReaderModeSummaryAndKeyInformation` | «الخلاصة وأهم المعلومات» | «التلخيص وأهم المعلومات» |
 
 The hamza in «وأهم» is kept, and the English strings are reworded to match.
+*(T18 found the English already said it: `Summary only` and `Summary and key
+information` needed no edit.)*
+
+## The device pass (T20)
+
+What no unit test answers, on the owner's phone. The RMX2001 has both the
+Arabic and the English Google voice on-device, so it exercises the ordinary
+per-run path rather than the fallbacks.
+
+**The two checks T14 handed over** — the reason its row points here:
+
+1. **The gap between two language runs, as heard.** T12 measured it at
+   0.4–1.5s per switch depending on how warm the engine is. The question is
+   whether it reads as a pause between sentences or as a fault. Probe D's
+   finding — setting the next run's voice while the current one still speaks
+   — is the follow-up if it does not.
+2. **A pause in the middle of a run, then resume.** Android hands back a
+   fresh utterance covering the remainder, and F10-T08's high-water mark is
+   what keeps the bar honest about it. What the ear is for: does it pick up
+   where it stopped, rather than restarting the run or skipping ahead?
+
+**The rest, in the order they are easiest to try:**
+
+3. **T06 · the first tap.** Open a result and tap «استمع» straight away: it
+   should speak without the 1–3 second wait the owner reported.
+4. **T05 · the voice.** No pause for a download and no failure on a weak
+   connection — an on-device voice is now preferred over a network one.
+5. **RC-4 · an English word inside an Arabic paper** is spoken as a word,
+   not spelled out letter by letter. The owner's original symptom.
+6. **T15 · a long paper.** The OCR review screen's «استماع» on a dense page
+   is the easiest way over 4000 characters. It must read to the end and the
+   bar must close, rather than appearing over an engine saying nothing.
+7. **T13 · the bar** climbs across a run boundary and never jumps backwards.
+8. **T02 / T21 / T22 · the numbers.** A bill with an amount between 10,000
+   and 10,999 beside «جنيه» (the `RangeError`), one with piastres
+   («وخمسين قرش», after the currency word), and one with a time in it.
+9. **T07 · the Samsung**, if it is to hand: no Arabic voice means the
+   «الموبايل مفيهوش صوت عربي» sheet and a working route to the system TTS
+   settings — not a silent reading in an English voice.
+
+**Two that cannot be staged on demand.** T16's retry is silent by
+construction, so the only sign of it is a reading that stumbles and
+recovers by itself; and T19 needs a paper whose summary came back blank. If
+either turns up, the modes offered and the absence of a snackbar are what to
+look at.
+
+## Exit DoD
+
+Six root causes closed, each with the tests that pin it: the engine's own
+error codes told apart and the passing ones retried in silence, a refused
+`speak` reported instead of a bar over a silent engine, a reading cut into
+one-language pieces the engine will take and each read by a voice that can
+say it, English written in Arabic letters where there is no English voice,
+the normalizer's two crashes fixed, and the five sequential round-trips
+before the first word reduced to a warmed engine and two cached answers.
+Only modes that have something to read are offered, and nothing speaks an
+empty string. No provider is named in any string the user sees and no
+privacy claim was added (§7). `dart format .`, `flutter analyze` and
+`flutter test` all pass.
+
+**One deploy is owed before the reports arrive:** `report-error` must be
+redeployed for T08's new `TTS_*` codes, which it otherwise refuses with a
+400 the sink swallows. Nothing regresses meanwhile — plain `TTS` is still
+accepted.
