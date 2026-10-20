@@ -57,14 +57,26 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
       # Errors and warnings fail the build. Infos do not: the project carries 19
-      # known ones, all in test files, and the F27 plan treats that as the
-      # accepted baseline (F27-T02). Dropping --no-fatal-infos makes the gate
-      # stricter and needs those 19 cleaned up first.
+      # known ones, and the F27 plan treats that as the accepted baseline
+      # (F27-T02). Dropping --no-fatal-infos makes the gate stricter and needs
+      # those 19 cleaned up first.
       #
-      # 16 until F32-T07: 3.47.7 reports three more, all in test files. The same
-      # upgrade also added `unawaited_return_in_try_block`, which fired twice in
-      # lib/ as a WARNING and so failed this step outright — fixed in 0b99afc,
-      # where one of the two turned out to be a real defect rather than a lint.
+      # 16 until F32-T07, and the count is no longer "all in test files" — on
+      # 3.47.7 it is 15 in test/ and 4 in lib/:
+      #
+      #   lib/core/documents/document_analysis.dart:2    directives_ordering
+      #   lib/core/env/app_environment.dart:49, :63      avoid_redundant_argument_values
+      #   lib/core/widgets/expandable_panel.dart:162     deprecated_member_use
+      #
+      # The last one is the only one with a deadline: `axisAlignment` was
+      # deprecated after v3.41.0-1.0.pre in favour of `alignment`, so it stops
+      # being an info and starts being a compile error whenever Flutter removes
+      # it. Worth fixing before that, not because the gate asks.
+      #
+      # The same upgrade also added `unawaited_return_in_try_block`, which fired
+      # twice in lib/ as a WARNING and so failed this step outright — fixed in
+      # 0b99afc, where one of the two turned out to be a real defect rather than
+      # a lint.
       - name: flutter analyze
         if: ${{ !cancelled() }}
         run: flutter analyze --no-fatal-infos
