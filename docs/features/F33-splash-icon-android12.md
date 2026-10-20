@@ -10,6 +10,7 @@
 - **Depends on:** F28 (the launch this repairs), F27-T18 (the device pass that measured the handover), F32 (the release the bug shipped in)
 - **Progress:** 7 / 10
 - **Reported:** 2026-10-20 by the owner, on a second phone, against the **published** `1.0.1+2` build from Google Play
+- **PR:** [#36](https://github.com/Yusef3bdulkarim/war2aty/pull/36) into `develop` — carries F32's thirteen commits back with it, which closes the PR half of F32-T15 as well
 
 ## What the owner saw
 
