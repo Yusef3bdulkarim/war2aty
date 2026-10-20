@@ -5,7 +5,7 @@
 - **Depends on:** F30 (reading aloud), F31 (the voice sample), PR #34 (the
   camera fixes), F27-T19 (`tool/check_play_compliance.dart`), F27-T13
   (`tool/build_release.ps1`)
-- **Progress:** 6 / 16
+- **Progress:** 7 / 16
 - **PR:** one PR from `release/1.0.1` into `develop` at the end, then
   `develop` → `main`, then the tag
 
@@ -111,6 +111,30 @@ show up in places `flutter test` cannot see.
 `flutter test` itself is unaffected: all **2,898 tests pass** on 3.47.7
 (verified during T04).
 
+**Resolved in T07.** Both warnings were fixed in `0b99afc`, and
+`FileDocumentImageStore.load` turned out to be a real defect rather than a
+lint: it returned the decrypt future without awaiting it, so the future left
+the `try` before completing and a throwing encryptor reached the caller as an
+unhandled exception instead of an `AppFailure` — the one thing §5 exists to
+prevent. Verified to reproduce (remove the `await` and the new test fails with
+`FormatException` escaping through `load`), and `load` had no test group at all
+before. The auth site is a latent fix with no reproducing test, stated as such:
+`signInAnonymously` is total today.
+
+CI is green on 3.47.7 at `8a0f2a3`, run 39353477134 — format 0 changed,
+19 infos, **2,901 tests passed**, backend green. The pin took effect
+(`FLUTTER_ROOT: .../stable-3.47.7-x64/flutter`), the 3.47.7 formatter changed
+nothing, and the 19 infos agree across CI, the owner's machine and this one.
+
+The baseline is **not** "all in test files", as both the old 16-info comment and
+its first replacement claimed: it is 15 in `test/` and 4 in `lib/`, now named in
+`ci.yml` (`8a0f2a3`). One has a deadline — `expandable_panel.dart:162` uses
+`axisAlignment`, deprecated after v3.41.0-1.0.pre in favour of `alignment`, so
+it is an info now and a compile error whenever Flutter removes the member.
+
+Also still outstanding from the build, not blocking: `flutter build` warns that
+support for this project's Gradle 8.14.0 will be dropped in favour of 9.1.0+.
+
 ## The ordering constraint that is not negotiable
 
 **T10 (the `report-error` deploy) must land before T14 (the upload).**
@@ -141,7 +165,7 @@ failure is now reported by cause" would report none of them, through the first
 | 4 | F32-T04 | Cut `release/1.0.1`; land the shortened voice sample (3 string files + the F31 doc note); gate | DONE |
 | 5 | F32-T05 | Commit `android/gradle.properties` — metaspace 1G and the two migrator flags, with the 2026-10-19 failure recorded in the header | DONE |
 | 6 | F32-T06 | `pubspec.yaml` → `1.0.1+2` | DONE |
-| 7 | F32-T07 | Raise the CI Flutter pin to 3.47.7 and **prove CI green on it** before any further work — **blocked: two new warnings fail the gate, see "What 3.47.7 does to the analyzer"** | TODO |
+| 7 | F32-T07 | Raise the CI Flutter pin to 3.47.7 and **prove CI green on it** before any further work | DONE |
 | 8 | F32-T08 | `docs/RELEASE.md` — F27-T25: versioning, tags, changelog, `minimum_app_version` policy, rollback via the kill switches, and the `develop` → `main` merge | TODO |
 | 9 | F32-T09 | Play "What's new" in Egyptian Arabic, under §7 (no provider named, no claim about who sees the image or the text) | TODO |
 
