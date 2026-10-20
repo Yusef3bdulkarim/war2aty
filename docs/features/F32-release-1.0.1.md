@@ -5,7 +5,7 @@
 - **Depends on:** F30 (reading aloud), F31 (the voice sample), PR #34 (the
   camera fixes), F27-T19 (`tool/check_play_compliance.dart`), F27-T13
   (`tool/build_release.ps1`)
-- **Progress:** 7 / 16
+- **Progress:** 8 / 16
 - **PR:** one PR from `release/1.0.1` into `develop` at the end, then
   `develop` → `main`, then the tag
 
@@ -166,7 +166,7 @@ failure is now reported by cause" would report none of them, through the first
 | 5 | F32-T05 | Commit `android/gradle.properties` — metaspace 1G and the two migrator flags, with the 2026-10-19 failure recorded in the header | DONE |
 | 6 | F32-T06 | `pubspec.yaml` → `1.0.1+2` | DONE |
 | 7 | F32-T07 | Raise the CI Flutter pin to 3.47.7 and **prove CI green on it** before any further work | DONE |
-| 8 | F32-T08 | `docs/RELEASE.md` — F27-T25: versioning, tags, changelog, `minimum_app_version` policy, rollback via the kill switches, and the `develop` → `main` merge | TODO |
+| 8 | F32-T08 | `docs/RELEASE.md` — F27-T25: versioning, tags, changelog, `minimum_app_version` policy, rollback via the kill switches, and the `develop` → `main` merge | DONE |
 | 9 | F32-T09 | Play "What's new" in Egyptian Arabic, under §7 (no provider named, no claim about who sees the image or the text) | TODO |
 
 ### Phase 2 · Backend
@@ -211,6 +211,35 @@ like a failed build that actually succeeded. Run it without merging stderr.
 | 14 | F32-T14 | **(owner)** Upload to Play Production, 100% rollout, with T09's notes | TODO |
 | 15 | F32-T15 | PR `release/1.0.1` → `develop`; merge `develop` → `main` (265 commits behind); tag `v1.0.1+2` | TODO |
 | 16 | F32-T16 | 72-hour watch: Gemini's quota **by hand** (nothing counts OCR calls), the `error_reports` table, Play vitals and reviews | TODO |
+
+## What T08 turned up: the version gate cannot see `+2`
+
+Writing `docs/RELEASE.md` surfaced something that changes what a bad `1.0.1+2`
+would cost, and it is worth knowing **before** T14 rather than during an
+incident.
+
+The app reports its version from `PackageInfo.fromPlatform()`, which yields the
+version **name** only (`lib/bootstrap.dart`), and the backend validates it
+against `/^\d+\.\d+\.\d+$/`. The build number never leaves the phone. So
+`1.0.1+2` and `1.0.1+3` are indistinguishable to `minimum_app_version`:
+
+> If `1.0.1+2` ships broken, setting `minimum_app_version = 1.0.1` does **not**
+> lock it out. It locks out `1.0.0` and below — that is, everyone except the
+> broken build.
+
+The consequence for this release is narrow but real: **if `1.0.1+2` needs to be
+gated out, the fix must be `1.0.2+3`, not `1.0.1+3`.** The version gate is
+otherwise unusable against it, and the kill switches (`online_ocr_enabled`,
+`analysis_enabled`) are the only other lever that works without an upload.
+
+Also noted there: a `PackageInfo` read failure falls back to the compiled-in
+`'1.0.0'`, so raising the floor above `1.0.0` also refuses any client whose
+version read failed — a small tail on every build, accepted by design.
+
+Two smaller findings: this repository had **no tags at all**, so `v1.0.1+2` is
+the first and the published `1.0.0+1` is untagged (backfilling is the owner's
+call, and inventing a commit for it would be worse than the gap); and `+` is
+valid in a git ref, so the tag name works as the scheme assumes.
 
 ## Deferred, and why
 
