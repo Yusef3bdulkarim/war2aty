@@ -159,6 +159,27 @@ failure is now reported by cause" would report none of them, through the first
 | 12 | F32-T12 | Run **both halves** of `check_play_compliance.dart` — the bundle, and an APK from the same commit for the merged-manifest half | TODO |
 | 13 | F32-T13 | Device pass on the RMX2001 from the same build: reading aloud in every mode, the voice sample and its stop, the camera from a clean install, and the Gemini online path | TODO |
 
+**An early APK exists, built 2026-10-20 at `3413bcd` for a device test on a
+second phone** — `-Artifact apk -Flavor prod -Arm64Only`, `com.war2aty.app`,
+versionCode 2, versionName 1.0.1, targetSdk 36, `arm64-v8a` only, signed
+`CN=Yusef Abdulkarim, O=War2aty, L=Cairo, C=EG`. It is **not** T11's artefact
+and **not** the one T12 reads for the merged-manifest half — that APK must come
+from the same commit as the bundle. Its symbols were copied to
+`build/symbols/1.0.1+2-apk-arm64-devicetest/` straight away, because T11's
+bundle build writes over `build/symbols/1.0.1+2/`, and without them a crash
+report from that phone cannot be deobfuscated.
+
+**T05's metaspace fix is proven:** `assembleProdRelease` completed, where it
+died of `OutOfMemoryError: Metaspace` on 2026-10-19.
+
+**A trap when running `build_release.ps1` from an agent shell:** do not pipe it
+as `*>&1 | Tee-Object`. PowerShell 5.1 wraps a native command's stderr in
+`NativeCommandError`, and the script sets `$ErrorActionPreference = 'Stop'`, so
+flutter's harmless "upgrade your Gradle version" warning becomes a terminating
+error. The build itself finishes and the artefact is written, but the script
+dies before printing its "Built:" summary and its symbols listing — so it looks
+like a failed build that actually succeeded. Run it without merging stderr.
+
 ### Phase 4 · Ship
 
 | # | ID | Task | Status |
