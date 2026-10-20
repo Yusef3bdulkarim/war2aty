@@ -31,9 +31,15 @@ jobs:
       # Pinned to the version the project is developed against, so a new stable
       # release cannot change this gate's verdict in the middle of a review.
       # Upgrading is a deliberate edit here, matched with the dev machines.
+      #
+      # Raised 3.41.9 → 3.47.7 for release 1.0.1+2 (F32-T07). The machine that
+      # builds the uploaded artefact had already moved, and Flutter is not only
+      # a build tool: the engine, the Dart compiler's output and the Android glue
+      # ship inside the APK. A gate running 3.41.9 was therefore green about an
+      # app that was not the one being uploaded.
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.41.9
+          flutter-version: 3.47.7
           channel: stable
           cache: true
 
@@ -50,10 +56,15 @@ jobs:
         if: ${{ !cancelled() }}
         run: dart format --output=none --set-exit-if-changed .
 
-      # Errors and warnings fail the build. Infos do not: the project carries 16
+      # Errors and warnings fail the build. Infos do not: the project carries 19
       # known ones, all in test files, and the F27 plan treats that as the
       # accepted baseline (F27-T02). Dropping --no-fatal-infos makes the gate
-      # stricter and needs those 16 cleaned up first.
+      # stricter and needs those 19 cleaned up first.
+      #
+      # 16 until F32-T07: 3.47.7 reports three more, all in test files. The same
+      # upgrade also added `unawaited_return_in_try_block`, which fired twice in
+      # lib/ as a WARNING and so failed this step outright — fixed in 0b99afc,
+      # where one of the two turned out to be a real defect rather than a lint.
       - name: flutter analyze
         if: ${{ !cancelled() }}
         run: flutter analyze --no-fatal-infos
