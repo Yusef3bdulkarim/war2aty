@@ -436,9 +436,8 @@ abstract interface class AppStrings {
 
   /// What the «تجربة الصوت» row says while the sample is playing (F31).
   ///
-  /// The sample describes what the app does and takes about twenty seconds,
-  /// and it speaks straight to the engine rather than through the reading
-  /// queue — so the row itself is the only way to cut it short.
+  /// The sample speaks straight to the engine rather than through the
+  /// reading queue — so the row itself is the only way to cut it short.
   String get settingsAudioPreviewStopLabel;
 
   /// Shown when stopping the sample fails (F31) — the engine may still be

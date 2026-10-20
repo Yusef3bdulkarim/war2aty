@@ -577,11 +577,7 @@ final class ArStrings implements AppStrings {
   String get settingsAudioPreviewLabel => 'تجربة الصوت';
 
   @override
-  String get settingsAudioPreviewSample =>
-      'أهلًا بيك في تطبيق ورقتي. التطبيق بيشرحلك أي ورقة رسمية أو فاتورة '
-      'بالعامية البسيطة، وبيوضّح نوع الورقة وأهم المعلومات اللي فيها '
-      'والمطلوب منك عمله وآخر ميعاد، وبيفكّرك بالمواعيد المهمة قبل ما تفوت، '
-      'وبيقرالك الورقة كلها بصوت عالي زي ما بتسمع دلوقتي.';
+  String get settingsAudioPreviewSample => 'أهلًا بيك في تطبيق ورقتي.';
 
   @override
   String get settingsAudioPreviewFailedFeedback =>
