@@ -69,6 +69,27 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   CameraFlashMode? _flashChip;
   Timer? _chipTimer;
 
+  /// Set when the camera was released because the app left the foreground, so
+  /// that only a resume which actually follows one re-opens it.
+  ///
+  /// Without this the viewfinder re-opened the camera on *any* resume, and on
+  /// a first grant it mounts in the middle of the permission prompt's own
+  /// lifecycle transition: the tail of that transition arrived here as a
+  /// release and a re-open while [initState]'s own `start()` was still opening
+  /// the device. Three sessions overlapped, the last found the camera still
+  /// held by the first, and the user was shown the error screen for a camera
+  /// that was working perfectly.
+  bool _releasedForBackground = false;
+
+  /// Set while another route covers this one — the crop/preview screen, or the
+  /// OCR screens a "retake" replaced it with.
+  ///
+  /// In-app navigation never changes the app's lifecycle state, so without
+  /// this nothing noticed at all: the camera route stayed mounted underneath
+  /// the pushed one with the device still open and streaming, for the whole
+  /// rest of the flow — the crop, the OCR, the review, the result.
+  bool _coveredByRoute = false;
+
   @override
   void initState() {
     super.initState();
@@ -98,13 +119,43 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
     final cubit = context.read<CameraCaptureCubit>();
     switch (state) {
       case AppLifecycleState.resumed:
+        if (!_releasedForBackground) return;
+        // Cleared either way, so a later backgrounding still releases; only
+        // the re-open waits, for [didPopNext] to uncover the viewfinder.
+        _releasedForBackground = false;
+        if (_coveredByRoute) return;
         cubit.start();
+      // Every transient interruption passes through `inactive`: the camera
+      // permission prompt, the notification shade, control centre, a call
+      // banner. None of them takes the camera away, and a real backgrounding
+      // always follows with `paused`, so there is nothing to release here —
+      // releasing it here is what made the first grant race itself.
       case AppLifecycleState.inactive:
+        return;
+      // Going down the platform reports `hidden` and then `paused`, so the
+      // flag also keeps this to one release per backgrounding rather than a
+      // redundant second teardown on the way.
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
+        if (_releasedForBackground) return;
+        _releasedForBackground = true;
         cubit.suspend();
     }
+  }
+
+  /// Fires when a route is pushed on top of this one — the crop/preview
+  /// screen after a shot, and anything the user reaches from there.
+  ///
+  /// The camera goes with it. A pushed route does not pop this screen or
+  /// change the app's lifecycle state, so nothing else here would notice:
+  /// the device was left open and streaming behind the preview, the OCR, the
+  /// review and the result, holding the hardware for the entire flow when the
+  /// viewfinder was not even on screen.
+  @override
+  void didPushNext() {
+    _coveredByRoute = true;
+    context.read<CameraCaptureCubit>().suspend();
   }
 
   /// Fires when a route pushed on top of this one (the crop/preview screen,
@@ -117,6 +168,7 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
   /// reveals it again.
   @override
   void didPopNext() {
+    _coveredByRoute = false;
     context.read<CameraCaptureCubit>().start();
   }
 

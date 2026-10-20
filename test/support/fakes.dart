@@ -376,13 +376,24 @@ final class FakeCameraPermissionRepository
   bool fails;
 
   int openSettingsCount = 0;
+  int currentStatusCount = 0;
+  int requestCount = 0;
+
+  /// When set, [request] waits on it before answering — the window in which
+  /// the system prompt is on screen and the app is out of the foreground.
+  /// A test holds it open to act during that window, then completes it.
+  Completer<void>? requestGate;
 
   @override
-  Future<Result<PermissionOutcome, AppFailure>> currentStatus() async =>
-      fails ? const Err(CameraPermissionFailure()) : Ok(status);
+  Future<Result<PermissionOutcome, AppFailure>> currentStatus() async {
+    currentStatusCount++;
+    return fails ? const Err(CameraPermissionFailure()) : Ok(status);
+  }
 
   @override
   Future<Result<PermissionOutcome, AppFailure>> request() async {
+    requestCount++;
+    await requestGate?.future;
     if (fails) return const Err(CameraPermissionFailure());
     status = afterRequest;
     return Ok(status);
