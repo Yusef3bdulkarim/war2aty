@@ -5,7 +5,7 @@
 - **Depends on:** F30 (reading aloud), F31 (the voice sample), PR #34 (the
   camera fixes), F27-T19 (`tool/check_play_compliance.dart`), F27-T13
   (`tool/build_release.ps1`)
-- **Progress:** 10 / 16
+- **Progress:** 12 / 16
 - **PR:** one PR from `release/1.0.1` into `develop` at the end, then
   `develop` → `main`, then the tag
 
@@ -179,9 +179,46 @@ failure is now reported by cause" would report none of them, through the first
 
 | # | ID | Task | Status |
 |---|---|---|---|
-| 11 | F32-T11 | `./tool/build_release.ps1 -Artifact aab`; copy the symbols aside **immediately** (building an APK afterwards overwrites the bundle's arm64 symbols in the shared version-keyed directory — F27-T19's trap, which has bitten once already) | TODO |
-| 12 | F32-T12 | Run **both halves** of `check_play_compliance.dart` — the bundle, and an APK from the same commit for the merged-manifest half | TODO |
+| 11 | F32-T11 | `./tool/build_release.ps1 -Artifact aab`; copy the symbols aside **immediately** (building an APK afterwards overwrites the bundle's arm64 symbols in the shared version-keyed directory — F27-T19's trap, which has bitten once already) | DONE |
+| 12 | F32-T12 | Run **both halves** of `check_play_compliance.dart` — the bundle, and an APK from the same commit for the merged-manifest half | DONE |
 | 13 | F32-T13 | Device pass on the RMX2001 from the same build: reading aloud in every mode, the voice sample and its stop, the camera from a clean install, and the Gemini online path | TODO |
+
+### T11 / T12 record — 2026-10-20, at `02b4b0d`
+
+**The bundle** — `build/app/outputs/bundle/prodRelease/app-prod-release.aab`,
+82,660,042 bytes (78.8 MB), `jar verified.` against
+`CN=Yusef Abdulkarim, O=War2aty, L=Cairo, C=EG`, the same key the APKs carry.
+`bundleProdRelease` took 199 s and did not come near the metaspace ceiling
+T05 raised.
+
+**The bundle grew: 66.0 MB at F27-T19 → 78.8 MB here**, about 19%, with no
+dependency added in between. The likeliest cause is the 3.47.7 engine, the same
+upgrade that moved the analyzer and the Kotlin compiler. Not a blocker — Play
+splits per device, so no user downloads this figure — but it is a real
+consequence of the toolchain move and the number to compare against next time.
+
+**Symbols**: all three ABIs copied to `build/symbols/1.0.1+2-aab-bundle/`
+before anything else ran.
+
+**What the trap actually does, now measured.** The full-ABI APK built from the
+same commit wrote arm64 symbols **byte-identical** to the bundle's
+(`f371a0f9…`, 5,333,560 bytes both), so *this* overwrite cost nothing. The
+earlier **arm64-only** device-test APK is the one that differs
+(`48a885b0…`, 5,333,552 bytes). So the hazard is not "an APK after a bundle" in
+general — it is an APK built with *different flags*, and `-Arm64Only` is exactly
+that. Copying aside first remains right, because the directory is keyed by
+version alone and nothing in it records which flags produced it.
+
+**Both compliance halves passed**, `✓ every check passed` and exit 0 each:
+
+| Half | What it proved |
+|---|---|
+| Bundle | Every 64-bit `.so` (arm64-v8a, x86_64) aligned ≥ 16 KB; `libflutter.so` and `libapp.so` at 64 KB. `BundleConfig.pb`: `uncompressNativeLibraries.enabled = true`, `pageAlignment = PAGE_ALIGNMENT_16K`. The manifest section reports itself **skipped** — `aapt2` cannot read an `.aab`, which is the whole reason the APK half exists. |
+| APK (same commit) | `targetSdkVersion = 36`, `debuggable = false`, `extractNativeLibs = false`, and all **8** permissions matched the justified allowlist — including the three contributed by plugins rather than by this project's manifest (`ACCESS_NETWORK_STATE` from connectivity_plus, `VIBRATE` from flutter_local_notifications, and androidx.core's signature-level `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`). Unchanged from F27-T19's review, so the 3.47.7 plugin set contributed nothing new. |
+
+That last column is the point of F27-T19 holding: more than half of what Play
+enforces here lives in prebuilt binaries this project does not own, and a
+toolchain move is precisely when it could have changed. It did not.
 
 **An early APK exists, built 2026-10-20 at `3413bcd` for a device test on a
 second phone** — `-Artifact apk -Flavor prod -Arm64Only`, `com.war2aty.app`,
