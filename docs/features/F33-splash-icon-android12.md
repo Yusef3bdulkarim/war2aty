@@ -8,7 +8,7 @@
   `develop` because the 1.0.1 release work has not merged back yet — this
   branch is `1.0.1+2` plus this fix, and nothing else.
 - **Depends on:** F28 (the launch this repairs), F27-T18 (the device pass that measured the handover), F32 (the release the bug shipped in)
-- **Progress:** 5 / 10
+- **Progress:** 7 / 10
 - **Reported:** 2026-10-20 by the owner, on a second phone, against the **published** `1.0.1+2` build from Google Play
 
 ## What the owner saw
@@ -146,12 +146,58 @@ ends up. Nothing about the pre-12 path, iOS, or Flutter's first frame changes.
 | 4 | F33-T04 | Guards that measure, not quote | canvas per density, ink = Flutter's mark, centred, inside the mask circle; both mutations proved red; `dart format` / `flutter analyze` (19 infos = baseline) / `flutter test` (2902) green | DONE 2026-10-20 |
 | 5 | F33-T05 | Device pass on an Android 12+ phone | the mark at ~1/3 of the screen width, uncut, and no size change when the app's own screen appears; owner's second phone | TODO |
 | 6 | F33-T06 | `pubspec.yaml` → `1.0.2+3`, on `release/1.0.2` | the name rises so the version gate can reach `1.0.1+2` if it ever has to | DONE 2026-10-20 |
-| 7 | F33-T07 | Play "What's new", Arabic + English, under §7 | below; **owner's approval needed before upload** | TODO |
-| 8 | F33-T08 | Build the bundle, archive the symbols first, run both compliance halves | see "Build record" | TODO |
+| 7 | F33-T07 | Play "What's new" | **owner's call 2026-10-20: reuse F32-T09's text unchanged.** The draft written for this release is kept below, unused | DONE 2026-10-20 |
+| 8 | F33-T08 | Build the bundle, archive the symbols first, run both compliance halves | see "Build record" | DONE 2026-10-20 |
 | 9 | F33-T09 | **(owner)** Upload to Play Production with T07's notes | | TODO |
 | 10 | F33-T10 | PR `release/1.0.2` → `develop`; `develop` → `main`; tag `v1.0.2+3` | note `v1.0.1+2` was never actually tagged — the repo still has no tags | TODO |
 
-## T07 · Play "What's new" — draft, awaiting the owner
+## T08 · Build record — 2026-10-20, at `6d24b86`
+
+**The bundle** — `build/app/outputs/bundle/prodRelease/app-prod-release.aab`,
+83,049,237 bytes (79.2 MB), `jar verified.` against `CN=Yusef Abdulkarim,
+O=War2aty, L=Cairo, C=EG`. Against `1.0.1+2`'s 82,660,042 bytes that is
++389,195 — the five 288 dp bitmaps, and nothing else moved.
+
+**Symbols**, both sets, copied aside before the next build could overwrite the
+shared version-keyed directory (F27-T19's trap, which has bitten once):
+`build/symbols/1.0.2+3-aab-bundle/` (arm, arm64, x64) and
+`build/symbols/1.0.2+3-apk-arm64-devicetest/`. Still only on this machine.
+
+**The APK** — arm64 only, from the same commit, 37,922,270 bytes (36.2 MB;
+34.9 MB at `1.0.0+3`, the engine move in between). Signed with the release key,
+`0` dev fixtures, `versionCode='3' versionName='1.0.2'`.
+
+**Both compliance halves**: `✓ every check passed` on the bundle (16 KB
+alignment for every native library, `PAGE_ALIGNMENT_16K` in `BundleConfig.pb`)
+and on the APK (`targetSdkVersion = 36`, eight permissions all accounted for,
+`debuggable = false`).
+
+**And the fix itself, inside the artifact that ships.** Worth checking
+separately because `isShrinkResources` deletes resources it cannot see
+referenced, and a deleted splash icon does not fail a build — it silently falls
+back to the launcher icon. In the release APK's resource table
+`drawable/splash_icon` survives at all five densities (the files are renamed to
+`res/4n.png` and friends), `res/4n.png` is **288×288** and the xxhdpi one
+**864×864**, and both `v31` and `night-v31` still carry
+`0x0101062d=@drawable/splash_icon`.
+
+## T07 · Play "What's new" — unchanged from 1.0.1+2
+
+**The owner's decision, 2026-10-20: ship `1.0.2+3` with the same release notes
+as `1.0.1+2`** — the approved copy in
+[F32-T09](F32-release-1.0.1.md), both languages, verbatim. Nothing new is
+written for this release.
+
+The cost was put to them and accepted: those notes describe the reading-aloud
+work, so a user who opens "What's new" learns nothing about the launch screen
+they watched misbehave. Nothing is *false* in them — every claim still holds of
+this build, since this release only removes a defect — and Play places no
+constraint on repeating notes between releases.
+
+The draft written before that decision is kept below, unused, so a later
+release can take it if the splash fix is ever worth describing.
+
+### The unused draft
 
 Play allows 500 characters per language. Neither text names a provider, and
 neither says anything about who can see the image or the text (§7). The app's
