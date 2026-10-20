@@ -72,7 +72,12 @@ final class SupabaseAuthRepository implements AuthRepository {
     try {
       // No session to refresh is not a failure — it is a first launch, or a
       // sign-in that never completed. Minting one is what the caller wanted.
-      if (_auth.currentSession == null) return signInAnonymously();
+      //
+      // Awaited so the future completes inside this `try`. `signInAnonymously`
+      // is total today, so nothing about the outcome changes; what changes is
+      // that an unawaited return would escape the catch clauses below, and the
+      // next person to make it throw would not find out here.
+      if (_auth.currentSession == null) return await signInAnonymously();
 
       final response = await _auth.refreshSession();
       return _sessionFrom(response.session);
