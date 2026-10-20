@@ -5,7 +5,7 @@
 - **Depends on:** F30 (reading aloud), F31 (the voice sample), PR #34 (the
   camera fixes), F27-T19 (`tool/check_play_compliance.dart`), F27-T13
   (`tool/build_release.ps1`)
-- **Progress:** 8 / 16
+- **Progress:** 10 / 16
 - **PR:** one PR from `release/1.0.1` into `develop` at the end, then
   `develop` → `main`, then the tag
 
@@ -167,13 +167,13 @@ failure is now reported by cause" would report none of them, through the first
 | 6 | F32-T06 | `pubspec.yaml` → `1.0.1+2` | DONE |
 | 7 | F32-T07 | Raise the CI Flutter pin to 3.47.7 and **prove CI green on it** before any further work | DONE |
 | 8 | F32-T08 | `docs/RELEASE.md` — F27-T25: versioning, tags, changelog, `minimum_app_version` policy, rollback via the kill switches, and the `develop` → `main` merge | DONE |
-| 9 | F32-T09 | Play "What's new" in Egyptian Arabic, under §7 (no provider named, no claim about who sees the image or the text) | TODO |
+| 9 | F32-T09 | Play "What's new" in Egyptian Arabic, under §7 (no provider named, no claim about who sees the image or the text) | DONE |
 
 ### Phase 2 · Backend
 
 | # | ID | Task | Status |
 |---|---|---|---|
-| 10 | F32-T10 | Deploy `report-error` to production (8 TTS codes + `EXTERNAL_LINK`); apply the pending `20261010120000` migration; verify both live | TODO |
+| 10 | F32-T10 | Deploy `report-error` to production (nine TTS codes, not eight; `EXTERNAL_LINK` and the `20261010120000` migration were **already live**); verify | DONE |
 
 ### Phase 3 · Build and verify
 
@@ -211,6 +211,84 @@ like a failed build that actually succeeded. Run it without merging stderr.
 | 14 | F32-T14 | **(owner)** Upload to Play Production, 100% rollout, with T09's notes | TODO |
 | 15 | F32-T15 | PR `release/1.0.1` → `develop`; merge `develop` → `main` (265 commits behind); tag `v1.0.1+2` | TODO |
 | 16 | F32-T16 | 72-hour watch: Gemini's quota **by hand** (nothing counts OCR calls), the `error_reports` table, Play vitals and reviews | TODO |
+
+## T09 · Play "What's new" — the approved copy
+
+**Option C, approved by the owner 2026-10-20.** Three options were drafted; C
+is the prose one, chosen as the easiest to read aloud. Note it does **not**
+mention the camera fix — only option B had room for it, and the owner took C
+anyway.
+
+Play's release-notes field is **500 characters per language**, which is tighter
+than it looks: the first two drafts came in at 710 and 645 and had to be cut.
+Both texts below are under it. Neither names a provider, and neither says
+anything about who can see the image or the text (§7).
+
+**Release → Production → create release → Release notes → Arabic (الافتراضي)**
+(475 characters):
+
+```
+بقينا نقرالك الورقة أحسن.
+
+لو موبايلك مفيهوش صوت عربي، بنقولك ونفتحلك الإعدادات تضيفه — قبل كده كان بيقرا بالإنجليزي من غير ما يقولك. والكلام الإنجليزي جوه الورقة بقى يتقرا كلام، والقراءة تبدأ أسرع، والمبالغ والمواعيد تتقرا صح.
+
+وكمان زرار يوقّف «تجربة الصوت».
+```
+
+**→ Release notes → English (United States)** (386 characters) — the listing
+has an English translation (F27-T21 §3), so leaving this blank would show the
+Arabic to an English-locale user:
+
+```
+We read your paper out to you better now.
+
+If your phone has no Arabic voice installed, we tell you and open the settings so you can add it — before, it read in an English voice without saying so. English words inside the paper are now read as words, reading starts faster, and amounts and dates are read correctly.
+
+We also added a button to stop the voice sample whenever you like.
+```
+
+Every claim was checked against the shipped behaviour rather than the task
+list: the no-Arabic-voice screen exists with «الموبايل مفيهوش صوت عربي» and an
+«افتح إعدادات الموبايل» action (F30-T07); the faster start is the engine warm-up
+(F30-T06); amounts and times come from F30-T02/T21/T22; reading English inside
+an Arabic paper as words is F30-T10/T11/T17; and the stop control is F31.
+
+## T10 · what was actually missing, and what was already done
+
+Two of T10's three parts were **already true before the task ran**, and finding
+that out took one `migration list` and one `functions download`:
+
+| Part | State found 2026-10-20 |
+|---|---|
+| Apply migration `20261010120000` | **Already applied** to production. Every local migration had a matching remote entry; nothing was pending. |
+| `EXTERNAL_LINK` in the allowlist | **Already live.** |
+| The TTS codes | **Missing** — production held only the legacy `TTS`. |
+
+The deployed function was dated **2026-10-18**, a day *after* the codes landed
+locally on 10-17, so the timestamps said it was fine. It was not: it had been
+deployed from a tree without F30. The row says "8 TTS codes"; there are **nine**
+— `TTS_NO_ARABIC_VOICE`, `TTS_NOT_INSTALLED_YET`, `TTS_NETWORK`,
+`TTS_NETWORK_TIMEOUT`, `TTS_SYNTHESIS`, `TTS_SERVICE`, `TTS_OUTPUT`,
+`TTS_INVALID_REQUEST`, `TTS_UNKNOWN`.
+
+That is this release's ordering constraint confirmed with evidence rather than
+reasoning: had the upload gone first, every TTS failure report would have been
+refused with a 400 the client's sink swallows silently by design.
+
+**Deployed** on the owner's authorization: `supabase functions deploy
+report-error` → production `ivbpmzasxpphclundjyy`, **version 2 → 3**. Verified
+by downloading the live source back: all nine codes present, `EXTERNAL_LINK`
+present, and **no drift at all** from the committed source — the deployed
+function is byte-for-byte the code on this branch.
+
+No access had to be granted for any of this. The Supabase CLI on the owner's
+machine (2.109.1) is already authenticated and linked to production; it is the
+MCP connector that is unauthorized, and it was not needed.
+
+**Not done:** an end-to-end probe. Confirming the allowlist from the live source
+is read-only; sending a real report carrying a TTS code would write a synthetic
+row into production's `error_reports`, and that was not authorized. The first
+genuine confirmation will be a real report from a real phone — T16's watch.
 
 ## What T08 turned up: the version gate cannot see `+2`
 
