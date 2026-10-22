@@ -71,8 +71,18 @@ interrupt.
 
 | | |
 |---|---|
-| Arabic | «أهلًا بيك في تطبيق ورقتي. التطبيق بيشرحلك أي ورقة رسمية أو فاتورة بالعامية البسيطة، وبيوضّح نوع الورقة وأهم المعلومات اللي فيها والمطلوب منك عمله وآخر ميعاد، وبيفكّرك بالمواعيد المهمة قبل ما تفوت، وبيقرالك الورقة كلها بصوت عالي زي ما بتسمع دلوقتي.» |
-| English | "Welcome to the Waraqti app. The app explains any official paper or bill in plain words, shows what kind of paper it is, the important details in it, what you need to do and the final date, reminds you of important dates before they pass, and reads the whole paper out to you, just like you are hearing now." |
+| Arabic | «أهلًا بيك في تطبيق ورقتي.» |
+| English | "Welcome to the Waraqti app." |
+
+**2026-10-20 — the owner shortened it back to a greeting.** The long
+description above was dropped: the sample now says «أهلًا بيك في تطبيق
+ورقتي.» and nothing else. The stop control stays, because it is already
+built and a row that can silence the engine is no worse for a short sample;
+decision 1's «third draft» and the twenty-second reasoning below are kept
+as the record of why the control was added, not as a description of the
+current copy. The earlier text was:
+
+> «أهلًا بيك في تطبيق ورقتي. التطبيق بيشرحلك أي ورقة رسمية أو فاتورة بالعامية البسيطة، وبيوضّح نوع الورقة وأهم المعلومات اللي فيها والمطلوب منك عمله وآخر ميعاد، وبيفكّرك بالمواعيد المهمة قبل ما تفوت، وبيقرالك الورقة كلها بصوت عالي زي ما بتسمع دلوقتي.»
 
 **The two new keys:**
 

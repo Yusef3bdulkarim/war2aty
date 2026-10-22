@@ -58,7 +58,12 @@ final class FileDocumentImageStore implements DocumentImageStore {
         return const Err(FileStorageFailure());
       }
       final ciphertext = await file.readAsBytes();
-      return _encryptor.decrypt(ciphertext);
+      // Awaited inside the `try` on purpose: returning the future unawaited
+      // would hand it to the caller before it completes, so the catch below
+      // could not convert a throwing encryptor into an `AppFailure` — which
+      // is this layer's whole job. `FileEncryptor` is an interface, so
+      // totality is not ours to assume.
+      return await _encryptor.decrypt(ciphertext);
     } on Object {
       return const Err(FileStorageFailure());
     }

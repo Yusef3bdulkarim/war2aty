@@ -580,12 +580,7 @@ final class EnStrings implements AppStrings {
   String get settingsAudioPreviewLabel => 'Preview voice';
 
   @override
-  String get settingsAudioPreviewSample =>
-      'Welcome to the Waraqti app. The app explains any official paper or '
-      'bill in plain words, shows what kind of paper it is, the important '
-      'details in it, what you need to do and the final date, reminds you '
-      'of important dates before they pass, and reads the whole paper out '
-      'to you, just like you are hearing now.';
+  String get settingsAudioPreviewSample => 'Welcome to the Waraqti app.';
 
   @override
   String get settingsAudioPreviewFailedFeedback =>

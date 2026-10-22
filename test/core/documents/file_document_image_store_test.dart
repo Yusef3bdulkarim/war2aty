@@ -112,6 +112,36 @@ void main() {
     });
   });
 
+  group('load', () {
+    test('reads back the bytes encryptAndStore wrote', () async {
+      await store.encryptAndStore(documentId: 'doc-1', sourcePath: source.path);
+
+      final outcome = await store.load('doc-1');
+
+      expect((outcome as Ok<Uint8List, AppFailure>).value, [1, 2, 3, 4, 5]);
+    });
+
+    test('a missing document is a failure, not a crash', () async {
+      final outcome = await store.load('never-saved');
+
+      expect(outcome.failureOrNull, isA<FileStorageFailure>());
+    });
+
+    test('an encryptor that throws is classified, not left to escape', () async {
+      await store.encryptAndStore(documentId: 'doc-1', sourcePath: source.path);
+      encryptor.throwsOnDecrypt = true;
+
+      // The regression this guards: `load` used to `return` the decrypt future
+      // without awaiting it, so the future left the `try` before completing and
+      // the `on Object` catch never saw the throw. It surfaced at the caller as
+      // an unhandled exception instead of an `AppFailure`, which is the one
+      // thing this layer exists to prevent.
+      final outcome = await store.load('doc-1');
+
+      expect(outcome.failureOrNull, isA<FileStorageFailure>());
+    });
+  });
+
   group('delete', () {
     test("removes a document's encrypted directory", () async {
       await store.encryptAndStore(documentId: 'doc-1', sourcePath: source.path);
@@ -137,6 +167,11 @@ void main() {
 final class _FakeFileEncryptor implements FileEncryptor {
   bool fails = false;
 
+  /// Throws out of [decrypt] instead of returning an [Err]. `FileEncryptor` is
+  /// an interface, so an implementation that throws is allowed by the contract
+  /// — the store has to classify it rather than let it escape.
+  bool throwsOnDecrypt = false;
+
   Uint8List reverse(List<int> bytes) =>
       Uint8List.fromList(bytes.reversed.toList());
 
@@ -148,6 +183,7 @@ final class _FakeFileEncryptor implements FileEncryptor {
 
   @override
   Future<Result<Uint8List, AppFailure>> decrypt(Uint8List ciphertext) async {
+    if (throwsOnDecrypt) throw const FormatException('unreadable ciphertext');
     if (fails) return const Err(FileEncryptionFailure());
     return Ok(reverse(ciphertext));
   }
