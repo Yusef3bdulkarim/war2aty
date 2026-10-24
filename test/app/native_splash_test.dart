@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 
 /// F28-T05: the native splashes carry the mark, and every layer agrees.
 ///
@@ -16,8 +17,33 @@ import 'package:flutter_test/flutter_test.dart';
 /// in one layer and 288 dp in the next, or a teal that is one hex here and
 /// another there — which looks like a flash at ~440 ms and reads, to a user, as
 /// the app stuttering on launch (F27-T18, D-2).
+///
+/// F33 is the proof that the shape of these guards matters as much as their
+/// existence. The Android 12+ check used to read the icon drawable's XML and
+/// assert it said `128dp`, which is exactly what the shipped bug said; the
+/// mark reached real Android 12+ phones at ~227 dp, masked, and the suite
+/// stayed green. The checks below measure the generated bitmaps instead —
+/// canvas, ink and the mask circle — because those are what the platform
+/// actually reads.
 void main() {
   String read(String path) => File(path).readAsStringSync();
+
+  /// The box the non-transparent pixels of [path] occupy, as
+  /// (left, top, width, height).
+  (int, int, int, int) inkBox(String path) {
+    final im = img.decodeImage(File(path).readAsBytesSync())!;
+    var minX = im.width, minY = im.height, maxX = -1, maxY = -1;
+    for (var y = 0; y < im.height; y++) {
+      for (var x = 0; x < im.width; x++) {
+        if (im.getPixel(x, y).a <= 8) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    return (minX, minY, maxX - minX + 1, maxY - minY + 1);
+  }
 
   /// Width and height out of a PNG's IHDR, without decoding the image.
   (int, int) pngSize(String path) {
@@ -119,26 +145,81 @@ void main() {
       }
     });
 
-    test('the icon supplies its own canvas instead of being scaled up', () {
-      final xml = read('android/app/src/main/res/drawable/splash_icon.xml');
+    test('the icon is a 288 dp canvas at every density', () {
       expect(
-        xml,
-        contains('@drawable/splash_mark'),
-        reason: 'this was a transparent placeholder under P01',
-      );
-      expect(
-        xml,
-        allOf(
-          contains('android:width="128dp"'),
-          contains('android:height="128dp"'),
-        ),
+        File('android/app/src/main/res/drawable/splash_icon.xml').existsSync(),
+        isFalse,
         reason:
-            'the system draws this into a 288 dp canvas. A bare bitmap is '
-            'scaled to fill it — more than twice the size Flutter draws the '
-            'mark at — so the size must be pinned here',
+            'F33: an XML drawable here pinned the mark to a size the platform '
+            'ignores. The icon is a bitmap on the canvas the platform does '
+            'measure, so the XML must not come back',
       );
-      expect(xml, contains('android:gravity="center"'));
+      markPx.forEach((bucket, px) {
+        final path =
+            'android/app/src/main/res/drawable-$bucket/splash_icon.png';
+        expect(File(path).existsSync(), isTrue, reason: '$path is missing');
+        // 288/128 of the mark, because the platform stretches whatever it is
+        // handed across a 288 dp viewport: only this ratio sets the size on
+        // screen.
+        final canvas = px * 288 ~/ 128;
+        expect(
+          pngSize(path),
+          (canvas, canvas),
+          reason:
+              'a canvas of any other size rescales the mark on every '
+              'Android 12+ phone — at 128 dp it reached the screen at ~227 dp',
+        );
+      });
     });
+
+    test(
+      'the mark inside it is Flutter\'s mark, centred, clear of the mask',
+      () {
+        const canvas = 288;
+        final (left, top, width, height) = inkBox(
+          'android/app/src/main/res/drawable-mdpi/splash_icon.png',
+        );
+        final (_, _, markWidth, markHeight) = inkBox(
+          'assets/images/brand_mark.png',
+        );
+
+        expect(
+          (width, height),
+          (markWidth, markHeight),
+          reason:
+              'the mark on the system splash and the mark Flutter draws over it '
+              'are one image at one size, or the handover is a jump',
+        );
+
+        const offCentre =
+            'off-centre here moves the mark when Flutter takes '
+            'over';
+        expect(left + width / 2, closeTo(canvas / 2, 1), reason: offCentre);
+        expect(top + height / 2, closeTo(canvas / 2, 1), reason: offCentre);
+
+        // The platform clips the icon to the device's icon mask — the inner
+        // 192 dp of the canvas, a circle in the tightest case. The shipped bug
+        // was the mark's sides being cut flat by it.
+        final far =
+            [
+                  (left, top),
+                  (left + width, top),
+                  (left, top + height),
+                  (left + width, top + height),
+                ]
+                .map((c) {
+                  final dx = c.$1 - canvas / 2;
+                  final dy = c.$2 - canvas / 2;
+                  return dx * dx + dy * dy;
+                })
+                .reduce((a, b) => a > b ? a : b);
+        expect(
+          far,
+          lessThan(96 * 96),
+          reason: 'the ink must stay inside the 192 dp mask circle',
+        );
+      },
+    );
 
     test('the system splash leaves without animating the mark away', () {
       final kt = read(
@@ -214,12 +295,15 @@ void main() {
         reason: 'the generator cuts every bitmap at this many dp',
       );
 
-      final icon = read('android/app/src/main/res/drawable/splash_icon.xml');
+      final canvas = RegExp(
+        r'_splashIconCanvasDp = (\d+)',
+      ).firstMatch(generator)?.group(1);
       expect(
-        icon,
-        contains('android:width="${dartSize}dp"'),
+        canvas,
+        '288',
         reason:
-            'the Android 12+ icon is pinned to this inside its 288 dp canvas',
+            'the Android 12+ mark is $dartSize dp of this canvas, and that '
+            'ratio is the only thing the platform reads (F33)',
       );
     });
 
