@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/icons/stroke_icon.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
+import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
+import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_state.dart';
 import 'package:war2aty/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:war2aty/features/onboarding/presentation/widgets/primary_cta.dart';
 
+import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
 import '../../support/ui_audit.dart';
 
@@ -119,6 +125,42 @@ void main() {
         tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed,
         isNotNull,
       );
+    });
+
+    // F35-T10. Until F35 this screen handed off to `PrivacyScreen`, which was
+    // the ONLY caller of `OnboardingCubit.complete()`. F34 removes that
+    // screen, so without this the first-run flag would never be set and
+    // `_firstRunRedirect` would pin every launch on this page with no route to
+    // Home — a bricked first run, from deleting a screen that looked
+    // self-contained. This test is what stops that reopening.
+    testWidgets('the call to action completes onboarding itself', (
+      tester,
+    ) async {
+      final repository = FakeOnboardingRepository();
+      final cubit = OnboardingCubit(
+        hasSeenOnboarding: HasSeenOnboarding(repository),
+        completeOnboarding: CompleteOnboarding(repository),
+      );
+      addTearDown(cubit.close);
+      await cubit.load();
+      expect(cubit.state, const OnboardingRequired());
+
+      await pumpApp(
+        tester,
+        BlocProvider<OnboardingCubit>.value(
+          value: cubit,
+          child: const OnboardingScreen(),
+        ),
+      );
+
+      await tester.tap(find.byType(ElevatedButton));
+      await tester.pumpAndSettle();
+
+      // The flag is persisted, and the gate the router watches has moved —
+      // both halves matter: the state alone would not survive a relaunch, and
+      // the write alone would not lift the redirect.
+      expect(repository.seen, isTrue);
+      expect(cubit.state, const OnboardingCompleted());
     });
   });
 }

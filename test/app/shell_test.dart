@@ -493,18 +493,17 @@ void main() {
       expect(navBar(), findsNothing);
     });
 
+    // F35-T10: one tap, not two. The intro's CTA used to hand off to the
+    // privacy screen, which flipped the first-run flag; it now flips the flag
+    // itself, and the router lifts the redirect because it watches that cubit.
     testWidgets('finishing onboarding lands on the shell', (tester) async {
       await pumpShell(tester, onboarded: false);
 
       await tester.tap(find.text(ar.onboardingStart));
       await tester.pumpAndSettle();
-      expect(find.text(ar.privacyTitle), findsOneWidget);
-
-      await tester.tap(find.text(ar.privacyAgree));
-      await tester.pumpAndSettle();
 
       expect(navBar(), findsOneWidget);
-      expect(find.text(ar.privacyTitle), findsNothing);
+      expect(find.text(ar.onboardingTitle), findsNothing);
     });
 
     testWidgets('a returning user never sees onboarding', (tester) async {

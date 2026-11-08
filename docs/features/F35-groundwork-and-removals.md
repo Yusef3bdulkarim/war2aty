@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 9 / 19 — Phase A done, Phase B written, Phase C done; T04's apply owed (needs Docker)
+- **Progress:** 10 / 19 — Phase A done, Phase B written, Phase C done, Phase D at T10; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -287,11 +287,28 @@ unreachable failure type mid-phase.
 
 ### Phase D — the privacy screen
 
-- [ ] **T10** Point `OnboardingScreen`'s «ابدأ الآن» at
+- [x] **T10** Point `OnboardingScreen`'s «ابدأ الآن» at
       `context.read<OnboardingCubit>().complete()` instead of
       `context.go(AppRoutes.privacy)`. *Done when:* a widget test asserts the
       CTA completes onboarding, and the router test shows the intro screen leads
       to Home. **This task closes trap #1 and must precede T11.**
+      > Both halves landed. The new widget test taps the real CTA against a
+      > real cubit and asserts the flag is persisted **and** the gate the
+      > router watches has moved — either alone would pass while first run
+      > stayed broken: the state without the write does not survive a
+      > relaunch, and the write without the state does not lift the redirect.
+      >
+      > `shell_test`'s "finishing onboarding lands on the shell" was the
+      > journey the compiler could not see. It walked intro → privacy → Home in
+      > two taps; it is now one. It did not fail on its own, because
+      > `PrivacyScreen` still exists until T11 — which is precisely why the
+      > phase order matters: had T11 gone first, this test would have failed
+      > with a missing route rather than telling anyone the flag was never set.
+      >
+      > The screen's own earlier tests pump it bare, with no
+      > `BlocProvider<OnboardingCubit>`, and still pass: `context.read` sits
+      > inside the `onPressed` closure, so only a tap would reach it, and they
+      > only assert the button is enabled. Left as they are.
 - [ ] **T11** Delete `privacy_screen.dart`, the `AppRoutes.privacy` constant and
       its `GoRoute`, and reduce `AppRoutes.firstRun` to `{onboarding}`. Delete
       `test/features/onboarding/privacy_screen_test.dart`. Keep
