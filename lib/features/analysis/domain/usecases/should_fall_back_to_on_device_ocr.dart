@@ -31,9 +31,6 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   UnsupportedAppVersionFailure() ||
   InvalidRequestFailure() => false,
 
-  // The user declined sending anything (O8): their choice, not an outage.
-  AnalysisConsentDeclinedFailure() => false,
-
   // Quota failures come from the analysis, never from a reading (a reading
   // takes no slot), so they cannot arrive here — and would not be helped.
   DailyLimitReachedFailure() || GlobalCapacityReachedFailure() => false,

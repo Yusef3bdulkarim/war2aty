@@ -293,9 +293,6 @@ GoRouter createAppRouter({
                   context.go(AppRoutes.home);
                   context.push(AppRoutes.captureWith(CaptureSource.gallery));
                 },
-                // The way out of a declined analysis consent (F11-T02) — the
-                // same escape hatch `/result` offers on the offline route.
-                onOpenSettings: () => context.go(AppRoutes.settings),
               ),
             ),
           );
@@ -359,8 +356,6 @@ GoRouter createAppRouter({
                     onSave: () => unawaited(_saveResult(context, session)),
                     onCreateReminder: (date) =>
                         _startReminderFromDate(context, date),
-                    // The way out of a declined analysis consent (F11-T02).
-                    onOpenSettings: () => context.go(AppRoutes.settings),
                   ),
                 ),
               ),

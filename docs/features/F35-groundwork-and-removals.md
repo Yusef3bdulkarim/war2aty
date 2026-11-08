@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 4 / 19 — Phase A done; Phase B written and green, T04's apply owed (needs Docker)
+- **Progress:** 6 / 19 — Phase A done, Phase B written, Phase C at T07; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -198,15 +198,44 @@ unreachable failure type mid-phase.
       > `test/support/app_harness.dart` and `fakes.dart` were NOT touched here,
       > as the plan expected: they use `AnalysisConsentStore` (the store), not
       > the use case, so they still compile. They go with T09.
-- [ ] **T07** Remove the failure's presentation: `_FailureKind.consentDeclined`
-      and its five `switch` arms in `analysis_result_screen.dart`, the
+- [x] **T07** Remove the failure's presentation: `_FailureKind.consentDeclined`
+      and its `switch` arms in `analysis_result_screen.dart`, the
       `isConsentDeclined` branches in `ocr_review_screen.dart`, the
       `ConsentValueCard` widget and its import, and the `onOpenSettings`
-      callbacks now unused in `app_router.dart` (3 sites). Then delete
-      `AnalysisConsentDeclinedFailure` from `app_failure.dart`, its `error_code`
-      arm, and its arm in `shouldFallBackToOnDeviceOcr`. *Done when:* no sealed
-      switch over `AppFailure` mentions it and `flutter analyze` is clean —
-      exhaustiveness is the proof here, so a missed site cannot compile.
+      callbacks now unused in `app_router.dart` (**2 sites, not 3**). Then
+      delete `AnalysisConsentDeclinedFailure` from `app_failure.dart`, its
+      `error_code` arm, and its arm in `shouldFallBackToOnDeviceOcr`.
+      *Done when:* no sealed switch over `AppFailure` mentions it and
+      `flutter analyze` is clean — exhaustiveness is the proof here, so a
+      missed site cannot compile.
+      > Two additions the plan missed. **`privacy_text_note.dart` is deleted
+      > too**: its only use was the consent-off page (its own doc says so), so
+      > it dies with that page rather than surviving to F40 — the plan had it in
+      > neither list. And **`onOpenSettings` is removed outright** from both
+      > screens and both router sites: grep proved the consent page was its only
+      > purpose, so leaving the parameter would have left a callback nothing can
+      > reach. `cameraPermissionOpenSettings` is a different, unrelated string
+      > and stays.
+      >
+      > **The published app forced a decision here.** Removing one client
+      > failure leaf broke four guard tests the compiler cannot see: three
+      > hardcode leaf counts (now 33 leaves, 17 local, 30 policy rows), and
+      > `error_report_codes_test` asserts the server's `error-report-codes.ts`
+      > allowlist holds no code the app cannot produce.
+      >
+      > The obvious fix — delete `ANALYSIS_CONSENT_DECLINED` from that
+      > allowlist — would have been a **published-app regression**:
+      > `error-report-request.ts` answers 400 INVALID_REQUEST for any unlisted
+      > code and the app's sink swallows that 400, so 1.0.2 users (who still
+      > have the setting) would silently lose the report for exactly the failure
+      > they were hitting. The server entry therefore STAYS, with a
+      > do-not-delete comment, and the test gains a documented
+      > `keptForOldBuilds` exemption plus a second assertion, so a code named
+      > there cannot later be dropped server-side unnoticed.
+      >
+      > **T16 hits this again** with `ImageQualityFailure` → `IMAGE_QUALITY`, as
+      > will F39/F40 for every leaf they remove. The exemption is a named set
+      > with a reason per entry, not a one-off subtraction, for that reason.
 - [ ] **T08** Remove the «السماح بإرسال النص للتحليل» row from
       `settings_screen.dart` and the consent field from `SettingsState` /
       `SettingsCubit`. *Done when:* the settings screen tests pass with the
@@ -302,7 +331,7 @@ The new config keys' tests went into the existing
 `supabase/tests/unit/runtime-config.test.ts`, where the parsing rules already
 live — not into a file of their own, as this plan first sketched.
 
-**Deleted (14 source + 16 test)**
+**Deleted (15 source + 16 test)**
 `core/analysis/analysis_consent_store.dart` ·
 `core/analysis/usecases/get_analysis_consent.dart` ·
 `core/analysis/usecases/set_analysis_consent.dart` ·
@@ -312,6 +341,7 @@ live — not into a file of their own, as this plan first sketched.
 `core/analysis/usecases/set_processing_mode.dart` ·
 `features/onboarding/presentation/screens/privacy_screen.dart` ·
 `features/analysis/presentation/widgets/failure/consent_value_card.dart` ·
+`features/analysis/presentation/widgets/failure/privacy_text_note.dart` ·
 `features/capture/domain/usecases/assess_image_quality.dart` ·
 `features/capture/domain/services/image_quality_service.dart` ·
 `features/capture/domain/entities/image_quality_result.dart` ·

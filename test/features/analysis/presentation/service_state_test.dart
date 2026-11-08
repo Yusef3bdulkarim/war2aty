@@ -125,7 +125,6 @@ void main() {
     VoidCallback? onClose,
     VoidCallback? onCaptureAnother,
     VoidCallback? onPickFromGallery,
-    VoidCallback? onOpenSettings,
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
   }) async {
@@ -142,7 +141,6 @@ void main() {
           onClose: onClose,
           onCaptureAnother: onCaptureAnother,
           onPickFromGallery: onPickFromGallery,
-          onOpenSettings: onOpenSettings,
         ),
       ),
       locale: locale,

@@ -89,6 +89,23 @@ void main() {
     ).allMatches(listBody!.group(1)!).map((m) => m.group(1)!).toSet();
   }
 
+  /// Server codes this build can no longer produce, kept because a PUBLISHED
+  /// build still can (F35).
+  ///
+  /// `report-error` answers 400 INVALID_REQUEST for any code outside its
+  /// allowlist, and the app's sink swallows that 400 — so dropping a code the
+  /// field still emits does not degrade reporting, it deletes it, silently,
+  /// for the users most likely to be hitting the failure.
+  ///
+  /// F35 removes product features from the app, which removes `AppFailure`
+  /// leaves with them, while 1.0.2 keeps running on real phones for as long as
+  /// people take to update. Each entry below is one of those, and comes out
+  /// only when the last build that can emit it is out of support.
+  ///
+  /// - `ANALYSIS_CONSENT_DECLINED` — the consent setting, removed in F35-T06;
+  ///   1.0.2 still has the setting and still reports it when it blocks a run.
+  const keptForOldBuilds = {'ANALYSIS_CONSENT_DECLINED'};
+
   test('every code the app can report is one the server accepts', () {
     final client = {...dartFailureCodes(), ...dartCrashCodes()};
     final server = serverAcceptedCodes();
@@ -111,10 +128,18 @@ void main() {
     final client = {...dartFailureCodes(), ...dartCrashCodes()};
 
     expect(
-      serverAcceptedCodes().difference(client),
+      serverAcceptedCodes().difference(client).difference(keptForOldBuilds),
       isEmpty,
       reason: 'these server codes match no AppFailure or LogCrashKind',
     );
+  });
+
+  test('every code kept for old builds is still accepted by the server', () {
+    // The exemption must not become a place where codes are listed and then
+    // quietly dropped from the server: a code named below that the server has
+    // stopped accepting is the published-app 400 this whole file exists to
+    // prevent, and the test above cannot see it.
+    expect(keptForOldBuilds.difference(serverAcceptedCodes()), isEmpty);
   });
 
   test('a code-shaped comment is not read as a code', () {

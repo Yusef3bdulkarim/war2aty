@@ -27,7 +27,6 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   TtsEngineUnavailableFailure(:final code) => code.logCode,
   NoArabicVoiceFailure() => 'TTS_NO_ARABIC_VOICE',
   ExternalLinkFailure() => 'EXTERNAL_LINK',
-  AnalysisConsentDeclinedFailure() => 'ANALYSIS_CONSENT_DECLINED',
   // Network
   NoInternetFailure() => 'NO_INTERNET',
   RequestTimeoutFailure() => 'REQUEST_TIMEOUT',

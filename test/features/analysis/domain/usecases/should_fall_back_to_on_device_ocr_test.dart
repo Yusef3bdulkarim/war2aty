@@ -21,7 +21,6 @@ final _expected = <AppFailure, bool>{
   DailyLimitReachedFailure(DateTime(2026, 9, 29)): false,
   const GlobalCapacityReachedFailure(): false,
   // Local.
-  const AnalysisConsentDeclinedFailure(): false,
   const CameraPermissionFailure(): false,
   const GalleryAccessFailure(): false,
   const ImageQualityFailure(): false,
@@ -54,7 +53,7 @@ void main() {
     test('covers every AppFailure leaf', () {
       // Same count as app_failure_test's taxonomy guard. A new leaf fails to
       // compile in the policy first; this keeps the table here in step too.
-      expect(_expected, hasLength(31));
+      expect(_expected, hasLength(30));
     });
 
     test('the allowlist is exactly the four matrix failures', () {
