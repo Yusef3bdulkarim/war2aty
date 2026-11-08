@@ -55,7 +55,6 @@ import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_even
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
-import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
@@ -211,14 +210,13 @@ void main() {
         );
       })
       // Online by default (`FakeConnectivityService`'s default is connected),
-      // a corrector that hands the photo back untouched, good-quality fakes
-      // for rotate/assess so `confirm()` proceeds without the quality sheet.
+      // a corrector that hands the photo back untouched, and fakes for
+      // rotate/crop that hand it on unchanged.
       ..registerFactoryParam<ImagePreviewCubit, String, void>(
         (path, _) => ImagePreviewCubit(
           source: CapturedPhoto(path),
           rotate: RotateImage(FakeImageRotator()),
           cropImage: CropImage(FakeImageCropper()),
-          assessQuality: AssessImageQuality(FakeImageQualityService()),
           decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
           createSession: CreateAnalysisSession(FakeAnalysisSessionStorage()),
           onlineHandoff: getIt(),

@@ -624,14 +624,13 @@ void _registerCapture() {
     ..registerFactory<DecideAnalysisRoute>(
       () => DecideAnalysisRoute(getIt(), getIt()),
     )
-    // Parameterised by the acquired image's path — the cubit rotates,
-    // assesses quality, and exports that specific file.
+    // Parameterised by the acquired image's path — the cubit rotates, crops
+    // and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
       (path, _) => ImagePreviewCubit(
         source: CapturedPhoto(path),
         rotate: getIt(),
         cropImage: getIt(),
-        assessQuality: getIt(),
         decideRoute: getIt(),
         createSession: getIt(),
         onlineHandoff: getIt(),

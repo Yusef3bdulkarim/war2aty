@@ -10,7 +10,6 @@ import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
-import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
@@ -32,7 +31,6 @@ const _imagePath = '/tmp/paper.jpg';
 Future<_Result> _pumpPreview(
   WidgetTester tester, {
   FakeImageRotator? rotator,
-  FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
   FakeConnectivityService? connectivity,
   FakeUsageRepository? usage,
@@ -46,7 +44,6 @@ Future<_Result> _pumpPreview(
     source: const CapturedPhoto(_imagePath),
     rotate: RotateImage(rotator ?? FakeImageRotator()),
     cropImage: CropImage(FakeImageCropper()),
-    assessQuality: AssessImageQuality(quality ?? FakeImageQualityService()),
     decideRoute: DecideAnalysisRoute(
       connectivity ?? FakeConnectivityService(connected: false),
       // Live by default so a test that opts into `connected: true` exercises

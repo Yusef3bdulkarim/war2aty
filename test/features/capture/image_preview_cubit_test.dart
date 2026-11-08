@@ -4,9 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
-import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
-import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
@@ -22,17 +20,9 @@ import '../../support/fakes.dart';
 
 const _source = CapturedPhoto('/tmp/original.jpg');
 
-const _goodQuality = ImageQualityResult(
-  overall: ImageQuality.good,
-  blur: ImageQuality.good,
-  resolution: ImageQuality.good,
-  brightness: ImageQuality.good,
-);
-
 ImagePreviewCubit cubitFor(
   FakeImageRotator rotator, {
   FakeImageCropper? cropper,
-  FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
   FakeCaptureFileCleanup? cleanup,
   FakeConnectivityService? connectivity,
@@ -40,7 +30,6 @@ ImagePreviewCubit cubitFor(
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
 }) {
-  final q = quality ?? FakeImageQualityService();
   final s = storage ?? FakeAnalysisSessionStorage();
   final c = cleanup ?? FakeCaptureFileCleanup();
   // Offline by default: every existing (pre-F13) test exercises that route
@@ -58,7 +47,6 @@ ImagePreviewCubit cubitFor(
     source: _source,
     rotate: RotateImage(rotator),
     cropImage: CropImage(cropper ?? FakeImageCropper()),
-    assessQuality: AssessImageQuality(q),
     decideRoute: DecideAnalysisRoute(conn, u),
     createSession: CreateAnalysisSession(s),
     onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
@@ -96,7 +84,7 @@ void main() {
 
       await cubit.confirm();
 
-      expect(cubit.state, const ImagePreviewConfirmed(_source, _goodQuality));
+      expect(cubit.state, const ImagePreviewConfirmed(_source));
       expect(rotator.lastQuarterTurns, 0);
     });
 
@@ -111,7 +99,7 @@ void main() {
         cubit.rotateClockwise();
         await cubit.confirm();
 
-        expect(cubit.state, const ImagePreviewConfirmed(rotated, _goodQuality));
+        expect(cubit.state, const ImagePreviewConfirmed(rotated));
         expect(rotator.lastQuarterTurns, 1);
       },
     );
@@ -126,53 +114,6 @@ void main() {
         await cubit.confirm();
 
         expect(cubit.state, const ImagePreviewFailed(1));
-      },
-    );
-
-    test('a failed quality assessment surfaces the error', () async {
-      final quality = FakeImageQualityService(fails: true);
-      final cubit = cubitFor(FakeImageRotator(), quality: quality);
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-
-      expect(cubit.state, const ImagePreviewFailed(0));
-      expect(quality.assessCount, 1);
-    });
-
-    test('confirmed state carries the quality verdict', () async {
-      const poorQuality = ImageQualityResult(
-        overall: ImageQuality.poor,
-        blur: ImageQuality.poor,
-        resolution: ImageQuality.good,
-        brightness: ImageQuality.good,
-      );
-      final quality = FakeImageQualityService(result: poorQuality);
-      final cubit = cubitFor(FakeImageRotator(), quality: quality);
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-
-      expect(cubit.state, const ImagePreviewConfirmed(_source, poorQuality));
-    });
-
-    test(
-      'quality assessment receives the final (rotated + cropped) photo',
-      () async {
-        const rotated = CapturedPhoto('/tmp/spun.jpg');
-        final quality = FakeImageQualityService();
-        // Default cropper: no output set, crop is a no-op (returns input
-        // unchanged when cropRect is full). So quality sees the rotated file.
-        final cubit = cubitFor(
-          FakeImageRotator(output: rotated),
-          quality: quality,
-        );
-        addTearDown(cubit.close);
-
-        cubit.rotateClockwise();
-        await cubit.confirm();
-
-        expect(quality.lastPhoto, rotated);
       },
     );
 
@@ -198,7 +139,7 @@ void main() {
       await cubit.confirm();
       await cubit.confirm();
 
-      expect(cubit.state, const ImagePreviewConfirmed(rotated, _goodQuality));
+      expect(cubit.state, const ImagePreviewConfirmed(rotated));
       expect(rotator.rotateCount, 1);
     });
 
@@ -554,29 +495,21 @@ void main() {
       },
     );
 
-    test(
-      'confirm crops after rotating — quality check sees cropped photo',
-      () async {
-        const cropped = CapturedPhoto('/tmp/cropped.jpg');
-        final fakeCropper = FakeImageCropper(output: cropped);
-        final quality = FakeImageQualityService();
-        final cubit = cubitFor(
-          FakeImageRotator(),
-          cropper: fakeCropper,
-          quality: quality,
-        );
-        addTearDown(cubit.close);
+    test('confirm crops after rotating — the confirmed photo is the '
+        'cropped one', () async {
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final fakeCropper = FakeImageCropper(output: cropped);
+      final cubit = cubitFor(FakeImageRotator(), cropper: fakeCropper);
+      addTearDown(cubit.close);
 
-        cubit.updateCrop(cropRect);
-        await cubit.confirm();
+      cubit.updateCrop(cropRect);
+      await cubit.confirm();
 
-        expect(fakeCropper.cropCount, 1);
-        expect(fakeCropper.lastRegion, cropRect);
-        // Quality check runs on the final, cropped photo.
-        expect(quality.lastPhoto, cropped);
-        expect(cubit.state, const ImagePreviewConfirmed(cropped, _goodQuality));
-      },
-    );
+      expect(fakeCropper.cropCount, 1);
+      expect(fakeCropper.lastRegion, cropRect);
+      // The crop is the last step, so its output is what gets handed on.
+      expect(cubit.state, const ImagePreviewConfirmed(cropped));
+    });
 
     test('confirm with full cropRect skips the crop entirely', () async {
       final fakeCropper = FakeImageCropper();
@@ -588,7 +521,7 @@ void main() {
 
       // The cropper's no-op path runs (region.isFull returns input unchanged)
       // but no new file is produced.
-      expect(cubit.state, const ImagePreviewConfirmed(_source, _goodQuality));
+      expect(cubit.state, const ImagePreviewConfirmed(_source));
     });
 
     test('a failed crop surfaces the error, keeping the rect', () async {
@@ -672,10 +605,10 @@ void main() {
     test(
       'the confirmed state keeps the framing the preview is showing',
       () async {
-        // The screen never swaps to the exported file — it keeps rendering the
-        // source with the rotation and crop applied, and stays visible behind
-        // the quality sheet. Losing either there flips the preview back to the
-        // raw photo exactly while the user is judging it.
+        // The screen never swaps to the exported file — it keeps rendering
+        // the source with the rotation and crop applied. Losing either here
+        // flips the preview back to the raw photo for the frame between
+        // confirming and the session being created.
         final cubit = cubitFor(FakeImageRotator());
         addTearDown(cubit.close);
 

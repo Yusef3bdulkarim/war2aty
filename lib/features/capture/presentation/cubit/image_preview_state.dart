@@ -1,6 +1,5 @@
 import '../../../../core/storage/analysis_session.dart';
 import '../../domain/entities/captured_photo.dart';
-import '../../domain/entities/image_quality_result.dart';
 import '../../domain/entities/unit_rect.dart';
 
 /// Where the crop/rotate preview stands.
@@ -79,26 +78,25 @@ final class ImagePreviewProcessing extends ImagePreviewState {
   final UnitRect cropRect;
 }
 
-/// The upright image is ready; the screen hands [photo] and [quality] to the
-/// next stage. The router decides whether to proceed or show a quality warning
-/// based on [quality.overall].
+/// The upright image is ready; the screen hands [photo] straight to the next
+/// stage. A quality verdict used to ride along here and decide whether to
+/// proceed or warn first (F35-T14 removed it) — confirming is now the whole
+/// decision.
 final class ImagePreviewConfirmed extends ImagePreviewState {
   const ImagePreviewConfirmed(
-    this.photo,
-    this.quality, {
+    this.photo, {
     this.quarterTurns = 0,
     this.cropRect = UnitRect.full,
   });
 
   final CapturedPhoto photo;
-  final ImageQualityResult quality;
 
   /// The rotation and crop the user settled on.
   ///
   /// The screen never swaps to [photo] — it keeps showing the *source* image
-  /// with these applied live — and it stays visible behind the quality sheet.
-  /// Dropping them here would flip the preview back to the raw photo at
-  /// exactly the moment the user is being asked to judge it.
+  /// with these applied live. Dropping them here would flip the preview back
+  /// to the raw photo for the frame between confirming and the session being
+  /// created.
   @override
   final int quarterTurns;
 
@@ -107,15 +105,13 @@ final class ImagePreviewConfirmed extends ImagePreviewState {
 
   // Equality stays on the result itself: [photo] already determines what the
   // rotation and crop produced, and every existing expectation compares
-  // against a plain `ImagePreviewConfirmed(photo, quality)`.
+  // against a plain `ImagePreviewConfirmed(photo)`.
   @override
   bool operator ==(Object other) =>
-      other is ImagePreviewConfirmed &&
-      other.photo == photo &&
-      other.quality == quality;
+      other is ImagePreviewConfirmed && other.photo == photo;
 
   @override
-  int get hashCode => Object.hash(photo, quality);
+  int get hashCode => photo.hashCode;
 }
 
 /// Baking the rotation failed. The screen surfaces a message and drops back to
