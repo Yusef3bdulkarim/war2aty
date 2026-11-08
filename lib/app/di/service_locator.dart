@@ -1069,8 +1069,6 @@ void _registerLegal() {
 }
 
 void _registerSettings() {
-  // F11-T03. Reuses the store/use cases `_registerAnalysis` already
-  // registered — Settings reads and writes the same processing-mode flag.
   // F11-T07. Reuses the store/use cases `_registerAudioReader` already
   // registered — Settings reads and writes the same audio defaults the
   // mini-player applies to a fresh reading.
@@ -1099,8 +1097,6 @@ void _registerSettings() {
     ..registerFactory<GetAppVersion>(() => GetAppVersion(getIt()))
     ..registerFactory<SettingsCubit>(
       () => SettingsCubit(
-        getProcessingMode: getIt(),
-        setProcessingMode: getIt(),
         getDefaultReadingSpeed: getIt(),
         setDefaultReadingSpeed: getIt(),
         getDefaultReadingVoice: getIt(),

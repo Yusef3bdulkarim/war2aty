@@ -17,8 +17,6 @@ import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
 import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
-import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
@@ -165,7 +163,6 @@ void main() {
         );
       })
       ..registerFactory<SettingsCubit>(() {
-        final modeStore = FakeProcessingModeStore();
         final speedStore = FakeDefaultReadingSpeedStore();
         final voiceStore = FakeDefaultReadingVoiceStore();
         final resumeStore = FakeResumeReadingEnabledStore();
@@ -182,8 +179,6 @@ void main() {
         final reminderScheduler = FakeReminderScheduler();
         final settingsRepository = FakeAppSettingsRepository();
         return SettingsCubit(
-          getProcessingMode: GetProcessingMode(modeStore),
-          setProcessingMode: SetProcessingMode(modeStore),
           getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
           setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
           getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),

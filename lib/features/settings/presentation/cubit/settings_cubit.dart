@@ -2,9 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/analysis/processing_mode.dart';
-import '../../../../core/analysis/usecases/get_processing_mode.dart';
-import '../../../../core/analysis/usecases/set_processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/audio/usecases/get_default_reading_speed.dart';
 import '../../../../core/audio/usecases/get_default_reading_voice.dart';
@@ -33,8 +30,6 @@ import 'settings_state.dart';
 /// Drives the settings screen (F11-T02 onward). Depends on use cases only.
 final class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit({
-    required GetProcessingMode getProcessingMode,
-    required SetProcessingMode setProcessingMode,
     required GetDefaultReadingSpeed getDefaultReadingSpeed,
     required SetDefaultReadingSpeed setDefaultReadingSpeed,
     required GetDefaultReadingVoice getDefaultReadingVoice,
@@ -56,9 +51,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required DeleteAllAppData deleteAllAppData,
     required GetDailyUsage getDailyUsage,
     required GetAppVersion getAppVersion,
-  }) : _getProcessingMode = getProcessingMode,
-       _setProcessingMode = setProcessingMode,
-       _getDefaultReadingSpeed = getDefaultReadingSpeed,
+  }) : _getDefaultReadingSpeed = getDefaultReadingSpeed,
        _setDefaultReadingSpeed = setDefaultReadingSpeed,
        _getDefaultReadingVoice = getDefaultReadingVoice,
        _getResumeReadingEnabled = getResumeReadingEnabled,
@@ -81,8 +74,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _getAppVersion = getAppVersion,
        super(const SettingsLoading());
 
-  final GetProcessingMode _getProcessingMode;
-  final SetProcessingMode _setProcessingMode;
   final GetDefaultReadingSpeed _getDefaultReadingSpeed;
   final SetDefaultReadingSpeed _setDefaultReadingSpeed;
   final GetDefaultReadingVoice _getDefaultReadingVoice;
@@ -112,7 +103,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// sequentially only added up their latencies for no reason (the settings
   /// screen visibly stalling on open, F11 perceived-hang bug).
   Future<void> load() async {
-    final processingModeFuture = _getProcessingMode();
     final defaultReadingSpeedFuture = _getDefaultReadingSpeed();
     final defaultReadingVoiceFuture = _getDefaultReadingVoice();
     final resumeReadingEnabledFuture = _getResumeReadingEnabled();
@@ -122,7 +112,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
         _getHideSensitiveNotificationDetails();
     final dailyUsageFuture = _getDailyUsage();
 
-    final processingMode = await processingModeFuture;
     final defaultReadingSpeed = await defaultReadingSpeedFuture;
     final defaultReadingVoice = await defaultReadingVoiceFuture;
     final resumeReadingEnabled = await resumeReadingEnabledFuture;
@@ -137,7 +126,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
     if (isClosed) return;
     emit(
       SettingsReady(
-        processingMode: processingMode,
         defaultReadingSpeed: defaultReadingSpeed,
         defaultReadingVoice: defaultReadingVoice,
         resumeReadingEnabled: resumeReadingEnabled,
@@ -148,16 +136,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
         appVersion: _getAppVersion(),
       ),
     );
-  }
-
-  /// Selects «طريقة معالجة الأوراق» (F11-T03).
-  ///
-  /// Same emit-first pattern as [setDefaultReadingSpeed].
-  Future<void> setProcessingMode(ProcessingMode mode) async {
-    final current = state;
-    if (current is! SettingsReady) return;
-    emit(current.copyWith(processingMode: mode));
-    await _setProcessingMode(mode);
   }
 
   /// Picks «سرعة القراءة الافتراضية» (F11-T07).

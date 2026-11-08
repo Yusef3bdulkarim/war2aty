@@ -8,9 +8,6 @@ import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
 import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
-import 'package:war2aty/core/analysis/processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
@@ -55,15 +52,13 @@ import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 import '../../../../support/ui_audit.dart';
 
-// F11-T01/T03/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the
-// processing-mode picker, the language switch,
-// the text-size picker, the high-contrast toggle, the audio prefs, the
-// camera/notification permission status rows, and the notification-privacy
-// toggle.
+// F11-T01/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the language
+// switch, the text-size picker, the high-contrast toggle, the audio prefs,
+// the camera/notification permission status rows, and the
+// notification-privacy toggle.
 void main() {
   const ar = ArStrings();
 
-  late FakeProcessingModeStore modeStore;
   late FakeLocaleStore localeStore;
   late FakeTextSizeStore textSizeStore;
   late FakeHighContrastStore highContrastStore;
@@ -87,7 +82,6 @@ void main() {
   late FakeExternalLinkService links;
 
   setUp(() {
-    modeStore = FakeProcessingModeStore();
     localeStore = FakeLocaleStore();
     textSizeStore = FakeTextSizeStore();
     highContrastStore = FakeHighContrastStore();
@@ -106,8 +100,6 @@ void main() {
     settingsRepository = FakeAppSettingsRepository();
     usageRepository = FakeUsageRepository();
     cubit = SettingsCubit(
-      getProcessingMode: GetProcessingMode(modeStore),
-      setProcessingMode: SetProcessingMode(modeStore),
       getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
       setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
       getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
@@ -394,63 +386,6 @@ void main() {
 
       expect(await localeStore.readLanguageCode(), 'ar');
       expect(localeCubit.state.languageCode, 'ar');
-    });
-  });
-
-  group('the processing-mode row (F11-T03)', () {
-    testWidgets('shows the row with the default smart-analysis label', (
-      tester,
-    ) async {
-      await pumpScreen(tester);
-
-      expect(find.text(ar.settingsProcessingModeLabel), findsOneWidget);
-      expect(find.text(ar.settingsProcessingModeSmartAnalysis), findsOneWidget);
-    });
-
-    testWidgets('reflects a persisted textOnly mode', (tester) async {
-      await modeStore.writeMode(ProcessingMode.textOnly);
-      await pumpScreen(tester);
-
-      expect(find.text(ar.settingsProcessingModeTextOnly), findsOneWidget);
-    });
-
-    testWidgets('tapping the row opens the picker sheet', (tester) async {
-      await pumpScreen(tester);
-
-      await tester.tap(find.text(ar.settingsProcessingModeLabel));
-      await tester.pumpAndSettle();
-
-      // Both options visible in the sheet.
-      expect(
-        find.text(ar.settingsProcessingModeSmartAnalysisDescription),
-        findsOneWidget,
-      );
-      expect(
-        find.text(ar.settingsProcessingModeTextOnlyDescription),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('selecting textOnly persists and updates the row', (
-      tester,
-    ) async {
-      await pumpScreen(tester);
-
-      // Open picker.
-      await tester.tap(find.text(ar.settingsProcessingModeLabel));
-      await tester.pumpAndSettle();
-
-      // Pick text-only.
-      await tester.tap(find.text(ar.settingsProcessingModeTextOnly).last);
-      await tester.pumpAndSettle();
-
-      // Sheet dismissed, row updated.
-      expect(
-        find.text(ar.settingsProcessingModeTextOnlyDescription),
-        findsNothing,
-      );
-      expect(find.text(ar.settingsProcessingModeTextOnly), findsOneWidget);
-      expect(await modeStore.readMode(), ProcessingMode.textOnly);
     });
   });
 
