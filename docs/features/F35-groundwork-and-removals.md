@@ -163,12 +163,41 @@ Order matters: the gate goes first, then the failure it produced, then the
 setting that fed it, then the storage behind it. Reversing that leaves an
 unreachable failure type mid-phase.
 
-- [ ] **T06** Remove the gate from `AnalysisResultCubit` (its
+> **Correction, found during T06.** The split between T06 and T07 holds for
+> production code but NOT for tests. Ten tests in `service_state_test.dart`
+> reach the consent-declined page through `pumpConsentDeclined`, which writes
+> `false` to the store and calls `cubit.analyze()` — i.e. *through the gate* —
+> and `explicit_ocr_fallback_test.dart` has an O8 test built the same way. The
+> moment the gate goes, that page is unreachable from them and they fail at
+> runtime, so leaving them for T07 would mean a red phase.
+>
+> T06 therefore removes the gate **and every test that could only reach the
+> page through it**. T07 keeps all the production presentation. T06 also turned
+> out to touch **9 test files, not 2**: the plan's own reference count of 15
+> consent test files was right, but T06's task text under-counted which of them
+> construct the cubits.
+>
+> Of those nine, eight were found by `flutter analyze` as
+> `undefined_named_parameter` errors. The ninth —
+> `test/integration/analysis_failure_paths_test.dart`, "a declined analysis
+> consent sends nothing at all" — **compiled cleanly** and failed only at
+> runtime, because it reaches the gate through the harness's `analysisConsent`
+> seed rather than a constructor argument. Worth remembering for T08/T09 and
+> for F39/F40: in this codebase the compiler finds the call sites, but only the
+> suite finds the journeys. Note also that `flutter analyze` and `flutter test`
+> both exit **0** here even with errors and failures, so the counter line has to
+> be read, never the exit code.
+
+- [x] **T06** Remove the gate from `AnalysisResultCubit` (its
       `getAnalysisConsent` constructor param and the `if (!await …)` branch) and
-      from `OcrReviewCubit` (param, nullable field, and the check at l.103–110).
-      Update both `get_it` registrations and `test/support/app_harness.dart` +
-      `fakes.dart`. *Done when:* both cubits' tests pass with the consent cases
-      deleted, and an analysis runs without consulting any setting.
+      from `OcrReviewCubit` (param, nullable field, and the check at l.103–110),
+      plus both `get_it` registrations and the eight test files that construct
+      either cubit or reach the declined page through the gate. *Done when:*
+      every affected test passes with the consent cases deleted, and an analysis
+      runs without consulting any setting.
+      > `test/support/app_harness.dart` and `fakes.dart` were NOT touched here,
+      > as the plan expected: they use `AnalysisConsentStore` (the store), not
+      > the use case, so they still compile. They go with T09.
 - [ ] **T07** Remove the failure's presentation: `_FailureKind.consentDeclined`
       and its five `switch` arms in `analysis_result_screen.dart`, the
       `isConsentDeclined` branches in `ocr_review_screen.dart`, the

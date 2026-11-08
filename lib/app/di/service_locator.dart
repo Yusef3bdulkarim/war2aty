@@ -742,7 +742,6 @@ void _registerAnalysis(AppEnvironment env) {
       (session, source) => AnalysisResultCubit(
         session: session,
         source: source,
-        getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
         buildResult: getIt(),
         syncDailyUsage: getIt(),
@@ -760,7 +759,6 @@ void _registerAnalysis(AppEnvironment env) {
         photo: photo,
         ocrImage: getIt(),
         extractCandidates: getIt(),
-        getAnalysisConsent: getIt(),
         imageHolder: getIt<ImageAnalysisSessionHolder>(),
         extractDocumentText: getIt(),
       ),

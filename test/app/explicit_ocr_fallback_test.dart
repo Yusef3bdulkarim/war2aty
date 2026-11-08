@@ -11,7 +11,6 @@ import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
 import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
@@ -149,12 +148,10 @@ void main() {
   /// The on-device reader is counted ([deviceOcr]) and `OcrProcessingCubit`
   /// is poisoned: those are the only ways Tesseract can run, so a fallback
   /// the allowlist does not permit — or one that runs twice — cannot pass
-  /// unnoticed. [consent] seeds the analysis-consent store (`null` = never
-  /// asked, which reads as allowed).
+  /// unnoticed.
   Future<_FakeAnalysisRepository> pumpToOnlinePreview(
     WidgetTester tester, {
     required AppFailure onlineFailure,
-    bool? consent,
   }) async {
     deviceOcr = _CountingDeviceOcr();
     ocrProcessingCubitConstructed = false;
@@ -242,9 +239,6 @@ void main() {
           photo: photo,
           ocrImage: getIt(),
           extractCandidates: getIt(),
-          getAnalysisConsent: GetAnalysisConsent(
-            FakeAnalysisConsentStore(consent),
-          ),
           imageHolder: getIt(),
           extractDocumentText: ExtractDocumentText(deviceOcr),
         ),
@@ -258,10 +252,6 @@ void main() {
         (session, source) => AnalysisResultCubit(
           session: session,
           source: source,
-          // Unset (default) — GetAnalysisConsent reads this as allowed, so
-          // this suite's failure/retry flow isn't blocked by a declined
-          // consent state it isn't testing.
-          getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
           analyzeDocument: getIt(),
           buildResult: getIt(),
           syncDailyUsage: SyncDailyUsage(usage),
@@ -429,29 +419,6 @@ void main() {
             'Tesseract must never run for an online failure outside the '
             'F20 §1 allowlist',
       );
-      expect(ocrProcessingCubitConstructed, isFalse);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'a declined consent sends nothing and never runs Tesseract (O8)',
-    (tester) async {
-      // Even with an allowlisted failure queued: consent is checked before
-      // the online reading, so there is no failure to fall back from.
-      final repository = await pumpToOnlinePreview(
-        tester,
-        onlineFailure: const NoInternetFailure(),
-        consent: false,
-      );
-
-      await useImage(tester);
-
-      expect(getIt<GoRouter>().state.uri.toString(), AppRoutes.ocrReview);
-      expect(find.text(_strings.analysisConsentDeclinedTitle), findsOneWidget);
-      expect(repository.ocrImageCalls, 0, reason: 'no network call');
-      expect(deviceOcr.runs, 0, reason: 'no Tesseract either');
-      expect(repository.analyzeCalls, 0);
       expect(ocrProcessingCubitConstructed, isFalse);
       expect(tester.takeException(), isNull);
     },

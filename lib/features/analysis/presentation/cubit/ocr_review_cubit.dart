@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/storage/analysis_session.dart';
@@ -19,18 +18,14 @@ import 'ocr_review_state.dart';
 /// offline) and Groq analysis.
 ///
 /// Two construction paths:
-/// - **Online** (default constructor): takes a [CapturedPhoto], runs the online reading
-///   via [OcrImage], checks consent via [GetAnalysisConsent]. Caller invokes
-///   [runOcr] on mount.
+/// - **Online** (default constructor): takes a [CapturedPhoto] and runs the
+///   online reading via [OcrImage]. Caller invokes [runOcr] on mount.
 /// - **Offline** ([OcrReviewCubit.offline]): the Tesseract OCR already ran on
 ///   `OcrProcessingScreen`; this cubit receives the finished
 ///   [ExtractionResult] and emits [OcrReviewReady] immediately. Caller
 ///   invokes [loadOffline] on mount.
 ///
 /// Depends on use cases only (architecture rule):
-/// - [GetAnalysisConsent] — same F11-T02 gate [AnalysisResultCubit] checks,
-///   run here too since this is now the first thing that sends data off the
-///   phone on the online route.
 /// - [OcrImage] — runs the online reading + extractors, stops short of analysis.
 /// - [ExtractDocumentText] — reads the photo on the device when the online
 ///   reading fails with a failure [shouldFallBackToOnDeviceOcr] allows
@@ -45,14 +40,12 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     required CapturedPhoto photo,
     required OcrImage ocrImage,
     required ExtractCandidates extractCandidates,
-    required GetAnalysisConsent getAnalysisConsent,
     required ImageAnalysisSessionHolder imageHolder,
     required ExtractDocumentText extractDocumentText,
   }) : _session = session,
        _photo = photo,
        _ocrImage = ocrImage,
        _extractCandidates = extractCandidates,
-       _getAnalysisConsent = getAnalysisConsent,
        _imageHolder = imageHolder,
        _extractDocumentText = extractDocumentText,
        super(const OcrReviewLoading());
@@ -65,7 +58,6 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
        _photo = null,
        _ocrImage = null,
        _extractCandidates = extractCandidates,
-       _getAnalysisConsent = null,
        _imageHolder = null,
        _extractDocumentText = null,
        super(const OcrReviewLoading());
@@ -74,7 +66,6 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
   final CapturedPhoto? _photo;
   final OcrImage? _ocrImage;
   final ExtractCandidates _extractCandidates;
-  final GetAnalysisConsent? _getAnalysisConsent;
   final ImageAnalysisSessionHolder? _imageHolder;
   final ExtractDocumentText? _extractDocumentText;
 
@@ -97,20 +88,6 @@ final class OcrReviewCubit extends Cubit<OcrReviewState> {
     if (isClosed) return;
     final generation = ++_generation;
     emit(const OcrReviewLoading());
-
-    // Same gate `AnalysisResultCubit.analyze` checks (F11-T02) — this screen
-    // is now the first place the online route sends anything off the phone,
-    // so the consent check moves here rather than staying only on /result.
-    final consent = _getAnalysisConsent;
-    if (consent != null) {
-      final allowed = await consent();
-      // Left behind while consent was read: nothing is sent at all.
-      if (_isStale(generation)) return;
-      if (!allowed) {
-        emit(const OcrReviewFailed(AnalysisConsentDeclinedFailure()));
-        return;
-      }
-    }
 
     final photo = _photo;
     final ocrImage = _ocrImage;
