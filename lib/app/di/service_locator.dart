@@ -1109,8 +1109,6 @@ void _registerSettings() {
     ..registerFactory<GetAppVersion>(() => GetAppVersion(getIt()))
     ..registerFactory<SettingsCubit>(
       () => SettingsCubit(
-        getAnalysisConsent: getIt(),
-        setAnalysisConsent: getIt(),
         getProcessingMode: getIt(),
         setProcessingMode: getIt(),
         getDefaultReadingSpeed: getIt(),

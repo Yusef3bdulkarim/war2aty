@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 6 / 19 — Phase A done, Phase B written, Phase C at T07; T04's apply owed (needs Docker)
+- **Progress:** 8 / 19 — Phase A done, Phase B written, Phase C at T08; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -236,10 +236,33 @@ unreachable failure type mid-phase.
       > **T16 hits this again** with `ImageQualityFailure` → `IMAGE_QUALITY`, as
       > will F39/F40 for every leaf they remove. The exemption is a named set
       > with a reason per entry, not a one-off subtraction, for that reason.
-- [ ] **T08** Remove the «السماح بإرسال النص للتحليل» row from
+- [x] **T08** Remove the «السماح بإرسال النص للتحليل» row from
       `settings_screen.dart` and the consent field from `SettingsState` /
       `SettingsCubit`. *Done when:* the settings screen tests pass with the
       consent group deleted, and the screen's remaining rows keep their order.
+      > Three things worth knowing before T12 does the same job for the
+      > processing-mode row, which sits in the same section:
+      >
+      > - `_PrivacySection`'s **skeleton row count** had to drop 4 → 3. It is a
+      >   hand-written number that no test pins (the skeleton tests count
+      >   *sections*, not rows), so nothing would have failed if it had been
+      >   left wrong — the loading state would simply have shown one row too
+      >   many. T12 must drop it again, 3 → 2.
+      > - `SettingsCubit`'s dartdoc used `setAnalysisConsent` as its
+      >   "emit-first pattern" exemplar in **four** places. Re-pointing them at
+      >   `setProcessingMode` would only have moved the problem to T12, so the
+      >   explanation now lives on `setDefaultReadingSpeed`, which survives all
+      >   of F35.
+      > - The constructor's initializer list began `}) : _getAnalysisConsent =`,
+      >   so deleting those lines would have taken the `}) :` with them. Read,
+      >   not sed — the same trap as T07's orphan `],`.
+      >
+      > Two deletions were checked before being made rather than after: the
+      > consent group held the only `settingsPrivacySection` assertion in its
+      > own group, but the skeleton group already asserts it both ways
+      > (absent while loading, present after), and the
+      > `setAnalysisConsent() before load() is a no-op` guard is duplicated for
+      > every other setter, `setDefaultReadingSpeed` included. Nothing lost.
 - [ ] **T09** Delete `core/analysis/analysis_consent_store.dart`,
       `usecases/get_analysis_consent.dart`, `usecases/set_analysis_consent.dart`,
       their DI registrations and their two test files. Leave any stored

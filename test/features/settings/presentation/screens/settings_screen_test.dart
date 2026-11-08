@@ -9,9 +9,7 @@ import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
 import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
 import 'package:war2aty/core/analysis/processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
 import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
@@ -57,15 +55,14 @@ import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 import '../../../../support/ui_audit.dart';
 
-// F11-T01/T02/T03/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the
-// analysis consent toggle, the processing-mode picker, the language switch,
+// F11-T01/T03/T04/T05/T06/T07/T08/T09/T10: the settings scaffold, the
+// processing-mode picker, the language switch,
 // the text-size picker, the high-contrast toggle, the audio prefs, the
 // camera/notification permission status rows, and the notification-privacy
 // toggle.
 void main() {
   const ar = ArStrings();
 
-  late FakeAnalysisConsentStore consentStore;
   late FakeProcessingModeStore modeStore;
   late FakeLocaleStore localeStore;
   late FakeTextSizeStore textSizeStore;
@@ -90,7 +87,6 @@ void main() {
   late FakeExternalLinkService links;
 
   setUp(() {
-    consentStore = FakeAnalysisConsentStore();
     modeStore = FakeProcessingModeStore();
     localeStore = FakeLocaleStore();
     textSizeStore = FakeTextSizeStore();
@@ -110,8 +106,6 @@ void main() {
     settingsRepository = FakeAppSettingsRepository();
     usageRepository = FakeUsageRepository();
     cubit = SettingsCubit(
-      getAnalysisConsent: GetAnalysisConsent(consentStore),
-      setAnalysisConsent: SetAnalysisConsent(consentStore),
       getProcessingMode: GetProcessingMode(modeStore),
       setProcessingMode: SetProcessingMode(modeStore),
       getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
@@ -400,39 +394,6 @@ void main() {
 
       expect(await localeStore.readLanguageCode(), 'ar');
       expect(localeCubit.state.languageCode, 'ar');
-    });
-  });
-
-  group('the analysis consent toggle (F11-T02)', () {
-    Finder consentSwitch() => find.descendant(
-      of: find.byKey(settingsAnalysisConsentToggleKey),
-      matching: find.byType(Switch),
-    );
-
-    testWidgets('shows the privacy section and the row, on by default', (
-      tester,
-    ) async {
-      await pumpScreen(tester);
-
-      expect(find.text(ar.settingsPrivacySection), findsOneWidget);
-      expect(tester.widget<Switch>(consentSwitch()).value, isTrue);
-    });
-
-    testWidgets('reflects a previously declined consent', (tester) async {
-      await consentStore.writeConsent(false);
-      await pumpScreen(tester);
-
-      expect(tester.widget<Switch>(consentSwitch()).value, isFalse);
-    });
-
-    testWidgets('turning it off persists through the cubit', (tester) async {
-      await pumpScreen(tester);
-
-      await tester.tap(consentSwitch());
-      await tester.pumpAndSettle();
-
-      expect(tester.widget<Switch>(consentSwitch()).value, isFalse);
-      expect(await consentStore.readConsent(), isFalse);
     });
   });
 

@@ -24,7 +24,6 @@ final class SettingsLoading extends SettingsState {
 /// previous value).
 final class SettingsReady extends SettingsState {
   const SettingsReady({
-    required this.analysisConsent,
     required this.processingMode,
     required this.defaultReadingSpeed,
     required this.defaultReadingVoice,
@@ -36,9 +35,6 @@ final class SettingsReady extends SettingsState {
     required this.appVersion,
     this.voicePreviewPlaying = false,
   });
-
-  /// «السماح بإرسال النص للتحليل» (F11-T02).
-  final bool analysisConsent;
 
   /// «طريقة معالجة الأوراق» (F11-T03).
   final ProcessingMode processingMode;
@@ -82,7 +78,6 @@ final class SettingsReady extends SettingsState {
   final bool voicePreviewPlaying;
 
   SettingsReady copyWith({
-    bool? analysisConsent,
     ProcessingMode? processingMode,
     ReadingSpeed? defaultReadingSpeed,
     TtsVoice? defaultReadingVoice,
@@ -96,7 +91,6 @@ final class SettingsReady extends SettingsState {
     String? appVersion,
     bool? voicePreviewPlaying,
   }) => SettingsReady(
-    analysisConsent: analysisConsent ?? this.analysisConsent,
     processingMode: processingMode ?? this.processingMode,
     defaultReadingSpeed: defaultReadingSpeed ?? this.defaultReadingSpeed,
     defaultReadingVoice: clearDefaultReadingVoice
@@ -118,7 +112,6 @@ final class SettingsReady extends SettingsState {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SettingsReady &&
-          other.analysisConsent == analysisConsent &&
           other.processingMode == processingMode &&
           other.defaultReadingSpeed == defaultReadingSpeed &&
           other.defaultReadingVoice == defaultReadingVoice &&
@@ -133,7 +126,6 @@ final class SettingsReady extends SettingsState {
 
   @override
   int get hashCode => Object.hash(
-    analysisConsent,
     processingMode,
     defaultReadingSpeed,
     defaultReadingVoice,

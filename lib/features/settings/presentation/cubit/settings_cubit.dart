@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/analysis/processing_mode.dart';
-import '../../../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../../../core/analysis/usecases/get_processing_mode.dart';
-import '../../../../core/analysis/usecases/set_analysis_consent.dart';
 import '../../../../core/analysis/usecases/set_processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/audio/usecases/get_default_reading_speed.dart';
@@ -35,8 +33,6 @@ import 'settings_state.dart';
 /// Drives the settings screen (F11-T02 onward). Depends on use cases only.
 final class SettingsCubit extends Cubit<SettingsState> {
   SettingsCubit({
-    required GetAnalysisConsent getAnalysisConsent,
-    required SetAnalysisConsent setAnalysisConsent,
     required GetProcessingMode getProcessingMode,
     required SetProcessingMode setProcessingMode,
     required GetDefaultReadingSpeed getDefaultReadingSpeed,
@@ -60,9 +56,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
     required DeleteAllAppData deleteAllAppData,
     required GetDailyUsage getDailyUsage,
     required GetAppVersion getAppVersion,
-  }) : _getAnalysisConsent = getAnalysisConsent,
-       _setAnalysisConsent = setAnalysisConsent,
-       _getProcessingMode = getProcessingMode,
+  }) : _getProcessingMode = getProcessingMode,
        _setProcessingMode = setProcessingMode,
        _getDefaultReadingSpeed = getDefaultReadingSpeed,
        _setDefaultReadingSpeed = setDefaultReadingSpeed,
@@ -87,8 +81,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
        _getAppVersion = getAppVersion,
        super(const SettingsLoading());
 
-  final GetAnalysisConsent _getAnalysisConsent;
-  final SetAnalysisConsent _setAnalysisConsent;
   final GetProcessingMode _getProcessingMode;
   final SetProcessingMode _setProcessingMode;
   final GetDefaultReadingSpeed _getDefaultReadingSpeed;
@@ -120,7 +112,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// sequentially only added up their latencies for no reason (the settings
   /// screen visibly stalling on open, F11 perceived-hang bug).
   Future<void> load() async {
-    final analysisConsentFuture = _getAnalysisConsent();
     final processingModeFuture = _getProcessingMode();
     final defaultReadingSpeedFuture = _getDefaultReadingSpeed();
     final defaultReadingVoiceFuture = _getDefaultReadingVoice();
@@ -131,7 +122,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
         _getHideSensitiveNotificationDetails();
     final dailyUsageFuture = _getDailyUsage();
 
-    final analysisConsent = await analysisConsentFuture;
     final processingMode = await processingModeFuture;
     final defaultReadingSpeed = await defaultReadingSpeedFuture;
     final defaultReadingVoice = await defaultReadingVoiceFuture;
@@ -147,7 +137,6 @@ final class SettingsCubit extends Cubit<SettingsState> {
     if (isClosed) return;
     emit(
       SettingsReady(
-        analysisConsent: analysisConsent,
         processingMode: processingMode,
         defaultReadingSpeed: defaultReadingSpeed,
         defaultReadingVoice: defaultReadingVoice,
@@ -161,21 +150,9 @@ final class SettingsCubit extends Cubit<SettingsState> {
     );
   }
 
-  /// Toggles «السماح بإرسال النص للتحليل» (F11-T02).
-  ///
-  /// Emits before the write settles (the store cannot meaningfully fail in a
-  /// way the user can act on — same reasoning `LocaleCubit.setLanguage`
-  /// applies to a persisted choice) so the switch responds immediately.
-  Future<void> setAnalysisConsent(bool consent) async {
-    final current = state;
-    if (current is! SettingsReady) return;
-    emit(current.copyWith(analysisConsent: consent));
-    await _setAnalysisConsent(consent);
-  }
-
   /// Selects «طريقة معالجة الأوراق» (F11-T03).
   ///
-  /// Same emit-first pattern as [setAnalysisConsent].
+  /// Same emit-first pattern as [setDefaultReadingSpeed].
   Future<void> setProcessingMode(ProcessingMode mode) async {
     final current = state;
     if (current is! SettingsReady) return;
@@ -185,7 +162,10 @@ final class SettingsCubit extends Cubit<SettingsState> {
 
   /// Picks «سرعة القراءة الافتراضية» (F11-T07).
   ///
-  /// Same emit-first pattern as [setAnalysisConsent].
+  /// The emit-first setter the others point at. Emits before the write settles
+  /// (the store cannot meaningfully fail in a way the user can act on — the
+  /// same reasoning `LocaleCubit.setLanguage` applies to a persisted choice),
+  /// so the control responds immediately.
   Future<void> setDefaultReadingSpeed(ReadingSpeed speed) async {
     final current = state;
     if (current is! SettingsReady) return;
@@ -195,7 +175,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
 
   /// Toggles «استكمال القراءة من آخر مكان» (F11-T07).
   ///
-  /// Same emit-first pattern as [setAnalysisConsent].
+  /// Same emit-first pattern as [setDefaultReadingSpeed].
   Future<void> setResumeReadingEnabled(bool enabled) async {
     final current = state;
     if (current is! SettingsReady) return;
@@ -356,7 +336,7 @@ final class SettingsCubit extends Cubit<SettingsState> {
   /// same setting `FlutterLocalNotificationsReminderScheduler` already reads
   /// on every reminder fire (F09-T14).
   ///
-  /// Same emit-first pattern as [setAnalysisConsent].
+  /// Same emit-first pattern as [setDefaultReadingSpeed].
   Future<void> setHideSensitiveNotificationDetails(bool hide) async {
     final current = state;
     if (current is! SettingsReady) return;

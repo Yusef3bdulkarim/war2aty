@@ -36,14 +36,11 @@ const double _pageBottom = 108;
 const double _headerGapBelow = 20;
 
 /// Row keys so a test can target one specific toggle once more than one
-/// [Switch] is on the screen — the analysis-consent row (F11-T02) and the
-/// high-contrast row (F11-T06) would otherwise both match `find.byType`.
-const Key settingsAnalysisConsentToggleKey = Key(
-  'settings-analysis-consent-toggle',
-);
+/// [Switch] is on the screen — the high-contrast row (F11-T06) and the
+/// resume-reading row below would otherwise both match `find.byType`.
 const Key settingsHighContrastToggleKey = Key('settings-high-contrast-toggle');
 
-/// The resume-reading row (F11-T07) — the other toggle beside the two above.
+/// The resume-reading row (F11-T07) — the other toggle beside the one above.
 const Key settingsResumeReadingToggleKey = Key(
   'settings-resume-reading-toggle',
 );
@@ -616,9 +613,8 @@ class _TextSizeOption extends StatelessWidget {
   }
 }
 
-/// «الخصوصية» — the analysis consent toggle (F11-T02), the processing-mode
-/// row (F11-T03), and the delete-all-documents / delete-all-app-data rows
-/// (F11-T11).
+/// «الخصوصية» — the processing-mode row (F11-T03) and the
+/// delete-all-documents / delete-all-app-data rows (F11-T11).
 class _PrivacySection extends StatelessWidget {
   const _PrivacySection();
 
@@ -628,43 +624,34 @@ class _PrivacySection extends StatelessWidget {
 
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
-        // Consent toggle, processing-mode row, and the two delete-all rows
-        // (F11-T11) — four rows.
-        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 4),
-        SettingsReady(:final analysisConsent, :final processingMode) =>
-          SettingsSection(
-            title: strings.settingsPrivacySection,
-            rows: [
-              SettingsToggleRow(
-                key: settingsAnalysisConsentToggleKey,
-                glyph: StrokeGlyph.send,
-                label: strings.settingsAnalysisConsentLabel,
-                value: analysisConsent,
-                onChanged: (value) =>
-                    context.read<SettingsCubit>().setAnalysisConsent(value),
-              ),
-              SettingsValueRow(
-                glyph: StrokeGlyph.documentSteps,
-                label: strings.settingsProcessingModeLabel,
-                value: _modeName(processingMode, strings),
-                onTap: () => _showModePicker(context, processingMode),
-              ),
-              SettingsActionRow(
-                key: settingsDeleteAllDocumentsButtonKey,
-                glyph: StrokeGlyph.trash,
-                label: strings.settingsDeleteAllDocumentsLabel,
-                destructive: true,
-                onTap: () => _deleteAllDocuments(context, strings),
-              ),
-              SettingsActionRow(
-                key: settingsDeleteAllAppDataButtonKey,
-                glyph: StrokeGlyph.trash,
-                label: strings.settingsDeleteAllAppDataLabel,
-                destructive: true,
-                onTap: () => _deleteAllAppData(context, strings),
-              ),
-            ],
-          ),
+        // Processing-mode row and the two delete-all rows (F11-T11) — three
+        // rows.
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 3),
+        SettingsReady(:final processingMode) => SettingsSection(
+          title: strings.settingsPrivacySection,
+          rows: [
+            SettingsValueRow(
+              glyph: StrokeGlyph.documentSteps,
+              label: strings.settingsProcessingModeLabel,
+              value: _modeName(processingMode, strings),
+              onTap: () => _showModePicker(context, processingMode),
+            ),
+            SettingsActionRow(
+              key: settingsDeleteAllDocumentsButtonKey,
+              glyph: StrokeGlyph.trash,
+              label: strings.settingsDeleteAllDocumentsLabel,
+              destructive: true,
+              onTap: () => _deleteAllDocuments(context, strings),
+            ),
+            SettingsActionRow(
+              key: settingsDeleteAllAppDataButtonKey,
+              glyph: StrokeGlyph.trash,
+              label: strings.settingsDeleteAllAppDataLabel,
+              destructive: true,
+              onTap: () => _deleteAllAppData(context, strings),
+            ),
+          ],
+        ),
       },
     );
   }
