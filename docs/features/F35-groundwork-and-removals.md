@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 10 / 19 — Phase A done, Phase B written, Phase C done, Phase D at T10; T04's apply owed (needs Docker)
+- **Progress:** 11 / 19 — Phase A done, Phase B written, Phase C done, Phase D done; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -309,12 +309,26 @@ unreachable failure type mid-phase.
       > `BlocProvider<OnboardingCubit>`, and still pass: `context.read` sits
       > inside the `onPressed` closure, so only a tap would reach it, and they
       > only assert the button is enabled. Left as they are.
-- [ ] **T11** Delete `privacy_screen.dart`, the `AppRoutes.privacy` constant and
+- [x] **T11** Delete `privacy_screen.dart`, the `AppRoutes.privacy` constant and
       its `GoRoute`, and reduce `AppRoutes.firstRun` to `{onboarding}`. Delete
       `test/features/onboarding/privacy_screen_test.dart`. Keep
       `PrivacyPolicyContent`, every `privacyTitle`/`privacyPoint*` string, and
       the settings privacy-policy route (trap #2). *Done when:* a fresh install
       goes intro → Home, and the settings policy page still renders in full.
+      > Trap #2 held: `PrivacyPolicyContent` lives in `core/widgets/` and is
+      > still rendered by `privacy_policy_screen.dart`, and every
+      > `privacyTitle`/`privacyPoint*` string is untouched in all three
+      > localization files. Only `privacyAgree` is orphaned now — T17 takes it.
+      >
+      > `AppRoutes.firstRun` stays a `Set` with one member rather than
+      > collapsing into `location == onboarding`: `_firstRunRedirect` needs no
+      > edit that way, and F43 replaces the intro screen with the first-launch
+      > video, which may well put a second route back in it.
+      >
+      > One stale doc fixed: `createAppRouter`'s header still said the redirect
+      > lifts when "finishing the privacy step". Prose, not a dartdoc link, so
+      > T18's sweep would have missed it — the same class of leftover T09 found
+      > in `_registerSettings`.
 
 ### Phase E — processing mode
 

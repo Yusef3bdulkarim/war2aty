@@ -37,7 +37,6 @@ import '../../features/ocr/presentation/screens/ocr_processing_screen.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
-import '../../features/onboarding/presentation/screens/privacy_screen.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
@@ -65,7 +64,6 @@ import '../shell/scaffold_with_nav_bar.dart';
 /// Route path constants.
 abstract final class AppRoutes {
   static const String onboarding = '/onboarding';
-  static const String privacy = '/privacy';
   static const String home = '/home';
   static const String saved = '/saved';
   static const String reminders = '/reminders';
@@ -82,7 +80,7 @@ abstract final class AppRoutes {
   static const String reminderSuccess = '/reminders/success';
 
   /// The first-run flow, which sits outside the bottom-nav shell.
-  static const Set<String> firstRun = {onboarding, privacy};
+  static const Set<String> firstRun = {onboarding};
 
   /// One saved document's details (F08-T08), by its id.
   static String documentDetailsWith(String id) => '$documentDetails/$id';
@@ -110,8 +108,8 @@ abstract final class AppRoutes {
 /// 4-destination bottom-nav shell.
 ///
 /// [onboardingGate] drives the first-run redirect. It is app-scoped, and the
-/// router re-evaluates the redirect whenever its state changes — so finishing
-/// the privacy step navigates to Home without any explicit `go` call.
+/// router re-evaluates the redirect whenever its state changes — so the
+/// intro's CTA lands on Home without any explicit `go` call (F35-T10).
 ///
 /// [launchStatus] hears from the first screen the app opens on once it has its
 /// content, so the launch screen lifts on a whole Home rather than a half-drawn
@@ -137,13 +135,6 @@ GoRouter createAppRouter({
           // A static page: its content is there as soon as it is built.
           launchStatus?.markFirstScreenReady();
           return const OnboardingScreen();
-        },
-      ),
-      GoRoute(
-        path: AppRoutes.privacy,
-        builder: (context, state) {
-          launchStatus?.markFirstScreenReady();
-          return const PrivacyScreen();
         },
       ),
       // Deliberately outside the shell: scanning is a task the user finishes
