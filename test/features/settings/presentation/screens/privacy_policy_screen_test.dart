@@ -15,9 +15,10 @@ import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 import '../../../../support/ui_audit.dart';
 
-// F11-T12: the settings screen's «سياسة الخصوصية» row opens this — the same
-// four promises `PrivacyScreen` makes on first run, read back with a back
-// control instead of a CTA.
+// F11-T12: the settings screen's «سياسة الخصوصية» row opens this — the four
+// privacy promises, read back at any time with a back control and no CTA.
+// F35-T11 deleted the first-run `PrivacyScreen` that showed the same copy,
+// so this is now the only place they appear.
 void main() {
   const ar = ArStrings();
   const en = EnStrings();
@@ -65,12 +66,15 @@ void main() {
     );
   });
 
-  testWidgets('shows no CTA — agreeing already happened on first run', (
-    tester,
-  ) async {
+  testWidgets('shows no CTA — the page is only read back', (tester) async {
     await pumpApp(tester, screen());
 
-    expect(find.text(ar.privacyAgree), findsNothing);
+    // F35-T17 removed `privacyAgree` with the first-run step that owned it,
+    // so the guard can no longer name that label. The page's only controls
+    // are the back arrow and the footer links — neither is a button widget.
+    expect(find.byType(FilledButton), findsNothing);
+    expect(find.byType(ElevatedButton), findsNothing);
+    expect(find.byType(TextButton), findsNothing);
   });
 
   testWidgets('tapping back calls onClose', (tester) async {

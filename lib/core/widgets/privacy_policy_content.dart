@@ -15,10 +15,10 @@ const double _bulletGap = 13;
 /// What the app does with the user's paper, in four plain promises: the
 /// app's privacy contract in the user's own words.
 ///
-/// Shared between [PrivacyScreen] (the first-run step, paired with the
-/// «موافق، ابدأ» CTA) and the settings screen's «سياسة الخصوصية» row
-/// (F11-T12, read back at any time with no CTA) — the copy is identical in
-/// both places, so it lives in `core/` rather than being duplicated.
+/// Rendered by the settings screen's «سياسة الخصوصية» row (F11-T12), read
+/// back at any time with no CTA. It sits in `core/` because the first-run
+/// privacy step shared the same copy — F35-T11 deleted that step, so this
+/// is now the widget's only caller.
 class PrivacyPolicyContent extends StatelessWidget {
   const PrivacyPolicyContent({super.key});
 

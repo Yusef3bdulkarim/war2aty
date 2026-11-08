@@ -507,7 +507,7 @@ unreachable failure type mid-phase.
 
 ### Phase G — the sweep
 
-- [ ] **T17** Remove the now-unused strings from all **three** files
+- [x] **T17** Remove the now-unused strings from all **three** files
       (`app_strings.dart`, `ar_strings.dart`, `en_strings.dart`), keeping both
       locales per the owner's answer to Q6:
       `settingsAnalysisConsentLabel`, `analysisConsentDeclinedTitle`,
@@ -524,6 +524,56 @@ unreachable failure type mid-phase.
       and `ocrOfflineQualityWarning` (OCR-result copy, not the capture gate;
       they go in F39). *Done when:* `app_strings_test`'s "covers every
       AppStrings member" and the five privacy-truth assertions all pass.
+      > Both pass, with every keep intact: `privacyTitle`, the eight
+      > `privacyPoint*` members, `ocrOnlinePoorQuality` and
+      > `ocrOfflineQualityWarning` are untouched, and `settingsPrivacySection`
+      > survives too — T08 and T12 emptied that section of both its rows, but
+      > `settings_screen.dart` still renders the heading above the
+      > privacy-policy row. Checked, not assumed.
+      >
+      > **Two consumers the task list did not name, both in `test/`.** The
+      > 19 keys cost **23** lines of `app_strings_test`'s `_accessors` map,
+      > not 19 — four entries wrap onto a second line, so a line-per-key
+      > edit would have left four orphan halves. The second is
+      > `privacy_policy_screen_test`'s `shows no CTA` guard, which asserted
+      > `find.text(ar.privacyAgree)` was absent: both its subject **and** the
+      > screen whose CTA it guarded against are now deleted. Rewritten to
+      > assert no `FilledButton`/`ElevatedButton`/`TextButton` is on the page
+      > — broader than the one label it checked, and it still passes because
+      > the back arrow and the two footer links are `InkWell`s. That is a
+      > repair of a test this task breaks, not the coverage addition T16
+      > refused to make.
+      >
+      > **The prose sweep, which is the one T18 could not do.** Five stale
+      > references to the deleted first-run privacy step were found and
+      > fixed here, because F35 is what made them false. One is a genuinely
+      > dangling dartdoc link — `[PrivacyScreen]` in
+      > `privacy_policy_content.dart` — **which T18 missed**: its proof
+      > grepped for the two deleted store names, not for every class F35
+      > deleted. A `[Name]` sweep over all 17 now returns nothing. The
+      > other four are plain prose, invisible to any name grep:
+      > `settingsPrivacyPolicyLabel`'s doc and `displayMedium`'s doc both
+      > still listed a first-run privacy page, and `PrivacyPolicyScreen`'s
+      > header said "agreeing already happened on first run" and justified
+      > the footer's placement by a widget that no longer exists.
+      >
+      > **So the deletion routine needs two greps, not one.** T09, T11 and
+      > now T17 have each found stale prose the previous task left, and T18
+      > — the task whose whole job was dangling references — found only what
+      > it thought to search for. For F39/F40: grep `[Name]` for every
+      > deleted class **and** grep the removed flow's own words (here "first
+      > run", "consent", "quality") across `lib/` and `test/`.
+      >
+      > The suite stays at 2825 tests: dropping `_accessors` rows removes
+      > assertions inside parameterised tests rather than tests, and the
+      > rewritten guard is still one test.
+      >
+      > §Files' **Modified** list gains the three prose files above and the
+      > two test files. Its heading read `(18)` against a list of 29 files —
+      > it was the estimate this plan was written with, and no task had
+      > bumped it since. It now reads `(34 files)`, counting what the list
+      > actually names with its `{a,b}` groups expanded, so the next reader
+      > can check it in one command instead of trusting it.
 - [x] **T18** Fix the four dangling dartdoc references to the deleted stores in
       `text_size_store.dart`, `high_contrast_store.dart`,
       `default_reading_speed_store.dart` and `resume_reading_enabled_store.dart`
@@ -550,6 +600,14 @@ unreachable failure type mid-phase.
       > `lib/` and `test/` now returns nothing. For F39/F40, add that grep to
       > the deletion routine alongside `hasLength(` (T16) — doc comments are
       > the one place a deleted name can live on unflagged.
+      >
+      > **Amended by T17: that grep was too narrow.** It searched for the two
+      > deleted store names, so it missed `[PrivacyScreen]` in
+      > `privacy_policy_content.dart` — a dangling dartdoc link to a class
+      > T11 deleted, exactly what this task was for. T17 found it by
+      > sweeping `[Name]` for all 17 classes F35 deletes and fixed it
+      > there. The lesson is the grep's subject: sweep the deleted **set**,
+      > not the names the task happens to mention.
       >
       > **The links stay cross-library, as they were.** dartdoc only resolves
       > a `[...]` reference against the enclosing library's scope, and none of
@@ -595,10 +653,11 @@ live — not into a file of their own, as this plan first sketched.
 `features/capture/presentation/widgets/quality_alert_sheet.dart` ·
 and the matching test files.
 
-**Modified (18)**
+**Modified (34 files)**
 `app/di/service_locator.dart` · `app/router/app_router.dart` ·
 `core/error/app_failure.dart` · `core/logging/error_code.dart` ·
 `core/localization/{app_strings,ar_strings,en_strings}.dart` ·
+`core/theme/app_typography.dart` · `core/widgets/privacy_policy_content.dart` ·
 `core/accessibility/{text_size_store,high_contrast_store}.dart` ·
 `core/audio/{default_reading_speed_store,resume_reading_enabled_store}.dart` ·
 `features/analysis/presentation/cubit/{analysis_result_cubit,ocr_review_cubit}.dart` ·
@@ -608,10 +667,12 @@ and the matching test files.
 `features/capture/presentation/screens/image_preview_screen.dart` ·
 `features/onboarding/presentation/screens/onboarding_screen.dart` ·
 `features/settings/presentation/cubit/{settings_cubit,settings_state}.dart` ·
-`features/settings/presentation/screens/settings_screen.dart` ·
+`features/settings/presentation/screens/{settings_screen,privacy_policy_screen}.dart` ·
 `supabase/functions/_shared/config/runtime-config.ts` ·
 `supabase/tests/unit/runtime-config.test.ts` ·
 `test/support/{app_harness,fakes}.dart` ·
+`test/core/localization/app_strings_test.dart` ·
+`test/features/settings/presentation/screens/privacy_policy_screen_test.dart` ·
 `docs/features/{README,F34-non-reader-pivot}.md`
 
 **Assets:** none. F35 adds and removes no asset.
