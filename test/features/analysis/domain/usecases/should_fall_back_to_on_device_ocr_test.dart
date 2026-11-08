@@ -23,7 +23,6 @@ final _expected = <AppFailure, bool>{
   // Local.
   const CameraPermissionFailure(): false,
   const GalleryAccessFailure(): false,
-  const ImageQualityFailure(): false,
   const ImageProcessingFailure(): false,
   const OcrInitializationFailure(): false,
   const OcrFailure(): false,
@@ -50,10 +49,15 @@ void main() {
       });
     }
 
-    test('covers every AppFailure leaf', () {
-      // Same count as app_failure_test's taxonomy guard. A new leaf fails to
-      // compile in the policy first; this keeps the table here in step too.
-      expect(_expected, hasLength(30));
+    test('covers every AppFailure leaf the table claims', () {
+      // 29 of the taxonomy's 32 leaves. `ExternalLinkFailure`,
+      // `NoArabicVoiceFailure` and `TtsEngineUnavailableFailure` are answered
+      // by the production switch's exhaustiveness but have never been
+      // tabulated here — so this number is the table's own size, not proof of
+      // full coverage, whatever the old "same count as app_failure_test"
+      // comment claimed (30 never matched 33 either). A new leaf still fails
+      // to compile in the policy first; this only keeps the table in step.
+      expect(_expected, hasLength(29));
     });
 
     test('the allowlist is exactly the four matrix failures', () {

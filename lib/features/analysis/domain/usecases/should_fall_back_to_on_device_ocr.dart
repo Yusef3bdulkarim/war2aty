@@ -41,7 +41,6 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   // other stages and are listed only to keep the switch exhaustive.
   CameraPermissionFailure() ||
   GalleryAccessFailure() ||
-  ImageQualityFailure() ||
   ImageProcessingFailure() ||
   OcrInitializationFailure() ||
   OcrFailure() ||

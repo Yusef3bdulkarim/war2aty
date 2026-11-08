@@ -157,7 +157,6 @@ import '../../features/bootstrap/domain/usecases/finish_launch.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
-import '../../features/capture/data/services/dart_image_quality_service.dart';
 import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
@@ -168,9 +167,7 @@ import '../../features/capture/domain/repositories/camera_permission_repository.
 import '../../features/capture/domain/services/capture_file_cleanup.dart';
 import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
-import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
-import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
@@ -610,8 +607,6 @@ void _registerCapture() {
     // The preview screen's manual drag-crop (F15).
     ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
     ..registerFactory<CropImage>(() => CropImage(getIt()))
-    ..registerLazySingleton<ImageQualityService>(DartImageQualityService.new)
-    ..registerFactory<AssessImageQuality>(() => AssessImageQuality(getIt()))
     ..registerFactory<CreateAnalysisSession>(
       () => CreateAnalysisSession(getIt()),
     )

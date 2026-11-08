@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 13 / 19 — Phase A done, Phase B written, Phases C, D and E done; T04's apply owed (needs Docker)
+- **Progress:** 16 / 19 — Phase A done, Phase B written, Phases C, D, E and F done; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -396,20 +396,114 @@ unreachable failure type mid-phase.
 
 ### Phase F — the image-quality gate
 
-- [ ] **T14** Remove the assessment step from `ImagePreviewCubit`: the
+> **Resequenced during execution: T15 runs before T14.** As planned, T14
+> removes the `quality` payload from `ImagePreviewConfirmed` first — but
+> `image_preview_screen.dart` destructures that field
+> (`case ImagePreviewConfirmed(:final quality)`), so T14 in the planned order
+> cannot compile on its own. Folding the screen's listener arm into T14 does
+> not rescue it either: `_onQualityKnown` would then be unreferenced, and
+> `unused_element` is a warning, so the phase would still not be green.
+> Running the consumer first makes both tasks independently green and changes
+> neither one's scope.
+>
+> This is the mirror of Phase C's ordering, not a contradiction. There the
+> producer (the gate) could go first because the failure type it produced
+> still existed for the presentation to switch on. Here the producer owns a
+> *field*, so removing it breaks the consumer's compilation. The shared rule:
+> **whichever side would stop compiling goes first.**
+
+- [x] **T14** Remove the assessment step from `ImagePreviewCubit`: the
       `assessQuality` param, the `_assessQuality` call at step 3 of `confirm()`,
       and the quality payload on `ImagePreviewConfirmed`. The pipeline becomes
       rotate → crop → hand off. *Done when:* the cubit's tests pass and a
       confirmed preview carries no quality verdict.
-- [ ] **T15** Remove the `QualityAlertSheet` presentation from
+      > Step 3 needed no replacement cleanup, which is worth stating because
+      > steps 1 and 2 both do. The assessment produced no file, so the
+      > `isClosed` guard that followed it was guarding nothing — the crop's
+      > guard, one await earlier, is the last one with a temp file to account
+      > for. The emit now follows the crop directly.
+      > `ImagePreviewConfirmed`'s equality and `hashCode` collapse onto
+      > `photo` alone.
+      >
+      > Three tests went with the step, all about the step itself. The third,
+      > `quality assessment receives the final (rotated + cropped) photo`, was
+      > the only one whose *subject* outlives it: it pinned the rotate→crop
+      > order by observing which file the quality fake was handed. That order
+      > is now asserted directly on the confirmed state by `confirm crops
+      > after rotating`, renamed to say so — so it stays pinned by a test that
+      > does not need the gate to see it.
+      >
+      > Two more stale comments fixed, both describing the sheet T15 had just
+      > removed: `ImagePreviewConfirmed`'s dartdoc on why it carries the
+      > framing, and the same explanation in the cubit test that pins it. The
+      > framing still has to survive confirm; the reason is now the frame
+      > between confirming and the session being created.
+- [x] **T15** Remove the `QualityAlertSheet` presentation from
       `image_preview_screen.dart`. *Done when:* confirming a blurry photo
       proceeds with no sheet, on device.
-- [ ] **T16** Delete `assess_image_quality.dart`, `image_quality_service.dart`,
+      > Ran first — see the resequencing note above. `_onQualityKnown` and the
+      > `showQualityAlertSheet` call are gone; the `ImagePreviewConfirmed`
+      > listener arm calls `proceed()` directly, which is exactly what the
+      > good-quality path already did. The change is that the poor path stops
+      > diverging, not that a new path appears.
+      >
+      > One test went with the sheet: `the crop stays on screen behind the
+      > quality sheet (F15-T14)`. It reached the sheet through production
+      > code, so it could not outlive it. Its property is covered twice over —
+      > the mid-export test directly above it asserts the overlay does not
+      > spring back behind the veil, and the cubit's `the confirmed state keeps
+      > the framing the preview is showing` pins the same thing at state level.
+      >
+      > **The device half of this criterion is owed** — "no sheet on a blurry
+      > photo" is so far proved only in the widget suite. It folds into T19's
+      > device pass, which walks this same screen.
+- [x] **T16** Delete `assess_image_quality.dart`, `image_quality_service.dart`,
       `dart_image_quality_service.dart`, `image_quality_result.dart`,
       `quality_alert_sheet.dart`, their DI registrations, and the four test
       files. Delete `ImageQualityFailure`, its `error_code` arm and its arm in
       `shouldFallBackToOnDeviceOcr`. *Done when:* `flutter analyze` is clean —
       again, sealed exhaustiveness is the proof.
+      > **Two test files, not four.** The plan's count included the quality
+      > portions of `image_preview_cubit_test` and `image_preview_screen_test`,
+      > which T14 and T15 had already handled; only
+      > `dart_image_quality_service_test.dart` and
+      > `quality_alert_sheet_test.dart` were whole files to delete. The
+      > feature's §Testing total of 16 is unaffected.
+      >
+      > **Sealed exhaustiveness was not in fact the whole proof.** It caught
+      > every production site, as predicted, and missed four guard tests that
+      > hardcode counts — the same blind spot T07 hit. Three were found by
+      > grepping for `hasLength` with the known numbers: 17 → 16 local leaves
+      > and 33 → 32 total in `app_failure_test`, 30 → 29 policy rows in
+      > `should_fall_back_to_on_device_ocr_test`. **The fourth was found only
+      > by running the suite**: `app_logger_test`'s `maps all 29 failures to
+      > distinct non-empty codes`, 29 → 28, which that grep missed because its
+      > number matched none of the three already known. Searching for the
+      > numbers you know finds the guards you know. For F39/F40, which remove
+      > far more leaves than this: grep `hasLength(` across `test/` first, then
+      > still run the suite.
+      >
+      > **The published-app decision went exactly as T07 set up.**
+      > `IMAGE_QUALITY` stays in the server allowlist with a do-not-delete
+      > comment, and `keptForOldBuilds` gains it with its own reason: 1.0.2
+      > still runs the gate and still reports the code, and an unlisted code
+      > is a 400 the app's sink swallows — so deleting the line would not
+      > degrade those users' reporting, it would delete it silently. The
+      > exemption's third test (`every code kept for old builds is still
+      > accepted by the server`) now covers two entries, which is the first
+      > evidence it was worth building as a named set rather than a one-off.
+      >
+      > **A pre-existing gap found and recorded, not fixed.**
+      > `should_fall_back_to_on_device_ocr_test`'s table is named `covers
+      > every AppFailure leaf` and claims "same count as app_failure_test's
+      > taxonomy guard", but it holds 29 of 32 leaves and the claim never held
+      > (it was 30 against 33 before this task). `ExternalLinkFailure`,
+      > `NoArabicVoiceFailure` and `TtsEngineUnavailableFailure` are answered
+      > by the production switch's exhaustiveness but have never been
+      > tabulated. The test's name and comment now say what it actually
+      > guarantees; **adding the three missing rows is deliberately left
+      > undone** — it is a coverage change, not a removal, and belongs to
+      > whoever owns that policy next (F39 touches this file).
 
 ### Phase G — the sweep
 

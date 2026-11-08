@@ -64,14 +64,12 @@ import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dar
 import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/focus_point.dart';
-import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/repositories/camera_permission_repository.dart';
 import 'package:war2aty/features/capture/domain/services/camera_service.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
 import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
-import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
 import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
 import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
@@ -526,35 +524,6 @@ final class FakeImagePickerService implements ImagePickerService {
     if (gate != null) await gate.future;
     if (fails) return const Err(GalleryAccessFailure());
     return Ok(cancelled ? null : photo);
-  }
-}
-
-/// Scriptable [ImageQualityService] — returns a fixed quality result or fails.
-final class FakeImageQualityService implements ImageQualityService {
-  FakeImageQualityService({
-    this.result = const ImageQualityResult(
-      overall: ImageQuality.good,
-      blur: ImageQuality.good,
-      resolution: ImageQuality.good,
-      brightness: ImageQuality.good,
-    ),
-    this.fails = false,
-  });
-
-  ImageQualityResult result;
-  bool fails;
-
-  int assessCount = 0;
-  CapturedPhoto? lastPhoto;
-
-  @override
-  Future<Result<ImageQualityResult, AppFailure>> assess(
-    CapturedPhoto photo,
-  ) async {
-    assessCount++;
-    lastPhoto = photo;
-    if (fails) return const Err(ImageProcessingFailure());
-    return Ok(result);
   }
 }
 

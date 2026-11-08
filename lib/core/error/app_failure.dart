@@ -36,10 +36,6 @@ final class GalleryAccessFailure extends LocalFailure {
   const GalleryAccessFailure();
 }
 
-final class ImageQualityFailure extends LocalFailure {
-  const ImageQualityFailure();
-}
-
 final class ImageProcessingFailure extends LocalFailure {
   const ImageProcessingFailure();
 }

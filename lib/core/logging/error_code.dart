@@ -9,7 +9,6 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   // Local
   CameraPermissionFailure() => 'CAMERA_PERMISSION',
   GalleryAccessFailure() => 'GALLERY_ACCESS',
-  ImageQualityFailure() => 'IMAGE_QUALITY',
   ImageProcessingFailure() => 'IMAGE_PROCESSING',
   OcrInitializationFailure() => 'OCR_INIT',
   OcrFailure() => 'OCR',

@@ -104,7 +104,10 @@ void main() {
   ///
   /// - `ANALYSIS_CONSENT_DECLINED` — the consent setting, removed in F35-T06;
   ///   1.0.2 still has the setting and still reports it when it blocks a run.
-  const keptForOldBuilds = {'ANALYSIS_CONSENT_DECLINED'};
+  /// - `IMAGE_QUALITY` — the capture-time quality gate, removed in F35-T16;
+  ///   1.0.2 still runs the gate and still reports it when the assessment
+  ///   fails.
+  const keptForOldBuilds = {'ANALYSIS_CONSENT_DECLINED', 'IMAGE_QUALITY'};
 
   test('every code the app can report is one the server accepts', () {
     final client = {...dartFailureCodes(), ...dartCrashCodes()};
