@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 11 / 19 — Phase A done, Phase B written, Phase C done, Phase D done; T04's apply owed (needs Docker)
+- **Progress:** 13 / 19 — Phase A done, Phase B written, Phases C, D and E done; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -332,13 +332,67 @@ unreachable failure type mid-phase.
 
 ### Phase E — processing mode
 
-- [ ] **T12** Remove the «طريقة المعالجة» row from `settings_screen.dart`, the
+- [x] **T12** Remove the «طريقة المعالجة» row from `settings_screen.dart`, the
       `GetProcessingMode`/`SetProcessingMode` dependencies from `SettingsCubit`,
       and the field from `SettingsState`. *Done when:* settings tests pass.
-- [ ] **T13** Delete `processing_mode.dart`, `processing_mode_store.dart`, both
+      > Both traps T08 flagged for this task held: the skeleton row count went
+      > 3 → 2 (hand-written, pinned by no test — a wrong number here shows a
+      > phantom loading row and fails nothing), and `SettingsCubit`'s
+      > initializer list still began `}) : _getProcessingMode =`, so a
+      > range delete would have taken the `}) :` with it.
+      >
+      > A third of the same shape, not in the plan, and **sed found it the hard
+      > way**: deleting the three cubit tests by line range left an orphan
+      > `});`. Caught immediately, but it is the T07 `],` / T08 `}) :` lesson
+      > arriving in test code — the fences at the end of a deleted range matter
+      > as much as the ones at the start.
+      >
+      > Two things were salvaged rather than deleted along with the row.
+      > `_Radio` and the nine `_sheet*`/`_option*` layout constants sat under
+      > the processing-mode sheet's banner but are used by the language,
+      > text-size, reading-speed and supported-types sheets as well; they stay,
+      > with the banner rehomed to "Shared option-sheet layout" so they do not
+      > read as dead code. And the test titled `load() reads the persisted
+      > settings, defaulting to smart analysis` is now `...falling back to
+      > their defaults` — the title named the one default this task removes,
+      > while its assertion still covers the four that remain.
+      >
+      > Also removed: the `_registerSettings` comment claiming it reuses
+      > `_registerAnalysis`'s processing-mode store. Fourth piece of stale
+      > prose F35 has cleared, and again not a dartdoc link T18 would catch.
+      >
+      > 7 tests left the suite (3 cubit, 4 screen), none of them unique: the
+      > delete-all rows sharing the privacy section have their own groups, and
+      > the skeleton group already asserts `settingsPrivacySection` both ways.
+- [x] **T13** Delete `processing_mode.dart`, `processing_mode_store.dart`, both
       use cases, their DI registrations and their two test files. *Done when:*
       `grep -ri processingmode lib/` is empty. No flow change is possible: the
       enum was read by `SettingsCubit` alone.
+      > The prediction held exactly — nothing outside `SettingsCubit` ever read
+      > the enum, so T12 left these four files with no caller at all. Both
+      > `lib/core/analysis/` and `test/core/analysis/` are now **gone entirely**,
+      > directories included: processing mode was the last thing in either.
+      >
+      > The done-criterion needs the same honest adjustment T09 made, for the
+      > same two reasons. `grep -ri processingmode lib/` still matches the five
+      > `settingsProcessingMode*` strings in the three localization files
+      > (**T17** owns those — they are on its 19-key list) and two
+      > `[DriftProcessingModeStore]` dartdoc links in `text_size_store.dart`
+      > and `default_reading_speed_store.dart` (**T18** owns those two files
+      > already, for their `[DriftAnalysisConsentStore]` links — so T18's scope
+      > is unchanged, it now has two kinds of dangling ref to fix in the same
+      > four files, not one). `grep -ri processing_mode lib/ test/` is empty.
+      >
+      > `FakeProcessingModeStore` was the dartdoc exemplar for
+      > `FakeDefaultReadingSpeedStore` and `FakeResumeReadingEnabledStore`'s
+      > "`null` means untouched" convention — the same trap T08 hit with
+      > `setAnalysisConsent`. Both now point at `FakeLocaleStore`, which is
+      > where the deleted fake's own doc pointed, so the chain ends somewhere
+      > permanent instead of moving the problem to the next deletion.
+      >
+      > The orphan `app_settings` row is `processing_mode`. Left in place, the
+      > same call T09 made for `analysis_consent`: one inert row per device,
+      > read by nothing from this build on, and not worth a migration.
 
 ### Phase F — the image-quality gate
 

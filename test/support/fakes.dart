@@ -6,8 +6,6 @@ import 'package:flutter/widgets.dart';
 import 'package:war2aty/core/accessibility/high_contrast_store.dart';
 import 'package:war2aty/core/accessibility/text_size.dart';
 import 'package:war2aty/core/accessibility/text_size_store.dart';
-import 'package:war2aty/core/analysis/processing_mode.dart';
-import 'package:war2aty/core/analysis/processing_mode_store.dart';
 import 'package:war2aty/core/audio/default_reading_speed_store.dart';
 import 'package:war2aty/core/audio/default_reading_voice_store.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
@@ -191,24 +189,9 @@ final class FakeHighContrastStore implements HighContrastStore {
   Future<void> writeEnabled(bool enabled) async => _enabled = enabled;
 }
 
-/// In-memory [ProcessingModeStore] (F11-T03) — no persistence, seedable.
-/// `null` (the default) models a user who has never touched the setting, the
-/// same as [FakeLocaleStore]'s own default.
-final class FakeProcessingModeStore implements ProcessingModeStore {
-  FakeProcessingModeStore([this._mode]);
-
-  ProcessingMode? _mode;
-
-  @override
-  Future<ProcessingMode?> readMode() async => _mode;
-
-  @override
-  Future<void> writeMode(ProcessingMode mode) async => _mode = mode;
-}
-
 /// In-memory [DefaultReadingSpeedStore] (F11-T07) — no persistence, seedable.
 /// `null` (the default) models a user who has never touched the setting, the
-/// same as [FakeProcessingModeStore]'s own default.
+/// same as [FakeLocaleStore]'s own default.
 final class FakeDefaultReadingSpeedStore implements DefaultReadingSpeedStore {
   FakeDefaultReadingSpeedStore([this._speed]);
 
@@ -238,7 +221,7 @@ final class FakeDefaultReadingVoiceStore implements DefaultReadingVoiceStore {
 
 /// In-memory [ResumeReadingEnabledStore] (F11-T07) — no persistence,
 /// seedable. `null` (the default) models a user who has never touched the
-/// setting, the same as [FakeProcessingModeStore]'s own default.
+/// setting, the same as [FakeLocaleStore]'s own default.
 final class FakeResumeReadingEnabledStore implements ResumeReadingEnabledStore {
   FakeResumeReadingEnabledStore([this._enabled]);
 

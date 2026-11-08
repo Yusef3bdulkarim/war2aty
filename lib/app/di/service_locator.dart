@@ -13,9 +13,6 @@ import '../../core/accessibility/usecases/get_high_contrast.dart';
 import '../../core/accessibility/usecases/get_text_size.dart';
 import '../../core/accessibility/usecases/set_high_contrast.dart';
 import '../../core/accessibility/usecases/set_text_size.dart';
-import '../../core/analysis/processing_mode_store.dart';
-import '../../core/analysis/usecases/get_processing_mode.dart';
-import '../../core/analysis/usecases/set_processing_mode.dart';
 import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/audio/default_reading_speed_store.dart';
 import '../../core/audio/default_reading_voice_store.dart';
@@ -690,12 +687,6 @@ void _registerAnalysis(AppEnvironment env) {
   final useMock = env.isDev && _useMockAnalysis;
 
   getIt
-    // F11-T03. Same `app_settings` table `DriftLocaleStore` reads/writes.
-    ..registerLazySingleton<ProcessingModeStore>(
-      () => DriftProcessingModeStore(getIt()),
-    )
-    ..registerFactory<GetProcessingMode>(() => GetProcessingMode(getIt()))
-    ..registerFactory<SetProcessingMode>(() => SetProcessingMode(getIt()))
     // The real Edge Function client (F06-T14). An unconfigured build refuses
     // outright rather than falling back to fixtures: showing invented amounts
     // and deadlines to a real user would be worse than showing nothing, which
