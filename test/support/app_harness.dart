@@ -48,7 +48,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
-import 'package:war2aty/core/analysis/analysis_consent_store.dart';
 import 'package:war2aty/core/connectivity/connectivity_service.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/documents/document_image_store.dart';
@@ -545,7 +544,6 @@ Future<AppHarness> bootApp(
   int usedToday = 0,
   bool analysisEnabled = true,
   bool seenOnboarding = true,
-  bool? analysisConsent,
   String ocrText = kDeviceOcrText,
   DateTime? deadline,
   ImageQualityResult quality = const ImageQualityResult(
@@ -655,9 +653,6 @@ Future<AppHarness> bootApp(
       ),
     );
 
-  if (analysisConsent != null) {
-    await getIt<AnalysisConsentStore>().writeConsent(analysisConsent);
-  }
   if (seenOnboarding) {
     await getIt<OnboardingRepository>().markOnboardingSeen();
   }

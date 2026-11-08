@@ -244,8 +244,7 @@ const double _rowLabelFontSize = 15;
 ///
 /// Reads the app-scoped [LocaleCubit] directly rather than routing through
 /// [SettingsCubit]: the locale is an app-wide concern shared with
-/// [MaterialApp], not a settings-screen-only flag like consent or processing
-/// mode.
+/// [MaterialApp], not a settings-screen-only flag like the processing mode.
 class _LanguageSection extends StatelessWidget {
   const _LanguageSection();
 

@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 8 / 19 — Phase A done, Phase B written, Phase C at T08; T04's apply owed (needs Docker)
+- **Progress:** 9 / 19 — Phase A done, Phase B written, Phase C done; T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -263,12 +263,27 @@ unreachable failure type mid-phase.
       > (absent while loading, present after), and the
       > `setAnalysisConsent() before load() is a no-op` guard is duplicated for
       > every other setter, `setDefaultReadingSpeed` included. Nothing lost.
-- [ ] **T09** Delete `core/analysis/analysis_consent_store.dart`,
+- [x] **T09** Delete `core/analysis/analysis_consent_store.dart`,
       `usecases/get_analysis_consent.dart`, `usecases/set_analysis_consent.dart`,
       their DI registrations and their two test files. Leave any stored
       `app_settings` row in place — it is an inert key/value orphan, and a
       delete migration would be a schema change for no gain. *Done when:*
       `grep -ri consent lib/` returns only the privacy-policy copy.
+      > The orphan row is `analysis_consent`, written by the store's own
+      > private `_key`. Nothing reads it from this build on; it costs one row
+      > per device and no migration.
+      >
+      > The done-criterion holds with one honest adjustment: `lib/` still
+      > matches `consent` in the **three localization files** (T17 owns those
+      > strings) and in **four dangling `[DriftAnalysisConsentStore]` dartdoc
+      > links** (T18 owns those — and they are exactly the four files this plan
+      > predicted). Everything else is gone.
+      >
+      > Also fixed here, because T09 is what made them false: two prose
+      > comments that still described consent as live code — the
+      > `_registerSettings` header in `service_locator.dart` and
+      > `_LanguageSection`'s doc in `settings_screen.dart`. Neither is a
+      > dartdoc link, so T18's sweep would not have caught either.
 
 ### Phase D — the privacy screen
 

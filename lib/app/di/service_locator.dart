@@ -13,11 +13,8 @@ import '../../core/accessibility/usecases/get_high_contrast.dart';
 import '../../core/accessibility/usecases/get_text_size.dart';
 import '../../core/accessibility/usecases/set_high_contrast.dart';
 import '../../core/accessibility/usecases/set_text_size.dart';
-import '../../core/analysis/analysis_consent_store.dart';
 import '../../core/analysis/processing_mode_store.dart';
-import '../../core/analysis/usecases/get_analysis_consent.dart';
 import '../../core/analysis/usecases/get_processing_mode.dart';
-import '../../core/analysis/usecases/set_analysis_consent.dart';
 import '../../core/analysis/usecases/set_processing_mode.dart';
 import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/audio/default_reading_speed_store.dart';
@@ -693,13 +690,7 @@ void _registerAnalysis(AppEnvironment env) {
   final useMock = env.isDev && _useMockAnalysis;
 
   getIt
-    // F11-T02. Same `app_settings` table `DriftLocaleStore` reads/writes.
-    ..registerLazySingleton<AnalysisConsentStore>(
-      () => DriftAnalysisConsentStore(getIt()),
-    )
-    ..registerFactory<GetAnalysisConsent>(() => GetAnalysisConsent(getIt()))
-    ..registerFactory<SetAnalysisConsent>(() => SetAnalysisConsent(getIt()))
-    // F11-T03. Same `app_settings` table.
+    // F11-T03. Same `app_settings` table `DriftLocaleStore` reads/writes.
     ..registerLazySingleton<ProcessingModeStore>(
       () => DriftProcessingModeStore(getIt()),
     )
@@ -1078,9 +1069,8 @@ void _registerLegal() {
 }
 
 void _registerSettings() {
-  // F11-T02/T03. Reuses the store/use cases `_registerAnalysis` already
-  // registered — Settings reads and writes the same consent and processing-
-  // mode flags the analysis flow gates itself on.
+  // F11-T03. Reuses the store/use cases `_registerAnalysis` already
+  // registered — Settings reads and writes the same processing-mode flag.
   // F11-T07. Reuses the store/use cases `_registerAudioReader` already
   // registered — Settings reads and writes the same audio defaults the
   // mini-player applies to a fresh reading.

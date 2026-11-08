@@ -6,7 +6,6 @@ import 'package:flutter/widgets.dart';
 import 'package:war2aty/core/accessibility/high_contrast_store.dart';
 import 'package:war2aty/core/accessibility/text_size.dart';
 import 'package:war2aty/core/accessibility/text_size_store.dart';
-import 'package:war2aty/core/analysis/analysis_consent_store.dart';
 import 'package:war2aty/core/analysis/processing_mode.dart';
 import 'package:war2aty/core/analysis/processing_mode_store.dart';
 import 'package:war2aty/core/audio/default_reading_speed_store.dart';
@@ -192,24 +191,9 @@ final class FakeHighContrastStore implements HighContrastStore {
   Future<void> writeEnabled(bool enabled) async => _enabled = enabled;
 }
 
-/// In-memory [AnalysisConsentStore] (F11-T02) — no persistence, seedable.
-/// `null` (the default) models a user who has never touched the setting, the
-/// same as [FakeLocaleStore]'s own default.
-final class FakeAnalysisConsentStore implements AnalysisConsentStore {
-  FakeAnalysisConsentStore([this._consent]);
-
-  bool? _consent;
-
-  @override
-  Future<bool?> readConsent() async => _consent;
-
-  @override
-  Future<void> writeConsent(bool consent) async => _consent = consent;
-}
-
 /// In-memory [ProcessingModeStore] (F11-T03) — no persistence, seedable.
 /// `null` (the default) models a user who has never touched the setting, the
-/// same as [FakeAnalysisConsentStore]'s own default.
+/// same as [FakeLocaleStore]'s own default.
 final class FakeProcessingModeStore implements ProcessingModeStore {
   FakeProcessingModeStore([this._mode]);
 
