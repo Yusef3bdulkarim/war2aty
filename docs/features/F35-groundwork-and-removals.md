@@ -524,11 +524,40 @@ unreachable failure type mid-phase.
       and `ocrOfflineQualityWarning` (OCR-result copy, not the capture gate;
       they go in F39). *Done when:* `app_strings_test`'s "covers every
       AppStrings member" and the five privacy-truth assertions all pass.
-- [ ] **T18** Fix the four dangling dartdoc references to the deleted stores in
+- [x] **T18** Fix the four dangling dartdoc references to the deleted stores in
       `text_size_store.dart`, `high_contrast_store.dart`,
       `default_reading_speed_store.dart` and `resume_reading_enabled_store.dart`
       — each should name a store that still exists. *Done when:* no unresolved
       dartdoc reference remains in those four files.
+      > **Five references, not four.** The count was per file, but
+      > `default_reading_speed_store.dart` carried two in one sentence
+      > (`[DriftAnalysisConsentStore]/[DriftProcessingModeStore]`). The
+      > replacements each name a live sibling store:
+      > `text_size_store` → `[DriftHighContrastStore]` and
+      > `[DriftLocaleStore]`; `high_contrast_store` → `[DriftTextSizeStore]`
+      > and `[DriftLocaleStore]`; `default_reading_speed_store` →
+      > `[DriftDefaultReadingVoiceStore]` and
+      > `[DriftResumeReadingEnabledStore]` (both in `core/audio`);
+      > `resume_reading_enabled_store` → `[DriftHighContrastStore]`, which is
+      > the bool store the sentence wanted. Rewrapping the `core/audio` one
+      > cost a third comment line.
+      >
+      > **Nothing in the gate could have caught this, and nothing proves the
+      > fix.** `comment_references` is not in `analysis_options.yaml`, so a
+      > dangling `[...]` is invisible to `flutter analyze` — which is why
+      > these four survived T09 and T13 with the classes already deleted. The
+      > proof is a grep: `AnalysisConsentStore|ProcessingModeStore` across
+      > `lib/` and `test/` now returns nothing. For F39/F40, add that grep to
+      > the deletion routine alongside `hasLength(` (T16) — doc comments are
+      > the one place a deleted name can live on unflagged.
+      >
+      > **The links stay cross-library, as they were.** dartdoc only resolves
+      > a `[...]` reference against the enclosing library's scope, and none of
+      > these stores import each other — the pre-existing
+      > `[DriftLocaleStore]` in `text_size_store` was already in that state.
+      > So these name stores that exist rather than render as links; making
+      > them resolvable would mean imports for documentation's sake. Kept the
+      > file's own style instead.
 
 ### Phase H — the gate
 

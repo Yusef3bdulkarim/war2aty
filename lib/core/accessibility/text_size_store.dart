@@ -11,7 +11,7 @@ abstract interface class TextSizeStore {
 }
 
 /// [TextSizeStore] backed by the Drift `app_settings` table — the same
-/// key/value table [DriftProcessingModeStore] and [DriftLocaleStore] use.
+/// key/value table [DriftHighContrastStore] and [DriftLocaleStore] use.
 final class DriftTextSizeStore implements TextSizeStore {
   const DriftTextSizeStore(this._db);
 

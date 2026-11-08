@@ -10,7 +10,7 @@ abstract interface class HighContrastStore {
 }
 
 /// [HighContrastStore] backed by the Drift `app_settings` table — the same
-/// key/value table [DriftTextSizeStore] and [DriftAnalysisConsentStore] use.
+/// key/value table [DriftTextSizeStore] and [DriftLocaleStore] use.
 final class DriftHighContrastStore implements HighContrastStore {
   const DriftHighContrastStore(this._db);
 
