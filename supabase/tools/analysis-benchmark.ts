@@ -37,7 +37,7 @@
  *     --env-file=supabase/.env supabase/tools/analysis-benchmark.ts \
  *     --analyser mistral --source truth --save golden-analysis/mistral-truth.json
  *
- *   --analyser <name>   mistral | groq                           (required)
+ *   --analyser <name>   mistral | groq | gemma                   (required)
  *   --source <text>     truth | gemini | tesseract               (default: truth)
  *   --set <dir>         Images and truth files.                  (default: golden)
  *   --text-in <dir>     Transcriptions from ocr-benchmark.       (default: golden-ocr)
@@ -281,7 +281,7 @@ async function readJson(
 async function main(args: readonly string[]): Promise<void> {
   const analyser = flag(args, "analyser") as AnalyserName | null;
   if (analyser === null || !ANALYSERS.includes(analyser)) {
-    throw new Error("--analyser must be mistral or groq.");
+    throw new Error("--analyser must be mistral, groq or gemma.");
   }
   const source = flag(args, "source", "truth") as Source;
   if (!SOURCES.includes(source)) {
@@ -358,7 +358,10 @@ async function main(args: readonly string[]): Promise<void> {
         (s, attempt) => console.log(`    … rate limited, waiting ${s}s (attempt ${attempt})`),
       );
     } catch (thrown) {
-      stopIfKeyRefused(thrown, `${analyser.toUpperCase()}_API_KEY`);
+      stopIfKeyRefused(
+        thrown,
+        analyser === "gemma" ? "GEMINI_API_KEY" : `${analyser.toUpperCase()}_API_KEY`,
+      );
       failure = failureLabel(thrown);
     }
     const latencyMs = performance.now() - startedAt;

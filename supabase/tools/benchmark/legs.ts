@@ -20,10 +20,12 @@ import {
   groqOptionsFromEnv,
 } from "../../functions/_shared/ai/groq-config.ts";
 import { mistralOptionsFromEnv } from "../../functions/_shared/ai/mistral-config.ts";
+import { gemmaOptionsFromEnv } from "../../functions/_shared/ai/gemma-config.ts";
+import { createGemmaNativeClient } from "../../functions/_shared/ai/gemma-native-client.ts";
 
-export type AnalyserName = "mistral" | "groq";
+export type AnalyserName = "mistral" | "groq" | "gemma";
 
-export const ANALYSERS: readonly AnalyserName[] = ["mistral", "groq"];
+export const ANALYSERS: readonly AnalyserName[] = ["mistral", "groq", "gemma"];
 
 /**
  * Pause between documents, from each free tier's limits. Groq's is the
@@ -34,6 +36,9 @@ export const ANALYSERS: readonly AnalyserName[] = ["mistral", "groq"];
 export const DEFAULT_DELAY_MS: Readonly<Record<AnalyserName, number>> = {
   mistral: 2_000,
   groq: 30_000,
+  // Gemma 4 on the Gemini free tier: 16K input tokens a minute, and one
+  // analysis prompt is ~4K, so about 4 calls a minute. 20s keeps well clear.
+  gemma: 20_000,
 };
 
 /**
@@ -56,6 +61,17 @@ export function analysisLeg(
         client: createChatClient({ ...groqOptionsFromEnv(), fetchImpl }),
         reasoningEffort: GROQ_REASONING_EFFORT,
       });
+    case "gemma": {
+      // GEMMA_ENDPOINT=native → Gemini's own generateContent with
+      // responseJsonSchema; anything else → the OpenAI-compatible endpoint.
+      const options = gemmaOptionsFromEnv();
+      const native = Deno.env.get("GEMMA_ENDPOINT")?.trim() === "native";
+      return createAnalysisProvider({
+        client: native
+          ? createGemmaNativeClient({ apiKey: options.apiKey, model: options.model, fetchImpl })
+          : createChatClient({ ...options, fetchImpl }),
+      });
+    }
   }
 }
 
@@ -106,6 +122,23 @@ export function recordingFetch(inner: typeof fetch = fetch): RecordingFetch {
       body = await response.clone().json();
     } catch {
       body = null;
+    }
+    if (body !== null && Array.isArray(body.candidates)) {
+      // Gemini native `generateContent` (the Gemma experiment).
+      const candidate = body.candidates[0] as Record<string, unknown> | undefined;
+      const parts = ((candidate?.content as Record<string, unknown> | undefined)?.parts ??
+        []) as Array<Record<string, unknown>>;
+      const text = parts.filter((p) => p.thought !== true && typeof p.text === "string")
+        .map((p) => p.text as string).join("");
+      const meta = body.usageMetadata as Record<string, unknown> | undefined;
+      last = {
+        status: response.status,
+        finishReason: typeof candidate?.finishReason === "string" ? candidate.finishReason : null,
+        promptTokens: numberOrNull(meta?.promptTokenCount),
+        completionTokens: numberOrNull(meta?.candidatesTokenCount),
+        content: text.length > 0 ? text : null,
+      };
+      return response;
     }
     const choice = (body?.choices as Array<Record<string, unknown>> | undefined)
       ?.[0];
