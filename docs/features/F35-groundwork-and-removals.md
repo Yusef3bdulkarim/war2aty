@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 0 / 19
+- **Progress:** 3 / 19 — Phase A done
 
 ## Why this feature exists
 
@@ -117,15 +117,15 @@ next phase does not start.
 
 ### Phase A — the branch and the record
 
-- [ ] **T01** Cut `feature/non-reader` from `develop`. *Done when:* the branch
+- [x] **T01** Cut `feature/non-reader` from `develop`. *Done when:* the branch
       exists, pushed, and `git log` shows `b421a3e` as its base.
-- [ ] **T02** Commit the uncommitted Gemma experiment as-is (F34-T01):
+- [x] **T02** Commit the uncommitted Gemma experiment as-is (F34-T01):
       `_shared/ai/gemma-config.ts`, `_shared/ai/gemma-native-client.ts`,
       `tools/list-gemma-models.ts`, and the `tools/analysis-benchmark.ts` +
       `tools/benchmark/legs.ts` changes. *Done when:* `git status` is clean of
       them and `deno test` still passes. No behaviour change — it stays
       benchmark-only until F36-T08.
-- [ ] **T03** Record the amendments: add an "Amendments (2026-11-08)" section to
+- [x] **T03** Record the amendments: add an "Amendments (2026-11-08)" section to
       F34 holding the owner's nine answers and the six decisions taken on his
       behalf (audio format, audio encryption, voice fallback, schema-draft
       process, network check, voice-line process), plus the reminder-link
