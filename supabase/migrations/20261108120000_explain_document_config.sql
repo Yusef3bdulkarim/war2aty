@@ -1,0 +1,70 @@
+-- F35-T04 · Config for `explain-document`, seeded before the function exists.
+--
+-- F34's pivot replaces the two-call flow (`ocr-document` then
+-- `analyze-document`) with one call: the phone sends the photo once and gets
+-- the explanation cards back. That endpoint lands in F36. These two rows land
+-- here, a feature early and deliberately, so that F36's deploy reads keys that
+-- are already in every environment instead of racing a migration.
+--
+-- Nothing reads either row yet. `RuntimeConfig` gains both fields in F35-T05
+-- and no endpoint consults them, which is the point: applying this migration
+-- cannot change the behaviour of a single request.
+--
+-- ── Why `explain_schema_version` and not `schema_version` ─────────────────
+--
+-- `schema_version` is ONE row, read by every endpoint, and
+-- `_shared/analyze/analyze-request.ts` compares it to the client's value with
+-- `!==` and answers 400 UNSUPPORTED_SCHEMA on any mismatch. Both request
+-- shapes do it.
+--
+-- So the moment this row changed, every published build would stop working —
+-- not degrade, stop — because 1.0.2 sends "2.0" and would be refused. F34's
+-- first known risk is "never change the `ocr-document` / `analyze-document`
+-- contracts", and bumping that row is exactly how you would break them without
+-- touching a line of their code.
+--
+-- Hence a second, independent key. `explain-document` versions its own contract
+-- from "1.0" and the published app's "2.0" is never touched again. The two move
+-- independently, forever; a future migration that bumps one must leave the
+-- other alone.
+--
+-- ── Why `explain_enabled` starts false ────────────────────────────────────
+--
+-- Same reasoning as `online_ocr_enabled` in `20260929120000`: a brand-new
+-- provider chain nobody has verified end to end must not be callable because a
+-- deploy happened. `optInFlag` (F35-T05) reads an absent, unreadable or "off"
+-- value all as disabled, so only an explicit `true` arms it.
+--
+-- It is also the client's gate. Per the owner's Q14 decision, the app checks
+-- connectivity locally and reads this flag from the usage sync Home already
+-- performs on load — replacing today's fresh `syncUsage()` round-trip before
+-- every capture. Off means the user sees the "our problem" screen, which is
+-- honest, rather than the no-internet screen, which is not.
+--
+-- Turn it on only after F36's live verification, with:
+--
+--   update public.app_runtime_config set value = 'true'::jsonb
+--    where key = 'explain_enabled';
+--
+-- ── Why `on conflict do nothing` ──────────────────────────────────────────
+--
+-- The house default, and right here: these are starting points, not assertions.
+-- `20261010120000` upserts `online_ocr_enabled` because ON became the intended
+-- resting state of a proven pipeline. Nothing is proven about this one yet, so
+-- a value an operator has already set — including an early `true` on a staging
+-- stack — is left alone.
+--
+-- ── What this migration must NOT touch ────────────────────────────────────
+--
+-- `schema_version` and `online_ocr_enabled`. The published 1.0.2 app depends on
+-- both: the first gates every request it makes, the second routes its reading
+-- online. Neither appears below, and neither should appear in any F34 migration
+-- until the last build that calls `analyze-document` is out of support.
+
+insert into public.app_runtime_config (key, value) values
+  -- The `explain-document` contract version. Independent of `schema_version`;
+  -- see the header before changing either.
+  ('explain_schema_version', '"1.0"'::jsonb),
+  -- Opt-in, dark until F36 is verified live. Also the client's capture gate.
+  ('explain_enabled',        'false'::jsonb)
+on conflict (key) do nothing;
