@@ -4,7 +4,7 @@
 - **Milestone:** post-F33, first feature of the F34 pivot
 - **Depends on:** nothing. This is the feature every other F34 feature depends on.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and the owner's answers of 2026-11-08, recorded in F34 § "Amendments (2026-11-08)".
-- **Progress:** 3 / 19 — Phase A done
+- **Progress:** 4 / 19 — Phase A done; Phase B written and green, T04's apply owed (needs Docker)
 
 ## Why this feature exists
 
@@ -142,7 +142,16 @@ next phase does not start.
       in the house style explaining why a second schema key exists at all.
       *Done when:* applied locally, `select` shows both rows, and the published
       app's analysis still succeeds against the local stack.
-- [ ] **T05** `RuntimeConfig`: add `explainSchemaVersion: string` and
+      > **Written and committed (`5a4e18a`); the apply is OWED.** Docker was not
+      > running, so the migration has not touched a database. What was verified
+      > statically: the two keys the SQL seeds are character-for-character the
+      > two `parseRuntimeConfig` reads; neither `schema_version` nor
+      > `online_ocr_enabled` appears outside a comment; no earlier migration
+      > uses either key; and both JSONB literals copy the forms proven by
+      > `20260726124644` and `20260929120000`. Still unproven: that it applies
+      > cleanly and round-trips through PostgREST. Carry this to T19, and to the
+      > staging/production apply in the definition of done.
+- [x] **T05** `RuntimeConfig`: add `explainSchemaVersion: string` and
       `explainEnabled: boolean` with defaults `"1.0"` / `false`, parsed by the
       existing helpers. Unit tests for absent / blank / malformed / valid.
       *Done when:* `deno test` passes and no endpoint reads either field yet —
@@ -256,10 +265,13 @@ unreachable failure type mid-phase.
 
 ## Files
 
-**Created (3)**
-`supabase/migrations/<ts>_explain_document_config.sql` ·
-`docs/features/F35-groundwork-and-removals.md` (this file) ·
-one Deno test file for the new config keys.
+**Created (2)**
+`supabase/migrations/20261108120000_explain_document_config.sql` ·
+`docs/features/F35-groundwork-and-removals.md` (this file).
+
+The new config keys' tests went into the existing
+`supabase/tests/unit/runtime-config.test.ts`, where the parsing rules already
+live — not into a file of their own, as this plan first sketched.
 
 **Deleted (14 source + 16 test)**
 `core/analysis/analysis_consent_store.dart` ·
@@ -293,6 +305,7 @@ and the matching test files.
 `features/settings/presentation/cubit/{settings_cubit,settings_state}.dart` ·
 `features/settings/presentation/screens/settings_screen.dart` ·
 `supabase/functions/_shared/config/runtime-config.ts` ·
+`supabase/tests/unit/runtime-config.test.ts` ·
 `test/support/{app_harness,fakes}.dart` ·
 `docs/features/{README,F34-non-reader-pivot}.md`
 
@@ -314,9 +327,12 @@ and the matching test files.
 - **Updated:** `app_harness.dart` and `fakes.dart` lose four fakes; the settings
   cubit/screen tests lose two groups; the result-screen and ocr-review tests
   lose their consent cases; `image_preview_cubit_test` loses the quality stage.
-- **Added:** one Deno test for the two config keys; one widget test that
-  `OnboardingScreen`'s CTA completes onboarding (T10 — the trap's regression
-  test).
+- **Added:** eight Deno tests in `supabase/tests/unit/runtime-config.test.ts`
+  for the two config keys — two of which exist to pin the separations that make
+  the keys worth having at all: the two schema versions move independently in
+  both directions, and `online_ocr_enabled` (ON in production) cannot leak into
+  `explainEnabled`. Plus one widget test that `OnboardingScreen`'s CTA completes
+  onboarding (T10 — the trap's regression test).
 - **Unchanged and load-bearing:** `app_strings_test`, `play_compliance_test`,
   `legal_pages_test`, `shell_test`. These are the feature's real safety net; if
   a removal goes wrong, one of them is what says so.
