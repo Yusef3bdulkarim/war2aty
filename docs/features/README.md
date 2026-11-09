@@ -48,13 +48,15 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F33 | The Android 12+ splash icon, at the size the platform actually draws | [F33-splash-icon-android12.md](F33-splash-icon-android12.md) | `release/1.0.2` | post-F32 | 10 |
 | F34 | The non-reader pivot — the decisions record, not a task list | [F34-non-reader-pivot.md](F34-non-reader-pivot.md) | `feature/non-reader` | post-F33 | — |
 | F35 | Groundwork and safe removals | [F35-groundwork-and-removals.md](F35-groundwork-and-removals.md) | `feature/non-reader` | post-F33 | 19 |
+| F36 | Server — `explain-document` | [F36-server-explain-document.md](F36-server-explain-document.md) | `feature/explain-document` | post-F35 | 21 |
 
-**Total: 371 tasks across 32 features.**
+**Total: 392 tasks across 33 features.**
 
 F34 holds the pivot's decisions; its own T01–T39 are superseded by features
-F35–F44, listed in F34 § "Amendments (2026-11-08)". Only F35 has a task file so
-far — each later feature gets one when its turn comes, so the total above counts
-F35's tasks and not the nine features still to be planned.
+F35–F44, listed in F34 § "Amendments (2026-11-08)". Only F35 and F36 have task
+files so far — each later feature gets one when its turn comes, so the total
+above counts their tasks and not the eight features still to be planned.
+F36 and F37 run in parallel: neither touches the UI and they share no code.
 
 ## Critical path
 `F00 → F03 → F04 → F05 → F06 → F07` (sequential). F02/F08/F09/F10/F11 hang off F07 and parallelize. F13 depends on F04/F06 (already shipped) and can proceed independently of F08/F09/F10/F11. F15 depends on F03/F13 (both already shipped) and touches the capture/preview screens and the perspective-correction step in place. F16 branches off F15 and is purely additive — it changes what the camera guide *shows*, never what the capture keeps, so it can be dropped without affecting the pipeline — and F24 Phase 1 did drop it (2026-10-03): F16 is superseded and the camera is a plain camera again. (`doclens` perspective correction was removed on 2026-09-30 — see F15 locked decision #4; the user's own crop on the preview screen is the only crop.) F18 depends on F06 only (the `AiAnalysisProvider` seam) and is orthogonal to the OCR line of work — it changes which AI provider classifies the text, never how the text is read. F19 is a bug fix on F01's launch sequence — it depends on nothing in flight and touches no screen, so it can land at any time.

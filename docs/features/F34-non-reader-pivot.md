@@ -181,8 +181,8 @@ needlessly sequential.
 
 | ID | Feature | Depends on |
 |---|---|---|
-| F35 | Groundwork and safe removals | — |
-| F36 | Server: `explain-document` | F35 |
+| F35 | Groundwork and safe removals — [task file](F35-groundwork-and-removals.md), **closed 2026-11-09** | — |
+| F36 | Server: `explain-document` — [task file](F36-server-explain-document.md), **in progress** | F35 |
 | F37 | Voice spine: Gemini Live | F35 |
 | F38 | Paper model, auto-save and audio storage | F36 schema, F37 |
 | F39 | Capture flow | F38 |
