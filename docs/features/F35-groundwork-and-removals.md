@@ -135,7 +135,7 @@ next phase does not start.
 
 ### Phase B — the server config keys
 
-- [ ] **T04** Migration `supabase/migrations/<ts>_explain_document_config.sql`:
+- [x] **T04** Migration `supabase/migrations/<ts>_explain_document_config.sql`:
       insert `explain_schema_version` = `"1.0"` and `explain_enabled` = `false`,
       both `on conflict (key) do nothing`. **Must not touch `schema_version` or
       `online_ocr_enabled`** — the published app depends on both. Header comment
@@ -198,6 +198,13 @@ next phase does not start.
       > served separately with `supabase functions serve --env-file
       > supabase/.env`. `supabase start` alone leaves `/functions/v1/health`
       > answering 503.
+      >
+      > **CLOSED 2026-11-09 by the T19 device run.** The third criterion —
+      > the published app's analysis succeeding against the local stack —
+      > was met by the real dev app on the RMX2001 over `adb reverse`:
+      > `get-usage` 200 against the migrated config with the response shape
+      > unchanged, then `ocr-document` 200 and `analyze-document` 200 for a
+      > full invoice. See T19's record.
 - [x] **T05** `RuntimeConfig`: add `explainSchemaVersion: string` and
       `explainEnabled: boolean` with defaults `"1.0"` / `false`, parsed by the
       existing helpers. Unit tests for absent / blank / malformed / valid.
@@ -666,11 +673,66 @@ unreachable failure type mid-phase.
 
 ### Phase H — the gate
 
-- [ ] **T19** Full gate: `dart format .`, `flutter analyze`, `flutter test`,
+- [x] **T19** Full gate: `dart format .`, `flutter analyze`, `flutter test`,
       `deno test`, plus a device pass on the RMX2001 (API 30) proving the **old**
       flow is intact end to end: intro → Home → camera → crop (no quality sheet)
       → online read → review → analysis → result → save. *Done when:* all four
       commands are green and the device pass is recorded in this file.
+      > **All four commands green at `fdbcf05`:** `dart format .` 0 changed ·
+      > `flutter analyze` 19 issues, every one a pre-existing `info` in a
+      > file F35 never touched, 0 errors / 0 warnings · `flutter test`
+      > **2825 passed** · `deno test --allow-env --allow-net supabase/tests`
+      > **767 passed, 0 failed, 69 ignored** (the live ones, which want keys
+      > or a stack). The Deno suite needs no Docker — worth knowing, since
+      > this plan assumed otherwise.
+      >
+      > **Device pass — RMX2001 `QCKFXSDAGMCIPB55`, Android 11 (API 30),**
+      > dev flavour over `adb reverse tcp:54321`, local stack with the
+      > owner's real provider keys, production-like config (`daily_limit 3`,
+      > `analysis_enabled true`, `online_ocr_enabled true`,
+      > `schema_version "2.0"`). Build `assembleDevDebug` 67.3 s → installed
+      > 6.0 s. Neither `com.war2aty.app` nor `com.war2aty.app.dev` was on the
+      > phone beforehand (only an old `war2aty_ocr_spike`), so **first run
+      > was genuine and is not repeatable** without `pm clear`.
+      >
+      > | § | Check | Evidence | Result |
+      > |---|---|---|---|
+      > | 1 | intro «ابدأ الآن» → Home, no privacy page (T10/T11) | owner, on a true first run | **pass** |
+      > | 2 | Settings «الخصوصية»: no consent toggle, no «طريقة المعالجة», no phantom skeleton row (T08/T12) | owner | **pass** |
+      > | 2b | «سياسة الخصوصية» renders four promises, no CTA (T11/T17) | owner | **pass** |
+      > | 3 | crop confirmed → straight through, no quality sheet (T14–T16) | owner; server shows the flow going on to `ocr-document` with nothing in between | **pass** |
+      > | 3b | same with a deliberately blurry shot | owner only — see the gap below | **pass (owner-observed)** |
+      > | 4 | review «الكلام اللي لقيناه» clean, no fallback banner | owner; `ocr-document` 200 in 8721 ms, so no failure existed for a banner to report | **pass** |
+      > | 5 | analysis → result, Home 3 → 2 | `analyze.provider` `mistral` `failed_over:false`; `analyze.completed` `invoice`, `counted:true`, `used_today 1`, `daily_limit 3` | **pass** |
+      > | 6 | save, reopen from Home | owner (local Drift, no server trace by design) | **pass** |
+      >
+      > **Zero app errors for the whole session:** no `E/flutter`, no
+      > unhandled exception, and every backend call 200 — 3 `get-usage` from
+      > the app, 1 `ocr-document` (8721 ms), 1 `analyze-document` (7335 ms).
+      >
+      > **The one honest gap.** Only **one** capture ever reached the server.
+      > The blurry run of §3b left no trace at all, so its result rests on
+      > the owner's eyes rather than a log. That is still sufficient for what
+      > T14–T16 removed — the gate sat at crop-confirm, *before* any reading,
+      > so the absence of the sheet is fully observable on the phone — but a
+      > log-backed second capture was not obtained, and this row should not
+      > be cited as if it were. The same server-vs-screen cross-check is what
+      > caught the owner having already walked §3–§5 while reporting §1.
+      >
+      > **Benign noise, recorded so nobody re-investigates it.** The run log
+      > carries a `W/KeyStore … ServiceSpecificException (code 7)` stack from
+      > `flutter_secure_storage`'s key-mismatch path on a fresh install; it
+      > resolves itself two lines later (`No data to migrate` → `Migrated 0
+      > items` → `completed successfully`). A launch watcher grepping for
+      > `Exception` matched that warning and reported a failure that had not
+      > happened — filter's fault, not the app's.
+      >
+      > **Caveat machinery working, not a defect.** `analyze.validated`
+      > reported `downgraded: "amounts,amounts,amounts,amounts,dates"`,
+      > `dropped_fields: "dates"`, `dropped_items: 1`, giving
+      > `status: "partial"` — four amounts and a date shown as unconfirmed
+      > rather than as fact, which is §7's «راجع المعلومة» rule doing its job
+      > on a real Egyptian invoice.
 
 ## Files
 
@@ -761,3 +823,36 @@ and the matching test files.
    production, and the published 1.0.2 app still analyses a paper successfully
    against production after the migration.
 6. F34 carries the amendments section; `docs/features/README.md` lists F35.
+
+### Status — 2026-11-09
+
+| # | State | Evidence |
+|---|---|---|
+| 1 | **done** | T01–T19 all checked, a commit each, `feature/non-reader` pushed |
+| 2 | **done** | recorded in T19: 0 changed · 19 pre-existing infos, 0 errors/warnings · 2825 passed · 767 passed / 69 ignored |
+| 3 | **done** | T19's table, with its one owner-observed row called out |
+| 4 | **done, and tighter than written** | exactly **one** hit — `app_strings.dart`'s doc comment on the photo opt-in. The two OCR-result strings this item allowed for do not match the pattern at all |
+| 5 | **OUTSTANDING — owner** | see below |
+| 6 | **done** | `README.md:50` lists F35; F34 § "Amendments (2026-11-08)" |
+
+**Item 5, and a correction to how it is written.** It asks for the keys in
+staging **and** production. There is no staging: `docs/TEST-BUILD-ROLLOUT.md`
+records that this project was promoted on 2026-09-06 and that "anything tried
+against this project is tried against production". So the item collapses to a
+single apply against the one live project — which is also why its smoke test
+carries the weight it does, with no safe rehearsal in front of it.
+
+Two practical notes for whoever runs it:
+
+- `supabase db push` does not work on this network (Postgres port blocked —
+  the same reason earlier sessions verified through `app_runtime_config` rows
+  and applied changes over HTTPS). The apply goes through the console SQL
+  editor, pasting `20261108120000_explain_document_config.sql` as written.
+- The smoke test needs the published build **installed**: the device run found
+  neither `com.war2aty.app` nor `com.war2aty.app.dev` on the owner's phone, so
+  the 1.0.2 APK has to go back on before it can be smoke-tested.
+
+The apply itself is as safe as it can be made: both rows are
+`on conflict (key) do nothing`, nothing reads either value yet, and the local
+apply proved by before/after diff that `schema_version` and
+`online_ocr_enabled` are untouched.
