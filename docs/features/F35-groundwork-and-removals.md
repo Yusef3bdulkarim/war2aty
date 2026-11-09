@@ -835,19 +835,36 @@ and the matching test files.
 | 5 | **OUTSTANDING — owner** | see below |
 | 6 | **done** | `README.md:50` lists F35; F34 § "Amendments (2026-11-08)" |
 
-**Item 5, and a correction to how it is written.** It asks for the keys in
-staging **and** production. There is no staging: `docs/TEST-BUILD-ROLLOUT.md`
-records that this project was promoted on 2026-09-06 and that "anything tried
-against this project is tried against production". So the item collapses to a
-single apply against the one live project — which is also why its smoke test
-carries the weight it does, with no safe rehearsal in front of it.
+**Item 5 stands exactly as written, and an earlier note in this file got it
+wrong.** A previous pass claimed there is no staging environment, reading the
+"Promoted to production — 2026-09-06" section at the end of
+`docs/TEST-BUILD-ROLLOUT.md` and missing the superseding note at the top of
+that same file, added later (2026-10-05, F27-T04). The truth:
+
+| Role | Project ref | Region | Note |
+|---|---|---|---|
+| **staging** | `jecujrsvbmashkpobtsz` | `ap-northeast-2` (Seoul) | the original project, redesignated staging on 2026-10-05 |
+| **production** | `ivbpmzasxpphclundjyy` | `eu-central-1` (Frankfurt) | what `config/prod.json` points at, so what the published 1.0.2 app talks to |
+
+So there IS a safe rehearsal: **apply to staging first, verify, then apply to
+production** — which is what item 5 asked for all along. The correction matters
+because the wrong version argued the apply had no rehearsal and therefore
+carried more risk than it does.
 
 Two practical notes for whoever runs it:
 
 - `supabase db push` does not work on this network (Postgres port blocked —
   the same reason earlier sessions verified through `app_runtime_config` rows
   and applied changes over HTTPS). The apply goes through the console SQL
-  editor, pasting `20261108120000_explain_document_config.sql` as written.
+  editor, pasting `20261108120000_explain_document_config.sql` as written —
+  into **staging first, then production**.
+- **An agent session cannot do this apply.** Both the hosted-database reads and
+  the PR merges were refused by the harness's permission classifier
+  (`Production Reads`, `Merge Without Review`) on 2026-11-09, so the two
+  applies and the two merges are the owner's to run, or need an explicit
+  permission rule added first. Verifying them afterwards is cheap: the keys
+  must read `"1.0"` / `false`, and `schema_version` and `online_ocr_enabled`
+  must be byte-identical before and after.
 - The smoke test needs the published build **installed**: the device run found
   neither `com.war2aty.app` nor `com.war2aty.app.dev` on the owner's phone, so
   the 1.0.2 APK has to go back on before it can be smoke-tested.
