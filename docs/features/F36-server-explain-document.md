@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 1 / 21 — D1–D4 answered and **T01 approved** 2026-11-09; T02 (the Live spike) is the owner's to run, T03 next
+- **Progress:** 1 / 21 — T01 approved 2026-11-09. T02's spike tool is written and tested; **the run is the owner's** (the sandboxes cannot reach Google). T03 next
 
 ## Why this feature exists
 
@@ -348,7 +348,7 @@ the voice card-splitting all hang off.
       >    ≤ 220 characters, ~1,100 characters a page ≈ **75 seconds** of
       >    speech — which is also the per-paper audio budget F37/F38 size
       >    their storage against.
-- [ ] **T02** **GATE · the Gemini Live spike** (F34-T14), pulled forward from
+- [~] **T02** **GATE · the Gemini Live spike** (F34-T14), pulled forward from
       14th place because it is the only task whose failure invalidates the
       product's shape. Write `supabase/tools/live-spike.ts` for the owner to run
       on his own machine — the dev sandboxes cannot reach Google — which
@@ -362,6 +362,28 @@ the voice card-splitting all hang off.
       *Done when:* `docs/features/F36-live-spike.md` records the three answers
       with the numbers, and F37 is either cleared to start or blocked with a
       named reason.
+      > **TOOL WRITTEN 2026-11-09, the run is owed.**
+      > `supabase/tools/live-spike.ts` discovers the model off the key itself
+      > (ListModels filtered to `bidiGenerateContent`) instead of hard-coding
+      > an id, probes **both** `/v1alpha/auth_tokens` and `/v1beta/auth_tokens`
+      > — the task file above assumed v1beta and that was never verified —
+      > then runs three read-aloud sessions over the API key and one more over
+      > the ephemeral token, which is the exact path the phone would use.
+      >
+      > Verbatim is judged on Live's own `outputAudioTranscription`, folded
+      > (diacritics, tatweel, the alef family, ya, ta marbuta, Arabic-Indic
+      > digits) and word-diffed against the source: ≤ 5 % WER verbatim, 5–15 %
+      > needs the added/dropped words read, > 15 % paraphrasing. That
+      > judgement is the only part of the tool that decides anything, so it is
+      > under test — `supabase/tests/unit/live-spike-diff.test.ts`, 11 cases,
+      > including audio-with-no-transcription reported as its own outcome
+      > rather than a pass. The tool prints no key and no token (an ephemeral
+      > token's `name` *is* the credential), and the read-aloud text is
+      > invented, so no real paper is ever sent.
+      >
+      > `docs/features/F36-live-spike.md` carries the run command, the verdict
+      > table and empty slots for the three answers. **Owed: the owner's run**,
+      > then the answers pasted in and F37 cleared or blocked.
 - [ ] **T03** Confirm the reading chain's real inputs: a
       `supabase/tools/list-gemini-models.ts` (the shape of
       `list-gemma-models.ts`) listing the image-capable models the production
@@ -535,7 +557,7 @@ supabase/functions/_shared/explain/explain-request.ts    T14
 supabase/functions/_shared/explain/explain-handler.ts    T15
 supabase/functions/_shared/explain/explain-response.ts   T15
 supabase/functions/_shared/ai/leg-chain.ts               T06
-supabase/functions/_shared/ai/mistral-ocr-client.ts      T08 (conditional)
+supabase/functions/_shared/ai/mistral-ocr-client.ts      T08
 supabase/functions/_shared/schemas/explain-output.schema.ts  T09
 supabase/functions/_shared/prompts/explain-prompt.ts     T10
 supabase/functions/_shared/validators/explain-grounding.ts   T12
