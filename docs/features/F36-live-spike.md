@@ -4,10 +4,12 @@
 `supabase/tools/live-spike.ts` (verdict logic under test in
 `supabase/tests/unit/live-spike-diff.test.ts`, 11 cases).
 
-**Status: question 1 answered — Live reads verbatim.** Question 2 is half
-answered: the session itself works on the free tier, but the token minting
-failed on *this tool's* payload, so it says nothing yet about tokens. Question 3
-is still owed. A second run closes both.
+**Status: CLOSED by the owner 2026-11-09.** Question 1 is answered — Live reads
+verbatim. Question 3 is answered from his AI Studio page. Question 2 is
+answered for the session (it works on the free tier) and **not** for the
+ephemeral token: that probe failed on this tool's own payload and the fixed
+version was never run, so the token question is **carried to F37-T15**, which
+starts by re-running this tool.
 
 **Why this is a gate.** F37 assumes the app can hand Live a finished Arabic
 explanation and have it read **that text**, and that the phone can hold a
@@ -69,9 +71,13 @@ the measured speech rate the approved caps read for **~95 seconds**, not 75 —
 about 27 % over, and ~390 KB of audio instead of ~300 KB.
 
 The per-card caps do not need to move. What is missing is a **page total**: cap
-the whole response at **~850 characters** and the page lands back on 75 s. That
-is a one-line addition to §33 and a server-side check in T11/T12, and it is the
-owner's call — see "Owed" below.
+the whole response at **850 characters** and the page lands back on 75 s.
+
+**Decided 2026-11-09: 850 characters.** The owner chose to hold the 75-second
+read and F38's ~0.3 MB-per-paper budget rather than accept a ~95-second read.
+The cap is now in §33.3 of `docs/API_CONTRACT.md`, counting every string the
+voice reads, and F36-T11/T12 enforce it — over the cap the last `explain`
+paragraphs go first, never `todo`, `date`, `caution` or `contact`.
 
 Note also that the wall clock (11–13 s) is *shorter* than the spoken audio: Live
 streams faster than real time, so the user starts hearing the paper well before
@@ -120,27 +126,55 @@ finding, not a blocker — it is still single-use and expires in minutes.
 accepts them. This is an F37 input, not a gate: a refusal means F37 takes the
 default voice.
 
-## 3 · What is the quota?
+## 3 · What is the quota? — **TPM-bound, not RPD-bound**
 
-*Awaiting the owner.* No endpoint reports Live limits. From
-<https://aistudio.google.com/app/apikey> → this key's **rate limits**: the tier
-name, and RPM / TPM / RPD for the model F37 will use, plus whether sessions or
-concurrent connections are mentioned at all.
+Read off the owner's AI Studio rate-limit page, 2026-11-09:
+
+| | |
+|---|---|
+| Tier | **free** |
+| Model | Gemini 2.5 Flash Native Audio Dialog (Live API) |
+| RPM | **unlimited** |
+| TPM | **1 M** |
+| RPD | **unlimited** |
+| Sessions / concurrent connections | not listed |
+
+This is a different shape from the reading legs, which are daily buckets. Live
+has **no daily ceiling to exhaust**: the only limit is tokens per minute, and a
+75-second read is nowhere near 1 M. So the voice does not need a day-counter of
+its own, and `explain_daily_limit` stays what it is — a product decision about
+how many papers a user explains per day, not a provider constraint.
+
+Two cautions. The absence of a session cap on the dashboard is not a promise of
+one — it is simply not published, and concurrency is the limit a live audio
+stream would actually hit first. And the row read is for the 2.5 native-audio
+model; if F37 picks `gemini-3.8-live` or `gemini-3.1-flash-live-preview`, its
+row has to be read again.
 
 Observed in the run itself: 3 sessions back-to-back, no rate-limit error.
 
-## Decision
+## Decision — **F37 is cleared**
 
-**F37 is cleared on the question that mattered.** Live reads a supplied Arabic
-explanation verbatim and streams it faster than real time, so the voice spine
-can be built as designed.
+Live reads a supplied Arabic explanation verbatim, streams it faster than real
+time, and has no daily ceiling on the free tier. The voice spine can be built as
+designed. **T02 is closed.**
 
-Owed before it is fully closed:
+What F37 inherits from this spike:
 
-1. **A second run of the tool** — it answers the token question properly (§2)
-   and the voice/language question (§2b). F37-T15 (the token endpoint) must not
-   be built until the token half is answered.
-2. **The quota numbers** off AI Studio (§3).
-3. **An owner decision on the page total**: cap §33's response at ~850
-   characters to hold the approved 75-second read, or accept a ~95-second read
-   and re-size F38's audio budget.
+1. **The ephemeral token is an open question, not a yes** (§2). F37-T15 begins
+   by re-running `supabase/tools/live-spike.ts`: the minimal-body probe answers
+   whether the free tier mints tokens, and the field-name probes answer how to
+   constrain one. If tokens do not exist, the voice needs a **server relay** —
+   the key cannot ship inside the app. Do not build the token endpoint on the
+   assumption that the 400 in §2 was Google's answer; it was this tool's bug.
+2. **Voice and language choice is unverified** (§2b). v1beta refuses
+   `speechConfig` outright; the same re-run asks v1alpha. A refusal means the
+   default voice, which the spike shows reads Arabic correctly from the text.
+3. **Play the stream, do not wait for a file** — the audio arrives in half the
+   time it takes to speak.
+4. **Keep the two conditions that produced 0.0 % WER:** the verbatim
+   instruction in `systemInstruction` with the text as the user turn, and
+   `temperature: 0` with `outputAudioTranscription` on — which is also how F37
+   can verify a read in production without a second STT.
+5. **Re-read the quota row** if F37 picks a different Live model than the 2.5
+   native-audio one spiked here.

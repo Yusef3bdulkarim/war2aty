@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 1 / 21 — T01 approved 2026-11-09. T02 ran the same day: **Live reads verbatim (0.0 % WER)**, so F37's premise holds; the token probe, the quota numbers and a page-total decision are still owed. T03 next
+- **Progress:** 2 / 21 — T01 and T02 closed 2026-11-09. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T03 next
 
 ## Why this feature exists
 
@@ -348,7 +348,7 @@ the voice card-splitting all hang off.
       >    ≤ 220 characters, ~1,100 characters a page ≈ **75 seconds** of
       >    speech — which is also the per-paper audio budget F37/F38 size
       >    their storage against.
-- [~] **T02** **GATE · the Gemini Live spike** (F34-T14), pulled forward from
+- [x] **T02** **GATE · the Gemini Live spike** (F34-T14), pulled forward from
       14th place because it is the only task whose failure invalidates the
       product's shape. Write `supabase/tools/live-spike.ts` for the owner to run
       on his own machine — the dev sandboxes cannot reach Google — which
@@ -415,8 +415,28 @@ the voice card-splitting all hang off.
       > one request each; a new §2b also asks v1alpha whether the language
       > and voice can be set.
       >
-      > **Owed before T02 closes:** a second run (tokens + §2b), the quota
-      > numbers off AI Studio, and the owner's decision on the page total.
+      > **CLOSED by the owner 2026-11-09** on these results, with two
+      > decisions and one carry:
+      >
+      > - **Page total: ≤ 850 characters.** Option 1 — hold the ~75-second
+      >   read and F38's ~0.3 MB audio budget rather than accept ~95 s. Now
+      >   in §33.3 with the measurement behind it; **T11 and T12 enforce it**
+      >   server-side.
+      > - **Quota, read off the owner's AI Studio page:** free tier, Gemini
+      >   2.5 Flash Native Audio Dialog (Live API) — **RPM unlimited, TPM
+      >   1 M, RPD unlimited**, and no session or concurrent-connection cap
+      >   listed. So the Live leg is not a daily bucket like the reading
+      >   legs; the constraint is tokens per minute, which a 75-second read
+      >   is nowhere near. F37 sizes its own backpressure from TPM, not RPD.
+      > - **CARRY to F37-T15 — the ephemeral token is still unanswered.** The
+      >   fixed payload (minimal body, then six candidate constraint field
+      >   names) was never run, so nothing is known about whether the free
+      >   tier mints tokens. F37-T15 starts by running
+      >   `supabase/tools/live-spike.ts` again; if tokens do not exist, the
+      >   voice needs a server relay, because the key cannot ship in the app.
+      >   The same run also answers §2b (whether the language and voice can
+      >   be chosen at all, since v1beta refuses `speechConfig`).
+      >
       > The session itself is proven on the free tier: 4 sessions, no 429,
       > 9 of the key's 61 models advertise `bidiGenerateContent`.
 - [ ] **T03** Confirm the reading chain's real inputs: a
@@ -498,7 +518,8 @@ the voice card-splitting all hang off.
       `gemma-config.ts` / `gemma-native-client.ts` out of EXPERIMENT **only
       after T18 measures the schema-enforcement premise** (trap #2). *Done
       when:* unit tests cover the three-leg routing and the headers no longer
-      claim benchmark-only.
+      claim benchmark-only, and the prompt states §33.3's **≤ 850-character page
+      total** alongside the per-card caps.
 - [ ] **T12** Grounding and dedupe (F34-T09): a phone number, amount or date may
       appear in a card **only if it literally appears in the reading** —
       reusing `number-validator`, `date-validator` and `text-matching`'s digit
@@ -508,6 +529,12 @@ the voice card-splitting all hang off.
       an invented phone number being dropped, an invented amount being dropped,
       a date that is on the page surviving, and a sentence repeated across two
       cards being stripped once.
+      Also the **page-total check** (§33.3, measured in T02): the sum of every
+      string the voice reads is capped at **850 characters** ≈ 75 s at the
+      measured 11.3–12.1 characters a second. Over the cap, the last `explain`
+      paragraphs go first — never `todo`, `date`, `caution` or `contact`, which
+      are what the user acts on. *Also done when:* a test drives a 1,200-character
+      response down to ≤ 850 with `todo` and `date` intact.
 - [ ] **T13** Interim prescription / lab behaviour (F34-T13) as its own tested
       path: a prescription explains *that* it is a prescription, by whom and
       when, and tells the user to have the pharmacist read the drugs; a lab

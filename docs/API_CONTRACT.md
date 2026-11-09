@@ -952,7 +952,8 @@ a confidence field; **`date.text` is drawn on the ميعاد card**, not voice-o
 which adds one line to that card in F40; `status: "unsupported"` shows the
 ordinary result screen with one honest card and a **free** slot; and the length
 caps hold at a ~75-second read (≤ 24-character title, 1–4 paragraphs of ≤ 220
-characters, ~1,100 characters a page).
+characters, **≤ 850 characters for the whole page** — measured, not estimated:
+see §33.3).
 
 `POST /functions/v1/explain-document` replaces the two-call flow for the F34
 non-reader pivot: the phone sends the photo **once**, the server reads it and
@@ -1011,7 +1012,7 @@ Decoded `image.data` above `RuntimeConfig.maxImageBytes` → `400 INVALID_REQUES
   // Every card below `explain` may be null; a null card is not drawn and
   // not spoken. `explain` and `todo` are never null.
 
-  "explain": [                        // 1-4 paragraphs, each <= 220 characters
+  "explain": [                        // 1-4 paragraphs, each <= 220 chars; page <= 850
     "دي ورقة من مدرسة النور لولي أمر الطالب أحمد محمود في الصف الرابع. المدرسة بتعزمك على اجتماع أولياء الأمور عشان يكلموك عن مستوى أحمد في نص السنة.",
     "الاجتماع هيبقى مع مدرّس الفصل، وهيوريك درجات أحمد في الامتحانات اللي فاتت."
   ],
@@ -1087,6 +1088,20 @@ screen the design actually specifies.
 The model writes **no card titles** — the app owns every title and icon.
 `todo.required: false` still produces text: it says what to do with the paper
 when the paper asks nothing (e.g. «الورقة دي للعلم بس، احفظها عندك.»).
+
+**The page total: ≤ 850 characters**, counting every string the voice reads —
+`paper.title`, every `explain` paragraph, `todo.text`, `date.text`,
+`caution.text`, `contact.name` and `place.text`. The per-card caps above still
+hold individually; this is the ceiling on their sum, and the server trims or
+re-asks rather than answering over it.
+
+The number is measured, not guessed. F36-T02's Live spike read a
+304-character page in ~26 s of 24 kHz 16-bit mono PCM — **11.3–12.1 characters
+a second** — so 850 characters is the ~75-second read the design was approved
+against, and the ~0.3 MB of stored audio F38 budgets per paper. The earlier
+~1,100-character figure was an estimate made before that measurement and would
+have read for ~95 s. Enforced server-side in F36-T11/T12; see
+`docs/features/F36-live-spike.md` for the run.
 
 ### §33.4 · Grounding — omission, not hedging
 
