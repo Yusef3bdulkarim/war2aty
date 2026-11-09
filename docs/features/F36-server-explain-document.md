@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 6 / 21 — T01–T06 closed, Phases A and B done, Phase C started. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. **T07 next** — the three Gemini reading legs over that chain.
+- **Progress:** 7 / 21 — T01–T07 closed, Phases A and B done, Phase C one task from finished. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. **T08 next** — the ids from the environment, which is all that is left of Phase C. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
 
 ## Why this feature exists
 
@@ -749,7 +749,7 @@ the voice card-splitting all hang off.
       > the right proof here; the next endpoint task (T16/T19) needs the stack
       > up again. **No Dart was touched**, so the Flutter half of the gate is
       > unchanged from T05's green run.
-- [ ] **T07** The reading chain, three legs, all Gemini (D1-bis):
+- [x] **T07** The reading chain, three legs, all Gemini (D1-bis):
       `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash` →
       all failed. Every leg reuses `createGeminiOcrClient` with a different
       model id, so the chain gains a leg without gaining a client; the stage
@@ -758,6 +758,69 @@ the voice card-splitting all hang off.
       "جرب كمان شوية". *Done when:* unit tests cover each leg succeeding, each
       failing over, a non-eligible failure (`auth`, `bad_request`) **not**
       failing over, and the all-failed mapping.
+      > **DONE 2026-11-10.** `supabase/functions/_shared/ai/reading-chain.ts`
+      > — `createReadingChain` maps model ids onto T06's `createLegChain`, and
+      > **builds no transport at all**: `createGeminiOcrClient` already has the
+      > shape of a `ChainLeg.run`, `(image, signal) => Promise<GeminiOcrResult>`,
+      > so a leg is `{ name, run: createGeminiOcrClient({ ...gemini, model }) }`.
+      > The chain gained a leg without gaining a client, exactly as D1-bis
+      > intended. **Nothing existing was modified** — T07 is two new files.
+      >
+      > **The tests drive a fake `fetch`, not fake legs.** The claim being
+      > tested is that each leg is a REAL Gemini client on a DIFFERENT id, and
+      > only the URLs can show that: 31 cases assert the three
+      > `:generateContent` URLs in order, one key behind all three, and that
+      > the `GeminiOptions.model` the caller passes in (what
+      > `geminiOptionsFromEnv` reads for `ocr-document`) is never read with.
+      >
+      > Beyond the four the task names: an ineligible failure on the **middle**
+      > leg stopping the chain, **404 pinned as non-failover** (T03 found both
+      > 2.5 ids retired — a stale id must be loud, not quietly routed around),
+      > the build-time refusals, and a loop over the closed
+      > `PROVIDER_FAILURE_KINDS` asserting **no reading failure can produce
+      > `OCR_UNAVAILABLE`** (trap #3), so a kind added later fails the test
+      > rather than slipping through.
+      >
+      > **The stage needed its own cap and floor, and the numbers are derived,
+      > not measured.** The analysis chain's 18 s cap inside D4's 10 s reading
+      > budget would have let leg 1 eat the stage and made legs 2 and 3
+      > decorative. The constraint used instead is that **all three legs stay
+      > reachable when every one of them hangs**: `4 s + 4 s + 2 s = 10 s`
+      > exactly, which a test pins as an identity rather than as three magic
+      > numbers. T03's probes read a page in 0.7–1.4 s, so a 4 s cap is ~3× the
+      > slowest reading seen; **T18 measures real pages and may move it.**
+      > `DEFAULT_READ_STAGE_SECONDS = 10` is exported here for T15 to split the
+      > request with.
+      >
+      > **Two scope lines held on purpose:**
+      > - **The model ids are required, never defaulted.** Same reason
+      >   `GEMINI_MODEL` is not defaulted (F20 D1): a stale hardcoded id
+      >   answers 404 on every photo, which is `bad_request` and so never fails
+      >   over — a config slip would become a total outage of reading. T08
+      >   supplies them from the environment; whitespace and duplicate cleanup
+      >   is T08's too, and the chain only refuses blank and over-long lists.
+      > - **At most 3 ids**, because `ProviderName` is a closed union and a
+      >   fourth leg would have no name in the log. `MAX_READING_LEGS` is
+      >   derived from that list, not written twice.
+      >
+      > **Open question handed to T15, not answered here:** an empty reading is
+      > an ANSWER, not a failure (F20 matrix O2) — a blank page really is
+      > blank, and the chain passes `""` through rather than quietly spending a
+      > second leg on it. But `explain-document` cannot explain nothing, so
+      > **T15 has to decide what the handler answers for an empty reading**;
+      > §33 has no "nothing readable" case yet. Routing is the wrong layer to
+      > invent one in.
+      >
+      > The §31 mapping defaults to `analysisApiErrorFor`, which is already
+      > what this stage needs (429 → AI_RATE_LIMITED, our budget → TIMEOUT,
+      > outage/unusable → ANALYSIS_FAILED, bad key or bad id → INTERNAL_ERROR)
+      > and reaches no `OCR_UNAVAILABLE`. It is injectable, so **T17 confirms
+      > or replaces it** without touching this file's shape.
+      >
+      > Gate: **835 passed, 0 failed** (`deno task test`; 804 → 835, all 31
+      > new), `deno check **/*.ts` exit 0, `deno lint` clean, `deno fmt --check`
+      > clean for both new files. The same pre-existing CRLF set as T06 still
+      > reports "Text differed by line endings" and is still untouched. No Dart.
 - [ ] **T08** *(rewritten by D1-bis — no new client)* The third reading leg is
       a **model id, not a provider**: `GEMINI_OCR_MODELS` (or three discrete
       env names, whichever reads better next to `geminiOptionsFromEnv`) so the
