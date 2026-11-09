@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../app/router/app_router.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -9,6 +8,7 @@ import '../../../../core/theme/app_radii.dart';
 import '../../../../core/theme/app_shadows.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../cubit/onboarding_cubit.dart';
 import '../widgets/primary_cta.dart';
 
 // Measurements taken from `Waraqti.dc.html` → `intro`; the ones that fall off
@@ -88,7 +88,15 @@ class OnboardingScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xl),
               PrimaryCta(
                 label: s.onboardingStart,
-                onPressed: () => context.go(AppRoutes.privacy),
+                // Flips the first-run flag itself (F35-T10). Until F35 this
+                // handed off to the privacy screen, which was the only thing
+                // that ever called `complete()` — so when F34 removed that
+                // screen, the flag would never have been set and
+                // `_firstRunRedirect` would have pinned every launch here,
+                // with no route to Home. The router has no explicit `go`
+                // because it watches this cubit: the redirect re-evaluates on
+                // the state change.
+                onPressed: () => context.read<OnboardingCubit>().complete(),
               ),
             ],
           ),

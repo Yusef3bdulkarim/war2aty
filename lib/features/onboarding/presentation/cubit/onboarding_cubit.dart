@@ -5,7 +5,8 @@ import '../../domain/usecases/has_seen_onboarding.dart';
 import 'onboarding_state.dart';
 
 /// Owns the first-run gate: reads the persisted flag once at launch, and flips
-/// it when the user finishes the privacy step.
+/// it when the user taps the intro's CTA (F35-T10 — until then the deleted
+/// privacy step was the only caller).
 ///
 /// App-scoped (a single instance) because the router's redirect reads this
 /// state. Depends on use cases only — no repository, no BuildContext.

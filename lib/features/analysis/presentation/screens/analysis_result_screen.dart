@@ -32,12 +32,10 @@ import '../cubit/analysis_result_state.dart';
 import '../widgets/analysis_progress_view.dart';
 import '../widgets/extracted_text_only_view.dart';
 import '../widgets/failure/analysis_steps_card.dart';
-import '../widgets/failure/consent_value_card.dart';
 import '../widgets/failure/extracted_text_entry_card.dart';
 import '../widgets/failure/failure_note_chip.dart';
 import '../widgets/failure/failure_tips_card.dart';
 import '../widgets/failure/limit_reset_card.dart';
-import '../widgets/failure/privacy_text_note.dart';
 import '../widgets/failure/supported_documents_section.dart';
 
 // From `Waraqti.dc.html` → the result page. The top of the page is F21's
@@ -57,7 +55,6 @@ class AnalysisResultScreen extends StatelessWidget {
     this.onSave,
     this.onCaptureAnother,
     this.onPickFromGallery,
-    this.onOpenSettings,
     super.key,
   });
 
@@ -80,10 +77,6 @@ class AnalysisResultScreen extends StatelessWidget {
   /// Opens the gallery instead: the other way out of an unsupported paper
   /// (F23 #5).
   final VoidCallback? onPickFromGallery;
-
-  /// Opens the settings screen. The way out of a declined analysis consent
-  /// (F11-T02) — absent until the settings screen exists to open (F11-T01).
-  final VoidCallback? onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -109,7 +102,6 @@ class AnalysisResultScreen extends StatelessWidget {
               onClose: onClose,
               onCaptureAnother: onCaptureAnother,
               onPickFromGallery: onPickFromGallery,
-              onOpenSettings: onOpenSettings,
             ),
           },
         ),
@@ -404,14 +396,12 @@ class _FailureBody extends StatefulWidget {
     this.onClose,
     this.onCaptureAnother,
     this.onPickFromGallery,
-    this.onOpenSettings,
   });
 
   final AnalysisResultFailed state;
   final VoidCallback? onClose;
   final VoidCallback? onCaptureAnother;
   final VoidCallback? onPickFromGallery;
-  final VoidCallback? onOpenSettings;
 
   @override
   State<_FailureBody> createState() => _FailureBodyState();
@@ -433,11 +423,6 @@ enum _FailureKind {
   /// This kind of paper cannot be explained responsibly. No retry either: the
   /// same text would come back unsupported, at the cost of one analysis.
   unsupported,
-
-  /// The user turned off «السماح بإرسال النص للتحليل» (F11-T02). Not an
-  /// error — retrying would fail the exact same way until the setting
-  /// changes, so the way forward is Settings, not another attempt.
-  consentDeclined,
 
   /// The service could not answer. Worth another try in a moment.
   serviceProblem,
@@ -467,7 +452,6 @@ class _FailureBodyState extends State<_FailureBody> {
         _FailureKind.offline => strings.analysisNoInternetTitle,
         _FailureKind.limitReached => strings.analysisLimitReachedTitle,
         _FailureKind.unsupported => strings.analysisUnsupportedTitle,
-        _FailureKind.consentDeclined => strings.analysisConsentDeclinedTitle,
         _FailureKind.serviceProblem => strings.analysisFailedTitle,
       },
       message: switch (kind) {
@@ -477,7 +461,6 @@ class _FailureBodyState extends State<_FailureBody> {
           null => strings.analysisLimitReachedMessage,
         },
         _FailureKind.unsupported => strings.analysisUnsupportedMessage,
-        _FailureKind.consentDeclined => strings.analysisConsentDeclinedMessage,
         _FailureKind.serviceProblem => strings.analysisFailedMessage,
       },
       note: kind == _FailureKind.unsupported
@@ -569,12 +552,6 @@ class _FailureBodyState extends State<_FailureBody> {
             ],
           ),
         ],
-        // What turning it on would give, and what happens to the text then
-        // (F23 #9). The way there is Settings; nothing is switched here.
-        _FailureKind.consentDeclined => const [
-          ConsentValueCard(),
-          PrivacyTextNote(),
-        ],
       };
 
   void _openText() => setState(() => _showText = true);
@@ -583,7 +560,6 @@ class _FailureBodyState extends State<_FailureBody> {
     NoInternetFailure() => _FailureKind.offline,
     DailyLimitReachedFailure() => _FailureKind.limitReached,
     UnsupportedDocumentFailure() => _FailureKind.unsupported,
-    AnalysisConsentDeclinedFailure() => _FailureKind.consentDeclined,
     _ => _FailureKind.serviceProblem,
   };
 
@@ -638,9 +614,7 @@ class _FailureBodyState extends State<_FailureBody> {
         null => null,
       };
 
-  /// Retrying leads the way where it can work; a declined consent leads to
-  /// Settings instead, since retrying would only fail the same way again;
-  /// otherwise the text does.
+  /// Retrying leads the way where it can work; otherwise the text does.
   /// [home] is returned itself, never a copy, when nothing else applies —
   /// so the page can tell and not offer home a second time.
   ServiceStateAction _primary(AppStrings strings, ServiceStateAction home) {
@@ -648,14 +622,6 @@ class _FailureBodyState extends State<_FailureBody> {
     // gallery; its text is a card in the page instead (F23 #5).
     if (_kind == _FailureKind.unsupported) {
       return _cameraAction(strings) ?? _galleryAction(strings) ?? home;
-    }
-    if (_kind == _FailureKind.consentDeclined) {
-      if (widget.onOpenSettings case final onOpenSettings?) {
-        return ServiceStateAction(
-          label: strings.analysisConsentDeclinedOpenSettings,
-          onPressed: onOpenSettings,
-        );
-      }
     }
     if (_canRetry) {
       return ServiceStateAction(
@@ -673,12 +639,6 @@ class _FailureBodyState extends State<_FailureBody> {
       return _cameraAction(strings) == null ? null : _galleryAction(strings);
     }
     if (!_hasText) return null;
-    // A declined consent's primary slot went to Settings above, so the text
-    // — never spent, since the request never went out — takes this one.
-    if (_kind == _FailureKind.consentDeclined &&
-        widget.onOpenSettings != null) {
-      return _showTextAction(strings);
-    }
     // Whichever of the two the primary did not take.
     if (_canRetry) return _showTextAction(strings);
     return null;

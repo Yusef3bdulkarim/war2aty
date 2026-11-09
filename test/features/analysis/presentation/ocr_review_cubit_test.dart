@@ -1,8 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/analysis/analysis_consent_store.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -107,7 +105,6 @@ final class _FakeAnalysisRepository implements AnalysisRepository {
 
 void main() {
   late _FakeAnalysisRepository repository;
-  late AnalysisConsentStore consentStore;
   late ImageAnalysisSessionHolder imageHolder;
   late ExtractCandidates extractCandidates;
   late _FakeDeviceOcr deviceOcr;
@@ -115,7 +112,6 @@ void main() {
   setUp(() {
     repository = _FakeAnalysisRepository();
     deviceOcr = _FakeDeviceOcr();
-    consentStore = _FakeConsentStore();
     imageHolder = ImageAnalysisSessionHolder()..set(_session, _photo);
     extractCandidates = ExtractCandidates(
       normalizer: TextNormalizer(),
@@ -132,7 +128,6 @@ void main() {
     photo: _photo,
     ocrImage: OcrImage(repository),
     extractCandidates: extractCandidates,
-    getAnalysisConsent: GetAnalysisConsent(consentStore),
     imageHolder: imageHolder,
     extractDocumentText: ExtractDocumentText(deviceOcr),
   );
@@ -211,29 +206,6 @@ void main() {
       );
       await cubit.close();
     });
-
-    test(
-      'runOcr emits Failed without calling the service when consent is declined',
-      () async {
-        consentStore = _FakeConsentStore(false);
-        final cubit = buildCubit();
-
-        final future = expectLater(
-          cubit.stream,
-          emitsInOrder([isA<OcrReviewLoading>(), isA<OcrReviewFailed>()]),
-        );
-
-        await cubit.runOcr();
-        await future;
-
-        expect(
-          (cubit.state as OcrReviewFailed).failure,
-          isA<AnalysisConsentDeclinedFailure>(),
-        );
-        expect(repository.ocrRequests, isEmpty);
-        await cubit.close();
-      },
-    );
 
     test(
       'updateOcrText replaces reviewedOcrText, leaves originalOcrText alone',
@@ -396,21 +368,6 @@ void main() {
       },
     );
 
-    test('O8: a declined consent never reads on the device', () async {
-      consentStore = _FakeConsentStore(false);
-      final cubit = buildCubit();
-
-      await cubit.runOcr();
-
-      expect(
-        cubit.state,
-        const OcrReviewFailed(AnalysisConsentDeclinedFailure()),
-      );
-      expect(repository.ocrRequests, isEmpty);
-      expect(deviceOcr.readPaths, isEmpty);
-      await cubit.close();
-    });
-
     test(
       'O14: when the device fails too, the online failure is shown',
       () async {
@@ -536,24 +493,6 @@ void main() {
       await cubit.close();
     });
 
-    test('Retake during the consent check: nothing is sent', () async {
-      final store = _FakeConsentStore()..gate = Completer<void>();
-      consentStore = store;
-      final cubit = watchedCubit();
-
-      final run = cubit.runOcr();
-      await _settle();
-
-      cubit.cleanupImage();
-      store.gate!.complete();
-      await run;
-
-      expect(repository.ocrRequests, isEmpty);
-      await _settle();
-      expect(emitted, everyElement(isA<OcrReviewLoading>()));
-      await cubit.close();
-    });
-
     test('double retry: only the newest request may emit', () async {
       repository.hold = true;
       final cubit = watchedCubit();
@@ -624,24 +563,4 @@ void main() {
       },
     );
   });
-}
-
-/// In-memory [AnalysisConsentStore] — `null`/`true` both mean "allowed"
-/// ([GetAnalysisConsent] defaults on), same as F11-T02's real store.
-///
-/// With [gate] set, the read waits for it, so a test can act mid-check.
-final class _FakeConsentStore implements AnalysisConsentStore {
-  _FakeConsentStore([this._consent]);
-
-  bool? _consent;
-  Completer<void>? gate;
-
-  @override
-  Future<bool?> readConsent() async {
-    await gate?.future;
-    return _consent;
-  }
-
-  @override
-  Future<void> writeConsent(bool consent) async => _consent = consent;
 }

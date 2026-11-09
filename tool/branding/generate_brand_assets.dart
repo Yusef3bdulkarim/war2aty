@@ -47,6 +47,28 @@ const Map<String, double> _densities = {
 /// as a jump at the handover.
 const double _splashMarkDp = 128;
 
+/// Side of the canvas the Android 12+ system splash measures its icon
+/// against, in logical pixels.
+///
+/// Not a number we chose — it is the platform's, and the one thing that
+/// layer gets to see. The system never reads the drawable's own size: it
+/// gives the icon a viewport of `1.5 x windowSplashScreenIcon size` and
+/// stretches whatever it is handed across it. Without
+/// `windowSplashScreenIconBackgroundColor` that viewport is
+/// 1.5 x (160 dp x 1.2) = **288 dp**, with the visible area the inner 192 dp
+/// masked by the device's icon shape.
+///
+/// So the mark's size on that splash is decided by the *ratio* it occupies
+/// here, 128/288, and nothing else. F28-T05 shipped a `layer-list` that
+/// pinned the mark to `128dp` instead; the platform scaled that 128 dp canvas
+/// to 288 dp anyway, which put the mark on screen at ~227 dp and let the icon
+/// mask cut its sides off (F33 — reproduced on an Android 12+ phone, where
+/// the mark filled half the screen width).
+///
+/// Everything here is a ratio, so an OEM that sizes its splash icon
+/// differently moves the mark with it instead of breaking it.
+const double _splashIconCanvasDp = 288;
+
 /// How hard the splash mark is sharpened after resampling. See [_resize].
 ///
 /// 0.55 was chosen by measuring, not by eye alone: it is the point where edge
@@ -529,9 +551,14 @@ img.Image _resize(img.Image src, int width, int height, {double sharpen = 0}) {
 
 /// [src] (square) shrunk to [content] px and centred on a transparent
 /// [canvas] px square.
-img.Image _onCanvas(img.Image src, int canvas, int content) {
+img.Image _onCanvas(
+  img.Image src,
+  int canvas,
+  int content, {
+  double sharpen = 0,
+}) {
   final out = img.Image(width: canvas, height: canvas, numChannels: 4);
-  final scaled = _resize(src, content, content);
+  final scaled = _resize(src, content, content, sharpen: sharpen);
   img.compositeImage(
     out,
     scaled,
@@ -710,6 +737,22 @@ void _writeNativeSplash(_Extraction art) {
     _save(
       '$android/drawable-$bucket/splash_mark.png',
       _resize(art.squareSymbol, px, px, sharpen: _markSharpen),
+    );
+
+    // The Android 12+ system splash icon: the same mark at the same 128 dp,
+    // but centred on the 288 dp canvas that layer is measured against, since
+    // it is the ratio between the two that decides the size on screen. See
+    // [_splashIconCanvasDp] — pinning dp inside the drawable does nothing
+    // there, which is the bug F33 fixes. Pre-12 keeps using the bare
+    // `splash_mark` above, where the intrinsic size *is* the size.
+    _save(
+      '$android/drawable-$bucket/splash_icon.png',
+      _onCanvas(
+        art.squareSymbol,
+        (_splashIconCanvasDp * scale).round(),
+        px,
+        sharpen: _markSharpen,
+      ),
     );
   }
 

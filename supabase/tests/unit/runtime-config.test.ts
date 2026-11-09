@@ -265,6 +265,100 @@ Deno.test("a leftover azure_ocr_enabled row never turns online reading on (F20-T
   assertEquals(config.onlineOcrEnabled, false);
 });
 
+// ── explainSchemaVersion — independent of schemaVersion (F35-T04) ─────────
+
+Deno.test("explainSchemaVersion starts at 1.0, not at the analysis contract's version", () => {
+  assertEquals(parseRuntimeConfig(SEEDED, env()).explainSchemaVersion, "1.0");
+  assertEquals(parseRuntimeConfig([], env()).explainSchemaVersion, "1.0");
+  assertEquals(DEFAULT_RUNTIME_CONFIG.explainSchemaVersion, "1.0");
+});
+
+Deno.test("the seeded explain_schema_version row is read", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "explain_schema_version", value: "1.0" }], env())
+      .explainSchemaVersion,
+    "1.0",
+  );
+});
+
+Deno.test("a blank or malformed explain_schema_version falls back rather than emptying the contract", () => {
+  for (const value of ["", "   ", null, 2, { v: "1.0" }, []]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "explain_schema_version", value }], env())
+        .explainSchemaVersion,
+      "1.0",
+      `${JSON.stringify(value)} should fall back`,
+    );
+  }
+});
+
+Deno.test("the two schema versions move independently — the published app cannot be broken by bumping the new one", () => {
+  // The whole reason `explain_schema_version` exists. `analyze-request.ts`
+  // compares the client's `schema_version` with `!==` and answers 400
+  // UNSUPPORTED_SCHEMA on a mismatch, so if F34's endpoint had been versioned
+  // on that row, the first bump would have refused every published build.
+  const explainBumped = parseRuntimeConfig(
+    [...SEEDED, { key: "explain_schema_version", value: "1.1" }],
+    env(),
+  );
+
+  assertEquals(explainBumped.explainSchemaVersion, "1.1");
+  assertEquals(explainBumped.schemaVersion, "2.0", "the published contract must not move");
+
+  // And the converse: the analysis contract moving must not drag the new one
+  // along, or an old-client fix would silently change the new endpoint.
+  const analysisBumped = parseRuntimeConfig(
+    [{ key: "schema_version", value: "3.0" }],
+    env(),
+  );
+
+  assertEquals(analysisBumped.schemaVersion, "3.0");
+  assertEquals(analysisBumped.explainSchemaVersion, "1.0");
+});
+
+// ── explainEnabled — opt-in (F35-T04) ─────────────────────────────────────
+
+Deno.test("explainEnabled is off until an operator explicitly turns it on", () => {
+  assertEquals(parseRuntimeConfig(SEEDED, env()).explainEnabled, false);
+  assertEquals(parseRuntimeConfig([], env()).explainEnabled, false);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.explainEnabled, false);
+});
+
+Deno.test("an operator can turn explainEnabled on without an app release", () => {
+  for (const value of ["true", "TRUE", " on ", "yes", "1", 1, true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "explain_enabled", value }], env()).explainEnabled,
+      true,
+      `${JSON.stringify(value)} should enable`,
+    );
+  }
+});
+
+Deno.test("anything short of an explicit 'on' leaves explainEnabled off", () => {
+  // Same mirror-of-the-kill-switch reasoning as `online_ocr_enabled`: an
+  // unverified provider chain must not become callable because a deploy
+  // happened, so even the documented "off" spellings land on disabled.
+  for (
+    const value of ["false", "FALSE", "off", "no", "0", 0, false, { nonsense: true }, [], "maybe"]
+  ) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "explain_enabled", value }], env()).explainEnabled,
+      false,
+      `${JSON.stringify(value)} should stay off`,
+    );
+  }
+});
+
+Deno.test("the two feature gates are independent of each other", () => {
+  // `online_ocr_enabled` is ON in production (20261010120000). If that row
+  // leaked into this flag, F36's unverified chain would be live the moment it
+  // deployed.
+  const config = parseRuntimeConfig([{ key: "online_ocr_enabled", value: true }], env());
+
+  assertEquals(config.onlineOcrEnabled, true);
+  assertEquals(config.explainEnabled, false);
+});
+
 Deno.test("a blank version falls back to the default", () => {
   assertEquals(
     parseRuntimeConfig([{ key: "minimum_app_version", value: "  " }], env())

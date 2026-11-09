@@ -1,4 +1,3 @@
-import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/audio/tts_voice.dart';
 import '../../../../core/permissions/permission_service.dart';
@@ -24,8 +23,6 @@ final class SettingsLoading extends SettingsState {
 /// previous value).
 final class SettingsReady extends SettingsState {
   const SettingsReady({
-    required this.analysisConsent,
-    required this.processingMode,
     required this.defaultReadingSpeed,
     required this.defaultReadingVoice,
     required this.resumeReadingEnabled,
@@ -36,12 +33,6 @@ final class SettingsReady extends SettingsState {
     required this.appVersion,
     this.voicePreviewPlaying = false,
   });
-
-  /// «السماح بإرسال النص للتحليل» (F11-T02).
-  final bool analysisConsent;
-
-  /// «طريقة معالجة الأوراق» (F11-T03).
-  final ProcessingMode processingMode;
 
   /// «سرعة القراءة الافتراضية» (F11-T07).
   final ReadingSpeed defaultReadingSpeed;
@@ -82,8 +73,6 @@ final class SettingsReady extends SettingsState {
   final bool voicePreviewPlaying;
 
   SettingsReady copyWith({
-    bool? analysisConsent,
-    ProcessingMode? processingMode,
     ReadingSpeed? defaultReadingSpeed,
     TtsVoice? defaultReadingVoice,
     bool clearDefaultReadingVoice = false,
@@ -96,8 +85,6 @@ final class SettingsReady extends SettingsState {
     String? appVersion,
     bool? voicePreviewPlaying,
   }) => SettingsReady(
-    analysisConsent: analysisConsent ?? this.analysisConsent,
-    processingMode: processingMode ?? this.processingMode,
     defaultReadingSpeed: defaultReadingSpeed ?? this.defaultReadingSpeed,
     defaultReadingVoice: clearDefaultReadingVoice
         ? null
@@ -118,8 +105,6 @@ final class SettingsReady extends SettingsState {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is SettingsReady &&
-          other.analysisConsent == analysisConsent &&
-          other.processingMode == processingMode &&
           other.defaultReadingSpeed == defaultReadingSpeed &&
           other.defaultReadingVoice == defaultReadingVoice &&
           other.resumeReadingEnabled == resumeReadingEnabled &&
@@ -133,8 +118,6 @@ final class SettingsReady extends SettingsState {
 
   @override
   int get hashCode => Object.hash(
-    analysisConsent,
-    processingMode,
     defaultReadingSpeed,
     defaultReadingVoice,
     resumeReadingEnabled,

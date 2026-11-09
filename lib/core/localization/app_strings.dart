@@ -63,8 +63,6 @@ abstract interface class AppStrings {
   String get privacyPointImageOptIn;
   String get privacyPointDeleteAnytime;
 
-  String get privacyAgree;
-
   // Home
   String get homeGreetingTitle;
   String get homeGreetingSubtitle;
@@ -155,19 +153,6 @@ abstract interface class AppStrings {
 
   /// Shown when preparing the confirmed image fails.
   String get previewErrorMessage;
-
-  // Capture — quality alert
-  /// Heading when the quality assessment says the image is poor.
-  String get qualityAlertTitle;
-
-  /// Why a clearer photo matters, with a nudge to retake.
-  String get qualityAlertMessage;
-
-  /// The primary action: retake the photo.
-  String get qualityAlertRetake;
-
-  /// The fallback action: continue despite poor quality.
-  String get qualityAlertContinue;
 
   String get homeEmptyTitle;
   String get homeUpcomingReminderTitle;
@@ -371,21 +356,6 @@ abstract interface class AppStrings {
   /// The settings screen's «الخصوصية» section (F11-T02).
   String get settingsPrivacySection;
 
-  /// The analysis consent toggle's row label (F11-T02).
-  String get settingsAnalysisConsentLabel;
-
-  /// The processing-mode row's label (F11-T03).
-  String get settingsProcessingModeLabel;
-
-  /// The two processing modes (F11-T03), shown in the picker sheet and as
-  /// the current value on the row itself.
-  String get settingsProcessingModeSmartAnalysis;
-  String get settingsProcessingModeTextOnly;
-
-  /// One-line descriptions under each mode in the picker sheet (F11-T03).
-  String get settingsProcessingModeSmartAnalysisDescription;
-  String get settingsProcessingModeTextOnlyDescription;
-
   /// The settings screen's «العرض» section (F11-T05).
   String get settingsDisplaySection;
 
@@ -507,8 +477,8 @@ abstract interface class AppStrings {
   /// The settings screen's «عن التطبيق» section (F11-T12).
   String get settingsAboutSection;
 
-  /// Opens [PrivacyPolicyScreen] — the same four promises [privacyTitle] and
-  /// its points make on first run, read back at any time.
+  /// Opens [PrivacyPolicyScreen] — the four promises [privacyTitle] and its
+  /// points make, read back at any time.
   String get settingsPrivacyPolicyLabel;
 
   /// Opens the published «شروط الاستخدام» page in the browser (F27-T20).
@@ -521,7 +491,7 @@ abstract interface class AppStrings {
   /// Opens a mail to the published support address (F27-T20, Q17).
   String get settingsSupportLabel;
 
-  /// The privacy screen's footer link out to the full published policy
+  /// The privacy-policy screen's footer link out to the full published policy
   /// (F27-T20) — the four promises above it are the summary, not the whole
   /// document.
   String get privacyFullPolicyLabel;
@@ -828,21 +798,6 @@ abstract interface class AppStrings {
 
   /// Opens the gallery from the unsupported page, beside the camera.
   String get analysisPickFromGallery;
-
-  /// The user turned off analysis consent in Settings (F11-T02) — the state
-  /// page's own words, not a generic failure.
-  String get analysisConsentDeclinedTitle;
-  String get analysisConsentDeclinedMessage;
-
-  /// What turning analysis on would give (F23 #9).
-  String get analysisConsentValueTitle;
-  String get analysisConsentValueType;
-  String get analysisConsentValueKeyPoints;
-  String get analysisConsentValueRequired;
-  String get analysisConsentValueDates;
-
-  /// Leads to Settings from the declined-consent state page (F11-T02).
-  String get analysisConsentDeclinedOpenSettings;
 
   /// Leaves a dead end by photographing a different paper.
   String get analysisCaptureAnother;

@@ -10,13 +10,11 @@ import '../../../../core/storage/analysis_session.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../domain/entities/image_quality_result.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/image_preview_cubit.dart';
 import '../cubit/image_preview_state.dart';
 import '../widgets/draggable_crop_overlay.dart';
-import '../widgets/quality_alert_sheet.dart';
 
 // From `Waraqti.dc.html` → `preview`.
 const double _controlBox = 42;
@@ -56,23 +54,6 @@ class ImagePreviewScreen extends StatelessWidget {
   /// Backs out to re-acquire the image (camera or gallery).
   final VoidCallback onRetake;
 
-  Future<void> _onQualityKnown(
-    BuildContext context,
-    ImageQualityResult quality,
-  ) async {
-    if (quality.overall == ImageQuality.poor) {
-      final shouldContinue = await showQualityAlertSheet(context);
-      if (!context.mounted) return;
-      if (!shouldContinue) {
-        onRetake();
-        return;
-      }
-    }
-    if (context.mounted) {
-      await context.read<ImagePreviewCubit>().proceed();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     // Light status-bar icons on the dark backdrop; the app's default is
@@ -89,8 +70,11 @@ class ImagePreviewScreen extends StatelessWidget {
               s is ImagePreviewOnlineReady,
           listener: (context, state) {
             switch (state) {
-              case ImagePreviewConfirmed(:final quality):
-                unawaited(_onQualityKnown(context, quality));
+              // Straight on: confirming is the decision. The quality check
+              // that used to stand here — and could send the user back to
+              // retake — is gone (F35-T15).
+              case ImagePreviewConfirmed():
+                unawaited(context.read<ImagePreviewCubit>().proceed());
               case ImagePreviewSessionCreated(:final session):
                 onSessionCreated(session);
               case ImagePreviewOnlineReady(:final session):

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/tts_error_code.dart';
@@ -101,7 +100,6 @@ void main() {
     cubit = AnalysisResultCubit(
       session: _session,
       source: const OcrAnalysisSource(_extraction),
-      getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
       analyzeDocument: AnalyzeDocument(repository),
       buildResult: const BuildAnalysisResult(),
       syncDailyUsage: SyncDailyUsage(FakeUsageRepository()),

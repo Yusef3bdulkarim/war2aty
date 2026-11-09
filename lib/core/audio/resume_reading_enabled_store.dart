@@ -10,7 +10,7 @@ abstract interface class ResumeReadingEnabledStore {
 }
 
 /// [ResumeReadingEnabledStore] backed by the Drift `app_settings` table — the
-/// same key/value table [DriftAnalysisConsentStore] uses for its own bool.
+/// same key/value table [DriftHighContrastStore] uses for its own bool.
 final class DriftResumeReadingEnabledStore
     implements ResumeReadingEnabledStore {
   const DriftResumeReadingEnabledStore(this._db);

@@ -211,25 +211,4 @@ void main() {
       expect(harness.backend.usedToday, 0);
     },
   );
-
-  journeyTest(
-    'a declined analysis consent sends nothing at all',
-    boot: (tester) => bootApp(tester, analysisConsent: false),
-    (harness) async {
-      await analyzeOnDevice(harness);
-
-      expect(harness.location, AppRoutes.result);
-      expect(find.text(_ar.analysisConsentDeclinedTitle), findsOneWidget);
-      expect(
-        harness.backend.countOf(kAnalyzeDocumentPath),
-        0,
-        reason: 'the text never left the phone (F11-T02)',
-      );
-      expect(
-        harness.ocrEngine.runs,
-        1,
-        reason: 'reading the page on the device needs no consent',
-      );
-    },
-  );
 }

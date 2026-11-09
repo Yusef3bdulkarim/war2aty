@@ -9,7 +9,7 @@ String _categoryOf(AppFailure failure) => switch (failure) {
   BusinessFailure() => 'business',
 };
 
-/// Leaf-level exhaustive switch over ALL 34 leaves with no `default`.
+/// Leaf-level exhaustive switch over ALL 32 leaves with no `default`.
 ///
 /// This is the exhaustiveness guard: adding a new [AppFailure] leaf without
 /// handling it here fails to compile, so the taxonomy can never silently grow.
@@ -17,7 +17,6 @@ String _describe(AppFailure failure) => switch (failure) {
   // Local
   CameraPermissionFailure() => 'camera-permission',
   GalleryAccessFailure() => 'gallery-access',
-  ImageQualityFailure() => 'image-quality',
   ImageProcessingFailure() => 'image-processing',
   OcrInitializationFailure() => 'ocr-init',
   OcrFailure() => 'ocr',
@@ -32,7 +31,6 @@ String _describe(AppFailure failure) => switch (failure) {
   TtsEngineUnavailableFailure() => 'tts-engine-unavailable',
   NoArabicVoiceFailure() => 'tts-no-arabic-voice',
   ExternalLinkFailure() => 'external-link',
-  AnalysisConsentDeclinedFailure() => 'consent-declined',
   // Network
   NoInternetFailure() => 'no-internet',
   RequestTimeoutFailure() => 'timeout',
@@ -57,7 +55,6 @@ void main() {
   final localLeaves = <AppFailure>[
     const CameraPermissionFailure(),
     const GalleryAccessFailure(),
-    const ImageQualityFailure(),
     const ImageProcessingFailure(),
     const OcrInitializationFailure(),
     const OcrFailure(),
@@ -72,7 +69,6 @@ void main() {
     const TtsEngineUnavailableFailure(TtsErrorCode.service),
     const NoArabicVoiceFailure(),
     const ExternalLinkFailure(),
-    const AnalysisConsentDeclinedFailure(),
   ];
   final networkLeaves = <AppFailure>[
     const NoInternetFailure(),
@@ -96,8 +92,8 @@ void main() {
   ];
 
   group('taxonomy shape', () {
-    test('has 18 local + 12 network + 4 business leaves', () {
-      expect(localLeaves, hasLength(18));
+    test('has 16 local + 12 network + 4 business leaves', () {
+      expect(localLeaves, hasLength(16));
       expect(networkLeaves, hasLength(12));
       expect(businessLeaves, hasLength(4));
     });
@@ -124,10 +120,10 @@ void main() {
   });
 
   group('leaf-level exhaustiveness', () {
-    test('all 34 leaves describe to distinct labels', () {
+    test('all 32 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(34));
+      expect(labels, hasLength(32));
     });
   });
 

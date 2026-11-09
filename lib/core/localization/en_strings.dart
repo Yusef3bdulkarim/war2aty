@@ -128,9 +128,6 @@ final class EnStrings implements AppStrings {
       'You can delete your data at any time.';
 
   @override
-  String get privacyAgree => 'Agree and start';
-
-  @override
   String get homeGreetingTitle => 'Hello — got a paper you need explained?';
 
   @override
@@ -252,20 +249,6 @@ final class EnStrings implements AppStrings {
   @override
   String get previewErrorMessage =>
       'We could not prepare the photo. Try again.';
-
-  @override
-  String get qualityAlertTitle => 'The photo could be clearer';
-
-  @override
-  String get qualityAlertMessage =>
-      'A clearer photo helps us read the text correctly. Try again in better '
-      'light, or continue if the text is visible.';
-
-  @override
-  String get qualityAlertRetake => 'Retake the photo';
-
-  @override
-  String get qualityAlertContinue => 'Continue anyway';
 
   @override
   String get homeEmptyTitle => 'Start by photographing your first paper.';
@@ -503,27 +486,6 @@ final class EnStrings implements AppStrings {
 
   @override
   String get settingsPrivacySection => 'Privacy';
-
-  @override
-  String get settingsAnalysisConsentLabel =>
-      'Allow sending the text for analysis';
-
-  @override
-  String get settingsProcessingModeLabel => 'Paper processing method';
-
-  @override
-  String get settingsProcessingModeSmartAnalysis => 'Smart analysis';
-
-  @override
-  String get settingsProcessingModeTextOnly => 'Text extraction only';
-
-  @override
-  String get settingsProcessingModeSmartAnalysisDescription =>
-      'The paper is read and analysed to highlight what matters';
-
-  @override
-  String get settingsProcessingModeTextOnlyDescription =>
-      'Only extract the text — nothing leaves your phone';
 
   // Display / Accessibility (F11-T05)
   @override
@@ -1002,25 +964,6 @@ final class EnStrings implements AppStrings {
       'Medical reports, legal papers, bank letters';
   @override
   String get analysisPickFromGallery => 'Pick from photos';
-  @override
-  String get analysisConsentDeclinedTitle => 'Smart explanation is off';
-  @override
-  String get analysisConsentDeclinedMessage =>
-      'You turned off "Allow sending the text for analysis" in Settings, and '
-      'that is your choice. So we could not explain this paper, but its text '
-      'is here for you to read.';
-  @override
-  String get analysisConsentValueTitle => "Turn it on and we'll tell you:";
-  @override
-  String get analysisConsentValueType => 'What the paper is';
-  @override
-  String get analysisConsentValueKeyPoints => 'What matters in it';
-  @override
-  String get analysisConsentValueRequired => 'What you need to do';
-  @override
-  String get analysisConsentValueDates => 'Dates worth a reminder';
-  @override
-  String get analysisConsentDeclinedOpenSettings => 'Open Settings';
   @override
   String get analysisCaptureAnother => 'Photograph another';
   @override

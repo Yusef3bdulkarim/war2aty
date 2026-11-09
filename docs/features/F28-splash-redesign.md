@@ -5,6 +5,11 @@
   measurement this starts from), the brand generator `tool/branding/generate_brand_assets.dart`
 - **Progress:** 9 / 9 DONE · **F28 COMPLETE**
 - **PR:** [#30](https://github.com/Yusef3bdulkarim/war2aty/pull/30) into `develop`
+- **Partly superseded:** everything below about the Android 12+ icon sizing was
+  wrong on hardware, and shipped that way in `1.0.1+2`. Read
+  [F33](F33-splash-icon-android12.md) before trusting any sentence here about
+  `splash_icon.xml` or its "288 dp canvas". The rest of F28 — the colour, the
+  pre-12 splash, iOS, the suppressed exit animation, the measurements — stands.
 
 The owner asked for a dedicated splash task on 2026-10-07, recorded at the end
 of [F27-T18 finding D-2](F27-T18-device-pass.md). T18 shipped the cheap half of
@@ -58,6 +63,11 @@ Resolved with the owner on 2026-10-08.
      density-bucketed.
    - Android 12+: `splash_icon` as a **288 dp canvas with the mark at 128 dp
      centred** (Android requires content inside the inner 192 dp circle).
+     T05 implemented this as a `layer-list` pinning `128dp`, which supplies no
+     such canvas and is scaled up by the platform anyway — the mark shipped at
+     ~227 dp, masked. Corrected in
+     [F33](F33-splash-icon-android12.md); the requirement above stands, the
+     drawable that met it did not.
    - iOS: `LaunchImage` at 128 pt @1x/2x/3x; the storyboard already centres it.
 3. **The API 31+ system splash exit animation is suppressed**
    (`splashScreen.setOnExitAnimationListener { it.remove() }`, guarded by
@@ -534,6 +544,12 @@ the mark was not solid until ~775 ms and the splash held for a ~3.2 s floor.
 - **The Android 12+ path.** The only phone available is API 30. `values-v31`,
   the 288 dp icon canvas and the exit-animation listener are built to spec,
   guarded by tests that read the XML, and **unverified on hardware**.
+  **This is where the icon sizing broke.** The owner saw it on an Android 12+
+  phone on 2026-10-20, against the published `1.0.1+2`: the mark at half the
+  screen width, cut by the icon mask, snapping down when Flutter drew. Fixed
+  in [F33](F33-splash-icon-android12.md). "Built to spec and guarded by tests
+  that read the XML" was worth exactly nothing here — the tests quoted the
+  code's belief back at it.
 - **iOS**, still — no Mac.
 - **The launch failure screen on the device.** It needs a critical launch step
   to fail, and the installed app has a cached session, so it could not be
@@ -563,7 +579,8 @@ pointed at the five things worth a second opinion, and checked each:
 - dropping the floor creates no flash, because the native splash was already
   showing the same image;
 - the Android 12+ sizing follows the documented pattern, with the caveat that
-  it is still unverified on hardware;
+  it is still unverified on hardware — **and it did not**: see
+  [F33](F33-splash-icon-android12.md), which is what that caveat was worth;
 - the unsharp mask is correct in premultiplied space, and the one theoretical
   edge case (a colour channel exceeding alpha after sharpening) is absorbed by
   the un-premultiply clamp.

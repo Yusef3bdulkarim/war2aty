@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
@@ -131,7 +130,6 @@ void main() {
         (session, source) => AnalysisResultCubit(
           session: session,
           source: source,
-          getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
           analyzeDocument: AnalyzeDocument(repository),
           buildResult: const BuildAnalysisResult(),
           syncDailyUsage: SyncDailyUsage(usage),

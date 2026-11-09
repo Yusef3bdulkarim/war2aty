@@ -34,18 +34,12 @@ class OcrReviewScreen extends StatelessWidget {
     required this.onAnalyze,
     required this.onRetake,
     required this.onPickAnother,
-    this.onOpenSettings,
     super.key,
   });
 
   final VoidCallback onAnalyze;
   final VoidCallback onRetake;
   final VoidCallback onPickAnother;
-
-  /// The way out of a declined analysis consent (F11-T02) — same escape
-  /// hatch `/result` offers today. Optional: a caller that has nowhere to
-  /// send the user falls back to [onRetake] instead of a dead button.
-  final VoidCallback? onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -94,29 +88,15 @@ class OcrReviewScreen extends StatelessWidget {
 
   Widget _buildFailed(BuildContext context, AppFailure failure) {
     final strings = context.strings;
-    final isConsentDeclined = failure is AnalysisConsentDeclinedFailure;
 
     return _FailureView(
-      icon: isConsentDeclined
-          ? Icons.privacy_tip_outlined
-          : Icons.error_outline,
-      title: isConsentDeclined
-          ? strings.analysisConsentDeclinedTitle
-          : strings.ocrErrorTitle,
-      message: isConsentDeclined
-          ? strings.analysisConsentDeclinedMessage
-          : strings.ocrErrorMessage,
-      primaryLabel: isConsentDeclined && onOpenSettings != null
-          ? strings.analysisConsentDeclinedOpenSettings
-          : strings.ocrRetake,
-      onPrimary: isConsentDeclined && onOpenSettings != null
-          ? onOpenSettings!
-          : onRetake,
-      // A declined consent fails identically on any retry — offering a
-      // second way out of the same wall only confuses the one way that
-      // actually works (Settings).
-      secondaryLabel: isConsentDeclined ? null : strings.ocrPickAnother,
-      onSecondary: isConsentDeclined ? null : onPickAnother,
+      icon: Icons.error_outline,
+      title: strings.ocrErrorTitle,
+      message: strings.ocrErrorMessage,
+      primaryLabel: strings.ocrRetake,
+      onPrimary: onRetake,
+      secondaryLabel: strings.ocrPickAnother,
+      onSecondary: onPickAnother,
     );
   }
 

@@ -30,6 +30,13 @@ export const REPORTABLE_ERROR_CODES = [
   // Local failures (device, storage, permissions, on-device OCR)
   "CAMERA_PERMISSION",
   "GALLERY_ACCESS",
+  // F35-T16 removed the capture-time quality gate, so this build cannot
+  // produce this. DO NOT DELETE IT: 1.0.2 is published, still runs the gate,
+  // and still reports this code when the assessment fails. An unlisted code
+  // is a 400 the app's sink swallows, so removing this line would not degrade
+  // those users' reporting — it would delete it, silently. Out only when the
+  // last build that can emit it is out of support (`keptForOldBuilds` in
+  // `test/core/logging/error_report_codes_test.dart`).
   "IMAGE_QUALITY",
   "IMAGE_PROCESSING",
   "OCR_INIT",
@@ -60,6 +67,13 @@ export const REPORTABLE_ERROR_CODES = [
   // server has to accept it, even though nothing reports it today: it is a
   // settings-screen link that would not open.
   "EXTERNAL_LINK",
+  // F35-T07 removed the consent setting, so builds from 1.1.0 on cannot
+  // produce this. DO NOT DELETE IT: 1.0.2 is published, still has the setting,
+  // and still reports this code when it blocks a run. An unlisted code is a
+  // 400 the app's sink swallows, so removing this line would not degrade those
+  // users' reporting — it would delete it, silently. Out only when the last
+  // build that can emit it is out of support (`keptForOldBuilds` in
+  // `test/core/logging/error_report_codes_test.dart`).
   "ANALYSIS_CONSENT_DECLINED",
   // Network and backend
   "NO_INTERNET",

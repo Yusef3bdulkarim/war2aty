@@ -21,7 +21,7 @@ abstract final class AppTypography {
     height: 1.3,
   );
 
-  /// Page heading on the full-bleed first-run pages (onboarding, privacy).
+  /// Page heading on the full-bleed intro page (onboarding).
   static const TextStyle displayMedium = TextStyle(
     fontFamily: fontFamily,
     fontSize: 26,

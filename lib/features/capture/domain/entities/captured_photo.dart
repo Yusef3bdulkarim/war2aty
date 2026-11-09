@@ -2,9 +2,9 @@
 /// picked from the gallery.
 ///
 /// The image stays on the device — this is only the path to a temporary file
-/// inside the app's private storage, which later stages crop, quality-check,
-/// and finally OCR. No bytes travel with it and nothing here ever leaves the
-/// phone (privacy §7).
+/// inside the app's private storage, which later stages crop and finally OCR.
+/// No bytes travel with it and nothing here ever leaves the phone
+/// (privacy §7).
 final class CapturedPhoto {
   const CapturedPhoto(this.path);
 

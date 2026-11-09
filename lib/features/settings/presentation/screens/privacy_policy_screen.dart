@@ -18,16 +18,17 @@ const double _pageBottom = 32;
 /// Takes each footer link's hit box past the 48 dp minimum (F27-T20).
 const double _linkPaddingV = 12;
 
-/// «سياسة الخصوصية» (F11-T12) — the same four promises [PrivacyPolicyContent]
-/// makes on first run, read back at any time from the settings screen's «عن
-/// التطبيق» section. No CTA: agreeing already happened on first run.
+/// «سياسة الخصوصية» (F11-T12) — the four promises [PrivacyPolicyContent]
+/// makes, read back at any time from the settings screen's «عن التطبيق»
+/// section. No CTA: there is nothing here to agree to.
 ///
 /// F27-T20 added the footer out to the published policy. The four promises are
 /// a summary — true, and deliberately short enough to be read — while the full
 /// document says what reaches our server, how long it is kept and how to have
-/// it deleted. The link lives here and **not** in [PrivacyPolicyContent],
-/// because that widget is also the first-run step: sending a user to a browser
-/// before they have even agreed would be the wrong moment.
+/// it deleted. The link lives here and **not** in [PrivacyPolicyContent]; it
+/// was kept out of the widget because that widget was also the first-run step
+/// (F35-T11 has since deleted it), and this screen is where a link out
+/// belongs anyway.
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({this.onClose, super.key});
 

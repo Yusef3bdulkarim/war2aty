@@ -13,8 +13,8 @@ abstract interface class DefaultReadingSpeedStore {
 }
 
 /// [DefaultReadingSpeedStore] backed by the Drift `app_settings` table — the
-/// same key/value table [DriftAnalysisConsentStore]/[DriftProcessingModeStore]
-/// use.
+/// same key/value table [DriftDefaultReadingVoiceStore] and
+/// [DriftResumeReadingEnabledStore] use.
 final class DriftDefaultReadingSpeedStore implements DefaultReadingSpeedStore {
   const DriftDefaultReadingSpeedStore(this._db);
 

@@ -17,10 +17,6 @@ import 'package:war2aty/core/accessibility/usecases/get_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/get_text_size.dart';
 import 'package:war2aty/core/accessibility/usecases/set_high_contrast.dart';
 import 'package:war2aty/core/accessibility/usecases/set_text_size.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
-import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
-import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_resume_reading_enabled.dart';
@@ -167,8 +163,6 @@ void main() {
         );
       })
       ..registerFactory<SettingsCubit>(() {
-        final consentStore = FakeAnalysisConsentStore();
-        final modeStore = FakeProcessingModeStore();
         final speedStore = FakeDefaultReadingSpeedStore();
         final voiceStore = FakeDefaultReadingVoiceStore();
         final resumeStore = FakeResumeReadingEnabledStore();
@@ -185,10 +179,6 @@ void main() {
         final reminderScheduler = FakeReminderScheduler();
         final settingsRepository = FakeAppSettingsRepository();
         return SettingsCubit(
-          getAnalysisConsent: GetAnalysisConsent(consentStore),
-          setAnalysisConsent: SetAnalysisConsent(consentStore),
-          getProcessingMode: GetProcessingMode(modeStore),
-          setProcessingMode: SetProcessingMode(modeStore),
           getDefaultReadingSpeed: GetDefaultReadingSpeed(speedStore),
           setDefaultReadingSpeed: SetDefaultReadingSpeed(speedStore),
           getDefaultReadingVoice: GetDefaultReadingVoice(voiceStore),
@@ -498,18 +488,17 @@ void main() {
       expect(navBar(), findsNothing);
     });
 
+    // F35-T10: one tap, not two. The intro's CTA used to hand off to the
+    // privacy screen, which flipped the first-run flag; it now flips the flag
+    // itself, and the router lifts the redirect because it watches that cubit.
     testWidgets('finishing onboarding lands on the shell', (tester) async {
       await pumpShell(tester, onboarded: false);
 
       await tester.tap(find.text(ar.onboardingStart));
       await tester.pumpAndSettle();
-      expect(find.text(ar.privacyTitle), findsOneWidget);
-
-      await tester.tap(find.text(ar.privacyAgree));
-      await tester.pumpAndSettle();
 
       expect(navBar(), findsOneWidget);
-      expect(find.text(ar.privacyTitle), findsNothing);
+      expect(find.text(ar.onboardingTitle), findsNothing);
     });
 
     testWidgets('a returning user never sees onboarding', (tester) async {

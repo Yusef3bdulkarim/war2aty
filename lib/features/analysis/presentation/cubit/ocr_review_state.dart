@@ -107,7 +107,7 @@ final class OcrReviewPoorQuality extends OcrReviewState {
   int get hashCode => imagePath.hashCode;
 }
 
-/// The OCR request itself failed — network, server error, declined consent.
+/// The OCR request itself failed — network or server error.
 final class OcrReviewFailed extends OcrReviewState {
   const OcrReviewFailed(this.failure);
 

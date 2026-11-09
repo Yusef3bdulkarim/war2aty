@@ -1,9 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/analysis/processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
-import 'package:war2aty/core/analysis/usecases/get_processing_mode.dart';
-import 'package:war2aty/core/analysis/usecases/set_analysis_consent.dart';
-import 'package:war2aty/core/analysis/usecases/set_processing_mode.dart';
 import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/audio/tts_voice.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
@@ -42,8 +37,6 @@ const _ar = ArStrings();
 void main() {
   // Builds a cubit over fake stores and registers its close() teardown.
   SettingsCubit buildCubit({
-    FakeAnalysisConsentStore? consentStore,
-    FakeProcessingModeStore? modeStore,
     FakeDefaultReadingSpeedStore? speedStore,
     FakeDefaultReadingVoiceStore? voiceStore,
     FakeResumeReadingEnabledStore? resumeStore,
@@ -58,8 +51,6 @@ void main() {
     FakeUsageRepository? usageRepository,
     String appVersion = '1.0.0',
   }) {
-    final consent = consentStore ?? FakeAnalysisConsentStore();
-    final mode = modeStore ?? FakeProcessingModeStore();
     final speed = speedStore ?? FakeDefaultReadingSpeedStore();
     final voice = voiceStore ?? FakeDefaultReadingVoiceStore();
     final resume = resumeStore ?? FakeResumeReadingEnabledStore();
@@ -77,10 +68,6 @@ void main() {
     final settings = settingsRepository ?? FakeAppSettingsRepository();
     final usage = usageRepository ?? FakeUsageRepository();
     final cubit = SettingsCubit(
-      getAnalysisConsent: GetAnalysisConsent(consent),
-      setAnalysisConsent: SetAnalysisConsent(consent),
-      getProcessingMode: GetProcessingMode(mode),
-      setProcessingMode: SetProcessingMode(mode),
       getDefaultReadingSpeed: GetDefaultReadingSpeed(speed),
       setDefaultReadingSpeed: SetDefaultReadingSpeed(speed),
       getDefaultReadingVoice: GetDefaultReadingVoice(voice),
@@ -124,8 +111,6 @@ void main() {
   }
 
   const readyDefaults = SettingsReady(
-    analysisConsent: true,
-    processingMode: ProcessingMode.smartAnalysis,
     defaultReadingSpeed: ReadingSpeed.normal,
     defaultReadingVoice: null,
     resumeReadingEnabled: true,
@@ -140,76 +125,12 @@ void main() {
     expect(buildCubit().state, const SettingsLoading());
   });
 
-  test('load() reads the persisted settings, defaulting to consent on and '
-      'smart analysis', () async {
+  test('load() reads the persisted settings, falling back to their '
+      'defaults', () async {
     final cubit = buildCubit();
     await cubit.load();
 
     expect(cubit.state, readyDefaults);
-  });
-
-  test('load() reflects an explicit decline', () async {
-    final cubit = buildCubit(consentStore: FakeAnalysisConsentStore(false));
-    await cubit.load();
-
-    expect(cubit.state, readyDefaults.copyWith(analysisConsent: false));
-  });
-
-  test('load() reflects a persisted textOnly mode', () async {
-    final cubit = buildCubit(
-      modeStore: FakeProcessingModeStore(ProcessingMode.textOnly),
-    );
-    await cubit.load();
-
-    expect(
-      cubit.state,
-      readyDefaults.copyWith(processingMode: ProcessingMode.textOnly),
-    );
-  });
-
-  test('setAnalysisConsent() emits and persists', () async {
-    final store = FakeAnalysisConsentStore();
-    final cubit = buildCubit(consentStore: store);
-    await cubit.load();
-
-    await cubit.setAnalysisConsent(false);
-
-    expect(cubit.state, readyDefaults.copyWith(analysisConsent: false));
-    expect(await store.readConsent(), isFalse);
-  });
-
-  test('setAnalysisConsent() before load() is a no-op', () async {
-    final store = FakeAnalysisConsentStore();
-    final cubit = buildCubit(consentStore: store);
-
-    await cubit.setAnalysisConsent(false);
-
-    expect(cubit.state, const SettingsLoading());
-    expect(await store.readConsent(), isNull);
-  });
-
-  test('setProcessingMode() emits and persists', () async {
-    final store = FakeProcessingModeStore();
-    final cubit = buildCubit(modeStore: store);
-    await cubit.load();
-
-    await cubit.setProcessingMode(ProcessingMode.textOnly);
-
-    expect(
-      cubit.state,
-      readyDefaults.copyWith(processingMode: ProcessingMode.textOnly),
-    );
-    expect(await store.readMode(), ProcessingMode.textOnly);
-  });
-
-  test('setProcessingMode() before load() is a no-op', () async {
-    final store = FakeProcessingModeStore();
-    final cubit = buildCubit(modeStore: store);
-
-    await cubit.setProcessingMode(ProcessingMode.textOnly);
-
-    expect(cubit.state, const SettingsLoading());
-    expect(await store.readMode(), isNull);
   });
 
   group('audio prefs (F11-T07)', () {

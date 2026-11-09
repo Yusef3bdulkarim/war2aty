@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/audio/audio_reader_cubit.dart';
 import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
@@ -101,7 +100,6 @@ OcrReviewCubit _onlineCubit(
   photo: _photo,
   ocrImage: OcrImage(_FakeAnalysisRepository(onlineAnswer)),
   extractCandidates: _extractCandidates(),
-  getAnalysisConsent: GetAnalysisConsent(FakeAnalysisConsentStore()),
   imageHolder: ImageAnalysisSessionHolder(),
   extractDocumentText: ExtractDocumentText(_FakeDeviceOcr()),
 );

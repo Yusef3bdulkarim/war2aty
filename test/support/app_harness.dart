@@ -48,7 +48,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/app.dart';
 import 'package:war2aty/app/di/service_locator.dart';
-import 'package:war2aty/core/analysis/analysis_consent_store.dart';
 import 'package:war2aty/core/connectivity/connectivity_service.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/documents/document_image_store.dart';
@@ -67,11 +66,9 @@ import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_ser
 import 'package:war2aty/features/bootstrap/data/repositories/stub_auth_repository.dart';
 import 'package:war2aty/features/bootstrap/domain/repositories/auth_repository.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
-import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
 import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
-import 'package:war2aty/features/capture/domain/services/image_quality_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
 import 'package:war2aty/features/capture/domain/usecases/capture_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/dispose_camera.dart';
@@ -545,15 +542,8 @@ Future<AppHarness> bootApp(
   int usedToday = 0,
   bool analysisEnabled = true,
   bool seenOnboarding = true,
-  bool? analysisConsent,
   String ocrText = kDeviceOcrText,
   DateTime? deadline,
-  ImageQualityResult quality = const ImageQualityResult(
-    overall: ImageQuality.good,
-    blur: ImageQuality.good,
-    resolution: ImageQuality.good,
-    brightness: ImageQuality.good,
-  ),
 }) async {
   final temp = Directory.systemTemp.createTempSync('war2aty-journey');
   addTearDown(() {
@@ -627,12 +617,9 @@ Future<AppHarness> bootApp(
     ..registerLazySingleton<LocalNotificationsPort>(() => notifications)
     ..registerLazySingleton<TextToSpeechService>(() => tts)
     ..registerLazySingleton<ImagePickerService>(() => picker)
-    // The `image` package's three isolate-bound services, and Tesseract.
+    // The `image` package's isolate-bound services, and Tesseract.
     ..registerLazySingleton<ImageRotator>(FakeImageRotator.new)
     ..registerLazySingleton<ImageCropper>(FakeImageCropper.new)
-    ..registerLazySingleton<ImageQualityService>(
-      () => FakeImageQualityService(result: quality),
-    )
     ..registerLazySingleton<ImagePreprocessor>(FakeImagePreprocessor.new)
     ..registerLazySingleton<OcrEngine>(() => ocrEngine)
     // Files: the session directory is real (the online route reads from it),
@@ -655,9 +642,6 @@ Future<AppHarness> bootApp(
       ),
     );
 
-  if (analysisConsent != null) {
-    await getIt<AnalysisConsentStore>().writeConsent(analysisConsent);
-  }
   if (seenOnboarding) {
     await getIt<OnboardingRepository>().markOnboardingSeen();
   }

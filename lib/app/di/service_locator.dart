@@ -13,12 +13,6 @@ import '../../core/accessibility/usecases/get_high_contrast.dart';
 import '../../core/accessibility/usecases/get_text_size.dart';
 import '../../core/accessibility/usecases/set_high_contrast.dart';
 import '../../core/accessibility/usecases/set_text_size.dart';
-import '../../core/analysis/analysis_consent_store.dart';
-import '../../core/analysis/processing_mode_store.dart';
-import '../../core/analysis/usecases/get_analysis_consent.dart';
-import '../../core/analysis/usecases/get_processing_mode.dart';
-import '../../core/analysis/usecases/set_analysis_consent.dart';
-import '../../core/analysis/usecases/set_processing_mode.dart';
 import '../../core/audio/audio_reader_cubit.dart';
 import '../../core/audio/default_reading_speed_store.dart';
 import '../../core/audio/default_reading_voice_store.dart';
@@ -163,7 +157,6 @@ import '../../features/bootstrap/domain/usecases/finish_launch.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
-import '../../features/capture/data/services/dart_image_quality_service.dart';
 import '../../features/capture/data/services/image_package_cropper.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
@@ -174,9 +167,7 @@ import '../../features/capture/domain/repositories/camera_permission_repository.
 import '../../features/capture/domain/services/capture_file_cleanup.dart';
 import '../../features/capture/domain/services/image_cropper.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
-import '../../features/capture/domain/services/image_quality_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
-import '../../features/capture/domain/usecases/assess_image_quality.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
@@ -616,8 +607,6 @@ void _registerCapture() {
     // The preview screen's manual drag-crop (F15).
     ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
     ..registerFactory<CropImage>(() => CropImage(getIt()))
-    ..registerLazySingleton<ImageQualityService>(DartImageQualityService.new)
-    ..registerFactory<AssessImageQuality>(() => AssessImageQuality(getIt()))
     ..registerFactory<CreateAnalysisSession>(
       () => CreateAnalysisSession(getIt()),
     )
@@ -630,14 +619,13 @@ void _registerCapture() {
     ..registerFactory<DecideAnalysisRoute>(
       () => DecideAnalysisRoute(getIt(), getIt()),
     )
-    // Parameterised by the acquired image's path — the cubit rotates,
-    // assesses quality, and exports that specific file.
+    // Parameterised by the acquired image's path — the cubit rotates, crops
+    // and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
       (path, _) => ImagePreviewCubit(
         source: CapturedPhoto(path),
         rotate: getIt(),
         cropImage: getIt(),
-        assessQuality: getIt(),
         decideRoute: getIt(),
         createSession: getIt(),
         onlineHandoff: getIt(),
@@ -693,18 +681,6 @@ void _registerAnalysis(AppEnvironment env) {
   final useMock = env.isDev && _useMockAnalysis;
 
   getIt
-    // F11-T02. Same `app_settings` table `DriftLocaleStore` reads/writes.
-    ..registerLazySingleton<AnalysisConsentStore>(
-      () => DriftAnalysisConsentStore(getIt()),
-    )
-    ..registerFactory<GetAnalysisConsent>(() => GetAnalysisConsent(getIt()))
-    ..registerFactory<SetAnalysisConsent>(() => SetAnalysisConsent(getIt()))
-    // F11-T03. Same `app_settings` table.
-    ..registerLazySingleton<ProcessingModeStore>(
-      () => DriftProcessingModeStore(getIt()),
-    )
-    ..registerFactory<GetProcessingMode>(() => GetProcessingMode(getIt()))
-    ..registerFactory<SetProcessingMode>(() => SetProcessingMode(getIt()))
     // The real Edge Function client (F06-T14). An unconfigured build refuses
     // outright rather than falling back to fixtures: showing invented amounts
     // and deadlines to a real user would be worse than showing nothing, which
@@ -742,7 +718,6 @@ void _registerAnalysis(AppEnvironment env) {
       (session, source) => AnalysisResultCubit(
         session: session,
         source: source,
-        getAnalysisConsent: getIt(),
         analyzeDocument: getIt(),
         buildResult: getIt(),
         syncDailyUsage: getIt(),
@@ -760,7 +735,6 @@ void _registerAnalysis(AppEnvironment env) {
         photo: photo,
         ocrImage: getIt(),
         extractCandidates: getIt(),
-        getAnalysisConsent: getIt(),
         imageHolder: getIt<ImageAnalysisSessionHolder>(),
         extractDocumentText: getIt(),
       ),
@@ -1064,7 +1038,7 @@ void _registerAudioReader() {
 ///
 /// Its own module rather than part of `_registerSettings`, because two
 /// screens in different places reach it: the settings «عن التطبيق» rows and
-/// the privacy screen's footer.
+/// the privacy-policy screen's footer.
 void _registerLegal() {
   getIt
     ..registerLazySingleton<ExternalLinkService>(
@@ -1080,9 +1054,6 @@ void _registerLegal() {
 }
 
 void _registerSettings() {
-  // F11-T02/T03. Reuses the store/use cases `_registerAnalysis` already
-  // registered — Settings reads and writes the same consent and processing-
-  // mode flags the analysis flow gates itself on.
   // F11-T07. Reuses the store/use cases `_registerAudioReader` already
   // registered — Settings reads and writes the same audio defaults the
   // mini-player applies to a fresh reading.
@@ -1111,10 +1082,6 @@ void _registerSettings() {
     ..registerFactory<GetAppVersion>(() => GetAppVersion(getIt()))
     ..registerFactory<SettingsCubit>(
       () => SettingsCubit(
-        getAnalysisConsent: getIt(),
-        setAnalysisConsent: getIt(),
-        getProcessingMode: getIt(),
-        setProcessingMode: getIt(),
         getDefaultReadingSpeed: getIt(),
         setDefaultReadingSpeed: getIt(),
         getDefaultReadingVoice: getIt(),

@@ -36,10 +36,6 @@ final class GalleryAccessFailure extends LocalFailure {
   const GalleryAccessFailure();
 }
 
-final class ImageQualityFailure extends LocalFailure {
-  const ImageQualityFailure();
-}
-
 final class ImageProcessingFailure extends LocalFailure {
   const ImageProcessingFailure();
 }
@@ -165,13 +161,6 @@ final class NoArabicVoiceFailure extends LocalFailure {
 /// tapping a row that does nothing, so the screen says so instead.
 final class ExternalLinkFailure extends LocalFailure {
   const ExternalLinkFailure();
-}
-
-/// The user has turned off «السماح بإرسال النص للتحليل» (F11-T02) — analysis
-/// was never attempted, so this is not a network/business outcome, but a
-/// local, user-controlled setting the request never got past.
-final class AnalysisConsentDeclinedFailure extends LocalFailure {
-  const AnalysisConsentDeclinedFailure();
 }
 
 // ---------------------------------------------------------------------------

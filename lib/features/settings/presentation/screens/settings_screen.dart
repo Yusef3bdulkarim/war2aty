@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/accessibility/high_contrast_cubit.dart';
 import '../../../../core/accessibility/text_size.dart';
 import '../../../../core/accessibility/text_size_cubit.dart';
-import '../../../../core/analysis/processing_mode.dart';
 import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/documents/document_category.dart';
 import '../../../../core/documents/document_category_style.dart';
@@ -36,14 +35,11 @@ const double _pageBottom = 108;
 const double _headerGapBelow = 20;
 
 /// Row keys so a test can target one specific toggle once more than one
-/// [Switch] is on the screen — the analysis-consent row (F11-T02) and the
-/// high-contrast row (F11-T06) would otherwise both match `find.byType`.
-const Key settingsAnalysisConsentToggleKey = Key(
-  'settings-analysis-consent-toggle',
-);
+/// [Switch] is on the screen — the high-contrast row (F11-T06) and the
+/// resume-reading row below would otherwise both match `find.byType`.
 const Key settingsHighContrastToggleKey = Key('settings-high-contrast-toggle');
 
-/// The resume-reading row (F11-T07) — the other toggle beside the two above.
+/// The resume-reading row (F11-T07) — the other toggle beside the one above.
 const Key settingsResumeReadingToggleKey = Key(
   'settings-resume-reading-toggle',
 );
@@ -247,8 +243,8 @@ const double _rowLabelFontSize = 15;
 ///
 /// Reads the app-scoped [LocaleCubit] directly rather than routing through
 /// [SettingsCubit]: the locale is an app-wide concern shared with
-/// [MaterialApp], not a settings-screen-only flag like consent or processing
-/// mode.
+/// [MaterialApp], not a settings-screen-only value like the default reading
+/// speed.
 class _LanguageSection extends StatelessWidget {
   const _LanguageSection();
 
@@ -616,8 +612,7 @@ class _TextSizeOption extends StatelessWidget {
   }
 }
 
-/// «الخصوصية» — the analysis consent toggle (F11-T02), the processing-mode
-/// row (F11-T03), and the delete-all-documents / delete-all-app-data rows
+/// «الخصوصية» — the delete-all-documents / delete-all-app-data rows
 /// (F11-T11).
 class _PrivacySection extends StatelessWidget {
   const _PrivacySection();
@@ -628,43 +623,27 @@ class _PrivacySection extends StatelessWidget {
 
     return BlocBuilder<SettingsCubit, SettingsState>(
       builder: (context, state) => switch (state) {
-        // Consent toggle, processing-mode row, and the two delete-all rows
-        // (F11-T11) — four rows.
-        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 4),
-        SettingsReady(:final analysisConsent, :final processingMode) =>
-          SettingsSection(
-            title: strings.settingsPrivacySection,
-            rows: [
-              SettingsToggleRow(
-                key: settingsAnalysisConsentToggleKey,
-                glyph: StrokeGlyph.send,
-                label: strings.settingsAnalysisConsentLabel,
-                value: analysisConsent,
-                onChanged: (value) =>
-                    context.read<SettingsCubit>().setAnalysisConsent(value),
-              ),
-              SettingsValueRow(
-                glyph: StrokeGlyph.documentSteps,
-                label: strings.settingsProcessingModeLabel,
-                value: _modeName(processingMode, strings),
-                onTap: () => _showModePicker(context, processingMode),
-              ),
-              SettingsActionRow(
-                key: settingsDeleteAllDocumentsButtonKey,
-                glyph: StrokeGlyph.trash,
-                label: strings.settingsDeleteAllDocumentsLabel,
-                destructive: true,
-                onTap: () => _deleteAllDocuments(context, strings),
-              ),
-              SettingsActionRow(
-                key: settingsDeleteAllAppDataButtonKey,
-                glyph: StrokeGlyph.trash,
-                label: strings.settingsDeleteAllAppDataLabel,
-                destructive: true,
-                onTap: () => _deleteAllAppData(context, strings),
-              ),
-            ],
-          ),
+        // The two delete-all rows (F11-T11) — two rows.
+        SettingsLoading() => const _SettingsSectionSkeleton(rowCount: 2),
+        SettingsReady() => SettingsSection(
+          title: strings.settingsPrivacySection,
+          rows: [
+            SettingsActionRow(
+              key: settingsDeleteAllDocumentsButtonKey,
+              glyph: StrokeGlyph.trash,
+              label: strings.settingsDeleteAllDocumentsLabel,
+              destructive: true,
+              onTap: () => _deleteAllDocuments(context, strings),
+            ),
+            SettingsActionRow(
+              key: settingsDeleteAllAppDataButtonKey,
+              glyph: StrokeGlyph.trash,
+              label: strings.settingsDeleteAllAppDataLabel,
+              destructive: true,
+              onTap: () => _deleteAllAppData(context, strings),
+            ),
+          ],
+        ),
       },
     );
   }
@@ -735,17 +714,13 @@ class _PrivacySection extends StatelessWidget {
   }
 }
 
-/// The short label for the current mode, shown on the row itself.
-String _modeName(ProcessingMode mode, AppStrings strings) => switch (mode) {
-  ProcessingMode.smartAnalysis => strings.settingsProcessingModeSmartAnalysis,
-  ProcessingMode.textOnly => strings.settingsProcessingModeTextOnly,
-};
-
 // ---------------------------------------------------------------------------
-// Processing-mode picker sheet (F11-T03)
+// Shared option-sheet layout
 // ---------------------------------------------------------------------------
 
-/// Sheet layout constants, matching the design's pattern for option sheets.
+/// Sheet layout constants, matching the design's pattern for option sheets —
+/// shared by every picker sheet on this screen (language, text size, reading
+/// speed, supported document types).
 const double _sheetRadius = 20;
 const double _sheetPaddingH = 20;
 const double _sheetPaddingTop = 24;
@@ -755,157 +730,6 @@ const double _optionGap = 12;
 const double _optionPaddingH = 16;
 const double _optionPaddingV = 14;
 const double _radioSize = 20;
-
-void _showModePicker(BuildContext context, ProcessingMode current) {
-  showModalBottomSheet<void>(
-    context: context,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(_sheetRadius)),
-    ),
-    backgroundColor: AppColors.of(context).card,
-    builder: (_) => _ProcessingModeSheet(
-      current: current,
-      onSelected: (mode) {
-        context.read<SettingsCubit>().setProcessingMode(mode);
-        Navigator.of(context).pop();
-      },
-    ),
-  );
-}
-
-class _ProcessingModeSheet extends StatelessWidget {
-  const _ProcessingModeSheet({required this.current, required this.onSelected});
-
-  final ProcessingMode current;
-  final ValueChanged<ProcessingMode> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          _sheetPaddingH,
-          _sheetPaddingTop,
-          _sheetPaddingH,
-          _sheetPaddingBottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Semantics(
-              header: true,
-              child: Text(
-                strings.settingsProcessingModeLabel,
-                style: AppTypography.titleMedium.copyWith(
-                  fontWeight: AppTypography.bold,
-                  color: colors.ink,
-                ),
-              ),
-            ),
-            const SizedBox(height: _sheetTitleGap),
-            _ModeOption(
-              title: strings.settingsProcessingModeSmartAnalysis,
-              description:
-                  strings.settingsProcessingModeSmartAnalysisDescription,
-              selected: current == ProcessingMode.smartAnalysis,
-              onTap: () => onSelected(ProcessingMode.smartAnalysis),
-            ),
-            const SizedBox(height: _optionGap),
-            _ModeOption(
-              title: strings.settingsProcessingModeTextOnly,
-              description: strings.settingsProcessingModeTextOnlyDescription,
-              selected: current == ProcessingMode.textOnly,
-              onTap: () => onSelected(ProcessingMode.textOnly),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ModeOption extends StatelessWidget {
-  const _ModeOption({
-    required this.title,
-    required this.description,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String description;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-
-    // Selection is otherwise conveyed only by border color/weight (the
-    // `_Radio` dot) — invisible to a screen reader without this (F12-T01).
-    return Semantics(
-      button: true,
-      selected: selected,
-      label: '$title. $description',
-      excludeSemantics: true,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadii.md),
-              border: Border.all(
-                color: selected ? colors.brandPrimary : colors.surfaceAlt,
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _optionPaddingH,
-                vertical: _optionPaddingV,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: AppTypography.bodyMedium.copyWith(
-                            fontWeight: AppTypography.semiBold,
-                            color: colors.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          description,
-                          style: AppTypography.caption.copyWith(
-                            fontSize: 13,
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  _Radio(selected: selected),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 /// A teal filled circle or an empty ring — no Material [Radio] dependency,
 /// matching the design's own radio mark.

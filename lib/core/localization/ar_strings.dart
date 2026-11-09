@@ -121,9 +121,6 @@ final class ArStrings implements AppStrings {
   String get privacyPointDeleteAnytime => 'تقدر تحذف بياناتك في أي وقت.';
 
   @override
-  String get privacyAgree => 'موافق، ابدأ';
-
-  @override
   String get homeGreetingTitle => 'أهلًا، عندك ورقة محتاج تفهمها؟';
 
   @override
@@ -246,20 +243,6 @@ final class ArStrings implements AppStrings {
 
   @override
   String get previewErrorMessage => 'مقدرناش نجهّز الصورة. جرّب تاني.';
-
-  @override
-  String get qualityAlertTitle => 'الصورة ممكن تكون أوضح';
-
-  @override
-  String get qualityAlertMessage =>
-      'صورة أوضح بتساعدنا نقرا الكلام صح. جرّب تصوّر تاني في إضاءة '
-      'أحسن، أو كمّل لو الكلام باين.';
-
-  @override
-  String get qualityAlertRetake => 'أعيد التصوير';
-
-  @override
-  String get qualityAlertContinue => 'كمّل كده';
 
   @override
   String get homeEmptyTitle => 'ابدأ بتصوير أول ورقة.';
@@ -502,26 +485,6 @@ final class ArStrings implements AppStrings {
 
   @override
   String get settingsPrivacySection => 'الخصوصية';
-
-  @override
-  String get settingsAnalysisConsentLabel => 'السماح بإرسال النص للتحليل';
-
-  @override
-  String get settingsProcessingModeLabel => 'طريقة معالجة الأوراق';
-
-  @override
-  String get settingsProcessingModeSmartAnalysis => 'تحليل ذكي';
-
-  @override
-  String get settingsProcessingModeTextOnly => 'استخراج النص فقط';
-
-  @override
-  String get settingsProcessingModeSmartAnalysisDescription =>
-      'الورقة تتقرأ وتتحلل عشان تفهم المهم فيها';
-
-  @override
-  String get settingsProcessingModeTextOnlyDescription =>
-      'بس يطلع النص من الورقة من غير تحليل — كل حاجة تفضل على الموبايل';
 
   // Display / Accessibility (F11-T05)
   @override
@@ -1007,24 +970,6 @@ final class ArStrings implements AppStrings {
       'تقرير طبي، ورقة قانونية، ورقة من البنك';
   @override
   String get analysisPickFromGallery => 'اختار من الصور';
-  @override
-  String get analysisConsentDeclinedTitle => 'الشرح الذكي مقفول';
-  @override
-  String get analysisConsentDeclinedMessage =>
-      'إنت قافل «السماح بإرسال النص للتحليل» من الإعدادات، وده اختيارك. علشان '
-      'كده مقدرناش نشرح الورقة، بس الكلام اللي فيها متاح تقراه.';
-  @override
-  String get analysisConsentValueTitle => 'لو فتحته، هنقولك:';
-  @override
-  String get analysisConsentValueType => 'نوع الورقة';
-  @override
-  String get analysisConsentValueKeyPoints => 'أهم اللي فيها';
-  @override
-  String get analysisConsentValueRequired => 'المطلوب منك';
-  @override
-  String get analysisConsentValueDates => 'المواعيد اللي محتاجة تذكير';
-  @override
-  String get analysisConsentDeclinedOpenSettings => 'افتح الإعدادات';
   @override
   String get analysisCaptureAnother => 'صوّر ورقة تانية';
   @override

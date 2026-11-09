@@ -7,7 +7,6 @@ import '../../../analysis/presentation/image_analysis_session_holder.dart';
 import '../../../ocr/presentation/ocr_session_holder.dart';
 import '../../domain/entities/captured_photo.dart';
 import '../../domain/entities/unit_rect.dart';
-import '../../domain/usecases/assess_image_quality.dart';
 import '../../domain/usecases/cleanup_capture_files.dart';
 import '../../domain/usecases/create_analysis_session.dart';
 import '../../domain/usecases/crop_image.dart';
@@ -16,7 +15,7 @@ import '../../domain/usecases/rotate_image.dart';
 import 'image_preview_state.dart';
 
 /// Drives the crop/rotate preview: track the chosen rotation, then on confirm
-/// bake it into an upright file and assess its quality for OCR.
+/// bake it into an upright file and hand it on.
 ///
 /// [proceed] is also where the F13/F15 pipeline split happens: [decideRoute]
 /// picks offline (hands the confirmed image's session off to F04's OCR
@@ -29,7 +28,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     required CapturedPhoto source,
     required RotateImage rotate,
     required CropImage cropImage,
-    required AssessImageQuality assessQuality,
     required DecideAnalysisRoute decideRoute,
     required CreateAnalysisSession createSession,
     required ImageAnalysisSessionHolder onlineHandoff,
@@ -38,7 +36,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   }) : _source = source,
        _rotate = rotate,
        _cropImage = cropImage,
-       _assessQuality = assessQuality,
        _decideRoute = decideRoute,
        _createSession = createSession,
        _onlineHandoff = onlineHandoff,
@@ -50,7 +47,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   final CapturedPhoto _source;
   final RotateImage _rotate;
   final CropImage _cropImage;
-  final AssessImageQuality _assessQuality;
   final DecideAnalysisRoute _decideRoute;
   final CreateAnalysisSession _createSession;
   final ImageAnalysisSessionHolder _onlineHandoff;
@@ -103,16 +99,16 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     emit(ImagePreviewReady(turns, cropRect: rect));
   }
 
-  /// Bakes rotation and crop into a file, assesses quality, and hands on.
+  /// Bakes rotation and crop into a file and hands it on.
   ///
-  /// The pipeline is: rotate → crop → quality-check (F15 locked decision #8).
-  /// Both steps are no-ops when the user left them at the default (0 turns,
-  /// full crop rect), and the quality check runs on the *final* image — not
-  /// the pre-crop rotation.
+  /// The pipeline is: rotate → crop → hand off. Both steps are no-ops when
+  /// the user left them at the default (0 turns, full crop rect). A quality
+  /// assessment used to sit at the end and could send the user back to retake
+  /// (F35-T14 removed it).
   ///
   /// A no-op once already confirmed — re-entering would export a second copy
-  /// of the same framing and hand back a different file than the one the
-  /// quality sheet is asking about. The guard keeps the confirmed result final.
+  /// of the same framing and hand back a different file than the confirmed
+  /// one. The guard keeps the confirmed result final.
   Future<void> confirm() async {
     if (isClosed ||
         state is ImagePreviewProcessing ||
@@ -161,21 +157,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
 
     if (cropped.path != rotated.path) _croppedPath = cropped.path;
 
-    // 3. Quality-check on the final (rotated + cropped) image. Produces no
-    // new file, so there is nothing extra to clean up if this races close().
-    final qualityResult = await _assessQuality(cropped);
-    if (isClosed) return;
-
     emit(
-      qualityResult.fold(
-        (quality) => ImagePreviewConfirmed(
-          cropped,
-          quality,
-          quarterTurns: turns,
-          cropRect: cropRect,
-        ),
-        (_) => ImagePreviewFailed(turns, cropRect: cropRect),
-      ),
+      ImagePreviewConfirmed(cropped, quarterTurns: turns, cropRect: cropRect),
     );
   }
 

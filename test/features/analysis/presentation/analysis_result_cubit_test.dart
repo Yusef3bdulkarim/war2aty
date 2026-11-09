@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/analysis/usecases/get_analysis_consent.dart';
 import 'package:war2aty/core/documents/analysis_section.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
@@ -67,12 +66,10 @@ final class FakeAnalysisRepository implements AnalysisRepository {
 
 void main() {
   late FakeAnalysisRepository repository;
-  late FakeAnalysisConsentStore consentStore;
   late FakeUsageRepository usageRepository;
 
   setUp(() {
     repository = FakeAnalysisRepository();
-    consentStore = FakeAnalysisConsentStore();
     usageRepository = FakeUsageRepository(
       seed: usageWith(limit: 3, remaining: 3),
     );
@@ -83,7 +80,6 @@ void main() {
   AnalysisResultCubit buildCubit() => AnalysisResultCubit(
     session: _session,
     source: const OcrAnalysisSource(_extraction),
-    getAnalysisConsent: GetAnalysisConsent(consentStore),
     analyzeDocument: AnalyzeDocument(repository),
     buildResult: const BuildAnalysisResult(),
     syncDailyUsage: SyncDailyUsage(usageRepository),
@@ -105,7 +101,6 @@ void main() {
         final cubit = AnalysisResultCubit(
           session: _session,
           source: const OcrAnalysisSource(_extraction),
-          getAnalysisConsent: GetAnalysisConsent(consentStore),
           analyzeDocument: AnalyzeDocument(repository),
           buildResult: const BuildAnalysisResult(),
           syncDailyUsage: SyncDailyUsage(usageRepository),
@@ -125,7 +120,6 @@ void main() {
         final cubit = AnalysisResultCubit(
           session: _session,
           source: const OcrAnalysisSource(_extraction),
-          getAnalysisConsent: GetAnalysisConsent(consentStore),
           analyzeDocument: AnalyzeDocument(repository),
           buildResult: const BuildAnalysisResult(),
           syncDailyUsage: SyncDailyUsage(usageRepository),
@@ -233,38 +227,15 @@ void main() {
       await subscription.cancel();
     });
 
-    group('analysis consent (F11-T02)', () {
-      test('proceeds when the user has never touched the setting', () async {
-        final cubit = buildCubit();
-        await cubit.analyze();
+    // F35-T06 removed the consent gate: an analysis is no longer conditional
+    // on a setting, so the one thing left worth pinning is that the text is
+    // sent unconditionally — nothing between `analyze()` and the repository.
+    test('sends the text with nothing gating it', () async {
+      final cubit = buildCubit();
+      await cubit.analyze();
 
-        expect(repository.requests, hasLength(1));
-        expect(cubit.state, isA<AnalysisResultReady>());
-      });
-
-      test('never sends the text when consent is declined', () async {
-        await consentStore.writeConsent(false);
-        final cubit = buildCubit();
-        await cubit.analyze();
-
-        expect(repository.requests, isEmpty);
-        expect(
-          cubit.state,
-          AnalysisResultFailed(
-            const AnalysisConsentDeclinedFailure(),
-            _extraction.text.cleanedText,
-          ),
-        );
-      });
-
-      test('proceeds once consent is explicitly on', () async {
-        await consentStore.writeConsent(true);
-        final cubit = buildCubit();
-        await cubit.analyze();
-
-        expect(repository.requests, hasLength(1));
-        expect(cubit.state, isA<AnalysisResultReady>());
-      });
+      expect(repository.requests, hasLength(1));
+      expect(cubit.state, isA<AnalysisResultReady>());
     });
 
     group('the daily limit for its page (F23-T06)', () {
@@ -321,7 +292,6 @@ void main() {
         final cubit = AnalysisResultCubit(
           session: _session,
           source: const OcrAnalysisSource(_extraction),
-          getAnalysisConsent: GetAnalysisConsent(consentStore),
           analyzeDocument: AnalyzeDocument(repository),
           buildResult: const BuildAnalysisResult(),
           syncDailyUsage: SyncDailyUsage(usage),

@@ -9,9 +9,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
-import 'package:war2aty/features/capture/domain/entities/image_quality_result.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
-import 'package:war2aty/features/capture/domain/usecases/assess_image_quality.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
@@ -33,7 +31,6 @@ const _imagePath = '/tmp/paper.jpg';
 Future<_Result> _pumpPreview(
   WidgetTester tester, {
   FakeImageRotator? rotator,
-  FakeImageQualityService? quality,
   FakeAnalysisSessionStorage? storage,
   FakeConnectivityService? connectivity,
   FakeUsageRepository? usage,
@@ -47,7 +44,6 @@ Future<_Result> _pumpPreview(
     source: const CapturedPhoto(_imagePath),
     rotate: RotateImage(rotator ?? FakeImageRotator()),
     cropImage: CropImage(FakeImageCropper()),
-    assessQuality: AssessImageQuality(quality ?? FakeImageQualityService()),
     decideRoute: DecideAnalysisRoute(
       connectivity ?? FakeConnectivityService(connected: false),
       // Live by default so a test that opts into `connected: true` exercises
@@ -230,51 +226,6 @@ void main() {
 
       rotator.gate!.complete();
       await tester.pump();
-    });
-
-    testWidgets('the crop stays on screen behind the quality sheet (F15-T14)', (
-      tester,
-    ) async {
-      const chosen = UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8);
-      // Poor quality → the «ممكن الصورة تطلع أوضح» sheet opens over the
-      // preview, which stays visible underneath it.
-      await _pumpPreview(
-        tester,
-        quality: FakeImageQualityService(
-          result: const ImageQualityResult(
-            overall: ImageQuality.poor,
-            blur: ImageQuality.poor,
-            resolution: ImageQuality.good,
-            brightness: ImageQuality.good,
-          ),
-        ),
-      );
-
-      final cubit = BlocProvider.of<ImagePreviewCubit>(
-        tester.element(find.byType(ImagePreviewScreen)),
-      );
-      cubit.rotateClockwise();
-      cubit.updateCrop(chosen);
-      await tester.pump();
-      await tester.pump();
-
-      await tester.tap(find.text(_strings.previewUseImage));
-      await tester.pump();
-      await tester.pump();
-      await tester.pump();
-
-      expect(
-        find.text(_strings.qualityAlertTitle),
-        findsOneWidget,
-        reason: 'the quality sheet should be up',
-      );
-      // It used to spring back to the raw photo right as the user was asked
-      // to judge it.
-      expect(_overlayCrop(tester), chosen);
-      expect(
-        tester.widget<RotatedBox>(find.byType(RotatedBox)).quarterTurns,
-        1,
-      );
     });
 
     testWidgets('lays out right-to-left', (tester) async {

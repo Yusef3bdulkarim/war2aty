@@ -9,7 +9,7 @@ final class AnalysisSession {
   /// UUID v4 that scopes every artefact of this analysis run.
   final String id;
 
-  /// Absolute path to the processed (rotated, quality-checked) image inside
+  /// Absolute path to the processed (rotated, cropped) image inside
   /// the session directory: `<cache>/analysis_sessions/{id}/processed.jpg`.
   final String imagePath;
 

@@ -55,6 +55,33 @@ export interface RuntimeConfig {
   readonly minimumAppVersion: string;
   /** Contract version the server speaks; requests must match. */
   readonly schemaVersion: string;
+  /**
+   * The `explain-document` contract version — a SEPARATE key from
+   * {@link schemaVersion}, and that separation is load-bearing (F35-T04).
+   *
+   * `schemaVersion` is compared to the client's value with `!==` in
+   * `analyze-request.ts`, for both request shapes. Versioning F34's one-call
+   * endpoint on that row would mean every published build was refused 400
+   * UNSUPPORTED_SCHEMA the instant it moved — F34's first known risk, reached
+   * without editing either endpoint. So the new flow counts from "1.0" on its
+   * own key and the published app's "2.0" is never touched again.
+   *
+   * A migration that bumps one of the two must leave the other alone.
+   */
+  readonly explainSchemaVersion: string;
+  /**
+   * Whether `explain-document` may run at all (F35-T04).
+   *
+   * Opt-in, exactly like {@link onlineOcrEnabled}: absent, unreadable and
+   * "off" all mean `false`, so an unverified provider chain is never callable
+   * merely because a deploy happened.
+   *
+   * Unlike `onlineOcrEnabled` this is ALSO the client's gate. The app checks
+   * connectivity locally and reads this flag from the usage sync Home already
+   * performs, so a disabled service shows the "our problem" screen rather than
+   * a dishonest "no internet" one (owner's Q14 decision).
+   */
+  readonly explainEnabled: boolean;
   /** Shown to the user during maintenance; `null` means normal operation. */
   readonly maintenanceMessage: string | null;
   /**
@@ -82,6 +109,11 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   // F13-T09: bumped for the image-intake request shape, `rawValue` on
   // dates/amounts, and the new phones[]/references[] response arrays.
   schemaVersion: "2.0",
+  // F34's one-call endpoint starts its own contract at 1.0. Deliberately NOT
+  // derived from `schemaVersion` above — see the interface doc.
+  explainSchemaVersion: "1.0",
+  // Dark until F36 is verified live (F35-T04).
+  explainEnabled: false,
   maintenanceMessage: null,
   aiTimeoutSeconds: 25,
 });
@@ -221,6 +253,11 @@ export function parseRuntimeConfig(
       read("schema_version"),
       DEFAULT_RUNTIME_CONFIG.schemaVersion,
     ),
+    explainSchemaVersion: nonEmptyString(
+      read("explain_schema_version"),
+      DEFAULT_RUNTIME_CONFIG.explainSchemaVersion,
+    ),
+    explainEnabled: optInFlag(read("explain_enabled"), has("explain_enabled")),
     // Only a non-empty string is a message; JSON null, "" and absence all mean
     // "operating normally".
     maintenanceMessage: typeof maintenance === "string" &&

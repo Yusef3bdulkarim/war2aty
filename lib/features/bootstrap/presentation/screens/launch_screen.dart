@@ -31,10 +31,10 @@ const String kBrandMarkAsset = 'assets/images/brand_mark.png';
 ///
 /// The fourth place this number has to appear, and the reason it is a named
 /// constant in all four: `_splashMarkDp` in the generator cuts the bitmaps,
-/// `splash_icon.xml` pins the Android 12+ icon inside its 288 dp canvas, the
-/// pre-12 bitmap is drawn at its intrinsic size, and this draws the Flutter
-/// copy. A mismatch in any one of them is a mark that changes size at the
-/// handover.
+/// the pre-12 bitmap is drawn at its intrinsic size, the Android 12+ icon is
+/// this much of its 288 dp canvas (F33 — that layer reads the ratio and
+/// nothing else), and this draws the Flutter copy. A mismatch in any one of
+/// them is a mark that changes size at the handover.
 const double kSplashMarkSize = 128;
 
 /// What the app shows while it is starting up, and instead of starting up if a
