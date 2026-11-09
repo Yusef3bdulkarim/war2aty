@@ -25,6 +25,13 @@ failures in §31 client rule 7, the app reads the page on the device instead
 and shows a warning; any other failure is shown as it is. See
 `docs/features/F20-ocr-analysis-provider-refactor.md`.
 
+**F36 addition — a second, independent contract.** §33 defines
+`explain-document`, the F34 pivot's one-call endpoint: photo in, explanation
+cards out. It is versioned on its **own** key (`explain_schema_version`,
+starting at `"1.0"`) and shares no request or response shape with v2. Everything
+above §33 describes the v2 endpoints, which are **frozen** while published 1.0.x
+builds depend on them. See `docs/features/F36-server-explain-document.md`.
+
 ---
 
 ## §29 · Analysis Request — Text shape (JSON Schema v2)
@@ -933,3 +940,354 @@ Every endpoint (`analyze-document`, `ocr-document`, `get-usage`, `report-error`,
   do not serve (§31 is a closed enum with no method code).
 - send `Cache-Control: no-store` — an analysis body describes someone's bill and
   must never sit in a proxy or a disk cache.
+
+---
+
+## §33 · `explain-document` — one call, photo in, cards out (v1.0)
+
+**DRAFT — F36-T01, awaiting the owner's approval.** Nothing implements this yet.
+
+`POST /functions/v1/explain-document` replaces the two-call flow for the F34
+non-reader pivot: the phone sends the photo **once**, the server reads it and
+explains it, and the response is the cards the result screen draws and the voice
+speaks. `ocr-document` and `analyze-document` are untouched and keep serving
+published 1.0.x builds.
+
+**Versioned on its own key.** The envelope field is `explain_schema_version`,
+compared against `RuntimeConfig.explainSchemaVersion` (the
+`explain_schema_version` row, `"1.0"`). It is deliberately **not**
+`schema_version`: that row is exact-matched by every published build, so moving
+it would stop them dead. The two version numbers move independently, forever.
+
+**Gated twice.** `analysis_enabled` (the service-wide kill switch) and
+`explain_enabled` (this endpoint's opt-in flag) must both be on. Either one off
+answers `503 ANALYSIS_DISABLED`, which the app shows as the "our problem"
+screen. `explain_enabled` is also reported by `get-usage` (§32) so the app can
+say so before the user photographs anything.
+
+### Request body
+
+```jsonc
+{
+  "explain_schema_version": "1.0",
+  "session_id":      "uuid-v4",   // a fresh id per attempt; echoed back
+  "installation_id": "uuid-v4",   // hashed server-side, never stored raw
+  "app_version":     "1.1.0",     // refused below RuntimeConfig.minimumAppVersion
+  "image": {
+    "data":      "<base64>",      // the capture as the user cropped it; never a thumbnail
+    "mime_type": "image/jpeg"     // "image/jpeg" | "image/png"
+  }
+}
+```
+
+There is **no `input_type` discriminant**: this endpoint serves exactly one
+shape. `additionalProperties: false`, so an `analyze-document` body (which always
+carries `input_type`) is refused `400 INVALID_REQUEST`.
+
+Decoded `image.data` above `RuntimeConfig.maxImageBytes` → `400 INVALID_REQUEST`.
+
+### Success response (`200 OK`)
+
+```jsonc
+{
+  // -- envelope ------------------------------------------------------
+  "explain_schema_version": "1.0",
+  "session_id": "uuid-v4",            // echoed from the request
+  "status":     "success",            // "success" | "partial" | "unsupported"
+
+  // -- the header ----------------------------------------------------
+  "paper": {
+    "title": "جواب من مدرسة النور"    // <= 24 characters -- see §33.1
+  },
+
+  // -- the cards, in the order the screen draws and the voice speaks --
+  // Every card below `explain` may be null; a null card is not drawn and
+  // not spoken. `explain` and `todo` are never null.
+
+  "explain": [                        // 1-4 paragraphs, each <= 220 characters
+    "دي ورقة من مدرسة النور لولي أمر الطالب أحمد محمود في الصف الرابع. المدرسة بتعزمك على اجتماع أولياء الأمور عشان يكلموك عن مستوى أحمد في نص السنة.",
+    "الاجتماع هيبقى مع مدرّس الفصل، وهيوريك درجات أحمد في الامتحانات اللي فاتت."
+  ],
+
+  "todo": {
+    "required": true,                 // false -> the paper asks nothing of the user
+    "text": "روح الاجتماع بنفسك، وخد معاك بطاقتك الشخصية وكراسة الواجب بتاعة أحمد."
+  },
+
+  "date": {                           // null when the paper carries no date worth a card
+    "date": "2026-11-20",             // ISO-8601 date, always present when `date` is not null
+    "time": "10:00",                  // "HH:mm" or null when no time is printed
+    "text": "اجتماع أولياء الأمور"     // the date's MEANING, spoken only -- see §33.3
+  },
+
+  "caution": {                        // null unless the paper carries a real warning
+    "text": "لو مش هتقدر تروح، لازم تبلّغ المدرسة قبل الميعاد."
+  },
+
+  "contact": {                        // null unless a phone number is printed on the paper
+    "name":  "مدرسة النور",
+    "phone": "0453312244"             // digits only, as printed; the app formats it
+  },
+
+  "place": {                          // null unless an address is printed on the paper
+    "text": "مدرسة النور، شارع الجمهورية، دمنهور"
+  }
+}
+```
+
+### §33.1 · `paper.title` — the header line
+
+- **≤ 24 characters**, Egyptian Arabic, no trailing punctuation.
+- **Word count is free.** F34 said "two words"; the approved design's own header
+  reads «جواب من مدرسة النور» — four words, 19 characters. The real constraint
+  is the one line it has to fit: at 17 px Cairo 800 in a 390 px header beside a
+  back arrow, a 46 px thumbnail and a help button, ~24 characters is the
+  measured limit. مستنداتي's rows ellipsise at about the same width.
+- It names the paper the way its owner would («فاتورة الكهربا», «عقد إيجار
+  الشقة», «إيصال التأمينات»), not its category.
+
+### §33.2 · There is no `paper_type`, no `confidence`, and no `basis`
+
+All three were in F34's sketch. **The approved design renders none of them**, and
+each was checked against the artboards rather than assumed:
+
+- **`paper_type`** was to drive an icon. The Result header's circle is the
+  **photo thumbnail**, not a type icon; the six card icons are fixed per card;
+  and مستنداتي's row glyph is a generic sheet of paper whose accent colour
+  follows the row's **section and playing state**, not the paper's kind. So no
+  consumer exists. A model-chosen enum nothing reads can only be wrong.
+- **`confidence`** and **`basis`** were rendered by the OLD result screen as
+  «قراءة غير مؤكدة» / «راجع المعلومة». The new design has **no uncertainty
+  affordance at all**, and the user cannot read a hedge in any case.
+
+Instead, truth is enforced by **omission**: see §33.4. Anything the server
+cannot ground in the page is left out, `status` becomes `"partial"`, and a fixed
+voice line tells the user something on the paper was not clear. This keeps
+CLAUDE.md §7's rule — never present an unconfirmed number as fact — with the
+screen the design actually specifies.
+
+### §33.3 · What each card is for, and who formats it
+
+| Field | Card | Drawn as | Notes |
+|---|---|---|---|
+| `explain` | شرح الورقة | one paragraph per element | always present; never restates another card (§33.5) |
+| `todo` | أعمل إيه؟ | **one** paragraph | always present. Money and required documents live *inside this text*, not in fields of their own |
+| `date` | ميعاد | month, day, weekday, time, bell | the app formats `date`/`time` into «نوفمبر / 20 / يوم الخميس / الساعة 10 الصبح». **`text` has no slot on screen** — it is spoken, so the voice can say what the date is for |
+| `caution` | خلي بالك | one paragraph | only a real warning. Not a reminder to keep the paper |
+| `contact` | تكلم مين | name, number, call button | `phone` is digits only; the app groups them LTR for display |
+| `place` | تروح فين | one line + "enlarge for the driver" | plain address text |
+
+The model writes **no card titles** — the app owns every title and icon.
+`todo.required: false` still produces text: it says what to do with the paper
+when the paper asks nothing (e.g. «الورقة دي للعلم بس، احفظها عندك.»).
+
+### §33.4 · Grounding — omission, not hedging
+
+A phone number, an amount or a date may appear **only if it literally appears in
+the reading** of the page, after digit folding (Arabic-Indic digits → ASCII).
+Checked with the same `number-validator` / `date-validator` / `text-matching`
+the v2 pipeline uses.
+
+- Ungrounded value → **removed**, not downgraded.
+- Anything removed → `status: "partial"`.
+- The reading itself is **never returned**. It exists only inside the request,
+  to ground these values. There is no `ocr_text` field, by design, and nothing
+  in the response may be derived verbatim from it beyond grounded values.
+
+### §33.5 · No repetition
+
+`explain` never restates `todo`, `date`, `caution`, `contact` or `place`. The
+server checks and strips duplicate sentences before responding — the page is
+read aloud top to bottom, and a repeated sentence is heard twice.
+
+### §33.6 · `status`
+
+| Value | Means | Quota |
+|---|---|---|
+| `success` | the paper was read and explained | **counts** |
+| `partial` | explained, but something was omitted for want of grounding (§33.4) | **counts** |
+| `unsupported` | the photo is not a paper this app can explain | **free** — the slot is released, exactly as §31 rule 6 does for `analyze-document` |
+
+### §33.7 · Errors
+
+The §31 envelope, unchanged. Both AI stages' failures collapse onto the closed
+`ERROR_CODES` list:
+
+| Stage / cause | Code | HTTP | The app |
+|---|---|---|---|
+| Either gate off | `ANALYSIS_DISABLED` | 503 | "our problem" screen |
+| Bad body, oversized image | `INVALID_REQUEST` | 400 | "our problem" screen |
+| `explain_schema_version` mismatch | `UNSUPPORTED_SCHEMA` | 400 | "our problem" screen (a build older than the server) |
+| Below `minimum_app_version` | `UNSUPPORTED_APP_VERSION` | 400 | update prompt |
+| Missing or invalid token | `UNAUTHORIZED` | 401 | silent re-auth, then retry |
+| Caller's 5/day spent | `DAILY_LIMIT_REACHED` | 429 | "daily limit" screen + its voice line |
+| Service-wide cap spent | `GLOBAL_CAPACITY_REACHED` | 503 | "our problem" screen |
+| Every reading leg rate-limited | `AI_RATE_LIMITED` | 429 | "try later" voice line |
+| Our budget ran out | `TIMEOUT` | 408 | "try later" voice line |
+| Every reading leg failed otherwise | `ANALYSIS_FAILED` | 502 | "unreadable" screen + its voice line |
+| Every explaining leg failed | `ANALYSIS_FAILED` | 502 | "our problem" screen |
+| Our bug, or a missing credential | `INTERNAL_ERROR` | 500 | "our problem" screen |
+
+**`OCR_UNAVAILABLE` is not reachable here.** That code exists to tell the app it
+may read the page on the device instead; after F39 there is no on-device reader,
+so emitting it would be an instruction the client cannot follow.
+
+### §33.8 · Time budget
+
+One request now does **two** AI calls where the v2 flow did one each. Measured
+p95s (F20-T09): reading 5.5 s, explaining 12.7 s (slowest 14.7 s), Groq 2.5-3.1 s.
+
+- `EXPLAIN_TIMEOUT_SECONDS` — the whole request's budget, env-sourced, **30 s**.
+- Split into a **read stage (10 s)** and an **explain stage (20 s)**, each with
+  its own deadline, per-attempt cap and "is there time for another leg?" rule.
+- `aiTimeoutSeconds` (25 s) is untouched, so `ocr-document` and
+  `analyze-document` keep the timing F20-T09 tuned them to.
+- The slot's TTL is the budget plus the 10 s reservation grace.
+- The client's own timeout must be **longer** than this, or the client stops
+  being second to give up and abandons a request that still holds a slot.
+
+A useful property of the deep chains: a rate limit returns **instantly**, so
+when a Gemini daily bucket is exhausted — the case leg 2 and leg 3 exist for —
+there is nearly the whole stage left for them. A slow primary, by contrast, eats
+the budget and the stage answers with its failure rather than starting a leg it
+cannot finish.
+
+### §33.9 · Provider chains (server-side only; never named to the user)
+
+| Stage | Legs |
+|---|---|
+| Reading | Gemini Flash-Lite (primary) → Gemini Flash-Lite (second model id) → Mistral OCR |
+| Explaining | Mistral `ministral-14b` → Groq `gpt-oss-120b` → Gemma 4 26B (native `generateContent`, `responseJsonSchema`) |
+
+Failover only on the closed allowlist in `provider-failure.ts` (rate limit,
+upstream outage, network, timeout, unusable output). Never on `auth` or
+`bad_request` — those are deploy faults and must be seen, not papered over.
+
+Mistral OCR runs on the account's free monthly credit, ~$4 of which is budgeted
+for OCR at ~$4/1,000 pages — about **1,000 pages a month**, i.e. a fallback for
+exhausted Gemini buckets, not a second engine.
+
+### §33.10 · Worked examples
+
+One per paper kind in the golden set. Only the fields that differ from the
+school-letter example above are shown; `explain_schema_version`, `session_id`
+and `status` are omitted for brevity.
+
+**Electricity bill** — money lives inside `todo`, not in a field of its own.
+
+```jsonc
+{
+  "paper":   { "title": "فاتورة الكهربا" },
+  "explain": ["دي فاتورة كهربا من شركة شمال القاهرة، عن شهر أكتوبر. القراءة الجديدة ٤٢٠ وحدة، والمبلغ اللي عليك ٢٨٥ جنيه."],
+  "todo":    { "required": true, "text": "ادفع ٢٨٥ جنيه قبل ٢٥ نوفمبر. تقدر تدفع من ماكينة الدفع أو من محفظة الموبايل." },
+  "date":    { "date": "2026-11-25", "time": null, "text": "آخر ميعاد للدفع" },
+  "caution": { "text": "لو اتأخرت عن الميعاد، بيتضاف رسم تأخير على الفاتورة اللي بعدها." },
+  "contact": { "name": "شركة شمال القاهرة", "phone": "121" },
+  "place":   null
+}
+```
+
+**Bank letter** — nothing is required of the user, so `todo.required` is `false`.
+
+```jsonc
+{
+  "paper":   { "title": "جواب من البنك" },
+  "explain": ["دي ورقة من البنك الأهلي بتقولك إن حسابك اتغير رقمه بعد ما البنك طوّر نظامه. الرقم الجديد مكتوب في الورقة."],
+  "todo":    { "required": false, "text": "مش مطلوب منك حاجة. احفظ الورقة دي عندك، وخد الرقم الجديد معاك أول مرة تروح البنك." },
+  "date":    null,
+  "caution": null,
+  "contact": { "name": "البنك الأهلي", "phone": "19623" },
+  "place":   null
+}
+```
+
+**Government form** — the required documents live inside `todo`.
+
+```jsonc
+{
+  "paper":   { "title": "استمارة الأحوال المدنية" },
+  "explain": ["دي استمارة من الأحوال المدنية لاستخراج بطاقة رقم قومي بدل تالفة."],
+  "todo":    { "required": true, "text": "املا الاستمارة وروح بيها السجل المدني. خد معاك البطاقة القديمة، وصورة شخصية حديثة، و٧٠ جنيه رسوم." },
+  "date":    null,
+  "caution": { "text": "الاستمارة لازم تتسلّم في خلال ٣٠ يوم من تاريخ ختمها." },
+  "contact": null,
+  "place":   { "text": "السجل المدني، شارع الجيش، طنطا" }
+}
+```
+
+**Appointment card**
+
+```jsonc
+{
+  "paper":   { "title": "ميعاد عند الدكتور" },
+  "explain": ["دي كارتة ميعاد من عيادة الدكتور محمد سالم، أخصائي العظام."],
+  "todo":    { "required": true, "text": "روح العيادة في الميعاد، وخد معاك الأشعة اللي عملتها قبل كده." },
+  "date":    { "date": "2026-11-14", "time": "18:30", "text": "ميعاد الكشف" },
+  "caution": null,
+  "contact": { "name": "عيادة الدكتور محمد سالم", "phone": "01012345678" },
+  "place":   { "text": "٢٢ شارع النصر، المنصورة، الدور التالت" }
+}
+```
+
+**Rent contract** — a long paper, explained in four paragraphs.
+
+```jsonc
+{
+  "paper":   { "title": "عقد إيجار الشقة" },
+  "explain": [
+    "ده عقد إيجار شقة بينك وبين المالك أحمد كامل. العقد مدته سنة، بيبدأ أول ديسمبر ٢٠٢٦.",
+    "الإيجار ٣٥٠٠ جنيه في الشهر، بيتدفع في أول كل شهر.",
+    "العقد بيقول إن الصيانة الصغيرة عليك، والكبيرة على المالك.",
+    "فيه تأمين ٧٠٠٠ جنيه بترجعلك آخر العقد لو الشقة مفيهاش تلفيات."
+  ],
+  "todo":    { "required": true, "text": "امضي على العقد ومعاك صورة بطاقتك، وادفع الإيجار أول كل شهر. خلي نسخة من العقد عندك." },
+  "date":    { "date": "2026-12-01", "time": null, "text": "بداية العقد" },
+  "caution": { "text": "لو عايز تسيب الشقة قبل آخر السنة، لازم تبلّغ المالك قبلها بشهرين، وإلا بتخسر التأمين." },
+  "contact": { "name": "أحمد كامل", "phone": "01122334455" },
+  "place":   null
+}
+```
+
+**Prescription — interim behaviour.** No drug names, no doses, no diagnosis.
+The app does not interpret medicine; it tells the user who can.
+
+```jsonc
+{
+  "paper":   { "title": "روشتة من الدكتور" },
+  "explain": ["دي روشتة من الدكتور سامي فؤاد، بتاريخ ٣ نوفمبر، وفيها ٤ أدوية."],
+  "todo":    { "required": true, "text": "خد الروشتة للصيدلي، وخليه هو اللي يقرالك الأدوية ومواعيدها. متاخدش أي دوا من نفسك." },
+  "date":    null,
+  "caution": null,
+  "contact": null,
+  "place":   null
+}
+```
+
+**Lab result — interim behaviour.** Numbers are never interpreted.
+
+```jsonc
+{
+  "paper":   { "title": "نتيجة تحاليل" },
+  "explain": ["دي نتيجة تحاليل من معمل البرج، بتاريخ ٥ نوفمبر."],
+  "todo":    { "required": true, "text": "وري النتيجة دي لدكتورك، هو اللي يعرف يشرحها لك. الأرقام اللي فيها محتاجة دكتور يقراها." },
+  "date":    null,
+  "caution": null,
+  "contact": { "name": "معمل البرج", "phone": "19911" },
+  "place":   null
+}
+```
+
+**Not a paper** — `status: "unsupported"`, and the slot is released.
+
+```jsonc
+{
+  "status":  "unsupported",
+  "paper":   { "title": "صورة مش ورقة" },
+  "explain": ["الصورة دي مفيهاش ورقة فيها كلام أقدر أشرحه. صوّر الورقة نفسها وهي كلها جوه الصورة."],
+  "todo":    { "required": false, "text": "صوّر الورقة تاني في نور أوضح." },
+  "date":    null,
+  "caution": null,
+  "contact": null,
+  "place":   null
+}
+```

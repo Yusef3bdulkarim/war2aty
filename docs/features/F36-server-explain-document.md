@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 0 / 21
+- **Progress:** 0 / 21 — D1–D4 answered 2026-11-09; T01's §33 drafted, awaiting approval
 
 ## Why this feature exists
 
@@ -46,13 +46,20 @@ This feature builds that endpoint and nothing else. At the end of F36:
 | `DocumentAnalysis`, the 7 document tables | F38 | The new JSON shares almost nothing with them; F38 replaces them wholesale. |
 | Reminders | out of the pivot | `date` carries a date; the bell is inert until reminders return. |
 
-## Open decisions — the owner's call before the task they gate
+## Open decisions — ANSWERED by the owner 2026-11-09
 
-Four points were surfaced by the discovery pass below and are **not** settled by
-F34. Each names the task it blocks; the rest of the feature proceeds without
-them.
+All four are settled. The original question and its reasoning are kept below
+each answer, because the reasoning is what a later session needs in order to
+change the decision safely.
 
-### D1 · Can the Mistral account actually call Mistral OCR? (blocks T03, T08)
+| # | Answer |
+|---|---|
+| **D1** | **Mistral OCR is leg 3.** The account carries a **$10 monthly free credit**, of which **~$4 is budgeted for OCR** — so this is free-tier spend, not a paid plan, and the no-paid-upstream constraint holds. At ~$4/1,000 pages that is **~1,000 pages a month**: a fallback for exhausted Gemini buckets, not a second engine. **T08 is unconditional.** |
+| **D2** | **`explain_daily_limit` = 5, `daily_limit` stays 3.** Plus a new product rule: **the quota warning appears only during the user's last two attempts** (`remaining_today <= 2`). The server already reports `remaining_today`, so this is a client rule — recorded here and carried to the Home/result work in F41, since F36 touches no Dart. |
+| **D3** | **Agreed** — `global_daily_call_cap` moves 500 → 900 in T20's live flip, not in T04's migration. |
+| **D4** | **45 s rejected as too long. The budget is 30 s**, split read 10 s / explain 20 s. See the revised D4 below for the measured basis and what 30 s costs. |
+
+### D1 · Mistral OCR as reading leg 3 — ANSWERED: in (blocks T03, T08)
 
 F34 makes Mistral OCR reading leg 3, costed at "~$4 / 1,000 pages from the same
 $10/month Mistral credit". Two things in the repo's own record contradict that:
@@ -69,10 +76,13 @@ product at all. So the real question is whether leg 3 exists:
   "جرب كمان شوية" failure, and the day's reading ceiling is whatever the two
   Flash-Lite buckets give (nominally 500 + 500).
 
-Only the owner's Mistral console answers this. **The plan assumes it cannot**
-until told otherwise, because that is the assumption that cannot overspend.
+**Answered: it can.** The $10/month credit is free allowance, ~$4 of it
+earmarked for OCR, so leg 3 exists and T08 is unconditional. The ceiling it buys
+— ~1,000 pages a month, ~33/day averaged — is written into §33.9 so nobody later
+mistakes it for a second engine. If the credit is ever spent before the month
+ends, leg 3 fails like any other leg and the chain answers the "try later" line.
 
-### D2 · `daily_limit` = 5 — shared row, or a new key? (blocks T04)
+### D2 · `daily_limit` = 5 — ANSWERED: a new key, plus a warning rule (blocks T04)
 
 F34 says the daily limit is 5. `daily_limit` is **one row**, read by
 `analyze-document` *and* reported by `get-usage`, which the published 1.0.2 app
@@ -87,7 +97,16 @@ per-user counter (`analysis_usage_daily`), which is correct: an install is
 either a 1.0.x build or a 1.1.0 build, never both, so the counters never
 interleave for a single user, and the spend they protect is shared.
 
-### D3 · `global_daily_call_cap` 500 → 900 — when? (blocks T04, T20)
+**Answered: approved, with an added product rule.** The quota warning is shown
+**only during the last two attempts** — `remaining_today <= 2`, i.e. on the 4th
+and 5th paper of a Cairo day. Nothing is needed server-side: `get-usage` and the
+`explain-document` response path already carry `remaining_today`, and the
+threshold is a client constant, deliberately **not** a config row — a row nobody
+will ever tune is a row that can only drift from the copy beside it. **This lands
+in F41** (Home and مستنداتي), not here, because F36 touches no Dart; it is
+recorded in this file so it survives the gap between the two features.
+
+### D3 · `global_daily_call_cap` 500 → 900 — ANSWERED: at the flip (blocks T04, T20)
 
 F34 says 900. The row is currently **500**, armed by F27-T06 against a public
 repo and anonymous sign-in. It is a service-wide spend valve shared by both
@@ -98,7 +117,7 @@ migration.** While `explain_enabled` is `false` the only consumer is the old
 flow, and 900 would loosen its blast radius for no benefit. The number also
 needs the reading chain's real quota math behind it (T03), not F34's estimate.
 
-### D4 · One call now reads *and* explains — the time budget (blocks T15)
+### D4 · One call now reads *and* explains — ANSWERED: 30 s (blocks T15)
 
 `aiTimeoutSeconds` (25 s, env-overridable) is today the budget for **one** AI
 call: `ocr-document` spends all 25 s on Gemini, `analyze-document` spends all
@@ -106,19 +125,34 @@ call: `ocr-document` spends all 25 s on Gemini, `analyze-document` spends all
 Mistral's measured p95 alone was 12.7 s (F20-T09), and a reading leg can burn
 18 s before failing over.
 
-**Recommendation: `explain-document` gets its own budget, `EXPLAIN_TIMEOUT_SECONDS`,
-default 45 s, split into a read stage and an explain stage with their own
-deadlines and their own per-attempt caps.** `aiTimeoutSeconds` is left exactly
-as it is, so the two published endpoints keep the timing they were tuned for.
-The slot TTL follows the new budget (`+ RESERVATION_GRACE_SECONDS`), and the
+**Answered: 45 s is too long. `EXPLAIN_TIMEOUT_SECONDS` = 30 s**, split into a
+**read stage of 10 s** and an **explain stage of 20 s**, each with its own
+deadline and per-attempt cap. `aiTimeoutSeconds` (25 s) is left exactly as it
+is, so the two published endpoints keep the timing F20-T09 tuned them to. The
+slot TTL follows the new budget (`+ RESERVATION_GRACE_SECONDS`), and the
 client's own timeout must be *longer* than the server's or the server stops
 being the one that gives up first — a constraint F39 inherits and T15 writes
 down.
 
-This is an engineering call rather than a product one, so the plan proceeds on
-it; the owner's sign-off rides along with T01's contract approval. It does have
-a product consequence worth naming: the wait screen is now a ~20–40 s wait, not
-a ~10 s one.
+**The measured basis** (F20-T09, the only latency numbers this project has):
+reading p95 **5.5 s** (2.3 s through the shipped pipeline at T13), explaining
+p95 **12.7 s** with the slowest call at 14.7 s, Groq p95 **2.5–3.1 s**. So the
+p95 round trip is ~18 s of AI time, and 30 s leaves ~12 s of failover slack.
+
+**What 30 s costs, stated honestly.** It is not enough to try all six legs. The
+chain tries as many as the remaining time allows, which is the behaviour the
+existing `minFallbackMs` rule already implements. The saving grace is that a
+**rate limit returns instantly** — so the case legs 2 and 3 exist for (a Gemini
+daily bucket exhausted, the Mistral token bucket spent) leaves nearly the whole
+stage for them. What 30 s genuinely gives up is a **second explain leg after a
+slow primary**: if Mistral takes 15 s and then fails, Groq gets 5 s, which is
+its p95 and no more. 25 s was considered and rejected for exactly that reason —
+it would leave no room at all.
+
+**Product consequence worth naming:** the wait is now ~18 s typically and up to
+30 s, not the ~10 s of a single call. F22's wait screen must hold attention for
+that long, and its voice line ("استنى شوية وأنا بقراها") is doing more work
+than it was written for.
 
 ## Existing-code analysis
 
@@ -206,6 +240,41 @@ precedent: defaulted rather than required, so an absent value reads as a safe
 | Deno tests live in `supabase/tests/{unit,integration,fixtures}`; `deno task test` runs them | `supabase/functions/deno.json` |
 | staging has `online_ocr_enabled` = **false** while production has **true** | F35's record — staging is not a faithful rehearsal of the online path |
 
+### What the approved design settles — and where it contradicts F34
+
+Read from the approved canvas's own artboards (`project/Result.dc.html`,
+`project/Documents.dc.html`), not from F34's prose. Three of F34's five open
+schema questions are answered by the design outright, and two of its stated
+decisions are contradicted by it.
+
+**The Result screen is exactly six cards**, in this order, each with a fixed
+icon and a fixed Arabic title the **app** owns: شرح الورقة · أعمل إيه؟ · ميعاد ·
+خلي بالك · تكلم مين · تروح فين. The status segments are one per *present* card.
+`أعمل إيه؟` is a **single paragraph** — there is no sub-list, which is why money
+and required documents have to live inside its text.
+
+**Contradiction 1 — there is no paper-type icon anywhere.** F34 says the paper
+type drives an icon. The Result header's circle is the **photo thumbnail**; the
+six card icons are per-card, not per-type; and مستنداتي's row glyph is a generic
+sheet of paper whose accent colour follows the row's **section and playing
+state** (amber in «عليها ميعاد», teal while playing, blue in «الباقي»), not the
+paper's kind. So `paper_type` has **no consumer**. §33.2 drops it.
+
+**Contradiction 2 — the title is not two words.** The design's own header reads
+«جواب من مدرسة النور»: four words, 19 characters. مستنداتي's rows carry
+«فاتورة الكهربا», «عقد إيجار الشقة», «إيصال التأمينات» — 14–15 characters,
+ellipsised at ~24. §33.1 therefore caps the title at **24 characters and leaves
+the word count free**.
+
+**And the design has no uncertainty affordance at all** — no «قراءة غير مؤكدة»,
+no «راجع المعلومة», nowhere for a `confidence` or a `basis` to be drawn. That is
+a real tension with CLAUDE.md §7, which requires that an unconfirmed number is
+never presented as fact. §33.4 resolves it the only way the new screen allows:
+**omission rather than hedging.** An ungrounded value is removed, `status`
+becomes `"partial"`, and a fixed voice line says something on the paper was not
+clear. For a user who cannot read, a hedge they cannot see was never protection
+anyway.
+
 ## Phases
 
 Each phase ends green: `deno fmt`, `deno check`, `deno task test`, plus
@@ -220,7 +289,7 @@ Both are gates. Nothing in Phase C or D is written until T01 is approved,
 because the schema is what the server, the DTO, the Drift tables, the cards and
 the voice card-splitting all hang off.
 
-- [ ] **T01** `docs/API_CONTRACT.md` **§33 · `explain-document`** in §30's style:
+- [~] **T01** `docs/API_CONTRACT.md` **§33 · `explain-document`** in §30's style:
       request shape, success response, the generation schema (the strict subset,
       not §33 verbatim — see `analysis-output.schema.ts`'s header for why the
       two differ), the full error-mapping table, and **one worked example per
@@ -235,6 +304,29 @@ the voice card-splitting all hang off.
       (e) whether prescriptions and labs are a `paper_type` value or a flag.
       Also records D4's budget decision. *Done when:* the owner approves it in
       writing and `docs/API_CONTRACT.md` carries §33.
+      > **DRAFTED 2026-11-09, awaiting approval.** §33 is in
+      > `docs/API_CONTRACT.md` (§33.1–§33.10), marked DRAFT in its own first
+      > line, with eight worked examples: electricity bill, school letter, bank
+      > letter, government form, appointment card, rent contract, prescription,
+      > lab result, plus a `status: "unsupported"` body.
+      >
+      > **Three of the five questions were answered by the approved design, not
+      > by judgement** — see "What the approved design settles" above.
+      > (a) `paper.title`, **≤ 24 characters, word count free** — the design's
+      > own header is four words. (b) **`paper_type` is dropped**: nothing in
+      > either artboard renders a per-type icon. (c) **`confidence` and `basis`
+      > are dropped**: the new screen has no uncertainty affordance, so
+      > grounding is enforced by **omission** (§33.4) instead.
+      > (d) `todo.required: false` still carries text, saying what to do with a
+      > paper that asks nothing. (e) **prescriptions and labs are neither a type
+      > nor a flag** — with `paper_type` gone they are ordinary papers whose
+      > wording follows the interim rules, enforced by T13's tests rather than
+      > by a wire field.
+      >
+      > **Still owed before this box closes:** the owner's answer on the four
+      > points raised with the draft (the uncertainty policy, `date.text`'s
+      > voice-only role, the `unsupported` screen, and the length caps), then
+      > his approval.
 - [ ] **T02** **GATE · the Gemini Live spike** (F34-T14), pulled forward from
       14th place because it is the only task whose failure invalidates the
       product's shape. Write `supabase/tools/live-spike.ts` for the owner to run
@@ -299,12 +391,13 @@ the voice card-splitting all hang off.
       "جرب كمان شوية". *Done when:* unit tests cover each leg succeeding, each
       failing over, a non-eligible failure (`auth`, `bad_request`) **not**
       failing over, and the all-failed mapping.
-- [ ] **T08** *(conditional on D1)* `_shared/ai/mistral-ocr-client.ts` for
+- [ ] **T08** *(D1 answered: in)* `_shared/ai/mistral-ocr-client.ts` for
       `/v1/ocr`: base64 image in, text out, `ProviderFailure` mapping through
       `providerFailureForStatus`, credentials via a `mistralOcrOptionsFromEnv`
       in the house pattern. *Done when:* unit tests cover a success, each HTTP
-      failure class, and a malformed body — **or** the task is struck through
-      with D1's answer recorded as the reason.
+      failure class, and a malformed body. The ~1,000 pages/month ceiling the
+      $4 credit buys is written into its header, so nobody later treats it as a
+      second engine.
 
 ### Phase D — the explaining chain (text → cards)
 
