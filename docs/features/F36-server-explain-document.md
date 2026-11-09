@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 2 / 21 — T01 and T02 closed 2026-11-09. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T03 next
+- **Progress:** 2 / 21 — T01 and T02 closed 2026-11-09; T03's tool is written and run (both Flash-Lite ids verified, the RPD rows still owed). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T04 is next once T03 RPD rows land
 
 ## Why this feature exists
 
@@ -439,7 +439,7 @@ the voice card-splitting all hang off.
       >
       > The session itself is proven on the free tier: 4 sessions, no 429,
       > 9 of the key's 61 models advertise `bidiGenerateContent`.
-- [ ] **T03** Confirm the reading chain's real inputs: a
+- [~] **T03** Confirm the reading chain's real inputs: a
       `supabase/tools/list-gemini-models.ts` (the shape of
       `list-gemma-models.ts`) listing the image-capable models the production
       key can actually reach, so "Gemini 3.5 Flash-Lite" and "Gemini 3.1
@@ -448,6 +448,49 @@ the voice card-splitting all hang off.
       Mistral plan can call `/v1/ocr` at all. *Done when:* the two Gemini model
       ids and their per-day limits are recorded in this file, and D1 is answered
       yes or no.
+      > **RUN 2026-11-09 — the two legs are verified, the buckets are not.**
+      > `supabase/tools/list-gemini-models.ts` lists what the key can see, then
+      > makes **one real image call per candidate**, because a listed model is
+      > not a reachable one. The probe image is generated in the tool (a 260×140
+      > PNG of the digits «123»), so a model that answers `123` has *read* an
+      > image rather than merely accepted one. `--image=<path>` swaps in a real
+      > photo; reading *quality* stays T18's benchmark.
+      >
+      > **F34's two names are real model ids, and both work:**
+      >
+      > | id | probe | note |
+      > |---|---|---|
+      > | `gemini-3.5-flash-lite` | 200, read «123» | what local `GEMINI_MODEL` already pins |
+      > | `gemini-3.1-flash-lite` | 200, read «123» | the second leg |
+      > | `gemini-2.5-flash-lite` | **404** | *"no longer available to new users"* → use 3.5 |
+      > | `gemini-2.5-flash` | **404** | same, → `gemini-3.8-flash` |
+      > | `gemini-3.5-flash` | 200, read «123» | heavier backstop if a lite leg dies |
+      >
+      > Which of the two is **primary** is T18's benchmark to settle, not this
+      > run: one call each is a reachability check, and the same model measured
+      > 0.7 s and 1.4 s across two runs — a wider spread than between models.
+      >
+      > **Operational finding, outside F36's scope but not ignorable:** two 2.5
+      > ids are now 404 *for new users*. Local pins `gemini-3.5-flash-lite` and
+      > is fine. **The production and staging `GEMINI_MODEL` secrets have not
+      > been checked** — if either still pins a 2.x id, online OCR for the
+      > published 1.0.2 app is already broken or one deprecation away from it.
+      > Owner to check; it is a secret, not a repo file.
+      >
+      > **D1's evidence contradicts the console's wording.** `POST /v1/ocr`
+      > (`mistral-ocr-latest`) answered **429** on a single 583-byte image —
+      > not 401, so the key is valid and the endpoint exists, but nothing was
+      > served. The owner's decision (leg 3 is in, on the $10/$4 free credit)
+      > stands, and T08 is still written — but **the leg must not be switched
+      > on until a real call succeeds**, which T20's flip now has to verify.
+      > Re-run the tool to re-test: it reports the status every time.
+      >
+      > **Still owed before this box closes:** the per-day limits. No API
+      > reports them, so from <https://aistudio.google.com/app/apikey> → the
+      > key's rate limits: the **RPD (and RPM/TPM) rows for
+      > `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`**, and whether they
+      > share one bucket or have one each. F34 assumed "500 + 500"; T07's
+      > failover and T18's budget both hang off the real number.
 
 ### Phase B — quota and config
 
@@ -659,7 +702,7 @@ supabase/functions/_shared/analyze/*            (except via T06's rename)
 | Live fails the spike → the product's voice shape is wrong | **high** | T02 runs first, before any client work; F37 is blocked, not half-built |
 | `daily_limit` moved by accident → published users get 5 | **high** | D2's separate key; T04's done-criterion is a one-line dump diff |
 | The reading leaks into the response | **high** | Trap #4: it is not in the builder's signature, and T19 asserts the absence |
-| Gemini's two Flash-Lite buckets are smaller than F34 assumes | medium | T03 reads the real numbers off the key before T07 depends on them |
+| Gemini's two Flash-Lite buckets are smaller than F34 assumes | medium | **Open.** T03 verified both ids answer and read; the RPD rows are still unread (no API reports them), so F34's "500 + 500" is still an assumption |
 
 ## Testing
 
