@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 8 / 21 — T01–T08 closed, Phases A, B and C done. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. **T09 next** — Phase D, the explaining chain. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
+- **Progress:** 9 / 21 — T01–T09 closed, Phases A, B and C done, Phase D started. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
 
 ## Why this feature exists
 
@@ -892,12 +892,79 @@ the voice card-splitting all hang off.
 
 ### Phase D — the explaining chain (text → cards)
 
-- [ ] **T09** `_shared/schemas/explain-output.schema.ts`: the §33 generation
+- [x] **T09** `_shared/schemas/explain-output.schema.ts`: the §33 generation
       schema and its `ModelExplanation` types. Strict-subset rules apply —
       `additionalProperties: false` everywhere, every property in `required`,
       optional expressed as a nullable type, no `minLength`/`pattern`/`format`.
       *Done when:* a unit test asserts the schema is strict-subset-legal and
       that every §33 field appears in it.
+      > **DONE 2026-11-10.** `_shared/schemas/explain-output.schema.ts` —
+      > `EXPLAIN_OUTPUT_SCHEMA`, `EXPLAIN_RESPONSE_FORMAT` (strict `json_schema`,
+      > name `document_explanation`) and the `ModelExplanation` types. Two new
+      > files; nothing existing modified.
+      >
+      > **Three decisions the schema makes, each recorded in its header:**
+      > - **`partial` is not a status the model can choose.** The enum is
+      >   `["success", "unsupported"]`. `partial` means "the server removed
+      >   something it could not ground" (§33.4), which only the server knows,
+      >   so a model claiming it would be reporting on a check it never ran.
+      >   T12 raises `success` to `partial`; the type is `ModelExplainStatus`,
+      >   distinct from the wire's status, so that cannot be forgotten.
+      > - **The envelope is not asked for.** `explain_schema_version` and
+      >   `session_id` are the server's — a model asked to echo a session id
+      >   invents one. `paper_type`, `confidence`, `basis`, card titles and any
+      >   reading field are absent too (§33.2, §33.3, trap #4), each pinned by a
+      >   test rather than by the absence of a line.
+      > - **The §33 caps are exported once** — `EXPLAIN_TITLE_MAX_CHARS` 24,
+      >   `EXPLAIN_MAX_PARAGRAPHS` 4, `EXPLAIN_PARAGRAPH_MAX_CHARS` 220,
+      >   `EXPLAIN_PAGE_MAX_CHARS` 850 — because T10's prompt and T12's
+      >   enforcement both need them and two copies drift. The schema itself
+      >   cannot carry them (`maxLength` is illegal in strict mode), so they are
+      >   stated in the field descriptions and a test asserts the numbers appear
+      >   there.
+      >
+      > **⚠ An unverified premise T11 and T18 must measure, not assume.** The
+      > four optional cards are nullable **objects** (`type: ["object",
+      > "null"]`). That is standard JSON Schema and what Gemini's
+      > `responseJsonSchema` takes, but the analysis schema only ever made
+      > *strings* nullable, so **no provider in this project has yet been shown
+      > to accept a nullable object in strict mode** — Ministral, `gpt-oss-120b`
+      > and Gemma 4 are all untested on it. A provider that rejects it answers
+      > 4xx, which is `bad_request` and never fails over: loud, not silent, but
+      > it would take a whole leg out. If one rejects, the fallback is not
+      > `anyOf` (also unproven) but flattening the card to `{ present: boolean,
+      > … }`, which every strict mode accepts. Same shape of risk as trap #2,
+      > and the same place to settle it.
+      >
+      > **The tests would have missed this on the analysis schema's walker.**
+      > That one checks `record.type === "object"`, which `["object", "null"]`
+      > does not satisfy — it would pass silently on exactly the four new
+      > nodes. This file's walker treats a type array containing `"object"` as
+      > an object, and **a mutation check proved it bites**: deleting
+      > `additionalProperties` from `place` fails with `.properties.place allows
+      > extra properties`, and restoring it passes. Keywords are checked as
+      > *keys*, not as substrings of the serialised text, so prose in a
+      > description cannot trip or hide a violation. It also bans `anyOf`,
+      > `oneOf`, `allOf`, `minItems` and `maxItems` beyond the analysis list,
+      > since none has been shown to work here.
+      >
+      > **14 tests**: strict-subset legality (keywords, `additionalProperties`
+      > on all 7 objects counted so a lost or added one fails, `required` ==
+      > `properties` everywhere), the exact set of nullable nodes (four cards
+      > and `date.time` — an accidental extra would let the model omit
+      > something §33 says is never null), `explain`/`todo` never nullable, the
+      > **exact 18 field paths** §33 says the model writes, and that a typed
+      > `ModelExplanation` sample's keys equal the schema's `required` so the
+      > interface and schema cannot drift.
+      >
+      > **Deliberately not here:** a runtime `assertModelExplanation` (the
+      > analysis side has `assertModelAnalysis`). It belongs with the leg that
+      > needs it — T11 — and writing it now would be code with no caller.
+      >
+      > Gate: **863 passed, 0 failed** (`deno task test`; 849 → 863, all 14
+      > new), `deno check **/*.ts` exit 0, `deno lint` clean, `deno fmt --check`
+      > clean for both new files. The pre-existing CRLF set is untouched. No
+      > Dart.
 - [ ] **T10** `_shared/prompts/explain-prompt.ts`: Egyptian colloquial for
       everyone (what is written is what is spoken), **any** paper and not only
       bills, **no card titles** (the app owns titles and icons), **no repetition**
