@@ -151,6 +151,53 @@ next phase does not start.
       > `20260726124644` and `20260929120000`. Still unproven: that it applies
       > cleanly and round-trips through PostgREST. Carry this to T19, and to the
       > staging/production apply in the definition of done.
+      >
+      > **APPLIED LOCALLY 2026-11-09.** Docker up, `supabase migration up`
+      > (not `db reset` — nothing wiped); the local DB sat at
+      > `20261010120000` and this was the only pending migration. Two of the
+      > three done-criteria are now met and the third is T19's device pass,
+      > so **this box stays open until that run** — it is the same run, not
+      > extra work.
+      >
+      > **The high-severity risk is now disproven by diff, not by reading.**
+      > A before/after dump of `app_runtime_config` differs by exactly two
+      > added lines, nothing modified and nothing removed: `schema_version`
+      > is still `"2.0"` and `online_ocr_enabled` is still `true`. The two
+      > new rows carry the right JSONB types too (`jsonb_typeof`: string and
+      > boolean), which is what `nonEmptyString` and `optInFlag` expect.
+      >
+      > **The PostgREST round-trip this note called unproven is proven,
+      > three links deep.** PostgREST hands back `"1.0"` as a JS string and
+      > `false` as a JS boolean; feeding that *actual* response through the
+      > real `parseRuntimeConfig` yields `explainSchemaVersion "1.0"`,
+      > `explainEnabled false`, `schemaVersion "2.0"`, `onlineOcrEnabled
+      > true`.
+      >
+      > **And an endpoint that loads the config still answers.** `health` was
+      > useless for this — it deliberately reads neither database nor config,
+      > which its own header explains — so the check ran against `get-usage`,
+      > which calls `loadRuntimeConfig` and is the call Home already makes on
+      > load. With a real anonymous session: **HTTP 200**, `schema_version
+      > "2.0"`, `online_ocr_enabled true`, `daily_limit 3`,
+      > `analysis_enabled true`, and **no `explain_*` field at all** — so the
+      > published 1.0.2 app sees a byte-identical response shape. That is the
+      > migration's "cannot change the behaviour of a single request" claim,
+      > measured.
+      >
+      > **One dependency this hands F36.** The header above says
+      > `explain_enabled` is the client's gate, "read from the usage sync
+      > Home already performs" — but `get-usage`'s response does not carry
+      > it, and nothing in `_shared/usage/` mentions it. T05 added both keys
+      > to `RuntimeConfig` (server-side parsing) only. F36 must widen the
+      > usage response as well, or the client gate has nothing to read.
+      > Nothing in F35 is wrong here; it is the next feature's first task.
+      >
+      > **Local env note for whoever runs the device pass.** `[edge_runtime]`
+      > is `enabled = false` in `config.toml` by design (`supabase start`
+      > does not pass `.env` secrets to that container), so functions must be
+      > served separately with `supabase functions serve --env-file
+      > supabase/.env`. `supabase start` alone leaves `/functions/v1/health`
+      > answering 503.
 - [x] **T05** `RuntimeConfig`: add `explainSchemaVersion: string` and
       `explainEnabled: boolean` with defaults `"1.0"` / `false`, parsed by the
       existing helpers. Unit tests for absent / blank / malformed / valid.
