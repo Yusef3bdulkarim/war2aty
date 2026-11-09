@@ -832,7 +832,7 @@ and the matching test files.
 | 2 | **done** | recorded in T19: 0 changed · 19 pre-existing infos, 0 errors/warnings · 2825 passed · 767 passed / 69 ignored |
 | 3 | **done** | T19's table, with its one owner-observed row called out |
 | 4 | **done, and tighter than written** | exactly **one** hit — `app_strings.dart`'s doc comment on the photo opt-in. The two OCR-result strings this item allowed for do not match the pattern at all |
-| 5 | **half done — staging applied 2026-11-09** | see below |
+| 5 | **both applies DONE 2026-11-09; only the smoke test is left** | see below |
 | 6 | **done** | `README.md:50` lists F35; F34 § "Amendments (2026-11-08)" |
 
 **Item 5 stands exactly as written, and an earlier note in this file got it
@@ -873,18 +873,27 @@ Two practical notes for whoever runs it:
 On `jecujrsvbmashkpobtsz` the two rows read `explain_schema_version = "1.0"`
 (jsonb string) and `explain_enabled = false` (jsonb boolean) — the same types
 the local apply produced and the two `parseRuntimeConfig` expects.
-`schema_version` is still `"2.0"`. **Production (`ivbpmzasxpphclundjyy`) is
-still owed**, and so is the published-app smoke test.
+`schema_version` is still `"2.0"`.
 
-**Observed on staging, and it belongs to F20, not here:**
-`online_ocr_enabled` is `false`. It has never been flipped on — F20 shipped
-with the flag dark pending an owner decision ("production flip", open since
-2026-09-30), so online reading is off on that project and the app falls to
-on-device Tesseract. F35 neither reads nor writes that key, and the migration
-names only its own two keys under `on conflict do nothing`, so it cannot have
-changed it. Recorded because an earlier note in this file told the owner to
-expect `true` — that was the **local** stack's value, set for the device
-pass, not the hosted one. The correct check is "unchanged", not "true".
+**Production applied and verified the same day** on `ivbpmzasxpphclundjyy`
+(`war2aty-prod`): identical result — `explain_schema_version = "1.0"`
+(string), `explain_enabled = false` (boolean), `schema_version` still
+`"2.0"`. **Both environments now carry the keys; only the published-app
+smoke test remains.**
+
+**The two environments disagree about `online_ocr_enabled`, and that is a
+real finding.** Production reads `true`; staging reads `false`. Neither was
+touched by this migration — it names only its own two keys under
+`on conflict do nothing` and contains no `update`. The cause is migration
+`20261010120000_enable_online_ocr.sql`, which upserts the flag to `true`:
+production has it, **staging evidently does not**. So the rehearsal
+environment is behind production and would not exercise the online reading
+path at all. Worth fixing before staging is trusted as a rehearsal again;
+out of scope for F35, which neither reads nor writes that key.
+
+This also closes a stale note elsewhere: F20's "production flip" was
+recorded as still open for the owner. Production has been `true` since the
+2026-10-10 migration, so the flip happened; it is staging that never got it.
 
 **A trap worth writing down for the production apply.** The Supabase
 dashboard labels the `main` branch of *every* project `PRODUCTION`, so that
