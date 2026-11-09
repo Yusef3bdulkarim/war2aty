@@ -832,7 +832,7 @@ and the matching test files.
 | 2 | **done** | recorded in T19: 0 changed · 19 pre-existing infos, 0 errors/warnings · 2825 passed · 767 passed / 69 ignored |
 | 3 | **done** | T19's table, with its one owner-observed row called out |
 | 4 | **done, and tighter than written** | exactly **one** hit — `app_strings.dart`'s doc comment on the photo opt-in. The two OCR-result strings this item allowed for do not match the pattern at all |
-| 5 | **OUTSTANDING — owner** | see below |
+| 5 | **done** | staging + production applied and read back 2026-11-09; smoke test reported by the owner (see the closing note) |
 | 6 | **done** | `README.md:50` lists F35; F34 § "Amendments (2026-11-08)" |
 
 **Item 5 stands exactly as written, and an earlier note in this file got it
@@ -868,6 +868,38 @@ Two practical notes for whoever runs it:
 - The smoke test needs the published build **installed**: the device run found
   neither `com.war2aty.app` nor `com.war2aty.app.dev` on the owner's phone, so
   the 1.0.2 APK has to go back on before it can be smoke-tested.
+
+**Staging applied and verified, 2026-11-09 (owner, console SQL editor).**
+On `jecujrsvbmashkpobtsz` the two rows read `explain_schema_version = "1.0"`
+(jsonb string) and `explain_enabled = false` (jsonb boolean) — the same types
+the local apply produced and the two `parseRuntimeConfig` expects.
+`schema_version` is still `"2.0"`.
+
+**Production applied and verified the same day** on `ivbpmzasxpphclundjyy`
+(`war2aty-prod`): identical result — `explain_schema_version = "1.0"`
+(string), `explain_enabled = false` (boolean), `schema_version` still
+`"2.0"`. **Both environments now carry the keys; only the published-app
+smoke test remains.**
+
+**The two environments disagree about `online_ocr_enabled`, and that is a
+real finding.** Production reads `true`; staging reads `false`. Neither was
+touched by this migration — it names only its own two keys under
+`on conflict do nothing` and contains no `update`. The cause is migration
+`20261010120000_enable_online_ocr.sql`, which upserts the flag to `true`:
+production has it, **staging evidently does not**. So the rehearsal
+environment is behind production and would not exercise the online reading
+path at all. Worth fixing before staging is trusted as a rehearsal again;
+out of scope for F35, which neither reads nor writes that key.
+
+This also closes a stale note elsewhere: F20's "production flip" was
+recorded as still open for the owner. Production has been `true` since the
+2026-10-10 migration, so the flip happened; it is staging that never got it.
+
+**A trap worth writing down for the production apply.** The Supabase
+dashboard labels the `main` branch of *every* project `PRODUCTION`, so that
+badge does not tell you which project you are in. The project named
+`war2aty` is staging; production is the one named `war2aty-prod`. The only
+reliable check is the ref in the URL.
 
 The apply itself is as safe as it can be made: both rows are
 `on conflict (key) do nothing`, nothing reads either value yet, and the local
@@ -926,3 +958,35 @@ only thing that catches this class, because no lint does.
 Gate re-run after the sweep: `dart format .` 0 changed · `flutter analyze` the
 same 19 pre-existing infos, 0 errors/warnings · `flutter test` 2825 passed.
 `deno test` was not re-run: the sweep touched no `supabase/` file.
+
+## F35 closed — 2026-11-09
+
+All six Definition-of-done items are met. The branch merged to `develop` as
+PR **#37** (`907925cf`), after PR **#36** (`b421a3e7`) took the 1.0.1/1.0.2
+release line in first, so #37 carried only F35's own commits.
+
+| Item | Closed by |
+|---|---|
+| 19 tasks, a commit each, pushed | branch `feature/non-reader`, merged |
+| four gate commands green | locally at every task, and on CI for #37 (App 4m57s, Backend 16s, both pass) |
+| device pass recorded | T19's table, RMX2001 API 30 |
+| the removal grep | one hit, privacy-policy copy |
+| keys in staging **and** production | both applied and read back with their jsonb types |
+| F34 amendments + README row | present |
+
+**One item rests on the owner's word, and should be read that way.** The
+published-1.0.2 smoke test was reported complete by the owner. This session
+could not corroborate it: the harness refused hosted-database access
+(`Production Reads`) and production function logs were never reachable from
+here, so there is no server-side trace of that run in this record — unlike
+the device pass, where every claim is backed by a local function log. If a
+later session needs that proof, it has to be produced again.
+
+**What F35 hands forward.** F36 must widen `get-usage`'s response to carry
+`explain_enabled`: the migration's header specifies it as the client's
+capture gate, "read from the usage sync Home already performs", but T05 added
+both keys server-side to `RuntimeConfig` only and nothing in
+`_shared/usage/` mentions them. Separately, and not F35's business: staging
+lacks `20261010120000`, so its `online_ocr_enabled` is `false` while
+production's is `true`, and `CLAUDE.md` §7 still describes the consent gate
+this feature deleted.
