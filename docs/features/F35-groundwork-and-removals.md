@@ -856,3 +856,56 @@ The apply itself is as safe as it can be made: both rows are
 `on conflict (key) do nothing`, nothing reads either value yet, and the local
 apply proved by before/after diff that `schema_version` and
 `online_ocr_enabled` are untouched.
+
+## Independent review — 2026-11-09
+
+An independent read-only review ran over F35's 21 commits (`b421a3e..HEAD`,
+the F32/F33 release line excluded — it has its own PR, #36). Verdict: **pass**,
+with no functional, security, performance or state-management defect. It
+confirmed independently that every removed DI registration has its deletion,
+that no cubit/state field or `app_settings` key is left without a reader, that
+all four sealed switches are exhaustive with `keptForOldBuilds` still holding
+`IMAGE_QUALITY` and `ANALYSIS_CONSENT_DECLINED` for published builds, that
+every privacy string survives and none of the 19 deleted ones was load-bearing
+for a privacy promise, that no path can land a new user on a deleted route,
+and that the migration touches neither forbidden key and is re-appliable.
+
+**What it found: stale prose, the same class every third task here found.**
+Four doc comments still described the removed quality gate or the removed
+processing-mode setting as live. All four are fixed.
+
+**What it missed, and why that is the more interesting half.** Re-running the
+grep this plan prescribes — the removed flow's own words, not just the
+deleted class names — turned up a fifth that the review did not report, and
+it is the worst of the set: `onboarding_cubit.dart`'s header said the
+first-run flag is flipped "when the user finishes the privacy step". That is
+the class that owns the first-run gate, and the privacy step is exactly what
+T11 deleted — the trap this whole feature was ordered around, still described
+as live in the one file where a reader most needs the truth. The grep also
+found `primary_cta.dart` calling the first run "pages" when one page is left,
+and three comments saying "the privacy screen's footer" where only the
+*policy* screen now exists to have one; all are fixed, and the ambiguity in
+those three was created by T11 deleting the class that made "privacy screen"
+mean something else.
+
+**What was deliberately left.** Three references are historical and correct in
+the past tense: `tts_voice.dart` and `select_voice_for_reading.dart` record why
+F30 locked decision 9 needed no privacy-copy change, and
+`android_backup_rules_test.dart` describes the backup bug's context. Rewriting
+those would falsify a record rather than fix a claim. `image_preview_screen.dart`
+keeps its "the quality check that used to stand here … is gone (F35-T15)" note,
+which is the point of it. And `CLAUDE.md` §7 still lists the F11 consent gate as
+a live user control — true when written, false now, but that file is the owner's
+instructions to its agents, not code this feature owns; **flagged for the owner,
+not edited.**
+
+**The lesson, sharpened.** T18 searched the deleted class names and missed a
+dangling link; T17 searched "first run", "consent" and "quality" in prose but
+only inside the files it was already editing. The grep has to be run over all
+of `lib/` and `test/`, for the removed flow's vocabulary, *after* the last
+deletion lands — not during it. For F39/F40, that is one command and it is the
+only thing that catches this class, because no lint does.
+
+Gate re-run after the sweep: `dart format .` 0 changed · `flutter analyze` the
+same 19 pre-existing infos, 0 errors/warnings · `flutter test` 2825 passed.
+`deno test` was not re-run: the sweep touched no `supabase/` file.

@@ -1038,7 +1038,7 @@ void _registerAudioReader() {
 ///
 /// Its own module rather than part of `_registerSettings`, because two
 /// screens in different places reach it: the settings «عن التطبيق» rows and
-/// the privacy screen's footer.
+/// the privacy-policy screen's footer.
 void _registerLegal() {
   getIt
     ..registerLazySingleton<ExternalLinkService>(

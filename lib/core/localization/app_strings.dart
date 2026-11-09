@@ -491,7 +491,7 @@ abstract interface class AppStrings {
   /// Opens a mail to the published support address (F27-T20, Q17).
   String get settingsSupportLabel;
 
-  /// The privacy screen's footer link out to the full published policy
+  /// The privacy-policy screen's footer link out to the full published policy
   /// (F27-T20) — the four promises above it are the summary, not the whole
   /// document.
   String get privacyFullPolicyLabel;

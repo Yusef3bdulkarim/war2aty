@@ -1,7 +1,7 @@
 /// Where the app's published policy pages and support address live (F27-T20).
 ///
 /// One place, because four surfaces need the same three values and must not
-/// drift: the settings screen's rows, the privacy screen's footer, the pages
+/// drift: the settings screen's rows, the policy screen's footer, the pages
 /// themselves (`legal/`, published to the `gh-pages` branch) and the Play
 /// listing T21 fills in. `legal_links_test` asserts the URLs point at files
 /// that actually exist in `legal/`, so a renamed page cannot leave a dead link

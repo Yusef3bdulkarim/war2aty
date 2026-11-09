@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 
-/// Height and radius of the first-run pages' primary button, per the design.
+/// Height and radius of the first-run page's primary button, per the design.
 const double _ctaHeight = 56;
 const double _ctaRadius = 16;
 
-/// The full-width teal call to action at the bottom of each first-run page.
+/// The full-width teal call to action at the bottom of the first-run page.
 ///
 /// The design gives it a soft brand-tinted glow. That is drawn as a [BoxShadow]
 /// rather than Material elevation so the color matches the comp exactly.
