@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 5 / 21 — T01–T05 closed 2026-11-09, Phases A and B done. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 awaits the owner. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. Leg 3 is a third Gemini id (D1-bis, option 2). **T06 next** — Phase C, the reading chain.
+- **Progress:** 6 / 21 — T01–T06 closed, Phases A and B done, Phase C started. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. **T07 next** — the three Gemini reading legs over that chain.
 
 ## Why this feature exists
 
@@ -674,7 +674,7 @@ the voice card-splitting all hang off.
 
 ### Phase C — the reading chain (image → text)
 
-- [ ] **T06** Generalise the chain to N legs: `_shared/ai/leg-chain.ts` holding
+- [x] **T06** Generalise the chain to N legs: `_shared/ai/leg-chain.ts` holding
       the deadline, the attempt cap, the `minFallbackMs` rule and the
       `isFallbackEligible` routing, over a `readonly legs: Leg[]` of any length;
       `createFallbackAnalysisProvider` becomes a two-leg caller of it and
@@ -683,6 +683,72 @@ the voice card-splitting all hang off.
       proof.** *Done when:* `deno task test` passes with no test edited except
       for renamed symbols, and a three-leg chain has its own tests covering
       every-leg-fails, second-leg-succeeds and no-time-for-leg-3.
+      > **DONE 2026-11-10.** `createLegChain<TInput, TResult>` in
+      > `_shared/ai/leg-chain.ts` runs `readonly legs` of any length behind one
+      > `Deadline`, and `fallback-provider.ts` is now 90 lines of wiring that
+      > builds a one- or two-leg array and supplies the two things that were
+      > ever analysis-specific: the `analyze.provider` event name and
+      > `analysisApiErrorFor`. The chain is generic over input and result
+      > **so that it cannot reach into either** — the privacy rule made into a
+      > type, not a comment.
+      >
+      > **Not one test file was edited.** Not an import, not a symbol: the
+      > `DEFAULT_ATTEMPT_CAP_MS` / `DEFAULT_MIN_FALLBACK_MS` pair moved to
+      > `leg-chain.ts` and `fallback-provider.ts` re-exports it, which is four
+      > lines bought to keep the proof absolute. `fallback-provider.test.ts`
+      > (34 cases), `chain-timing.test.ts` and `analyze-handler.test.ts` all
+      > pass against the new chain unchanged — **74 passed, 0 failed** for those
+      > three files alone. That is the whole argument that the frozen
+      > `analyze-document` path is untouched.
+      >
+      > **One behaviour was deliberately preserved rather than "improved".**
+      > The generalisation wanted to report `failover_skipped:
+      > "no_fallback_configured"` whenever a chain ran out of legs — which for
+      > two legs would have put a new value on the A10 log line, naming a
+      > fallback that did exist and did run. The field answers *why a leg was
+      > not followed by another*, so it is omitted exactly where there was
+      > never another to expect (`failedOver && isLast`). The log keeps its
+      > seven fixed fields on every path, at every arity.
+      >
+      > **What the fixed field set costs at three legs**, recorded so nobody
+      > hunts for it later: `primary_failure` is the FIRST leg's kind and
+      > `failure` the kind the chain ended on, so a middle leg's kind is not on
+      > the line. Adding a field would have broken the key-set assertion that
+      > guards the line against leaks, and `provider` already answers the
+      > question the log exists for — leg 3 answering means the two buckets in
+      > front of it are spent.
+      >
+      > **`ProviderName` gained `gemini_read_1/2/3` — positions, not model
+      > ids.** D1-bis made the reading chain three Gemini ids on one key, and
+      > T08 makes those ids operator-settable without a deploy, so a name tied
+      > to an id would go stale the first time an operator moved one. `gemma`
+      > is NOT added here; T11 adds it with the leg that needs it.
+      >
+      > **15 new cases** in `supabase/tests/unit/leg-chain.test.ts`, driven over
+      > `string → string` rather than a `ModelAnalysis` — a test that handed the
+      > chain a real analysis would quietly suggest the chain can read one.
+      > Beyond the three the task names (every-leg-fails, second-leg-succeeds,
+      > no-time-for-leg-3): an empty chain refused at BUILD time, a bad key on
+      > the **second** leg stopping the chain before the third (two legs could
+      > only ever test that on the primary), the floor boundary at leg 3 pinned
+      > from both sides, three legs not outliving one deadline, and the stage's
+      > §31 mapping proved injectable by mapping the same failure to
+      > `OCR_UNAVAILABLE` instead of `ANALYSIS_FAILED`.
+      >
+      > Gate: **804 passed, 0 failed** (`deno task test`; 789 → 804, all 15 new),
+      > `deno check **/*.ts` clean, `deno fmt --check` clean **for everything
+      > this task touched**. Three files report "Text differed by line endings"
+      > — `analysis-provider.ts`, `openai-compatible-client.ts` and
+      > `supabase-error-report-store.ts`. They pre-date T06, verified by
+      > stashing this work and re-running: 3 before, the same 3 after. They are
+      > the known mixed-CRLF set and are left alone.
+      >
+      > The 69 ignored tests are the integration suite skipping, because
+      > `supabase functions serve` is not running — the T05 note explains that
+      > trap. T06 adds no wire surface and changes none, so the unit suite is
+      > the right proof here; the next endpoint task (T16/T19) needs the stack
+      > up again. **No Dart was touched**, so the Flutter half of the gate is
+      > unchanged from T05's green run.
 - [ ] **T07** The reading chain, three legs, all Gemini (D1-bis):
       `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash` →
       all failed. Every leg reuses `createGeminiOcrClient` with a different
