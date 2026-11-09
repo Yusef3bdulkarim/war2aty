@@ -895,7 +895,8 @@ token**, never from a parameter — a caller cannot read another install's quota
   "remaining_today": 2,                          // how many may be STARTED now
   "resets_at":       "2026-07-27T00:00:00+03:00",// real Cairo offset, not fixed +02
   "analysis_enabled": true,                      // the backend kill switch
-  "online_ocr_enabled": false                    // online reading live? (F20-T14)
+  "online_ocr_enabled": false,                   // online reading live? (F20-T14)
+  "explain_enabled":    false                    // explain-document live? (F36-T05)
 }
 ```
 
@@ -907,6 +908,7 @@ token**, never from a parameter — a caller cannot read another install's quota
 | `remaining_today` | `remainingCount` |
 | `resets_at` | `resetsAt` |
 | `online_ocr_enabled` | `onlineOcrEnabled` (F20-T17; was `azure_ocr_enabled` / `azureOcrEnabled`). Absent reads as `false`, so an older app stays on the on-device route |
+| `explain_enabled` | `explainEnabled` (F36-T05). The capture gate for F34's one-call flow: absent, unreadable or "off" all read as `false`, and the app then shows the "our problem" screen rather than claiming the phone is offline. **Additive** — the published 1.0.2 app reads named keys only and ignores it |
 
 `remaining_today` also subtracts **in-flight reservations**, so for the few
 seconds an analysis is running it can be lower than `daily_limit - used_today`.

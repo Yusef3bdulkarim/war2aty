@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 4 / 21 — T01–T04 closed 2026-11-09. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 awaits the owner. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. Leg 3 is a third Gemini id (D1-bis, option 2). **T05 next.**
+- **Progress:** 5 / 21 — T01–T05 closed 2026-11-09, Phases A and B done. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 awaits the owner. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. Leg 3 is a third Gemini id (D1-bis, option 2). **T06 next** — Phase C, the reading chain.
 
 ## Why this feature exists
 
@@ -627,13 +627,50 @@ the voice card-splitting all hang off.
       > Gate: **784 passed, 0 failed** (`deno task test`), `deno fmt --check`
       > clean. No Dart touched. **Staging and production are NOT applied** —
       > that is T20's flip, where `global_daily_call_cap` also moves 500 → 900.
-- [ ] **T05** `get-usage` carries `explain_enabled` (the dependency F35 hands
+- [x] **T05** `get-usage` carries `explain_enabled` (the dependency F35 hands
       over): add it to `UsageResponseBody` and the handler, with the dartdoc-style
       header `online_ocr_enabled` has — why it is here, who reads it, and that an
       absent value reads as `false`. Update **API_CONTRACT §32** and its field
       table. *Done when:* `deno task test` passes, a test asserts the other eight
       fields are unchanged, and a test asserts the flag is reported as `false`
       when the key is absent, unreadable or "off".
+      > **DONE 2026-11-09.** `UsageResponseBody` gains `explain_enabled`, the
+      > handler fills it from `config.explainEnabled`, and API_CONTRACT §32
+      > carries it in both the example body and the field table. F35's
+      > hand-over is closed.
+      >
+      > **Proven over the real wire, not only in unit tests.** The local stack
+      > serves no Edge Functions by default — `supabase start` brings up db,
+      > rest, auth, kong, studio and pg_meta, and nothing else — so the
+      > integration suite had been **skipping all 15 cases**, which is not the
+      > same as passing them. With `supabase functions serve` running:
+      > **14 passed, 0 failed, 1 ignored** (the live-AI one), including a
+      > `get-usage` call that asserts the **whole key list** of the response.
+      > Adding a field must add a field: no rename, no reorder, no drop.
+      >
+      > **The published app is unaffected, by its own code.**
+      > `lib/core/usage/daily_usage_dto.dart`'s hand-written `fromJson` reads
+      > eight **named** keys and nothing else, and `onlineOcrEnabled` is
+      > already `this.onlineOcrEnabled = false` — defaulted, not required.
+      > An unknown tenth key is therefore inert for 1.0.2, exactly as
+      > `online_ocr_enabled` was before F20-T17 taught the app its name. No
+      > Dart was touched to prove this; it is read off the shipped file.
+      >
+      > **Five new unit tests**, of which two are the ones worth keeping:
+      > one drives the **real `parseRuntimeConfig`** rather than a handcrafted
+      > config — absent row, `"off"`, `"nonsense"`, `0` and `null` all reach
+      > the wire as `false`, and only an explicit `true` flips it — and one
+      > asserts `get-usage` still reports **`daily_limit`, not
+      > `explain_daily_limit`**, now that T04 created a second quota row. That
+      > endpoint serves the published app's counter; F39 reads the new limit
+      > through the explain flow, never from here.
+      >
+      > Phase B gate, all six commands: **789 passed, 0 failed** unit,
+      > **14 passed** integration against a real local stack, `deno fmt --check`
+      > clean, `dart format` 732 files 0 changed, `flutter analyze` **0 errors
+      > 0 warnings** (19 pre-existing infos in files this feature never
+      > touches), `flutter test` **2,825 passed, 0 failed** — read off the
+      > counter line, not the exit code.
 
 ### Phase C — the reading chain (image → text)
 
