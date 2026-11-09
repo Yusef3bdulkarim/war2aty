@@ -21,7 +21,17 @@
  *   --attempts=3        verbatim reads per model (default 3; each is one session)
  *   --model=<id>        skip discovery and use this model id
  *   --out=<path>        also write the report to a file (needs --allow-write)
- *   --language=ar-XA    speech language code (default ar-XA; retries without it)
+ *   --language=ar-XA    language code for the §2b speech-config probe
+ *   --voice=Kore        prebuilt voice name for that same probe
+ *
+ * What the 2026-11-09 run already settled, and why the tool now looks like it
+ * does: the reads are verbatim (0.0 % WER, three times), v1beta's Live service
+ * **rejects `speechConfig` outright**, and `auth_tokens` rejected
+ * `liveConnectConstraints` as an unknown field on both API versions — which was
+ * this tool's payload being wrong, not an answer about tokens. So the minting
+ * now starts from a minimal body (that alone answers availability) and probes
+ * the constraint field name one candidate per request, and §2b asks v1alpha
+ * whether the language and voice can be chosen at all.
  *
  * Prints no key and no token. The read-aloud text below is invented, so nothing
  * from a real paper is ever sent.
@@ -56,6 +66,7 @@ const ATTEMPTS = Math.max(1, Number(flag("attempts", "3")) || 3);
 const FORCED_MODEL = flag("model");
 const OUT_PATH = flag("out");
 const LANGUAGE_CODE = flag("language", "ar-XA");
+const VOICE_NAME = flag("voice", "Kore");
 
 // ---------------------------------------------------------- Arabic text
 
@@ -161,6 +172,7 @@ function pickModel(models: Model[]): string | null {
 // ------------------------------------------------- 2 · ephemeral tokens
 
 type TokenProbe = {
+  label: string;
   version: string;
   status: number;
   ok: boolean;
@@ -168,16 +180,32 @@ type TokenProbe = {
   body: string;
 };
 
-async function mintToken(version: string, model: string): Promise<TokenProbe> {
+/**
+ * Which field carries the Live constraints is not in the REST reference, and
+ * `liveConnectConstraints` — the Python SDK's name — is rejected as an unknown
+ * field (observed 2026-11-09, both API versions). So the shape is probed, one
+ * candidate per request, instead of assumed.
+ */
+const CONSTRAINT_FIELDS = [
+  "liveConnectConstraints",
+  "bidiGenerateContentSetup",
+  "liveConnectConfig",
+  "liveConstrainedSetup",
+  "config",
+  "setup",
+];
+
+async function mintToken(
+  version: string,
+  extra: Record<string, unknown> | null,
+  label: string,
+): Promise<TokenProbe> {
   const now = Date.now();
-  const payload = {
+  const payload: Record<string, unknown> = {
     uses: 1,
     expireTime: new Date(now + 30 * 60_000).toISOString(),
     newSessionExpireTime: new Date(now + 2 * 60_000).toISOString(),
-    liveConnectConstraints: {
-      model: `models/${model}`,
-      config: { responseModalities: ["AUDIO"], temperature: 0 },
-    },
+    ...(extra ?? {}),
   };
   let status = 0;
   let text = "";
@@ -190,38 +218,48 @@ async function mintToken(version: string, model: string): Promise<TokenProbe> {
     status = response.status;
     text = await response.text();
   } catch (error) {
-    return { version, status, ok: false, token: null, body: `threw: ${error}` };
+    return { label, version, status, ok: false, token: null, body: `threw: ${error}` };
   }
   let token: string | null = null;
   try {
     token = (JSON.parse(text) as { name?: string }).name ?? null;
   } catch { /* keep the raw body for the report */ }
   return {
+    label,
     version,
     status,
     ok: status >= 200 && status < 300 && token !== null,
     token,
     // Never print the token itself: its own name IS the credential.
-    body: token ? "(a token came back; its value is not printed)" : text.slice(0, 400),
+    body: token
+      ? "(a token came back; its value is not printed)"
+      : text.replace(/\s+/g, " ").slice(0, 240),
   };
 }
 
 // --------------------------------------------------- 3 · one Live read
 
+type Auth = { kind: "api-key" } | { kind: "ephemeral-token"; token: string };
+
+/** null = send no `speechConfig` at all, which is what v1beta accepts. */
+type Speech = { languageCode?: string; voiceName?: string } | null;
+
 type Read = {
   ok: boolean;
   via: "api-key" | "ephemeral-token";
   model: string;
+  apiVersion: string;
+  speech: Speech;
   elapsedMs: number;
   audioBytes: number;
   transcript: string;
   diff: Diff | null;
   error: string | null;
-  usedLanguageCode: boolean;
 };
 
-function wsUrl(auth: { kind: "api-key" } | { kind: "ephemeral-token"; token: string }): string {
-  const base = `${WS}/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent`;
+function wsUrl(auth: Auth, apiVersion: string): string {
+  const base =
+    `${WS}/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateContent`;
   return auth.kind === "api-key"
     ? `${base}?key=${encodeURIComponent(KEY!)}`
     : `${base}?access_token=${encodeURIComponent(auth.token)}`;
@@ -229,25 +267,27 @@ function wsUrl(auth: { kind: "api-key" } | { kind: "ephemeral-token"; token: str
 
 function readAloud(
   model: string,
-  auth: { kind: "api-key" } | { kind: "ephemeral-token"; token: string },
-  withLanguageCode: boolean,
+  auth: Auth,
+  speech: Speech,
+  apiVersion = "v1beta",
 ): Promise<Read> {
   const started = Date.now();
   const result: Read = {
     ok: false,
     via: auth.kind,
     model,
+    apiVersion,
+    speech,
     elapsedMs: 0,
     audioBytes: 0,
     transcript: "",
     diff: null,
     error: null,
-    usedLanguageCode: withLanguageCode,
   };
 
   return new Promise<Read>((resolve) => {
     let settled = false;
-    const socket = new WebSocket(wsUrl(auth));
+    const socket = new WebSocket(wsUrl(auth, apiVersion));
 
     const finish = (error: string | null) => {
       if (settled) return;
@@ -281,7 +321,16 @@ function readAloud(
         systemInstruction: { parts: [{ text: READ_INSTRUCTION }] },
         outputAudioTranscription: {},
       };
-      if (withLanguageCode) setup.speechConfig = { languageCode: LANGUAGE_CODE };
+      if (speech) {
+        const speechConfig: Record<string, unknown> = {};
+        if (speech.languageCode) speechConfig.languageCode = speech.languageCode;
+        if (speech.voiceName) {
+          speechConfig.voiceConfig = {
+            prebuiltVoiceConfig: { voiceName: speech.voiceName },
+          };
+        }
+        setup.speechConfig = speechConfig;
+      }
       socket.send(JSON.stringify({ setup }));
     };
 
@@ -373,9 +422,14 @@ async function main(): Promise<void> {
   // --- question 2b: ephemeral tokens, the path the phone would use
   say("## 2 · Ephemeral tokens (`auth_tokens`)");
   say();
+  say(
+    "The minimal body first — on its own it answers whether the free tier mints " +
+      "tokens at all:",
+  );
+  say();
   const probes: TokenProbe[] = [];
   for (const version of ["v1alpha", "v1beta"]) {
-    const probe = await mintToken(version, model);
+    const probe = await mintToken(version, null, "minimal");
     probes.push(probe);
     say(
       `- \`POST /${version}/auth_tokens\` → **HTTP ${
@@ -385,11 +439,40 @@ async function main(): Promise<void> {
   }
   say();
   const minted = probes.find((p) => p.ok) ?? null;
-  say(
-    minted
-      ? `Tokens work on **${minted.version}**. The phone can hold a short-lived token instead of the key.`
-      : "**No token minted.** F37 would need a server relay, or the key on the device — which is not an option.",
-  );
+  if (!minted) {
+    say(
+      "**No token minted, even with a minimal body.** F37 would need a server " +
+        "relay, or the key on the device — which is not an option.",
+    );
+  } else {
+    say(
+      `Tokens work on **${minted.version}**: the phone can hold a short-lived ` +
+        "token instead of the key.",
+    );
+    say();
+    say(
+      "Now the field that carries the Live constraints — the lock that stops a " +
+        "leaked token from calling anything else. Each candidate gets one request:",
+    );
+    say();
+    for (const field of CONSTRAINT_FIELDS) {
+      const probe = await mintToken(minted.version, {
+        [field]: {
+          model: `models/${model}`,
+          config: { responseModalities: ["AUDIO"] },
+        },
+      }, field);
+      const unknownField = /Unknown name/.test(probe.body);
+      const verdict = probe.ok ? "**accepted**" : unknownField ? "unknown field" : probe.body;
+      say(`- \`${field}\` → HTTP ${probe.status} — ${verdict}`);
+    }
+    say();
+    say(
+      "An accepted field above is the one F37 constrains its tokens with. If " +
+        "none is accepted the token is unconstrained — a finding, not a blocker: " +
+        "it is still single-use and expires in minutes.",
+    );
+  }
   say();
 
   // --- question 1: verbatim, over the key and then over a token
@@ -403,17 +486,10 @@ async function main(): Promise<void> {
   say();
 
   const reads: Read[] = [];
-  let withLanguageCode = true;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-    let read = await readAloud(model, { kind: "api-key" }, withLanguageCode);
-    if (
-      !read.ok && withLanguageCode &&
-      /language|speech_config|speechConfig|invalid/i.test(read.error ?? "")
-    ) {
-      say(`> attempt ${attempt}: retrying without \`speechConfig.languageCode\` (${read.error}).`);
-      withLanguageCode = false;
-      read = await readAloud(model, { kind: "api-key" }, false);
-    }
+    // No `speechConfig`: the v1beta Live service rejects the field outright
+    // (observed 2026-11-09). §2b below probes whether v1alpha takes it.
+    const read = await readAloud(model, { kind: "api-key" }, null);
     reads.push(read);
     say(`### Attempt ${attempt} — via API key`);
     say();
@@ -421,7 +497,14 @@ async function main(): Promise<void> {
       say(`**Failed** after ${hhmmss(read.elapsedMs)}: ${read.error}`);
     } else {
       const diff = read.diff!;
-      say(`- took ${hhmmss(read.elapsedMs)}, ~${(read.audioBytes / 1024).toFixed(0)} KiB of audio`);
+      const seconds = read.audioBytes / 48_000; // 24 kHz, 16-bit, mono PCM
+      say(
+        `- took ${hhmmss(read.elapsedMs)}, ~${
+          (read.audioBytes / 1024).toFixed(0)
+        } KiB of audio ≈ **${seconds.toFixed(0)} s spoken** (${
+          (SOURCE_TEXT.length / seconds).toFixed(1)
+        } characters a second)`,
+      );
       say(`- word error rate **${(diff.wer * 100).toFixed(1)}%**`);
       say(`- dropped: ${diff.dropped.length === 0 ? "none" : diff.dropped.join(" · ")}`);
       say(`- added: ${diff.added.length === 0 ? "none" : diff.added.join(" · ")}`);
@@ -437,7 +520,8 @@ async function main(): Promise<void> {
     const read = await readAloud(
       model,
       { kind: "ephemeral-token", token: minted.token },
-      withLanguageCode,
+      null,
+      minted.version,
     );
     reads.push(read);
     say("### Same read, but authenticated with the ephemeral token");
@@ -474,6 +558,32 @@ async function main(): Promise<void> {
         "F37's shape has to be renegotiated before any client code.",
     );
   }
+  say();
+
+  // --- what F37 asks the moment this gate passes: whose voice, which language?
+  say("## 2b · Can the language and the voice be chosen?");
+  say();
+  say(
+    "The reads above sent no `speechConfig`, because the v1beta Live service " +
+      "rejects that field — so on that path neither the language nor the voice " +
+      "can be set. F37 needs both, so the same read is tried on v1alpha with a " +
+      "language code and a named voice.",
+  );
+  say();
+  const speechProbe = await readAloud(
+    model,
+    { kind: "api-key" },
+    { languageCode: LANGUAGE_CODE, voiceName: VOICE_NAME },
+    "v1alpha",
+  );
+  say(
+    speechProbe.ok
+      ? `**Accepted** on v1alpha — \`languageCode: ${LANGUAGE_CODE}\`, voice \`${VOICE_NAME}\`, ` +
+        `WER ${(speechProbe.diff!.wer * 100).toFixed(1)}% in ${hhmmss(speechProbe.elapsedMs)}. ` +
+        "F37 can choose the voice."
+      : `**Refused**: ${speechProbe.error}. F37 takes whatever default voice the ` +
+        "service gives, or voice choice moves to another API surface.",
+  );
   say();
 
   // --- question 3: the quota, which only you can read

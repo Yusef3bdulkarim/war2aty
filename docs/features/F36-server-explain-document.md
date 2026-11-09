@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 1 / 21 — T01 approved 2026-11-09. T02's spike tool is written and tested; **the run is the owner's** (the sandboxes cannot reach Google). T03 next
+- **Progress:** 1 / 21 — T01 approved 2026-11-09. T02 ran the same day: **Live reads verbatim (0.0 % WER)**, so F37's premise holds; the token probe, the quota numbers and a page-total decision are still owed. T03 next
 
 ## Why this feature exists
 
@@ -381,9 +381,44 @@ the voice card-splitting all hang off.
       > token's `name` *is* the credential), and the read-aloud text is
       > invented, so no real paper is ever sent.
       >
-      > `docs/features/F36-live-spike.md` carries the run command, the verdict
-      > table and empty slots for the three answers. **Owed: the owner's run**,
-      > then the answers pasted in and F37 cleared or blocked.
+      >
+      > **RUN 2026-11-09 06:14 UTC — question 1 is answered: Live reads
+      > verbatim.** Three sessions on `gemini-2.5-flash-native-audio-latest`,
+      > **0.0 % WER each**, byte-identical transcripts, the date and time
+      > intact. F37's premise holds. Full record in
+      > `docs/features/F36-live-spike.md`.
+      >
+      > Three things the run turned up that the plan did not expect:
+      >
+      > 1. **The read is ~26 s for 304 characters** (24 kHz 16-bit mono PCM,
+      >    so the byte count gives the spoken length) ≈ **11.3–12.1
+      >    characters a second**. §33's approved ~1,100-character page
+      >    therefore reads for **~95 s, not the 75 s the caps were approved
+      >    against** — and 75 s is also what F38's ~0.3 MB-per-paper audio
+      >    budget was sized from. A **~850-character page total** lands back
+      >    on 75 s. Owner's call, and the only §33 change in question.
+      > 2. **Live streams faster than real time** (11–13 s of wall clock for
+      >    25–27 s of audio), so F37 plays the stream rather than waiting for
+      >    a finished file — which also helps D4's 30 s budget.
+      > 3. **`speechConfig` is rejected outright on v1beta**
+      >    (`1007: Unknown name "speechConfig" at 'setup'`), so neither the
+      >    language nor the voice can be chosen on that path. The Arabic was
+      >    correct anyway, from the text alone.
+      >
+      > **The token half of question 2 is not answered, and that was this
+      > tool's bug:** `auth_tokens` answered 400 `Unknown name
+      > "liveConnectConstraints"` on both versions, because that is the
+      > *Python SDK's* field name and the REST resource has no such field.
+      > Nothing about token availability follows from that 400. The tool now
+      > mints from a **minimal body** first (which alone answers
+      > availability) and then probes six candidate constraint field names,
+      > one request each; a new §2b also asks v1alpha whether the language
+      > and voice can be set.
+      >
+      > **Owed before T02 closes:** a second run (tokens + §2b), the quota
+      > numbers off AI Studio, and the owner's decision on the page total.
+      > The session itself is proven on the free tier: 4 sessions, no 429,
+      > 9 of the key's 61 models advertise `bidiGenerateContent`.
 - [ ] **T03** Confirm the reading chain's real inputs: a
       `supabase/tools/list-gemini-models.ts` (the shape of
       `list-gemma-models.ts`) listing the image-capable models the production
