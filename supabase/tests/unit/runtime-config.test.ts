@@ -468,3 +468,79 @@ Deno.test("a leftover gemini_primary_enabled row is ignored", () => {
   assertEquals("geminiPrimaryEnabled" in config, false);
   assertEquals(config, parseRuntimeConfig([], env()));
 });
+
+// ── explainDailyLimit — a second quota row, not a louder one (F36-T04) ────
+
+Deno.test("explainDailyLimit is 5 while dailyLimit stays 3", () => {
+  const config = parseRuntimeConfig(SEEDED, env());
+
+  assertEquals(config.explainDailyLimit, 5);
+  assertEquals(config.dailyLimit, 3);
+  assertEquals(DEFAULT_RUNTIME_CONFIG.explainDailyLimit, 5);
+});
+
+Deno.test("the seeded explain_daily_limit row is read", () => {
+  assertEquals(
+    parseRuntimeConfig(
+      [...SEEDED, { key: "explain_daily_limit", value: 5 }],
+      env(),
+    ).explainDailyLimit,
+    5,
+  );
+});
+
+Deno.test("an operator can move the explain limit without an app release", () => {
+  assertEquals(
+    parseRuntimeConfig([{ key: "explain_daily_limit", value: 8 }], env())
+      .explainDailyLimit,
+    8,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "explain_daily_limit", value: "7" }], env())
+      .explainDailyLimit,
+    7,
+  );
+  assertEquals(
+    parseRuntimeConfig([{ key: "explain_daily_limit", value: 4.9 }], env())
+      .explainDailyLimit,
+    4,
+  );
+});
+
+Deno.test("a malformed explain limit falls back to 5 rather than to zero", () => {
+  // Same fail direction as `daily_limit`, and the opposite of
+  // `global_daily_call_cap`: a mandatory product decision falls back to a real
+  // number, because the alternatives are locking everyone out (0) or handing
+  // out unlimited analyses (null).
+  for (const value of ["abc", null, -5, 0, {}, [], true]) {
+    assertEquals(
+      parseRuntimeConfig([{ key: "explain_daily_limit", value }], env())
+        .explainDailyLimit,
+      5,
+      `${JSON.stringify(value)} should fall back`,
+    );
+  }
+});
+
+Deno.test("an absent explain_daily_limit row reads as 5, not as unlimited", () => {
+  assertEquals(parseRuntimeConfig([], env()).explainDailyLimit, 5);
+});
+
+Deno.test("the two quota rows move independently", () => {
+  // The whole reason this key exists: the published 1.0.2 app reads
+  // `daily_limit` for `analyze-document` and draws it on Home. Raising one
+  // must never raise the other.
+  const explainRaised = parseRuntimeConfig(
+    [...SEEDED, { key: "explain_daily_limit", value: 10 }],
+    env(),
+  );
+  assertEquals(explainRaised.explainDailyLimit, 10);
+  assertEquals(explainRaised.dailyLimit, 3);
+
+  const analysisRaised = parseRuntimeConfig(
+    [{ key: "daily_limit", value: 9 }],
+    env(),
+  );
+  assertEquals(analysisRaised.dailyLimit, 9);
+  assertEquals(analysisRaised.explainDailyLimit, 5);
+});

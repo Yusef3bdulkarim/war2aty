@@ -82,6 +82,24 @@ export interface RuntimeConfig {
    * a dishonest "no internet" one (owner's Q14 decision).
    */
   readonly explainEnabled: boolean;
+  /**
+   * Papers a user may have explained per Cairo day through `explain-document`
+   * (F36-T04). A SEPARATE row from {@link dailyLimit}, which stays at 3.
+   *
+   * Two flows, two numbers. `daily_limit` is read by `analyze-document`'s slot
+   * reservation, reported by `get-usage`, and drawn on the published app's
+   * Home. Raising that row to F34's 5 would hand every 1.0.2 user two extra
+   * analyses a day for a pivot they are not running.
+   *
+   * Fails like {@link dailyLimit} and for the same reason: a mandatory product
+   * decision, so an absent or unreadable value falls back to a real number
+   * rather than to "unlimited" or to zero.
+   *
+   * It is a product rule, not a provider constraint — F36-T03 measured the
+   * reading legs at 1,500 requests a day each and F36-T02 found the voice leg
+   * bounded per minute, not per day.
+   */
+  readonly explainDailyLimit: number;
   /** Shown to the user during maintenance; `null` means normal operation. */
   readonly maintenanceMessage: string | null;
   /**
@@ -114,6 +132,9 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   explainSchemaVersion: "1.0",
   // Dark until F36 is verified live (F35-T04).
   explainEnabled: false,
+  // F34's number for the new flow (owner's D2). `dailyLimit` above stays 3 for
+  // the published app; the two rows are independent.
+  explainDailyLimit: 5,
   maintenanceMessage: null,
   aiTimeoutSeconds: 25,
 });
@@ -258,6 +279,10 @@ export function parseRuntimeConfig(
       DEFAULT_RUNTIME_CONFIG.explainSchemaVersion,
     ),
     explainEnabled: optInFlag(read("explain_enabled"), has("explain_enabled")),
+    explainDailyLimit: positiveInteger(
+      read("explain_daily_limit"),
+      DEFAULT_RUNTIME_CONFIG.explainDailyLimit,
+    ),
     // Only a non-empty string is a message; JSON null, "" and absence all mean
     // "operating normally".
     maintenanceMessage: typeof maintenance === "string" &&

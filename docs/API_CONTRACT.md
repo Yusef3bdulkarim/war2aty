@@ -1178,16 +1178,25 @@ cannot finish.
 
 | Stage | Legs |
 |---|---|
-| Reading | Gemini Flash-Lite (primary) → Gemini Flash-Lite (second model id) → Mistral OCR |
+| Reading | `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash` |
 | Explaining | Mistral `ministral-14b` → Groq `gpt-oss-120b` → Gemma 4 26B (native `generateContent`, `responseJsonSchema`) |
 
 Failover only on the closed allowlist in `provider-failure.ts` (rate limit,
 upstream outage, network, timeout, unusable output). Never on `auth` or
 `bad_request` — those are deploy faults and must be seen, not papered over.
 
-Mistral OCR runs on the account's free monthly credit, ~$4 of which is budgeted
-for OCR at ~$4/1,000 pages — about **1,000 pages a month**, i.e. a fallback for
-exhausted Gemini buckets, not a second engine.
+All three reading legs are Gemini model ids over the same client and the same
+key, each with its own free-tier bucket (**15 RPM, 1 M TPM, 1,500 RPD** for the
+two Flash-Lite legs, measured 2026-11-09). Mistral OCR was the planned third
+leg and is **out**: its free plan answers `/v1/ocr` with 429 at the first call,
+while chat on the same key answers 200, and the project takes no paid tier.
+Groq has no vision model to put there instead.
+
+The third leg therefore buys **burst headroom, not daily headroom**: 45 reads a
+minute instead of 30. It cannot help with a provider-wide outage, because all
+three legs share one account — but our own traffic cannot exhaust 3,000 reads a
+day behind a 900-call cap, so a daily ceiling was never the risk. It also means
+one model id being retired (as both 2.5 ids were) costs one leg, not the chain.
 
 ### §33.10 · Worked examples
 

@@ -1,0 +1,73 @@
+-- F36-T04 · The daily limit for `explain-document`, on its own row.
+--
+-- F34 sets the non-reader flow at 5 papers a day, against today's 3. This
+-- migration adds the key that says so. Nothing reads it yet: `RuntimeConfig`
+-- gains `explainDailyLimit` in this same task and only F36's handler (T15)
+-- will consult it, so applying this cannot change a single request's outcome.
+--
+-- ── Why a NEW key instead of raising `daily_limit` ────────────────────────
+--
+-- `daily_limit` is ONE row with three readers:
+--
+--   * `_shared/usage/usage-service.ts`, which reserves a slot for every
+--     `analyze-document` call the published 1.0.2 app makes;
+--   * `get-usage`, which reports `daily_limit` to that app;
+--   * the app's own Home screen, which draws «باقي لك N تحليلات» from it.
+--
+-- Raising it to 5 would therefore hand the published app two extra analyses a
+-- day the moment this migration applied — a product change shipped by a
+-- schema change, to users running a build that knows nothing about F34. The
+-- pivot is not live for them and must not leak into their quota.
+--
+-- So the two flows get two rows. `daily_limit` keeps 3 for the old endpoint
+-- and `explain_daily_limit` starts at 5 for the new one. When the last build
+-- that calls `analyze-document` is out of support, the old row can go; until
+-- then a migration that touches one must leave the other alone.
+--
+-- ── Why 5 and not something else ──────────────────────────────────────────
+--
+-- The owner's D2 answer. It is a product decision about how many papers a day
+-- a user may explain, NOT a provider constraint: F36-T03 measured the reading
+-- legs at 1,500 requests per day EACH (two Flash-Lite ids, distinct buckets),
+-- and F36-T02 found the voice leg bounded by tokens per minute with no daily
+-- ceiling at all. The number can move on product grounds alone.
+--
+-- A companion product rule, carried to F41 because F36 touches no Dart: the
+-- quota warning appears only in the user's LAST TWO attempts
+-- (`remaining_today <= 2`), not from the first call of the day.
+--
+-- ── Why `on conflict do nothing` ──────────────────────────────────────────
+--
+-- The house default (`20261108120000`, `20260929120000`). This is a starting
+-- point, not an assertion: a value an operator has already set — including a
+-- deliberately smaller one on a staging stack while the chain is being proved
+-- — is left exactly as it is.
+--
+-- ── What this migration must NOT touch ────────────────────────────────────
+--
+-- `daily_limit`, `schema_version`, `online_ocr_enabled` and
+-- `global_daily_call_cap`. The first three gate, version and route every
+-- request the published app makes. The fourth is the cross-user spend valve:
+-- it is armed at 500 (`20261006090000`) and moves to 900 at F36-T20's live
+-- flip, under supervision, NOT here — a cap raised by a migration is a cap
+-- raised by whoever next runs `db push`, which is not how a spend valve should
+-- move. None of the four appears below.
+--
+-- ── Creating no functions, on purpose ─────────────────────────────────────
+--
+-- This migration inserts one row and defines nothing executable. That matters
+-- here: `20261007000000_restrict_function_execute.sql` exists because every
+-- `SECURITY DEFINER` function in `public` was callable by `anon` — the hosted
+-- platform applies migrations as `supabase_admin`, whose default ACL grants
+-- EXECUTE to `anon`/`authenticated`, while a local `db reset` applies them as
+-- `postgres`, whose ACL does not. Local tests pass while production is open.
+-- Any future F36 migration that DOES create a function must end with
+-- `revoke execute on function <sig> from public, anon, authenticated;` and be
+-- verified against a hosted project, never only locally.
+
+insert into public.app_runtime_config (key, value) values
+  -- Papers a user may have explained per Cairo day through `explain-document`.
+  -- Separate from `daily_limit` (3), which the published app still reads; see
+  -- the header before touching either.
+  ('explain_daily_limit', '5'::jsonb)
+on conflict (key) do nothing;

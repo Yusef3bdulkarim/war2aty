@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 3 / 21 — T01, T02 and T03 closed 2026-11-09. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 awaits the owner. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. **T04 next.**
+- **Progress:** 4 / 21 — T01–T04 closed 2026-11-09. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 awaits the owner. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. Leg 3 is a third Gemini id (D1-bis, option 2). **T05 next.**
 
 ## Why this feature exists
 
@@ -82,7 +82,7 @@ earmarked for OCR, so leg 3 exists and T08 is unconditional. The ceiling it buys
 mistakes it for a second engine. If the credit is ever spent before the month
 ends, leg 3 fails like any other leg and the chain answers the "try later" line.
 
-### D1-bis · Leg 3 under a hard free-tier constraint — OPEN (blocks T07, T08)
+### D1-bis · Leg 3 under a hard free-tier constraint — ANSWERED: a third Gemini id
 
 **The owner reopened D1 on 2026-11-09:** no paid services and no payment
 method, anywhere, ever — restating [the standing constraint]. D1's answer had
@@ -126,8 +126,19 @@ What is left, all free:
    means new privacy copy and a new trust story for one more leg we do not
    need.
 
-**Recommended: option 2** — three Gemini legs, T08 rewritten as a config
-change rather than a new client, `mistral-ocr-client.ts` never created.
+**ANSWERED 2026-11-09: option 2.** The chain is `gemini-3.5-flash-lite` →
+`gemini-3.1-flash-lite` → `gemini-3.5-flash`. T08 is a config change, not a
+new client; `mistral-ocr-client.ts` is never created; Mistral stays exactly
+where it already works, as the **explaining** primary (`ministral-14b-latest`
+answered 200 on the same key that refuses OCR).
+
+What option 2 does and does not buy, so nobody later mistakes it for
+redundancy: it buys **burst headroom** (45 reads a minute instead of 30) and
+survival of one model id being retired — which both 2.5 ids just were. It does
+**not** buy provider diversity: one key, one account, one outage takes all
+three legs. That is accepted, because the honest failure ("جرب كمان شوية")
+is the right answer to a Google-wide outage anyway, and because option 3 —
+on-device Tesseract — remains available to F39 if that ever stops being true.
 ### D2 · `daily_limit` = 5 — ANSWERED: a new key, plus a warning rule (blocks T04)
 
 F34 says the daily limit is 5. `daily_limit` is **one row**, read by
@@ -560,7 +571,7 @@ the voice card-splitting all hang off.
 
 ### Phase B — quota and config
 
-- [ ] **T04** Migration `supabase/migrations/<ts>_explain_quota.sql`: insert
+- [x] **T04** Migration `supabase/migrations/<ts>_explain_quota.sql`: insert
       `explain_daily_limit` = `5` with `on conflict (key) do nothing` (D2).
       **Must not touch `daily_limit`, `schema_version`, `online_ocr_enabled` or
       `global_daily_call_cap`** — the first two gate every published request,
@@ -571,6 +582,51 @@ the voice card-splitting all hang off.
       valid / zero / negative. *Done when:* applied locally, a before/after dump
       of `app_runtime_config` differs by exactly one added line, and
       `deno task test` passes.
+      > **DONE 2026-11-09.** `20261109120000_explain_quota.sql`, applied with
+      > `supabase migration up` (not `db reset` — nothing wiped); it was the
+      > only pending migration, the local DB having sat at `20261108120000`.
+      >
+      > **The diff is exactly one added line**, nothing modified, nothing
+      > removed:
+      >
+      > ```
+      > 2a3
+      > > explain_daily_limit = 5
+      > ```
+      >
+      > The four rows this migration must not touch are untouched, checked by
+      > value *and* JSONB type rather than by reading the SQL:
+      > `daily_limit number 3`, `schema_version string "2.0"`,
+      > `online_ocr_enabled boolean true`, `global_daily_call_cap number 500`.
+      > The new row is `number 5`, which is what `positiveInteger` expects.
+      >
+      > **Proven through PostgREST and the real parser**, not only in SQL —
+      > the same three-link check F35-T04 used. PostgREST returns
+      > `{"key":"explain_daily_limit","value":5}` with `typeof value ===
+      > "number"`, and feeding that actual response through
+      > `parseRuntimeConfig` gives `explainDailyLimit 5` **and** `dailyLimit 3`
+      > side by side, with `explainEnabled false`, `schemaVersion "2.0"`,
+      > `onlineOcrEnabled true`, `globalDailyCallCap 500` all intact.
+      >
+      > `RuntimeConfig.explainDailyLimit` is in, defaulting to 5 through the
+      > existing `positiveInteger` helper — the same fail direction as
+      > `dailyLimit` and the opposite of `globalDailyCallCap`, which the tests
+      > pin explicitly. **6 new tests** in `runtime-config.test.ts` cover the
+      > seeded row, an operator raising it, a numeric string, a fractional
+      > value flooring, the malformed set (`"abc"`, null, -5, 0, {}, [], true)
+      > falling back to 5 rather than to 0 or unlimited, an absent row, and —
+      > the one that matters — **the two quota rows moving independently** in
+      > both directions.
+      >
+      > The migration header records what the plan only implied: that raising
+      > `daily_limit` to 5 would have shipped a product change to every
+      > published 1.0.2 user through a schema change, and that this file
+      > creates no functions on purpose — the `20261007000000` trap applies to
+      > any F36 migration that ever does.
+      >
+      > Gate: **784 passed, 0 failed** (`deno task test`), `deno fmt --check`
+      > clean. No Dart touched. **Staging and production are NOT applied** —
+      > that is T20's flip, where `global_daily_call_cap` also moves 500 → 900.
 - [ ] **T05** `get-usage` carries `explain_enabled` (the dependency F35 hands
       over): add it to `UsageResponseBody` and the handler, with the dartdoc-style
       header `online_ocr_enabled` has — why it is here, who reads it, and that an
@@ -590,21 +646,25 @@ the voice card-splitting all hang off.
       proof.** *Done when:* `deno task test` passes with no test edited except
       for renamed symbols, and a three-leg chain has its own tests covering
       every-leg-fails, second-leg-succeeds and no-time-for-leg-3.
-- [ ] **T07** The reading chain: Gemini primary → Gemini secondary (the two ids
-      from T03) → [Mistral OCR, if D1 allows] → all failed. Both Gemini legs
-      reuse `createGeminiOcrClient` with different model ids; the stage has its
-      own deadline inside T15's budget. When every leg fails the handler answers
+- [ ] **T07** The reading chain, three legs, all Gemini (D1-bis):
+      `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` → `gemini-3.5-flash` →
+      all failed. Every leg reuses `createGeminiOcrClient` with a different
+      model id, so the chain gains a leg without gaining a client; the stage
+      has its own deadline inside T15's budget. When every leg fails the handler answers
       the code T17's table assigns, which the client speaks as
       "جرب كمان شوية". *Done when:* unit tests cover each leg succeeding, each
       failing over, a non-eligible failure (`auth`, `bad_request`) **not**
       failing over, and the all-failed mapping.
-- [ ] **T08** *(D1 answered: in)* `_shared/ai/mistral-ocr-client.ts` for
-      `/v1/ocr`: base64 image in, text out, `ProviderFailure` mapping through
-      `providerFailureForStatus`, credentials via a `mistralOcrOptionsFromEnv`
-      in the house pattern. *Done when:* unit tests cover a success, each HTTP
-      failure class, and a malformed body. The ~1,000 pages/month ceiling the
-      $4 credit buys is written into its header, so nobody later treats it as a
-      second engine.
+- [ ] **T08** *(rewritten by D1-bis — no new client)* The third reading leg is
+      a **model id, not a provider**: `GEMINI_OCR_MODELS` (or three discrete
+      env names, whichever reads better next to `geminiOptionsFromEnv`) so the
+      chain's ids are operator-settable without a deploy, exactly as
+      `GEMINI_MODEL` already is. Header records **why** Mistral OCR is absent
+      — free plan answers `/v1/ocr` with 429 at the first call, chat on the
+      same key answers 200, and the project takes no paid tier — so nobody
+      re-adds it from F34's prose. *Done when:* unit tests cover a missing
+      value, one id, three ids, and whitespace/duplicate ids, and T07's chain
+      is built from it.
 
 ### Phase D — the explaining chain (text → cards)
 
@@ -728,7 +788,6 @@ supabase/functions/_shared/explain/explain-request.ts    T14
 supabase/functions/_shared/explain/explain-handler.ts    T15
 supabase/functions/_shared/explain/explain-response.ts   T15
 supabase/functions/_shared/ai/leg-chain.ts               T06
-supabase/functions/_shared/ai/mistral-ocr-client.ts      T08
 supabase/functions/_shared/schemas/explain-output.schema.ts  T09
 supabase/functions/_shared/prompts/explain-prompt.ts     T10
 supabase/functions/_shared/validators/explain-grounding.ts   T12
