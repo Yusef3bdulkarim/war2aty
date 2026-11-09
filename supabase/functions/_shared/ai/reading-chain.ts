@@ -48,7 +48,7 @@
  */
 
 import { createGeminiOcrClient, type GeminiOcrResult, type OcrImage } from "./gemini-ocr-client.ts";
-import type { GeminiOptions } from "./gemini-config.ts";
+import type { GeminiCredentials } from "./gemini-config.ts";
 import {
   type ChainLeg,
   createLegChain,
@@ -118,11 +118,12 @@ export type ReadingChain = (image: OcrImage) => Promise<GeminiOcrResult>;
 
 export interface ReadingChainOptions {
   /**
-   * The key and base URL every leg shares, as `geminiOptionsFromEnv` reads
-   * them. Its `model` is ignored: the chain's ids come from {@link models},
-   * one per leg, which is the whole point of the chain.
+   * The key and base URL every leg shares, as `geminiReadingOptionsFromEnv`
+   * reads them (T08). It carries no model: the ids come from {@link models},
+   * one per leg, which is the whole point of the chain. A full `GeminiOptions`
+   * is still assignable, and its `model` is never read.
    */
-  readonly gemini: GeminiOptions;
+  readonly gemini: GeminiCredentials;
   /**
    * The model ids, in the order they are tried, one leg each. Required and
    * never defaulted, for the same reason `GEMINI_MODEL` is not: a stale

@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 7 / 21 — T01–T07 closed, Phases A and B done, Phase C one task from finished. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. **T08 next** — the ids from the environment, which is all that is left of Phase C. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
+- **Progress:** 8 / 21 — T01–T08 closed, Phases A, B and C done. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. **T09 next** — Phase D, the explaining chain. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
 
 ## Why this feature exists
 
@@ -821,7 +821,7 @@ the voice card-splitting all hang off.
       > new), `deno check **/*.ts` exit 0, `deno lint` clean, `deno fmt --check`
       > clean for both new files. The same pre-existing CRLF set as T06 still
       > reports "Text differed by line endings" and is still untouched. No Dart.
-- [ ] **T08** *(rewritten by D1-bis — no new client)* The third reading leg is
+- [x] **T08** *(rewritten by D1-bis — no new client)* The third reading leg is
       a **model id, not a provider**: `GEMINI_OCR_MODELS` (or three discrete
       env names, whichever reads better next to `geminiOptionsFromEnv`) so the
       chain's ids are operator-settable without a deploy, exactly as
@@ -831,6 +831,64 @@ the voice card-splitting all hang off.
       re-adds it from F34's prose. *Done when:* unit tests cover a missing
       value, one id, three ids, and whitespace/duplicate ids, and T07's chain
       is built from it.
+      > **DONE 2026-11-10.** `geminiReadingOptionsFromEnv` in
+      > `_shared/ai/gemini-config.ts` reads `GEMINI_OCR_MODELS` — one
+      > comma-separated variable, not three discrete names — and returns
+      > `{ gemini: <key + base URL, no model>, models }`, which is exactly the
+      > shape `createReadingChain` takes, so T15 spreads one into the other.
+      > One variable because the list *is* the chain: its order is the
+      > failover order, and three names would make "which is leg 2" a
+      > cross-reference.
+      >
+      > **The cleaning rules, each with a test:** entries are trimmed and
+      > empty ones dropped (a trailing comma or newline is the ordinary slip);
+      > a **repeated id keeps its first position**, because two legs on one id
+      > share a quota bucket and the second would only repeat the 429 the
+      > first just earned; duplicates are counted *after* de-duplication
+      > (`a,b,a,c` is three legs); and a **fourth distinct id is refused
+      > rather than truncated**, since dropping the tail would run a different
+      > chain from the one the operator wrote. Every message names the
+      > variable, never a value.
+      >
+      > **Missing is fatal, not defaulted** — same rule as `GEMINI_MODEL`
+      > (D1), and consistent with T07. **That has a deploy consequence:
+      > `GEMINI_OCR_MODELS` must be set as a Supabase secret on staging and
+      > production before `explain-document` can serve a request.** It is not
+      > set anywhere yet. T20's staging flip must set it; production's does
+      > not matter until F44, but should be set in the same `secrets set` call
+      > as the key so the two cannot drift. `GEMINI_MODEL` is deliberately
+      > *not* consulted as a fallback: it is `ocr-document`'s variable, and a
+      > one-leg chain silently standing in for the three D1-bis chose would be
+      > a degraded deploy that looks healthy. A test pins that setting it
+      > neither satisfies a missing list nor changes a present one.
+      >
+      > **The Mistral-absence record is in the code, where an operator or a
+      > later session will hit it** — the header of the reader, with the two
+      > probes (`mistral-ocr-latest` and `mistral-ocr-2512`, both 429 on a
+      > 583-byte image; `ministral-14b-latest` 200 on the same key) and Groq's
+      > text-and-audio-only catalogue, ending "do not re-add Mistral OCR from
+      > F34's prose". `supabase/.env.example` carries a shorter note and
+      > `supabase/README.md` the variable's existence.
+      >
+      > **A small T07 follow-through:** `ReadingChainOptions.gemini` is now
+      > `GeminiCredentials` (`GeminiOptions` minus `model`), because the chain
+      > never reads one. A full `GeminiOptions` is still assignable, which a
+      > test keeps honest. `MAX_READING_MODELS` (reader) and
+      > `MAX_READING_LEGS` (chain) guard one fact — `ProviderName` has three
+      > reading names — so a test asserts they are equal; if they drifted the
+      > reader would accept a list the chain then refuses after the request
+      > had begun.
+      >
+      > **`geminiOptionsFromEnv` is behaviourally unchanged**: its key read
+      > was extracted into a shared helper and its existing tests pass
+      > unedited, which is what keeps `ocr-document` (frozen) untouched.
+      > `ocr-document/index.ts` and `_shared/analyze/*` have no diff.
+      >
+      > Gate: **849 passed, 0 failed** (`deno task test`; 835 → 849, all 14
+      > new: 12 for the reader, 2 for the chain), `deno check **/*.ts` exit 0,
+      > `deno lint` clean, `deno fmt --check` clean for the four touched code
+      > files. The pre-existing CRLF set still reports line endings and is
+      > still untouched. No Dart. **Phase C is done.**
 
 ### Phase D — the explaining chain (text → cards)
 

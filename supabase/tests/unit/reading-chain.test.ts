@@ -14,7 +14,11 @@
 import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
 
 import { ApiError } from "../../functions/_shared/errors/api-error.ts";
-import { GEMINI_BASE_URL } from "../../functions/_shared/ai/gemini-config.ts";
+import {
+  GEMINI_BASE_URL,
+  geminiReadingOptionsFromEnv,
+  MAX_READING_MODELS,
+} from "../../functions/_shared/ai/gemini-config.ts";
 import {
   createReadingChain,
   DEFAULT_READ_ATTEMPT_CAP_MS,
@@ -159,8 +163,10 @@ Deno.test("the chain is three Gemini ids on one key, and builds no new client", 
 });
 
 Deno.test("the ids are the caller's, and the shared options' model is ignored", async () => {
-  // `GeminiOptions.model` is what `geminiOptionsFromEnv` read for
-  // `ocr-document`'s single attempt. The chain must never read a page with it.
+  // `GEMINI` is shaped like `geminiOptionsFromEnv`'s result, which carries the
+  // one model `ocr-document` reads with. The chain's type takes credentials
+  // only, but a full options object is still assignable, and must never be
+  // read a page with.
   const { chain, urls } = setup([{ outcome: { reads: READING } }]);
 
   await chain(IMAGE);
@@ -466,4 +472,40 @@ Deno.test("the log never carries the image, the reading or the key", async () =>
     ],
     "an unexpected field appeared — check it carries no content",
   );
+});
+
+// ── built from the environment (F36-T08) ──────────────────────────────────
+
+Deno.test("the chain is built from what the environment reader returns", async () => {
+  // The seam T15 uses: read once, before the slot is reserved, then hand both
+  // halves to the chain. The ids an operator wrote are the URLs that get hit.
+  const reading = geminiReadingOptionsFromEnv({
+    get: (key) =>
+      ({
+        GEMINI_API_KEY: "test-key",
+        GEMINI_OCR_MODELS: " gemini-a , gemini-b ,gemini-a",
+      })[key],
+  });
+  const urls: string[] = [];
+
+  const chain = createReadingChain({
+    ...reading,
+    requestId: REQUEST_ID,
+    fetchImpl: (input) => {
+      urls.push(String(input));
+      return respond(urls.length === 1 ? { status: 429 } : { reads: READING });
+    },
+    timeoutSignal: () => new AbortController().signal,
+    log: () => {},
+  });
+
+  assertEquals((await chain(IMAGE)).text, READING);
+  assertEquals(urls, [urlFor("gemini-a"), urlFor("gemini-b")], "cleaned, ordered, no repeat");
+});
+
+Deno.test("the reader's limit and the chain's limit are the same number", () => {
+  // Two constants guard one fact: `ProviderName` has three reading names. If
+  // they drifted, the reader would accept a list the chain then refuses —
+  // after the request has begun rather than at deploy.
+  assertEquals(MAX_READING_MODELS, MAX_READING_LEGS);
 });
