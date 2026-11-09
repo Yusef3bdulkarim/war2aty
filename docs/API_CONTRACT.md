@@ -945,7 +945,14 @@ Every endpoint (`analyze-document`, `ocr-document`, `get-usage`, `report-error`,
 
 ## §33 · `explain-document` — one call, photo in, cards out (v1.0)
 
-**DRAFT — F36-T01, awaiting the owner's approval.** Nothing implements this yet.
+**APPROVED by the owner 2026-11-09 (F36-T01).** Nothing implements it yet —
+the endpoint is built across F36's Phases C–E. Four points were raised with the
+draft and all four were decided: grounding by **omission** (§33.4) rather than
+a confidence field; **`date.text` is drawn on the ميعاد card**, not voice-only,
+which adds one line to that card in F40; `status: "unsupported"` shows the
+ordinary result screen with one honest card and a **free** slot; and the length
+caps hold at a ~75-second read (≤ 24-character title, 1–4 paragraphs of ≤ 220
+characters, ~1,100 characters a page).
 
 `POST /functions/v1/explain-document` replaces the two-call flow for the F34
 non-reader pivot: the phone sends the photo **once**, the server reads it and
@@ -1017,7 +1024,7 @@ Decoded `image.data` above `RuntimeConfig.maxImageBytes` → `400 INVALID_REQUES
   "date": {                           // null when the paper carries no date worth a card
     "date": "2026-11-20",             // ISO-8601 date, always present when `date` is not null
     "time": "10:00",                  // "HH:mm" or null when no time is printed
-    "text": "اجتماع أولياء الأمور"     // the date's MEANING, spoken only -- see §33.3
+    "text": "اجتماع أولياء الأمور"     // the date's MEANING; drawn AND spoken -- §33.3
   },
 
   "caution": {                        // null unless the paper carries a real warning
@@ -1072,7 +1079,7 @@ screen the design actually specifies.
 |---|---|---|---|
 | `explain` | شرح الورقة | one paragraph per element | always present; never restates another card (§33.5) |
 | `todo` | أعمل إيه؟ | **one** paragraph | always present. Money and required documents live *inside this text*, not in fields of their own |
-| `date` | ميعاد | month, day, weekday, time, bell | the app formats `date`/`time` into «نوفمبر / 20 / يوم الخميس / الساعة 10 الصبح». **`text` has no slot on screen** — it is spoken, so the voice can say what the date is for |
+| `date` | ميعاد | month, day, weekday, time, bell | the app formats `date`/`time` into «نوفمبر / 20 / يوم الخميس / الساعة 10 الصبح». `text` says **what the date is for**, and is both drawn and spoken. The approved artboard has no slot for it, so F40 adds one line to this card (owner's decision, 2026-11-09) |
 | `caution` | خلي بالك | one paragraph | only a real warning. Not a reminder to keep the paper |
 | `contact` | تكلم مين | name, number, call button | `phone` is digits only; the app groups them LTR for display |
 | `place` | تروح فين | one line + "enlarge for the driver" | plain address text |

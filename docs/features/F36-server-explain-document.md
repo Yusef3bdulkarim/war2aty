@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 0 / 21 — D1–D4 answered 2026-11-09; T01's §33 drafted, awaiting approval
+- **Progress:** 1 / 21 — D1–D4 answered and **T01 approved** 2026-11-09; T02 (the Live spike) is the owner's to run, T03 next
 
 ## Why this feature exists
 
@@ -275,6 +275,14 @@ becomes `"partial"`, and a fixed voice line says something on the paper was not
 clear. For a user who cannot read, a hedge they cannot see was never protection
 anyway.
 
+**The owner approved omission on 2026-11-09**, over the alternative of adding
+an uncertainty treatment to the Result design.
+
+**One thing the design is missing, and F40 must add:** the ميعاد card draws
+month, day, weekday, time and the bell — and no free text. `date.text` (what the
+date is *for*) had nowhere to go. The owner chose to **show it**, so F40 adds a
+single line to that card; `project/Result.dc.html` does not have it yet.
+
 ## Phases
 
 Each phase ends green: `deno fmt`, `deno check`, `deno task test`, plus
@@ -289,7 +297,7 @@ Both are gates. Nothing in Phase C or D is written until T01 is approved,
 because the schema is what the server, the DTO, the Drift tables, the cards and
 the voice card-splitting all hang off.
 
-- [~] **T01** `docs/API_CONTRACT.md` **§33 · `explain-document`** in §30's style:
+- [x] **T01** `docs/API_CONTRACT.md` **§33 · `explain-document`** in §30's style:
       request shape, success response, the generation schema (the strict subset,
       not §33 verbatim — see `analysis-output.schema.ts`'s header for why the
       two differ), the full error-mapping table, and **one worked example per
@@ -304,9 +312,8 @@ the voice card-splitting all hang off.
       (e) whether prescriptions and labs are a `paper_type` value or a flag.
       Also records D4's budget decision. *Done when:* the owner approves it in
       writing and `docs/API_CONTRACT.md` carries §33.
-      > **DRAFTED 2026-11-09, awaiting approval.** §33 is in
-      > `docs/API_CONTRACT.md` (§33.1–§33.10), marked DRAFT in its own first
-      > line, with eight worked examples: electricity bill, school letter, bank
+      > **APPROVED 2026-11-09.** §33 is in `docs/API_CONTRACT.md`
+      > (§33.1–§33.10), with eight worked examples: electricity bill, school letter, bank
       > letter, government form, appointment card, rent contract, prescription,
       > lab result, plus a `status: "unsupported"` body.
       >
@@ -323,10 +330,24 @@ the voice card-splitting all hang off.
       > wording follows the interim rules, enforced by T13's tests rather than
       > by a wire field.
       >
-      > **Still owed before this box closes:** the owner's answer on the four
-      > points raised with the draft (the uncertainty policy, `date.text`'s
-      > voice-only role, the `unsupported` screen, and the length caps), then
-      > his approval.
+      > **The four points raised with the draft, all decided by the owner on
+      > 2026-11-09:**
+      >
+      > 1. **Uncertainty — omission approved.** No `confidence`, no `basis`.
+      >    An ungrounded value is removed, `status` becomes `"partial"`, and a
+      >    fixed voice line says something on the paper was not clear (§33.4).
+      > 2. **`date.text` is drawn, not voice-only.** The approved ميعاد card
+      >    has no slot for it, so **F40 adds one line to that card** — the one
+      >    UI change this contract forces, and the only item F36 hands the
+      >    result screen beyond the schema itself. The design canvas's
+      >    `project/Result.dc.html` still shows the card without it.
+      > 3. **`status: "unsupported"` keeps the drafted handling** — the
+      >    ordinary result screen, one honest card, and the slot released so
+      >    the retry is free. No fifth failure screen.
+      > 4. **Length caps confirmed:** ≤ 24-character title, 1–4 paragraphs of
+      >    ≤ 220 characters, ~1,100 characters a page ≈ **75 seconds** of
+      >    speech — which is also the per-paper audio budget F37/F38 size
+      >    their storage against.
 - [ ] **T02** **GATE · the Gemini Live spike** (F34-T14), pulled forward from
       14th place because it is the only task whose failure invalidates the
       product's shape. Write `supabase/tools/live-spike.ts` for the owner to run
