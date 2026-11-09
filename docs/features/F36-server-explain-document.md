@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 2 / 21 — T01 and T02 closed 2026-11-09; T03's tool is written and run (both Flash-Lite ids verified, the RPD rows still owed). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T04 is next once T03 RPD rows land
+- **Progress:** 3 / 21 — T01, T02 and T03 closed 2026-11-09. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 awaits the owner. **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. **T04 next.**
 
 ## Why this feature exists
 
@@ -54,7 +54,7 @@ change the decision safely.
 
 | # | Answer |
 |---|---|
-| **D1** | **Mistral OCR is leg 3.** The account carries a **$10 monthly free credit**, of which **~$4 is budgeted for OCR** — so this is free-tier spend, not a paid plan, and the no-paid-upstream constraint holds. At ~$4/1,000 pages that is **~1,000 pages a month**: a fallback for exhausted Gemini buckets, not a second engine. **T08 is unconditional.** |
+| **D1** | ⚠️ **REOPENED by the owner 2026-11-09** — see **D1-bis** below. The original answer is kept for its reasoning. **Mistral OCR is leg 3.** The account carries a **$10 monthly free credit**, of which **~$4 is budgeted for OCR** — so this is free-tier spend, not a paid plan, and the no-paid-upstream constraint holds. At ~$4/1,000 pages that is **~1,000 pages a month**: a fallback for exhausted Gemini buckets, not a second engine. **T08 is unconditional.** |
 | **D2** | **`explain_daily_limit` = 5, `daily_limit` stays 3.** Plus a new product rule: **the quota warning appears only during the user's last two attempts** (`remaining_today <= 2`). The server already reports `remaining_today`, so this is a client rule — recorded here and carried to the Home/result work in F41, since F36 touches no Dart. |
 | **D3** | **Agreed** — `global_daily_call_cap` moves 500 → 900 in T20's live flip, not in T04's migration. |
 | **D4** | **45 s rejected as too long. The budget is 30 s**, split read 10 s / explain 20 s. See the revised D4 below for the measured basis and what 30 s costs. |
@@ -82,6 +82,52 @@ earmarked for OCR, so leg 3 exists and T08 is unconditional. The ceiling it buys
 mistakes it for a second engine. If the credit is ever spent before the month
 ends, leg 3 fails like any other leg and the chain answers the "try later" line.
 
+### D1-bis · Leg 3 under a hard free-tier constraint — OPEN (blocks T07, T08)
+
+**The owner reopened D1 on 2026-11-09:** no paid services and no payment
+method, anywhere, ever — restating [the standing constraint]. D1's answer had
+rested on the $10 monthly credit being usable free allowance. Two measurements
+say leg 3 as planned does not exist:
+
+| Probe | Result |
+|---|---|
+| `POST /v1/ocr`, `mistral-ocr-latest`, 583-byte PNG | **429** `Rate limit exceeded` (code 1300), no `retry-after` |
+| same, `mistral-ocr-2512` | **429**, identical |
+| `POST /v1/chat/completions`, `ministral-14b-latest` | **200** — the key and the plan are fine |
+| Mistral `GET /v1/models` | 55 models visible, 6 OCR ids among them |
+
+So the account **sees** the OCR models and is **refused at the first call**,
+while chat on the same key answers normally. That is a plan gate wearing a
+rate-limit's clothes: the free plan serves no OCR. **Mistral OCR is out**, and
+with it T08 as written.
+
+Groq was checked as the obvious free alternative — the key already exists and
+the OpenAI-compatible client already speaks to it. Its catalogue for this key
+is **11 models, text and audio only**: `gpt-oss-120b/20b`, `qwen3.8-27b`,
+`allam-2-7b`, two Whisper, two prompt-guards, two Orpheus TTS. **No vision
+model**, so Groq cannot read a photo at any price.
+
+What is left, all free:
+
+1. **Two legs, no leg 3.** Delete T08. Honest: T03's numbers show our own
+   traffic cannot exhaust 2 × 1,500 RPD behind a 900/day cap.
+2. **A third Gemini leg** — `gemini-3.5-flash`, already verified reading the
+   probe. Its own bucket and its own 15 RPM, reusing `createGeminiOcrClient`
+   with a different id, so **no new client file and no new provider**. Buys
+   burst headroom (45 reads/minute instead of 30) and survives one model id
+   being retired — which is exactly what just happened to both 2.5 ids. Does
+   **not** buy provider diversity: one key, one account, one outage.
+3. **On-device Tesseract as the last resort.** Genuinely different failure
+   domain and already in the app — but it inverts the call: the phone reads
+   and the server would need a **text-in** path, which §33 does not have, and
+   a non-reader cannot catch a bad read. That is an F39 shape decision, not a
+   leg in this chain.
+4. *Rejected:* third-party free OCR APIs. A new processor seeing users' papers
+   means new privacy copy and a new trust story for one more leg we do not
+   need.
+
+**Recommended: option 2** — three Gemini legs, T08 rewritten as a config
+change rather than a new client, `mistral-ocr-client.ts` never created.
 ### D2 · `daily_limit` = 5 — ANSWERED: a new key, plus a warning rule (blocks T04)
 
 F34 says the daily limit is 5. `daily_limit` is **one row**, read by
@@ -439,7 +485,7 @@ the voice card-splitting all hang off.
       >
       > The session itself is proven on the free tier: 4 sessions, no 429,
       > 9 of the key's 61 models advertise `bidiGenerateContent`.
-- [~] **T03** Confirm the reading chain's real inputs: a
+- [x] **T03** Confirm the reading chain's real inputs: a
       `supabase/tools/list-gemini-models.ts` (the shape of
       `list-gemma-models.ts`) listing the image-capable models the production
       key can actually reach, so "Gemini 3.5 Flash-Lite" and "Gemini 3.1
@@ -485,12 +531,32 @@ the voice card-splitting all hang off.
       > on until a real call succeeds**, which T20's flip now has to verify.
       > Re-run the tool to re-test: it reports the status every time.
       >
-      > **Still owed before this box closes:** the per-day limits. No API
-      > reports them, so from <https://aistudio.google.com/app/apikey> → the
-      > key's rate limits: the **RPD (and RPM/TPM) rows for
-      > `gemini-3.5-flash-lite` and `gemini-3.1-flash-lite`**, and whether they
-      > share one bucket or have one each. F34 assumed "500 + 500"; T07's
-      > failover and T18's budget both hang off the real number.
+      > **CLOSED 2026-11-09 with the owner's numbers.** Both deployed secrets
+      > now read `gemini-3.5-flash-lite` (production `ivbpmzasxpphclundjyy`
+      > and staging `jecujrsvbmashkpobtsz`), so the 2.x deprecation above is
+      > not live anywhere.
+      >
+      > **The buckets, off AI Studio — free tier, and bigger than F34 assumed:**
+      >
+      > | model | RPM | TPM | RPD |
+      > |---|---|---|---|
+      > | `gemini-3.5-flash-lite` | 15 | 1 M | **1,500** |
+      > | `gemini-3.1-flash-lite` | 15 | 1 M | **1,500** |
+      >
+      > **Distinct daily buckets, one per model row** — so 3,000 reads a day,
+      > not F34's assumed 500 + 500.
+      >
+      > This settles the risk row and **kills D1's premise**. T20's global cap
+      > is 900 calls a day, so leg 1 alone covers every call the service will
+      > make 1.6× over; the two legs together cover it 3.3× over. Our own
+      > traffic **cannot** exhaust these buckets, which is the exact job
+      > Mistral OCR was brought in to do (D1).
+      >
+      > **RPD is not the pressure point; RPM is.** 15 requests a minute per
+      > model is 30 a minute across two legs. A burst above that answers 429,
+      > which `shouldFallBackToOnDeviceOcr`-style routing treats as eligible,
+      > so it fails over rather than failing — but a *third* leg would be
+      > worth real headroom here, where it is worth nothing against RPD.
 
 ### Phase B — quota and config
 
@@ -702,7 +768,7 @@ supabase/functions/_shared/analyze/*            (except via T06's rename)
 | Live fails the spike → the product's voice shape is wrong | **high** | T02 runs first, before any client work; F37 is blocked, not half-built |
 | `daily_limit` moved by accident → published users get 5 | **high** | D2's separate key; T04's done-criterion is a one-line dump diff |
 | The reading leaks into the response | **high** | Trap #4: it is not in the builder's signature, and T19 asserts the absence |
-| Gemini's two Flash-Lite buckets are smaller than F34 assumes | medium | **Open.** T03 verified both ids answer and read; the RPD rows are still unread (no API reports them), so F34's "500 + 500" is still an assumption |
+| Gemini's two Flash-Lite buckets are smaller than F34 assumes | ~~medium~~ **closed** | T03 read the rows: **1,500 RPD each, distinct buckets** (3,000/day) against a 900/day global cap. Bigger than F34 assumed, not smaller. The live constraint is **RPM 15 per model**, which fails over rather than failing |
 
 ## Testing
 
