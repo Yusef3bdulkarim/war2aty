@@ -965,13 +965,32 @@ the voice card-splitting all hang off.
       > new), `deno check **/*.ts` exit 0, `deno lint` clean, `deno fmt --check`
       > clean for both new files. The pre-existing CRLF set is untouched. No
       > Dart.
-- [ ] **T10** `_shared/prompts/explain-prompt.ts`: Egyptian colloquial for
+- [x] **T10** `_shared/prompts/explain-prompt.ts`: Egyptian colloquial for
       everyone (what is written is what is spoken), **any** paper and not only
       bills, **no card titles** (the app owns titles and icons), **no repetition**
       — `explain` never restates todo/date/caution — and the interim
       prescription/lab lines from F34. *Done when:* prompt unit tests in the
       style of `supabase/tests/.../prompts` pass, including one asserting the
       prompt never asks for a label.
+      > **DONE 2026-11-10.** `EXPLAIN_SYSTEM_PROMPT` and
+      > `buildExplainMessages({ readingText })`. The §33 caps are interpolated
+      > from `explain-output.schema.ts`, so the numbers exist once, and the
+      > prompt states the 850-char page total and which strings it sums, which
+      > T11's done-when requires. `partial` is never offered (the server's
+      > word). The reading is fenced as data and delimiters neutralised.
+      >
+      > **One existing file touched:** `analysis-prompt.ts` now *exports*
+      > `DOCUMENT_OPEN`, `DOCUMENT_CLOSE` and `neutraliseDelimiters` (no
+      > behaviour change) so the two prompts share one fence rather than two
+      > copies that drift.
+      >
+      > **Input is the reading only, no candidates.** The explain stage has no
+      > on-device candidates (the image path has none); T12 grounds against the
+      > reading itself.
+      >
+      > Gate: **876 passed, 0 failed** (`deno task test` in `supabase/functions`;
+      > 863 → 876, all 13 new in `tests/unit/explain-prompt.test.ts`),
+      > `deno check` clean, `deno lint` clean, `deno fmt --check` clean. No Dart.
 - [ ] **T11** The explaining chain: `ministral-14b` → `gpt-oss-120b` →
       Gemma 4 26B over the **native** client (`responseJsonSchema`, because the
       OpenAI-compatible endpoint does not enforce the schema). Promote
@@ -980,6 +999,31 @@ the voice card-splitting all hang off.
       when:* unit tests cover the three-leg routing and the headers no longer
       claim benchmark-only, and the prompt states §33.3's **≤ 850-character page
       total** alongside the per-card caps.
+      > **PARTIAL 2026-11-10 — chain built; promotion blocked on T18.** Left
+      > unchecked on purpose: the done-when asks for the Gemma headers to stop
+      > claiming "benchmark only", and trap #2 forbids that until T18 has
+      > *measured* that Gemma 4 enforces `responseJsonSchema`.
+      >
+      > **Done:** `_shared/ai/explain-chain.ts` — `createExplainChain` (mistral →
+      > groq → optional gemma, over T06's `createLegChain`, event
+      > `explain.write`), `createExplainLeg`, and `assertModelExplanation` (the
+      > runtime check T09 deferred to here; shape only, no caps, no grounding —
+      > T12's). One-word change to `leg-chain.ts`: `ProviderName` gains
+      > `"gemma"`. The page cap is already in the prompt (T10).
+      >
+      > **Gemma is an optional leg**, so a two-leg chain is legal and the caller
+      > omits it until T18 answers. Timing defaults: 20 s stage, 8 s per attempt,
+      > 3 s floor (all three legs reachable when two hang); derived from D4, not
+      > measured — T18 records real latency.
+      >
+      > **Still owed to close T11:** after T18, edit the headers of
+      > `gemma-config.ts` / `gemma-native-client.ts` out of EXPERIMENT (or drop
+      > the leg if the premise fails). Also unmeasured per provider: the nullable
+      > object cards (T09's note). T15 builds the clients from env.
+      >
+      > Gate: **892 passed, 0 failed** (863 → 876 at T10 → 892; 16 new in
+      > `tests/unit/explain-chain.test.ts`), `deno check`, `deno lint`,
+      > `deno fmt --check` clean. No Dart.
 - [ ] **T12** Grounding and dedupe (F34-T09): a phone number, amount or date may
       appear in a card **only if it literally appears in the reading** —
       reusing `number-validator`, `date-validator` and `text-matching`'s digit

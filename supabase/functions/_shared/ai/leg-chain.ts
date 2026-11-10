@@ -81,6 +81,7 @@ export const DEFAULT_MIN_FALLBACK_MS = 5_000;
 export type ProviderName =
   | "mistral"
   | "groq"
+  | "gemma"
   | "gemini_read_1"
   | "gemini_read_2"
   | "gemini_read_3";
