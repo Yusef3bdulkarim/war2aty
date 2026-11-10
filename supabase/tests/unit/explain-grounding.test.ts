@@ -54,6 +54,8 @@ Deno.test("a fully grounded explanation passes through as success", () => {
     ungroundedTimes: 0,
     duplicateSentences: 0,
     labelsCleaned: 0,
+    medicalClaimsRemoved: 0,
+    referralsAdded: 0,
     paragraphsTrimmed: 0,
     fitsPage: true,
   });

@@ -56,6 +56,12 @@ import {
   isNumberVerified,
   type VerificationSources,
 } from "./number-validator.ts";
+import {
+  detectMedicalPaper,
+  hasReferral,
+  makesMedicalClaim,
+  referralFor,
+} from "./explain-medical.ts";
 import { digitsOf, normaliseDigits, normaliseForMatching } from "./text-matching.ts";
 
 /** §33.6: `partial` is the server's word, so the grounded status is wider than the model's. */
@@ -79,6 +85,14 @@ export interface GroundingReport {
   readonly duplicateSentences: number;
   /** Cards that opened with a heading the app owns. */
   readonly labelsCleaned: number;
+  /**
+   * Sentences removed from a prescription or lab result for stating a dose, a
+   * schedule or a verdict (T13). Not ungrounded: they may be on the page, they
+   * are just not ours to say.
+   */
+  readonly medicalClaimsRemoved: number;
+  /** 1 when the fixed pharmacist/doctor line had to be added to `todo` (T13). */
+  readonly referralsAdded: number;
   /** `explain` paragraphs dropped to fit the page cap. */
   readonly paragraphsTrimmed: number;
   /** False when the page still exceeds the cap with nothing left to trim. T15 decides. */
@@ -216,6 +230,9 @@ export function groundExplanation(model: ModelExplanation, reading: string): Gro
   let ungroundedTimes = 0;
   let duplicateSentences = 0;
   let labelsCleaned = 0;
+  let medicalClaimsRemoved = 0;
+  let referralsAdded = 0;
+  const medical = detectMedicalPaper(reading);
   const onLabel = () => labelsCleaned++;
 
   if (model.status === "unsupported") {
@@ -228,6 +245,8 @@ export function groundExplanation(model: ModelExplanation, reading: string): Gro
         ungroundedTimes,
         duplicateSentences,
         labelsCleaned,
+        medicalClaimsRemoved: 0,
+        referralsAdded: 0,
         paragraphsTrimmed: 0,
         fitsPage: true,
       },
@@ -238,6 +257,10 @@ export function groundExplanation(model: ModelExplanation, reading: string): Gro
   const ground = (text: string): string => {
     const kept: string[] = [];
     for (const sentence of splitSentences(text)) {
+      if (medical !== null && makesMedicalClaim(sentence)) {
+        medicalClaimsRemoved++;
+        continue;
+      }
       const kinds = ungroundedIn(sentence, sources);
       if (kinds.length === 0) {
         kept.push(sentence);
@@ -255,7 +278,13 @@ export function groundExplanation(model: ModelExplanation, reading: string): Gro
   // ── the cards ───────────────────────────────────────────────────────────
   let explain = model.explain.map(clean).filter((p) => p.length > 0);
   const todoText = clean(model.todo.text);
-  const todo = { required: model.todo.required, text: todoText || EMPTY_TODO_TEXT };
+  let todo = { required: model.todo.required, text: todoText || EMPTY_TODO_TEXT };
+  if (medical !== null && !hasReferral(medical, todoText)) {
+    // The referral is the whole instruction for these papers, so when it is
+    // missing it REPLACES the empty-todo stand-in rather than following it.
+    todo = { required: true, text: join([todoText, referralFor(medical)].filter(Boolean)) };
+    referralsAdded++;
+  }
 
   let date = model.date;
   if (date !== null) {
@@ -363,6 +392,8 @@ export function groundExplanation(model: ModelExplanation, reading: string): Gro
       ungroundedTimes,
       duplicateSentences,
       labelsCleaned,
+      medicalClaimsRemoved,
+      referralsAdded,
       paragraphsTrimmed,
       fitsPage: pageLength(built) <= EXPLAIN_PAGE_MAX_CHARS,
     },

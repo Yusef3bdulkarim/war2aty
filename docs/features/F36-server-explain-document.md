@@ -1075,12 +1075,43 @@ the voice card-splitting all hang off.
       > Gate: **922 passed, 0 failed** (892 → 922; 30 new in
       > `tests/unit/explain-grounding.test.ts`), `deno check`, `deno lint`,
       > `deno fmt --check` clean. No Dart.
-- [ ] **T13** Interim prescription / lab behaviour (F34-T13) as its own tested
+- [x] **T13** Interim prescription / lab behaviour (F34-T13) as its own tested
       path: a prescription explains *that* it is a prescription, by whom and
       when, and tells the user to have the pharmacist read the drugs; a lab
       result says to show it to their doctor. **No diagnosis, no drug advice.**
       *Done when:* a test per paper type asserts the shape and asserts no
       medical claim is produced.
+      > **DONE 2026-11-10.** `_shared/validators/explain-medical.ts`, applied by
+      > `groundExplanation` (T12's file gains ~15 lines and two report fields).
+      >
+      > **Why code and not just tests.** With `paper_type` gone, "no medical
+      > claim is produced" cannot be tested against a model, only against a
+      > fixture — which would assert nothing about the product. So the promise is
+      > made deterministic: the prompt asks (T10), this enforces.
+      > - **Detection is from the reading**, never from the model (a model-chosen
+      >   kind is what §33.2 deleted, and it would let the model switch the
+      >   safeguard off). Narrow keyword lists; prescription beats lab.
+      > - **Claims removed by sentence:** a dose with a unit, a dosing schedule,
+      >   or a verdict («طبيعي», «مرتفع», «سكر»…). Counted in
+      >   `medicalClaimsRemoved`; **not** ungrounded, so status stays `success`.
+      > - **Referral guaranteed:** if `todo` lacks «صيدلي» (prescription) or
+      >   «دكتور» (lab), F34's approved line is appended — or replaces a todo the
+      >   claim filter emptied — and `required` becomes true.
+      > - Non-medical papers are untouched (a test keeps «ارتفاع في الاستهلاك»
+      >   on a bill).
+      >
+      > **Limits, stated:** drug *names* cannot be recognised without a registry
+      > (the full version's job). The verdict list is heuristic: on a paper the
+      > reading calls medical it may drop a harmless sentence containing e.g.
+      > «ضغط» — the deliberate trade, since a miss is a drug instruction.
+      > **Fixed copy added for the owner to approve:** the two referral lines are
+      > F34's own wording, reused verbatim.
+      >
+      > Gate: **937 passed, 0 failed** (922 → 937; 15 new in
+      > `tests/unit/explain-medical.test.ts`, plus the T12 report assertion
+      > widened). **Mutation-checked:** with the claim detector forced to
+      > `false`, 4 tests fail; restored, all pass. `deno check`/`lint`/`fmt`
+      > clean. No Dart.
 
 ### Phase E — the endpoint
 
