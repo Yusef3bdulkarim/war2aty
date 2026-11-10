@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 9 / 21 — T01–T09 closed, Phases A, B and C done, Phase D started. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
+- **Progress:** 14 / 21 — T01–T09 closed, Phases A, B and C done, Phase D started. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
 
 ## Why this feature exists
 
@@ -1115,7 +1115,7 @@ the voice card-splitting all hang off.
 
 ### Phase E — the endpoint
 
-- [ ] **T14** `_shared/explain/explain-request.ts`: the image-intake shape,
+- [x] **T14** `_shared/explain/explain-request.ts`: the image-intake shape,
       `explain_schema_version` compared with `!==` against
       `config.explainSchemaVersion` (400 `UNSUPPORTED_SCHEMA`), `app_version`
       against `minimumAppVersion`, `max_image_bytes`, `session_id`,
@@ -1123,6 +1123,14 @@ the voice card-splitting all hang off.
       from it** — sharing the parser would couple the new contract to the frozen
       one. *Done when:* unit tests cover a valid body and one per rejection,
       including a `"2.0"` schema value being refused.
+      **DONE 2026-11-10:** `_shared/explain/explain-request.ts` with a private
+      `decodeImageBase64` (deliberate copy from the frozen analyze parser — noted
+      for merge when the freeze lifts). Closed allow-list on top-level keys
+      (`explain_schema_version`, not `schema_version`) so an analyze body is
+      refused 400 INVALID_REQUEST. 25 unit tests: valid body, uppercase UUID
+      lowercasing, every rejection path, the `"2.0"` and `"1.00"` schema cases,
+      an analyze-shaped body, an oversize image, and PNG acceptance. Gate: 962
+      passed, 0 failed; lint, fmt and check clean.
 - [ ] **T15** `_shared/explain/explain-handler.ts`, the sequence and nothing
       else, with the same header discipline as `analyze-handler.ts` explaining
       **why the order is what it is**: auth → config → `analysisEnabled` →
