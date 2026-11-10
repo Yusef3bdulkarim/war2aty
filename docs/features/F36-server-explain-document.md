@@ -1024,7 +1024,7 @@ the voice card-splitting all hang off.
       > Gate: **892 passed, 0 failed** (863 → 876 at T10 → 892; 16 new in
       > `tests/unit/explain-chain.test.ts`), `deno check`, `deno lint`,
       > `deno fmt --check` clean. No Dart.
-- [ ] **T12** Grounding and dedupe (F34-T09): a phone number, amount or date may
+- [x] **T12** Grounding and dedupe (F34-T09): a phone number, amount or date may
       appear in a card **only if it literally appears in the reading** —
       reusing `number-validator`, `date-validator` and `text-matching`'s digit
       folding rather than new logic; duplicate sentences between `explain` and
@@ -1039,6 +1039,42 @@ the voice card-splitting all hang off.
       paragraphs go first — never `todo`, `date`, `caution` or `contact`, which
       are what the user acts on. *Also done when:* a test drives a 1,200-character
       response down to ≤ 850 with `todo` and `date` intact.
+      > **DONE 2026-11-10.** `_shared/validators/explain-grounding.ts` —
+      > `groundExplanation(model, reading)` returns the grounded explanation and
+      > a `GroundingReport` of **counts and one boolean only** (§51). Reuses
+      > `isIdentifierVerified`, `isNumberVerified`, `isDateTraceable`,
+      > `isTimeSupported` over empty candidates; no new matching logic.
+      >
+      > **Decisions:**
+      > - **Removal is by sentence** for values inside prose (cutting the number
+      >   leaves "ادفع جنيه قبل الميعاد"). The `date` card goes whole when its date
+      >   is not on the page; an unprinted `time` goes alone, the date stays.
+      > - **What counts as an amount/phone in prose is deliberately narrow:** a
+      >   number beside a currency word, ≥ 7 digits, or a `d/m/yyyy` / ISO date.
+      >   A bare "4" is a count («وفيها 4 أدوية» must survive); written-out
+      >   amounts cannot be checked. A floor, not a proof — T18 is the rest.
+      > - **`todo`/`explain` are never null**, so if grounding empties them a
+      >   fixed Egyptian line stands in (`EMPTY_TODO_TEXT`, `EMPTY_EXPLAIN_TEXT`).
+      > - **Dedupe:** `explain` loses what `todo`/`date`/`caution`/`contact`/
+      >   `place` say; `caution` loses what `todo`/`date` say (null if emptied).
+      >   Action cards are never stripped.
+      > - **`partial` only for ungrounded values.** Dedupe, label cleaning and
+      >   the page trim do not change `success`.
+      > - **A bug the first draft had, caught by design not by a test:** an ISO
+      >   date in prose is eight digits with separators and matched the phone
+      >   pattern, so an on-page date printed day-first was dropped as a bad
+      >   phone. Dates are blanked before the phone scan; a test pins it.
+      >
+      > **Not enforced here (flag for T15):** the 24-char title, the 4-paragraph
+      > count and the 220-char paragraph cap — T12's spec is the page total. If
+      > nothing is left to trim and the page is still over, `report.fitsPage` is
+      > `false` and T15 decides (re-ask or answer). Grounding is a digit-sequence
+      > test, so a phone can in theory match digits spanning two numbers on the
+      > page; that looseness is the reused validator's.
+      >
+      > Gate: **922 passed, 0 failed** (892 → 922; 30 new in
+      > `tests/unit/explain-grounding.test.ts`), `deno check`, `deno lint`,
+      > `deno fmt --check` clean. No Dart.
 - [ ] **T13** Interim prescription / lab behaviour (F34-T13) as its own tested
       path: a prescription explains *that* it is a prescription, by whom and
       when, and tells the user to have the pharmacist read the drugs; a lab
