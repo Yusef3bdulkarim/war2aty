@@ -109,6 +109,13 @@ export interface RuntimeConfig {
    * counts against the quota.
    */
   readonly aiTimeoutSeconds: number;
+  /**
+   * `explain-document`'s whole time budget, env-sourced (§33.8). Split inside
+   * the handler into a read stage ({@link DEFAULT_READ_STAGE_SECONDS} = 10 s)
+   * and an explain stage (the rest). Separate from {@link aiTimeoutSeconds},
+   * which belongs to the two frozen endpoints.
+   */
+  readonly explainTimeoutSeconds: number;
 }
 
 export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
@@ -137,6 +144,8 @@ export const DEFAULT_RUNTIME_CONFIG: RuntimeConfig = Object.freeze({
   explainDailyLimit: 5,
   maintenanceMessage: null,
   aiTimeoutSeconds: 25,
+  // D4: 30 s, split read 10 s / explain 20 s. Separate from aiTimeoutSeconds.
+  explainTimeoutSeconds: 30,
 });
 
 /** A `{ key, value }` row of `app_runtime_config`; `value` is JSONB. */
@@ -292,6 +301,10 @@ export function parseRuntimeConfig(
     aiTimeoutSeconds: positiveInteger(
       environment.get("AI_TIMEOUT_SECONDS"),
       DEFAULT_RUNTIME_CONFIG.aiTimeoutSeconds,
+    ),
+    explainTimeoutSeconds: positiveInteger(
+      environment.get("EXPLAIN_TIMEOUT_SECONDS"),
+      DEFAULT_RUNTIME_CONFIG.explainTimeoutSeconds,
     ),
   };
 }

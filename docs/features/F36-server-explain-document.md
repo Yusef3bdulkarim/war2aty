@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 14 / 21 — T01–T09 closed, Phases A, B and C done, Phase D started. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
+- **Progress:** 15 / 21 — T01–T09 closed, Phases A–D in progress (T15 closed). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
 
 ## Why this feature exists
 
@@ -1131,7 +1131,7 @@ the voice card-splitting all hang off.
       lowercasing, every rejection path, the `"2.0"` and `"1.00"` schema cases,
       an analyze-shaped body, an oversize image, and PNG acceptance. Gate: 962
       passed, 0 failed; lint, fmt and check clean.
-- [ ] **T15** `_shared/explain/explain-handler.ts`, the sequence and nothing
+- [x] **T15** `_shared/explain/explain-handler.ts`, the sequence and nothing
       else, with the same header discipline as `analyze-handler.ts` explaining
       **why the order is what it is**: auth → config → `analysisEnabled` →
       `explainEnabled` → parse → build both chains (credentials read **before**
@@ -1142,6 +1142,12 @@ the voice card-splitting all hang off.
       each gate, a read-stage failure releasing the slot, an explain-stage
       failure releasing the slot, the limit being reached, and the global cap
       tripping.
+      **Done 2026-11-11.** Handler + response builder + `explainTimeoutSeconds`
+      in RuntimeConfig + 29 unit tests (happy path, auth/kill-switch/explain
+      gates, parse, budget split, reservation limits, credential failure, both
+      stage failures releasing slots, empty/whitespace reading → unsupported,
+      model unsupported, trap #4 reading-leak check, response caps). Gate: 991
+      passed, 0 failed; lint, fmt, check clean.
 - [ ] **T16** `supabase/functions/explain-document/index.ts` — wiring only, no
       logic, in the style of the other three entrypoints — plus the
       `config.toml` entry and the deploy note. *Done when:* `deno check` passes
