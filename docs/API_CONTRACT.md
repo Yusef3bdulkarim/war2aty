@@ -1145,16 +1145,38 @@ The §31 envelope, unchanged. Both AI stages' failures collapse onto the closed
 | Below `minimum_app_version` | `UNSUPPORTED_APP_VERSION` | 400 | update prompt |
 | Missing or invalid token | `UNAUTHORIZED` | 401 | silent re-auth, then retry |
 | Caller's 5/day spent | `DAILY_LIMIT_REACHED` | 429 | "daily limit" screen + its voice line |
-| Service-wide cap spent | `GLOBAL_CAPACITY_REACHED` | 503 | "our problem" screen |
+| Service-wide cap spent | `GLOBAL_CAPACITY_REACHED` | 429 | "our problem" screen |
 | Every reading leg rate-limited | `AI_RATE_LIMITED` | 429 | "try later" voice line |
 | Our budget ran out | `TIMEOUT` | 408 | "try later" voice line |
-| Every reading leg failed otherwise | `ANALYSIS_FAILED` | 502 | "unreadable" screen + its voice line |
-| Every explaining leg failed | `ANALYSIS_FAILED` | 502 | "our problem" screen |
+| Every reading leg failed otherwise | `ANALYSIS_FAILED` | 500 | "unreadable" screen + its voice line |
+| Every explaining leg failed | `ANALYSIS_FAILED` | 500 | "our problem" screen |
 | Our bug, or a missing credential | `INTERNAL_ERROR` | 500 | "our problem" screen |
 
 **`OCR_UNAVAILABLE` is not reachable here.** That code exists to tell the app it
 may read the page on the device instead; after F39 there is no on-device reader,
 so emitting it would be an instruction the client cannot follow.
+
+#### Per-`ProviderFailureKind` mapping (T17)
+
+Both the reading stage and the explaining stage map every `ProviderFailureKind`
+onto the same `ERROR_CODE`, through `analysisApiErrorFor`. The mapping is
+identical to `analyze-document`'s and is pinned by
+`explain-error-mapping.test.ts`.
+
+| `ProviderFailureKind` | `ERROR_CODE` | HTTP | Failover | Why |
+|---|---|---|---|---|
+| `rate_limited` | `AI_RATE_LIMITED` | 429 | yes | the provider's bucket is spent; another may have room |
+| `timeout` | `TIMEOUT` | 408 | yes | our budget ran out; if enough remains, try a faster provider |
+| `upstream_unavailable` | `ANALYSIS_FAILED` | 500 | yes | the provider is down; the next one might not be |
+| `network` | `ANALYSIS_FAILED` | 500 | yes | DNS/TLS/connection failure — transient |
+| `invalid_output` | `ANALYSIS_FAILED` | 500 | yes | unusable answer; another model may do better |
+| `auth` | `INTERNAL_ERROR` | 500 | **no** | bad key — our deploy fault, must be seen, not hidden |
+| `bad_request` | `INTERNAL_ERROR` | 500 | **no** | bad model name or malformed request — our fault |
+
+`auth` and `bad_request` never fail over because they are deploy faults: asking
+a second provider the same broken question only hides the bug from the operator.
+None of the seven kinds maps to `OCR_UNAVAILABLE`, which is the closed claim
+trap #3 requires.
 
 ### §33.8 · Time budget
 

@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 16 / 21 — T01–T09 closed, Phases A–E in progress (T16 closed). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
+- **Progress:** 17 / 21 — T01–T10 closed, T12–T17 closed (Phases A–E complete). T11 partial (Gemma promotion blocked on T18). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11: both stages confirmed on `analysisApiErrorFor`, `OCR_UNAVAILABLE` unreachable, §33.7 per-kind table added and two HTTP statuses fixed (GLOBAL_CAPACITY_REACHED 503→429, ANALYSIS_FAILED 502→500). **T18 next** — the golden set and benchmark.
 
 ## Why this feature exists
 
@@ -1178,11 +1178,50 @@ the voice card-splitting all hang off.
       `deno lint` clean, `deno fmt --check` clean. `flutter analyze` **0 errors
       0 warnings** (19 pre-existing infos), `flutter test` **2,825 passed, 0
       failed**. No Dart touched.
-- [ ] **T17** The error-mapping table: every `ProviderFailureKind` from either
+- [x] **T17** The error-mapping table: every `ProviderFailureKind` from either
       stage onto one of the 12 closed `ERROR_CODES`, written into §33 and
       enforced by a test. **`OCR_UNAVAILABLE` is not reachable here** (trap #3).
       *Done when:* a table-driven test covers every row, and a test asserts no
       code outside `ERROR_CODES` can be produced.
+      > **DONE 2026-11-11.** Both the reading stage and the explaining stage use
+      > `analysisApiErrorFor` — the same mapping `analyze-document` uses. T07 and
+      > T11 said "T17 pins it"; this is that pin.
+      >
+      > **What T17 confirmed:** the mapping is identical for both stages, and it
+      > is the right one. `rate_limited` → `AI_RATE_LIMITED`, `timeout` →
+      > `TIMEOUT`, `upstream_unavailable`/`network`/`invalid_output` →
+      > `ANALYSIS_FAILED`, `auth`/`bad_request` → `INTERNAL_ERROR`. No kind maps
+      > to `OCR_UNAVAILABLE` (trap #3). No code falls outside the closed
+      > `ERROR_CODES` list. Creating a new mapping function would have been
+      > unnecessary indirection: both stages want the same table for the same
+      > reasons — transient faults say "try later", deploy faults say "our bug",
+      > and nothing says "read on the device" because there is no device reader.
+      >
+      > **What T17 fixed:** §33.7's cause table carried two wrong HTTP statuses.
+      > `GLOBAL_CAPACITY_REACHED` was listed as 503 but the code returns 429
+      > (it is a shared budget the caller cannot influence, not a server fault).
+      > `ANALYSIS_FAILED` was listed as 502 but the code returns 500 (502 is
+      > `OCR_UNAVAILABLE`'s, and that code is unreachable here). Both corrected
+      > to match `error-codes.ts`, which is the single source of truth for HTTP
+      > statuses across all endpoints.
+      >
+      > **§33.7 now carries the per-`ProviderFailureKind` table** (seven rows,
+      > one per kind, with the failover eligibility and the rationale), below the
+      > existing cause table. The two tables serve different readers: the cause
+      > table is what the client team reads, the kind table is what someone
+      > editing the chain reads.
+      >
+      > **18 new tests** in `supabase/tests/unit/explain-error-mapping.test.ts`:
+      > 7 reading-stage rows, 7 explaining-stage rows (separate loops so the test
+      > names show both stages pinned and a future split turns into two tables),
+      > one asserting no kind maps to `OCR_UNAVAILABLE`, one asserting every
+      > produced code is in `ERROR_CODES`, one asserting the table covers every
+      > `ProviderFailureKind`, and one asserting the three kinds that
+      > `ocrApiErrorFor` maps to `OCR_UNAVAILABLE` do NOT do so on this path.
+      >
+      > Gate: **1009 passed, 0 failed** (`deno task test`; 991 → 1009, all 18
+      > new), `deno check` exit 0, `deno lint` clean, `deno fmt --check` clean.
+      > No Dart touched.
 
 ### Phase F — proof
 
