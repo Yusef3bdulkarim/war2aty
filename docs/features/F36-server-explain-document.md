@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 15 / 21 — T01–T09 closed, Phases A–D in progress (T15 closed). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
+- **Progress:** 16 / 21 — T01–T09 closed, Phases A–E in progress (T16 closed). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T06 closed 2026-11-10: the chain runs N legs from `_shared/ai/leg-chain.ts` with **no test file edited** as the proof that `analyze-document` is untouched. T07 closed 2026-11-10: `_shared/ai/reading-chain.ts`, three Gemini ids and **no new transport**, with the stage's own 4 s / 2 s timing derived so all three legs fit D4's 10 s. T08 closed 2026-11-10: `GEMINI_OCR_MODELS` read by `geminiReadingOptionsFromEnv`, missing is fatal — **the secret is not set on staging or production yet; T20 must set it**. T09 closed 2026-11-10: the generation schema, with **one unverified premise handed to T11/T18 — whether any strict provider accepts a nullable object**. **T10 next** — the prompt. One question is carried forward: **what the handler answers for an empty reading** (T07's note, for T15).
 
 ## Why this feature exists
 
@@ -1148,12 +1148,36 @@ the voice card-splitting all hang off.
       stage failures releasing slots, empty/whitespace reading → unsupported,
       model unsupported, trap #4 reading-leak check, response caps). Gate: 991
       passed, 0 failed; lint, fmt, check clean.
-- [ ] **T16** `supabase/functions/explain-document/index.ts` — wiring only, no
+- [x] **T16** `supabase/functions/explain-document/index.ts` — wiring only, no
       logic, in the style of the other three entrypoints — plus the
       `config.toml` entry and the deploy note. *Done when:* `deno check` passes
       and the function serves locally against `supabase functions serve
       --env-file supabase/.env` (`[edge_runtime]` is `enabled = false` by
       design, so `supabase start` alone leaves it unserved).
+      **DONE 2026-11-11.** `explain-document/index.ts` — wiring only, 85 lines,
+      in the shape of `analyze-document/index.ts`: two per-request chain
+      factories (`createReader`, `createExplainer`) that read credentials eagerly
+      so a deploy fault costs no slot, and everything else built once per worker.
+      `config.toml` gains `[functions.explain-document]` with `verify_jwt = true`.
+
+      **Gemma (explain leg 3) is deliberately absent.** T11 marks it optional
+      and trap #2 forbids promotion until T18 measures schema enforcement. The
+      chain is two legs (Mistral → Groq). If T18 confirms, the Gemma leg is
+      added here with `gemmaOptionsFromEnv` and `createGemmaNativeClient` — a
+      three-line diff. The file header records this.
+
+      **The reading chain's timing is NOT overridden.** `analyze-document`
+      pipes `chainTimingFromEnv()` through to its chain because its cap and
+      floor are env-configurable (F20-T11). The reading and explaining chains
+      have their own defaults derived from D4's budget, and neither reads the
+      analysis chain's env vars. If T18 moves them, the change is in the chain
+      module, not here.
+
+      Gate: **991 passed, 0 failed** (`deno task test`; count unchanged — no
+      new tests, this is wiring only), `deno check **/*.ts` 66 files exit 0,
+      `deno lint` clean, `deno fmt --check` clean. `flutter analyze` **0 errors
+      0 warnings** (19 pre-existing infos), `flutter test` **2,825 passed, 0
+      failed**. No Dart touched.
 - [ ] **T17** The error-mapping table: every `ProviderFailureKind` from either
       stage onto one of the 12 closed `ERROR_CODES`, written into §33 and
       enforced by a test. **`OCR_UNAVAILABLE` is not reachable here** (trap #3).

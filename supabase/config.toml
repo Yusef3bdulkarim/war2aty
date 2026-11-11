@@ -92,6 +92,11 @@ verify_jwt = true
 [functions.report-error]
 verify_jwt = true
 
+# F36-T16. The one-call endpoint: reads the photo and explains it server-side.
+# Authenticated like the rest — anonymous JWT, same as ocr-document.
+[functions.explain-document]
+verify_jwt = true
+
 # Health is an unauthenticated liveness probe and returns no secrets (§23).
 [functions.health]
 verify_jwt = false
