@@ -329,6 +329,10 @@ either one. Full design: `docs/features/F20-ocr-analysis-provider-refactor.md`.
 | `ocr-document` | **Gemini** `gemini-3.5-flash-lite`, native `generateContent` | the **photo** | `GEMINI_API_KEY`, `GEMINI_MODEL` |
 | `analyze-document` | **Mistral** `ministral-14b-latest`, then **Groq** `openai/gpt-oss-120b` as fallback | OCR **text** + candidates only | `MISTRAL_*`, `GROQ_*` |
 
+`explain-document` (F36) additionally reads `GEMINI_OCR_MODELS`, a comma-separated
+list of one to three Gemini ids tried in order. It is separate from
+`GEMINI_MODEL` on purpose: `ocr-document` is frozen on the single id.
+
 All keys and models are required, trimmed and never defaulted in code: a
 missing one is a `500 INTERNAL_ERROR` before any quota slot is reserved.
 Azure and Google Document AI were removed in F20-T16.

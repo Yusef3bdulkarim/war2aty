@@ -11,7 +11,7 @@
  * runtime config, which an operator can change without a redeploy.
  */
 
-import { DEFAULT_ATTEMPT_CAP_MS, DEFAULT_MIN_FALLBACK_MS } from "./fallback-provider.ts";
+import { DEFAULT_ATTEMPT_CAP_MS, DEFAULT_MIN_FALLBACK_MS } from "./leg-chain.ts";
 
 export interface ChainTiming {
   /** The longest one attempt may run, in milliseconds. */

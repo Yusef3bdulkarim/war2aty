@@ -72,14 +72,14 @@ export interface AnalysisPromptInput {
  * naming that block as data in both the system prompt and here, is what keeps
  * a printed sentence from being read as a command.
  */
-const DOCUMENT_OPEN = "<document_text>";
-const DOCUMENT_CLOSE = "</document_text>";
+export const DOCUMENT_OPEN = "<document_text>";
+export const DOCUMENT_CLOSE = "</document_text>";
 
 /**
  * Strips any literal delimiter out of the document so it cannot close the
  * block early and have the remainder read as prompt.
  */
-function neutraliseDelimiters(text: string): string {
+export function neutraliseDelimiters(text: string): string {
   return text
     .replaceAll(DOCUMENT_OPEN, "[document_text]")
     .replaceAll(DOCUMENT_CLOSE, "[/document_text]");

@@ -50,6 +50,23 @@ export interface UsageResponseBody {
    * so it stays on the on-device route.
    */
   readonly online_ocr_enabled: boolean;
+  /**
+   * Whether `explain-document` is live (F35-T04's key, put on the wire by
+   * F36-T05). Read by the app's capture gate (F39) off the usage sync Home
+   * already performs, so a disabled service shows the "our problem" screen
+   * instead of the dishonest "no internet" one (owner's Q14 decision).
+   *
+   * Opt-in in the same direction as {@link online_ocr_enabled}: absent,
+   * unreadable and "off" all parse to `false` in `parseRuntimeConfig`, so an
+   * unverified chain is never advertised as available merely because a deploy
+   * happened.
+   *
+   * Additive on the wire. The published 1.0.2 app builds `DailyUsageDto` from
+   * named keys and ignores anything it does not know, exactly as it ignored
+   * `online_ocr_enabled` before F20-T17 taught it the name — which is why this
+   * field can ship to production before any client reads it.
+   */
+  readonly explain_enabled: boolean;
 }
 
 export interface UsageDependencies {
@@ -89,6 +106,7 @@ export function createUsageHandler(
       resets_at: decision.resetsAt,
       analysis_enabled: config.analysisEnabled,
       online_ocr_enabled: config.onlineOcrEnabled,
+      explain_enabled: config.explainEnabled,
     };
 
     logEvent("usage.read", {

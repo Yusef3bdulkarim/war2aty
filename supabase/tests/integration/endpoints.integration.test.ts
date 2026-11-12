@@ -170,6 +170,23 @@ Deno.test({
     assertEquals(body.remaining_today, body.daily_limit);
     assert(/^\d{4}-\d{2}-\d{2}$/.test(body.usage_date));
     assert(typeof body.analysis_enabled === "boolean");
+
+    // F36-T05: both feature gates reach the wire as booleans, and the field
+    // list is asserted whole. The published 1.0.2 app reads this body, so
+    // adding a field must add a field and change nothing else.
+    assert(typeof body.online_ocr_enabled === "boolean");
+    assertEquals(typeof body.explain_enabled, "boolean");
+    assertEquals(Object.keys(body).sort(), [
+      "analysis_enabled",
+      "daily_limit",
+      "explain_enabled",
+      "online_ocr_enabled",
+      "remaining_today",
+      "resets_at",
+      "schema_version",
+      "usage_date",
+      "used_today",
+    ]);
   },
 });
 
@@ -269,9 +286,7 @@ function postReport(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(token === null
-        ? {}
-        : { Authorization: `Bearer ${token}`, apikey: supabaseAnonKey! }),
+      ...(token === null ? {} : { Authorization: `Bearer ${token}`, apikey: supabaseAnonKey! }),
     },
     body: JSON.stringify(body),
   });
