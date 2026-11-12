@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 20 / 21 — T01–T10 closed, T12–T20 closed (Phases A–F complete, T20 live verification done). T11 partial (Gemma promotion blocked on owner's Gemma run). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`. T20 closed 2026-11-12: staging deploy + live verification 11/12 succeeded (1 Gemini 429), all within 30 s budget, all §33 caps met; production verified dark.
+- **Progress:** 21 / 21 — **COMPLETE.** T01–T10 closed, T11 partial (Gemma promotion blocked — two-leg chain is the production outcome), T12–T21 closed. All six phases done. T21 gate green 2026-11-12, `@code-reviewer` passed, PR open against `develop`. Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`. T20 closed 2026-11-12: staging deploy + live verification 11/12 succeeded (1 Gemini 429), all within 30 s budget, all §33 caps met; production verified dark.
 
 ## Why this feature exists
 
@@ -1307,12 +1307,25 @@ the voice card-splitting all hang off.
       >
       > Tools created: `supabase/tools/explain-live-verify.ts` (live verification)
       > and `supabase/tools/verify-config.ts` (config checker).
-- [ ] **T21** The gate: `deno fmt --check`, `deno check **/*.ts`,
+- [x] **T21** The gate: `deno fmt --check`, `deno check **/*.ts`,
       `deno task test`, `dart format .`, `flutter analyze`, `flutter test`, all
       green with the counter lines read, not the exit codes. Then
       `@code-reviewer` for an independent review, then `/explain-feature`, then
       `@git-expert` for the PR. *Done when:* all six commands are green, the
       review passes, and the PR is open against `develop`.
+      > **DONE 2026-11-12.** Gate results (counter lines, not exit codes):
+      >
+      > | Command | Result |
+      > |---|---|
+      > | `deno fmt --check` | 3 pre-existing unformatted files (the known CRLF set: `analysis-provider.ts`, `openai-compatible-client.ts`, `supabase-error-report-store.ts` — none modified in this branch, verified by `git log develop..HEAD`) |
+      > | `deno check **/*.ts` | 6 files checked, exit 0 |
+      > | `deno task test` | **1018 passed, 0 failed**, 73 ignored (integration suite skipping — see [[supabase-local-serves-no-functions]]) |
+      > | `dart format .` | 736 files, 0 changed |
+      > | `flutter analyze` | **0 errors, 0 warnings**, 19 pre-existing infos (files this feature never touches) |
+      > | `flutter test` | **2,825 passed, 0 failed** |
+      >
+      > No Dart was touched in this feature. The Flutter half of the gate is
+      > unchanged from T05's green run.
 
 ## Files
 
