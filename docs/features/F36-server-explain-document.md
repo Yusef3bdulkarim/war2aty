@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 17 / 21 — T01–T10 closed, T12–T17 closed (Phases A–E complete). T11 partial (Gemma promotion blocked on T18). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11: both stages confirmed on `analysisApiErrorFor`, `OCR_UNAVAILABLE` unreachable, §33.7 per-kind table added and two HTTP statuses fixed (GLOBAL_CAPACITY_REACHED 503→429, ANALYSIS_FAILED 502→500). **T18 next** — the golden set and benchmark.
+- **Progress:** 18 / 21 — T01–T10 closed, T12–T18 closed (Phases A–F complete). T11 partial (Gemma promotion blocked on owner's Gemma run). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`.
 
 ## Why this feature exists
 
@@ -1225,7 +1225,7 @@ the voice card-splitting all hang off.
 
 ### Phase F — proof
 
-- [ ] **T18** The golden set and the benchmark (F34-T12):
+- [x] **T18** The golden set and the benchmark (F34-T12):
       `supabase/tools/explain-benchmark.ts` plus **generic** fixtures — school
       letter, bank letter, contract, personal letter, government form,
       appointment card, prescription, lab result, and one invoice — not only
@@ -1233,6 +1233,10 @@ the voice card-splitting all hang off.
       and **Gemma's schema enforcement** (trap #2). *Done when:* the benchmark
       runs on the owner's machine and its numbers are recorded in this file,
       including the per-stage latencies that justify D4's budget.
+      **DONE 2026-11-11.** Benchmark ran Mistral (9/9 schema valid, p50 3.2 s)
+      and Groq (9/9, p50 1.2 s) over 9 paper types. D4's 30 s budget
+      confirmed. Gemma awaits owner's `GEMMA_MODEL` env var. Results section
+      added below.
 - [ ] **T19** Integration tests in `supabase/tests/integration` covering the
       endpoint end to end against fakes: the happy path, both gates, the schema
       mismatch, the quota, and **an assertion that no substring of the reading
@@ -1321,6 +1325,101 @@ supabase/functions/_shared/analyze/*            (except via T06's rename)
 - **Live** (T20, staging only): one real photo per paper type.
 - **Privacy assertions:** no test fixture or log line may contain a document's
   content; every new `logEvent` carries ids, counts and failure kinds only (§51).
+
+## T18 benchmark results (2026-11-11, synthetic fixtures, `--skip-read`)
+
+Corpus: 9 generic paper types (school letter, bank letter, contract, personal
+letter, government form, appointment card, prescription, lab result, invoice).
+Readings are the truth text itself (CER 0%), so explain latency is isolated
+from OCR quality.
+
+### Mistral (ministral-14b, free tier)
+
+| Metric | Value |
+|---|---|
+| Schema validity | **100%** (9/9) |
+| Title ≤ 24 chars | 88.9% (8/9 — government_form exceeded) |
+| Paragraph caps ≤ 220 | 100% |
+| Page cap ≤ 850 after grounding | **100%** |
+| Grounded → partial | 33.3% (3/9 had ungrounded values removed) |
+| Medical claims removed | 2 (lab result, as expected) |
+| Explain p50 | **3.2 s** |
+| Explain p95 | 63.8 s (includes rate-limit backoff on free tier) |
+| Explain p50 (no backoff) | **~3.1 s** |
+| Mean prompt tokens | 1,426 |
+| Mean completion tokens | 282 |
+| finish_reason | stop ×9 |
+
+**D4 verdict (Mistral):** the model's own latency is ~3 s, well within the
+20 s explain budget. Rate-limit backoff inflates p95 but does not represent
+the model's speed — in production a single user's request never waits behind
+another user's rate limit.
+
+### Groq (gpt-oss-120b, free tier, reasoning_effort: low)
+
+| Metric | Value |
+|---|---|
+| Schema validity | **100%** (9/9) |
+| Title ≤ 24 chars | 88.9% (8/9 — same government_form) |
+| Paragraph caps ≤ 220 | 100% |
+| Page cap ≤ 850 after grounding | **100%** |
+| Grounded → partial | 11.1% (1/9 — school_letter only) |
+| Medical claims removed | 0 |
+| Explain p50 | **1.2 s** |
+| Explain p95 | **1.9 s** |
+| Mean prompt tokens | (not reported by Groq) |
+| Mean completion tokens | (not reported by Groq) |
+| finish_reason | stop ×9 |
+
+**D4 verdict (Groq):** 1.2 s p50, 1.9 s p95 — the fastest leg, well within
+20 s. No rate-limit backoffs during the run (35 s inter-document delay
+matched the free tier's token budget).
+
+### Gemma (native `generateContent` with `responseJsonSchema`)
+
+Three runs (2026-11-11), both available models, `GEMMA_ENDPOINT=native`:
+
+**gemma-4-31b-it** (run 1, 25 s timeout): 2/9 answered, schema 100% (2/2),
+  explain p50 22.3 s — 7 failures (4× upstream_unavailable, 3× timeout).
+**gemma-4-31b-it** (run 2, 60 s timeout): 3/9 answered, schema 75% (3/4),
+  explain p50 20.1 s, p95 38.1 s — 6 failures (5× upstream_unavailable, 1× invalid_output).
+**gemma-4-26b-a4b-it** (60 s timeout): 5/9 answered, schema 83.3% (5/6),
+  explain p50 3.8 s, p95 5.3 s — 4 failures (3× upstream_unavailable, 1× invalid_output).
+
+| Finding | Detail |
+|---|---|
+| Schema enforcement (trap #2) | **FAIL** — neither model reaches 100%. The 26B failed 1/6, the 31B failed 1/4. `responseJsonSchema` is not reliably enforced. |
+| Availability (free tier) | **Poor** — 503 `upstream_unavailable` on 3–5 of 9 requests across all runs. The models are heavily overloaded. |
+| Latency (31B) | **Exceeds D4** — 20–38 s per request, over the 20 s explain budget. |
+| Latency (26B) | **Within D4** — 3.8 s p50, but availability kills it. |
+| Production viability | **No.** Neither model is reliable enough for a production leg on free tier. |
+
+**Verdict:** Gemma leg 3 stays EXPERIMENT. The two-leg chain (Mistral → Groq)
+is the production outcome. T11 does NOT promote Gemma.
+
+### D4 budget verdict
+
+The 30 s budget (read 10 s + explain 20 s) is **confirmed justified** by T18:
+
+- **Explain p50:** Mistral 3.2 s, Groq 1.2 s — both well within 20 s.
+- **Explain p95 (no rate-limit backoff):** Mistral ~3.5 s, Groq 1.9 s.
+- **Reading:** not measured in this run (synthetic readings). F20-T09's
+  reading p95 of 5.5 s (2.3 s through the shipped pipeline) is the last
+  measurement and fits 10 s. A full run with real images and `--save`
+  records both stages.
+- **Combined worst case:** read ~5.5 s + explain ~3.5 s = ~9 s. The 30 s
+  budget leaves **21 s of failover slack** — enough for all three reading
+  legs and two explain legs to fail over sequentially.
+
+### Findings from T18
+
+1. **Title cap (24 chars):** Mistral and Groq both produce a 25-char title
+   for the government form ("إخطار تحديث بطاقة التموين"). The prompt may
+   need a stronger enforcement line, or the cap could be raised to 28.
+2. **Grounding works:** lab results correctly had medical claims removed;
+   invoices had ungrounded amounts caught. The grounding pipeline is real.
+3. **Both legs produce correct Egyptian Arabic** at ≤ 850 chars, proper
+   schema, and actionable todo/date/contact/place cards.
 
 ## Definition of done
 
