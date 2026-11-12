@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 3 / 21 — T03 (domain), T04 (privacy copy) and T05 (verbatim judgement) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06–T07 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 4 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement) and T07 (alignment) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -353,12 +353,35 @@ Both are gates. No client transport code is written until T02 is approved.
       character offsets, with segments separated by a blank line and a full stop
       so Live actually pauses between them (which T14 depends on). *Done when:* a
       six-card page yields exact per-segment offsets.
-- [ ] **T07** `AlignSegmentsToAudio` — anchor only on frames carrying **both**
+- [x] **T07** `AlignSegmentsToAudio` — anchor only on frames carrying **both**
       audio and transcript, forward-only LCS over normalised words, interpolate
       between anchors, and fall back to a proportional span
       (`charsBefore / totalChars × duration`) when a segment cannot be matched.
       *Done when:* a transcript missing one card still yields spans for **all**
       cards, with `exact: false` on that one. Alignment never fails a read.
+      > **DONE 2026-11-13.** The use case plus a new entity
+      > (`TranscriptAudioAnchor`) and 25 table-driven tests covering: a perfect
+      > match (all exact), a card missing from the transcription (exact: false,
+      > span still present), an unmatched card bounded by two matched
+      > neighbours, spelled-out digits surviving through folding, all audio
+      > arriving before all transcription (proportional fallback, all inexact),
+      > a mid-word delta never pushing a card late, zero-byte anchors
+      > contributing nothing, out-of-order and over-sized anchors being
+      > discarded, degenerate pages (empty, one segment, zero audio), and the
+      > `minMatchedWords = 2` gate preventing a coincidental «في» from
+      > anchoring a card.
+      >
+      > **The one-word exception.** A segment with only one word (e.g.
+      > «مستعجل») can never offer two matches, so the gate is capped at the
+      > segment's own word count. Tested and honest: the span is exact when the
+      > word matched, because a single distinctive word *is* informative.
+      >
+      > **Privacy.** `TranscriptAudioAnchor.toString()` describes the
+      > transcription by character count, never by its words (CLAUDE.md §7).
+      > Asserted.
+      >
+      > Gate: `flutter analyze` 0 errors, `flutter test` **2896 passed /
+      > 0 failed** (2871 + 25).
 
 ### Phase C — the Live client
 
