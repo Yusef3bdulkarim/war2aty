@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 4 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement) and T07 (alignment) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 5 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T07 (alignment) and T08 (frame DTOs) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -385,11 +385,39 @@ Both are gates. No client transport code is written until T02 is approved.
 
 ### Phase C — the Live client
 
-- [ ] **T08** Live frame DTOs, hand-written `fromJson`/`toJson` (no codegen).
+- [x] **T08** Live frame DTOs, hand-written `fromJson`/`toJson` (no codegen).
       *Done when:* golden frames copied verbatim from the spike parse, unknown
       fields are ignored, and a test pins
       **`serverContent.outputTranscription.text`** against the setup key's
       different spelling.
+      > **DONE 2026-11-13.** Two DTOs under `lib/features/voice/data/models/`:
+      > `LiveSetupDto` + `LiveClientContentDto` (client → server, `toJson`
+      > only), and `LiveServerFrame` sealed class (server → client, `fromJson`
+      > only) with four variants: `LiveSetupCompleteFrame`,
+      > `LiveContentFrame`, `LiveErrorFrame`, `LiveUnknownFrame`.
+      >
+      > `LiveContentFrame` decodes base64 audio inline (`List<Uint8List>
+      > audioChunks`) and reads the transcript from the correct server key
+      > `outputTranscription` — not the setup key `outputAudioTranscription`.
+      > Unknown top-level keys yield `LiveUnknownFrame`; unknown fields
+      > inside `serverContent` are silently ignored.
+      >
+      > **The field-name trap is pinned by two tests.** The first proves
+      > `outputTranscription` yields text and the setup spelling
+      > `outputAudioTranscription` yields null on a server frame. The second
+      > proves the two keys are provably different strings across the setup
+      > DTO and the server frame parser, so a refactor that unifies them
+      > would break under test.
+      >
+      > 19 tests: setup serialisation (2), client content (1), server frame
+      > parsing (14 — setup complete, audio only, transcription only, both,
+      > turnComplete, generationComplete, error, error defaults, unknown key,
+      > unknown fields, multiple parts, empty data, non-audio parts, empty
+      > serverContent), and the field-name trap (2).
+      >
+      > Gate: `dart format` clean, `flutter analyze` **0 errors** (19
+      > pre-existing infos, none in a touched file), `flutter test` **2915
+      > passed / 0 failed** (2896 + 19).
 - [ ] **T09** `GeminiLiveVoiceSession` — the only file importing
       `web_socket_channel`. Setup per the spike's four conditions, inter-frame
       watchdog (~10 s) and total watchdog (~60 s), `goAway` handling, and the
