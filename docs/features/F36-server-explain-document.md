@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 19 / 21 — T01–T10 closed, T12–T19 closed (Phases A–F complete, T19 integration tests done). T11 partial (Gemma promotion blocked on owner's Gemma run). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`.
+- **Progress:** 20 / 21 — T01–T10 closed, T12–T20 closed (Phases A–F complete, T20 live verification done). T11 partial (Gemma promotion blocked on owner's Gemma run). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`. T20 closed 2026-11-12: staging deploy + live verification 11/12 succeeded (1 Gemini 429), all within 30 s budget, all §33 caps met; production verified dark.
 
 ## Why this feature exists
 
@@ -1267,7 +1267,7 @@ the voice card-splitting all hang off.
       > `dart format` 0 changed, `flutter analyze` 0 errors 0 warnings (19
       > pre-existing infos), `flutter test` **2,825 passed, 0 failed**. No Dart
       > touched.
-- [ ] **T20** Live verification. Deploy to **staging**, flip `explain_enabled`
+- [x] **T20** Live verification. Deploy to **staging**, flip `explain_enabled`
       to `true` there only, run a real photo of each golden-set paper type
       through the real chain, record the numbers, then raise
       `global_daily_call_cap` to 900 (D3) if T18's math supports it.
@@ -1277,6 +1277,36 @@ the voice card-splitting all hang off.
       does mean staging is not a rehearsal for anything `ocr-document` related.
       *Done when:* the run's results are in this file and production's
       `explain_enabled` is verified still `false`.
+      > **Done 2026-11-12.** Deployed all 6 functions + 3 pending migrations to
+      > staging (`jecujrsvbmashkpobtsz`). Set `GEMINI_OCR_MODELS` secret. Flipped
+      > `explain_enabled` to `true` (boolean, not string) and raised
+      > `global_daily_call_cap` to 900 (D3). Two live runs of golden-set photos
+      > through the real chain:
+      >
+      > | Run | Images | Succeeded | Failed | p50 ms | p95 ms | max ms |
+      > |-----|--------|-----------|--------|--------|--------|--------|
+      > | 1   | 6      | 6         | 0      | 8 556  | 11 046 | 11 046 |
+      > | 2   | 6      | 5         | 1 (429)| 7 666  | 8 729  | 8 729  |
+      > | **Total** | **12** | **11** | **1** | — | — | — |
+      >
+      > The single failure was a Gemini free-tier 429 (RPM 15 per model) on the
+      > 12th image after rapid-fire calls with 10 s delay — the failover chain
+      > worked but the slot was consumed. All 11 successes were within D4's 30 s
+      > budget. §33 caps: title ≤ 24 (11/11), para ≤ 220 (11/11), page ≤ 850
+      > (11/11). Statuses: `success` (6), `unsupported` (5). Response bodies
+      > saved to `golden-live/` (gitignored).
+      >
+      > **Staging config verified:** `explain_enabled: true`,
+      > `global_daily_call_cap: 900`, `daily_limit: 3` (untouched),
+      > `explain_daily_limit: 5` (T04), `schema_version: "2.0"` (untouched).
+      >
+      > **Production verified dark:** `explain_enabled: undefined` (T04 migration
+      > not pushed), `explain-document` returns 404 (function not deployed).
+      > `online_ocr_enabled: true`, `analysis_enabled: true`, `daily_limit: 3`,
+      > `remaining_today: 3` — production is untouched.
+      >
+      > Tools created: `supabase/tools/explain-live-verify.ts` (live verification)
+      > and `supabase/tools/verify-config.ts` (config checker).
 - [ ] **T21** The gate: `deno fmt --check`, `deno check **/*.ts`,
       `deno task test`, `dart format .`, `flutter analyze`, `flutter test`, all
       green with the counter lines read, not the exit codes. Then
