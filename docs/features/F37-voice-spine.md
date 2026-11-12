@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 2 / 21 — T03 (the domain layer) and T04 (the privacy copy) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T05–T07 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 3 / 21 — T03 (domain), T04 (privacy copy) and T05 (verbatim judgement) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06–T07 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -304,11 +304,51 @@ Both are gates. No client transport code is written until T02 is approved.
       >
       > Gate: `flutter analyze` 0 errors, `flutter test` **2851 passed /
       > 0 failed** (2849 + 2).
-- [ ] **T05** `NormaliseArabicForDiff` + `VerifyVerbatimRead`, **prefix-capable**
+- [x] **T05** `NormaliseArabicForDiff` + `VerifyVerbatimRead`, **prefix-capable**
       so a bad read is caught early rather than after 75 s. A Dart port of the
       spike's normaliser and WER diff. *Done when:* all 11 cases from
       `supabase/tests/unit/live-spike-diff.test.ts` pass and the Dart and Deno
       normalisers provably agree.
+      > **DONE 2026-11-12.** All 11 Deno cases ported case-for-case, same inputs
+      > and same expectations, into
+      > `test/features/voice/domain/verify_verbatim_read_test.dart`. Duplicated
+      > rather than shared on purpose: the Deno tool decided whether F37 could
+      > be built, the Dart code makes the same call on every read a user hears,
+      > and asserting the same facts about both is the only way to know they
+      > still agree. 20 tests, 44 in the voice suite.
+      >
+      > **The three bands are the spike's own**, reused unchanged
+      > (`live-spike.ts:548-550`): ≤ 5 % verbatim, ≤ 15 % near-verbatim, above
+      > that not verbatim. `isAcceptable` tolerates the near band — the dropped
+      > and added words are what distinguish transcription noise from the
+      > model's own additions, and the rate alone cannot.
+      >
+      > **A finding the port turned up, and the reason the near band must stay
+      > tolerated.** The Deno case is named "stays under the 5% gate on a page",
+      > but its own three sentences are **21 words**, where a two-word greeting
+      > is **9.5 %** — near-verbatim, not verbatim. The rate is a fraction of
+      > the page, so *the shorter the paper the harsher the gate*. On a real
+      > ~850-character page the same greeting is ~1.5 %. Pinned as its own test
+      > ("a greeting costs a short paper more than a long one") so nobody later
+      > tightens `isAcceptable` to the 5 % band and starts re-reading every
+      > short paper over a politeness token.
+      >
+      > **The early check.** `checkPrefix` compares what has been heard against
+      > the *beginning* of the page and returns `null` until 20 words have
+      > arrived (~2 s of speech): judging a handful of words would fail honest
+      > reads constantly, since one added «أهلاً» is 50 % of two words. It also
+      > drops the newest word before comparing, because a delta can land
+      > mid-word and would otherwise read as one dropped plus one added word.
+      > Callers act only on `notVerbatim` here — the 5 % band is for the
+      > complete read, and applying it to a fragment would abandon reads that go
+      > on to be perfect.
+      >
+      > **Privacy:** `VerbatimComparison.toString()` reports counts and the
+      > verdict, never the dropped or added words, which are the paper's own
+      > (CLAUDE.md §7). Asserted.
+      >
+      > Gate: `flutter analyze` 0 errors, `flutter test` **2871 passed /
+      > 0 failed** (2851 + 20).
 - [ ] **T06** `BuildVoiceTurnText` — segments → one turn plus per-segment
       character offsets, with segments separated by a blank line and a full stop
       so Live actually pauses between them (which T14 depends on). *Done when:* a
