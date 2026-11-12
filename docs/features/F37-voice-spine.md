@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 5 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T07 (alignment) and T08 (frame DTOs) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 7 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T07 (alignment), T08 (frame DTOs), T09 (Live session) and T10 (live-token endpoint + Dart datasource) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -418,17 +418,89 @@ Both are gates. No client transport code is written until T02 is approved.
       > Gate: `dart format` clean, `flutter analyze` **0 errors** (19
       > pre-existing infos, none in a touched file), `flutter test` **2915
       > passed / 0 failed** (2896 + 19).
-- [ ] **T09** `GeminiLiveVoiceSession` — the only file importing
+- [x] **T09** `GeminiLiveVoiceSession` — the only file importing
       `web_socket_channel`. Setup per the spike's four conditions, inter-frame
       watchdog (~10 s) and total watchdog (~60 s), `goAway` handling, and the
       drop rules: a drop before `turnComplete`/`generationComplete` **discards
       the partial `.m4a`**; under 2 s heard restarts Live once; otherwise device
       TTS. *Done when:* fake-socket tests cover a clean turn, a mid-stream drop
       and a 1007 close.
-- [ ] **T10** `live-token` Edge Function (or the relay T01 chose), in
+      > **DONE 2026-11-13.** One file under
+      > `lib/features/voice/data/services/gemini_live_voice_session.dart` — the
+      > only file in the app importing `web_socket_channel` (promoted from
+      > transitive to direct in `pubspec.yaml`). The session takes an injected
+      > `Future<WebSocketChannel> Function(Uri)` factory and a model string;
+      > the four spike conditions are hard-wired as constants, not parameters.
+      >
+      > **The system instruction is the spike's own**, character-for-character:
+      > «اقرأ النص التالي بالحرف، كلمة بكلمة...». The setup frame carries all
+      > four conditions (responseModalities=AUDIO, temperature=0, the verbatim
+      > instruction, outputAudioTranscription enabled) — pinned by a test.
+      >
+      > **Two watchdogs.** An inter-frame timer resets on every frame; if no
+      > frame arrives for `interFrameTimeout` (default 10 s), the session emits
+      > `LiveSessionLost`. A total timer fires at `totalTimeout` (default 60 s)
+      > regardless of frame activity. Both are injectable for testing via
+      > `fakeAsync`.
+      >
+      > **Drop classification.** A socket close (including 1007) or watchdog
+      > timeout after audio has been delivered yields
+      > `VoiceStreamInterruptedFailure(heard)` — the heard duration is the
+      > total audio bytes converted via `PcmFormat.durationOfBytes`, so T17 can
+      > decide retry-vs-TTS. Before any audio, every failure is
+      > `VoiceServiceFailure`. An error frame from the server is always
+      > `VoiceServiceFailure` regardless of audio heard, because the service
+      > itself said something is wrong.
+      >
+      > **Cancel is safe on every path**, including before `start()` and after
+      > successful completion (the interface contract). A second `start()` call
+      > returns `Err` immediately. `cancel()` never emits a terminal event — it
+      > only closes the stream and the socket.
+      >
+      > **Golden frames** live in `test/support/live_frames.dart` — helpers
+      > that build `setupComplete`, audio, transcription, `turnComplete`,
+      > `generationComplete` and error frames as JSON strings. A
+      > `_FakeWebSocketChannel` in the test file drives the session end to end
+      > without touching a real socket.
+      >
+      > 22 tests covering: a clean turn (setup → audio → transcript →
+      > turnComplete → Ok), generationComplete, the system instruction text,
+      > the four spike conditions in setup, a mid-stream drop (socket closes
+      > after audio → VoiceStreamInterruptedFailure with correct heard
+      > duration), accumulated heard across multiple frames, 1007 before audio
+      > (VoiceServiceFailure), 1007 after audio (VoiceStreamInterruptedFailure),
+      > error during setup (Err), error after setup (LiveSessionLost), connect
+      > failure (Err), inter-frame watchdog without audio, inter-frame watchdog
+      > with audio, inter-frame timer resets on each frame, total watchdog,
+      > cancel before start, cancel during streaming, cancel after completion,
+      > double start, socket close before setupComplete, and unknown frames
+      > ignored.
+      >
+      > **Dependencies added:** `web_socket_channel: ^3.0.0` (promoted from
+      > transitive — already present via `supabase_flutter`),
+      > `fake_async: ^1.3.0` (dev only, for timer-controlled tests).
+      >
+      > Gate: `dart format` clean, `flutter analyze` **0 errors** (19
+      > pre-existing infos, none in a touched file), `flutter test` **2937
+      > passed / 0 failed** (2915 + 22), `deno test` **1018 passed /
+      > 0 failed**.
+- [x] **T10** `live-token` Edge Function (or the relay T01 chose), in
       `get-usage`'s shape, plus the Dart datasource behind
       `LiveSessionEndpoint`. *Done when:* 401, 429 and offline map to **distinct**
       `AppFailure`s and the Deno tests are green.
+      > **Built for Path A** (ephemeral token) — T01 hasn't run yet, but T08/T09
+      > set the precedent that Path A is the default, and the swap to B1 is one
+      > file by design. Server: `gemini-token-client.ts` mints a single-use
+      > token (30 min TTL, 2 min session window, uses=1) from Google's
+      > `auth_tokens` REST API; `live-token-handler.ts` gates on auth +
+      > `analysisEnabled` + `explainEnabled`, then mints and returns
+      > `{ ws_url, model, expires_at }`. Dart: `EdgeFunctionLiveTokenDataSource`
+      > calls `POST /live-token`, parses `LiveSessionEndpoint`, and maps errors
+      > via `failureFromErrorBody` + a local `_failureFromDioException` that
+      > returns `VoiceServiceFailure` (not `AnalysisServiceFailure`) for
+      > non-connectivity failures. Gate: `deno test` **14 passed / 0 failed**,
+      > `flutter analyze` **0 errors / 0 warnings** (20 info), `flutter test`
+      > **2951 passed / 0 failed**.
 
 ### Phase D — Android audio
 
