@@ -5,7 +5,7 @@
 - **Depends on:** F35 (the two config keys and their `RuntimeConfig` fields are already live in local, staging and production)
 - **Runs in parallel with:** F37 (voice spine). Neither touches the UI and they share no code — F34 § "Amendments (2026-11-08)" change #1.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body.
-- **Progress:** 18 / 21 — T01–T10 closed, T12–T18 closed (Phases A–F complete). T11 partial (Gemma promotion blocked on owner's Gemma run). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`.
+- **Progress:** 19 / 21 — T01–T10 closed, T12–T19 closed (Phases A–F complete, T19 integration tests done). T11 partial (Gemma promotion blocked on owner's Gemma run). Reading legs verified with **1,500 RPD each, distinct buckets**; **D1 reopened as D1-bis** (Mistral OCR is refused on the free plan, Groq has no vision model) and leg 3 is a third Gemini id (D1-bis, option 2). **Live reads verbatim (0.0 % WER)**; the page total is capped at **850 characters** (§33.3, measured); Live's free-tier quota is TPM-bound, not RPD-bound. The ephemeral-token question is carried to F37-T15. T17 closed 2026-11-11. T18 closed 2026-11-11: Mistral 9/9 schema valid (p50 3.2 s), Groq 9/9 (p50 1.2 s), D4's 30 s budget confirmed; Gemma awaits `GEMMA_MODEL`.
 
 ## Why this feature exists
 
@@ -1237,11 +1237,36 @@ the voice card-splitting all hang off.
       and Groq (9/9, p50 1.2 s) over 9 paper types. D4's 30 s budget
       confirmed. Gemma awaits owner's `GEMMA_MODEL` env var. Results section
       added below.
-- [ ] **T19** Integration tests in `supabase/tests/integration` covering the
+- [x] **T19** Integration tests in `supabase/tests/integration` covering the
       endpoint end to end against fakes: the happy path, both gates, the schema
       mismatch, the quota, and **an assertion that no substring of the reading
       appears in the serialised response** (trap #4). *Done when:*
       `deno task test` passes and the no-leak assertion is present.
+      > **DONE 2026-11-12.** `supabase/tests/integration/explain-document.integration.test.ts`
+      > — two levels: wire-level tests (skip when the stack is down) prove
+      > `config.toml` routing, `verify_jwt` enforcement, the `explain_enabled`
+      > gate over HTTP, CORS preflight, and `x-request-id` echo; handler-level
+      > tests compose the full pipeline in-process with fake AI chains and
+      > cover the happy path (§33 body shape), both gates
+      > (`analysisEnabled=false`, `explainEnabled=false`), schema mismatch
+      > (`"2.0"` refused), an analyze-document body shape refused, both quota
+      > paths (`limit_reached`, `global_capacity_reached`), and — the critical
+      > one — **two no-leak assertions** (trap #4): every line of the reading
+      > AND eight reading-specific fragments (meter number, account number,
+      > subscriber name, address, raw kWh readings, company header) are
+      > verified absent from the serialised response.
+      >
+      > **13 tests** (9 handler-level always-run, 4 wire-level skip-if-no-stack).
+      > The reading fixture is a realistic 14-line electricity bill with
+      > identifiable PII (name, address, account number), so the no-leak
+      > assertion proves the reading cannot survive through grounding and
+      > response building into the wire.
+      >
+      > Gate: **1018 passed, 0 failed** (`deno task test`; 1009 → 1018, all 9
+      > new handler-level), `deno check` exit 0, `deno fmt --check` clean.
+      > `dart format` 0 changed, `flutter analyze` 0 errors 0 warnings (19
+      > pre-existing infos), `flutter test` **2,825 passed, 0 failed**. No Dart
+      > touched.
 - [ ] **T20** Live verification. Deploy to **staging**, flip `explain_enabled`
       to `true` there only, run a real photo of each golden-set paper type
       through the real chain, record the numbers, then raise
