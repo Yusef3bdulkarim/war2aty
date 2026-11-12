@@ -154,6 +154,27 @@ final class NoArabicVoiceFailure extends LocalFailure {
   const NoArabicVoiceFailure();
 }
 
+/// The device could not play the streamed audio at all (F37).
+///
+/// The `AudioTrack` sink refused to open, or the platform channel is not
+/// there. Distinct from [AudioEncodingFailure] because the outcomes differ in
+/// the way that matters: here the user heard **nothing**, so the read has to be
+/// attempted again on the fallback tier. A failure to *save* what they already
+/// heard is not worth re-reading a paper for.
+final class AudioPlaybackFailure extends LocalFailure {
+  const AudioPlaybackFailure();
+}
+
+/// The paper was spoken, but no `.m4a` came out of the encoder (F37).
+///
+/// Deliberately **not** treated as a failed read: the user has already heard
+/// their paper. All that is lost is the offline replay, so the caller records
+/// that this paper has no audio and moves on rather than spending another
+/// 75 seconds and another Live session to produce a file nobody is waiting for.
+final class AudioEncodingFailure extends LocalFailure {
+  const AudioEncodingFailure();
+}
+
 /// Nothing on the device could open a link the app handed out (F27-T20).
 ///
 /// A phone with no browser, or no mail app for a `mailto:`, is unusual but
@@ -245,6 +266,42 @@ final class OnlineOcrUnavailableFailure extends NetworkFailure {
   const OnlineOcrUnavailableFailure();
 }
 
+/// The reading voice could not be reached or refused the session (F37).
+///
+/// A token that could not be minted, a socket that would not open, a `1007`
+/// close on the setup frame, or the service answering nothing usable. Not
+/// [AnalysisServiceFailure]: that one names the analysis endpoint, and a voice
+/// outage must not be reported as the paper having failed to be understood —
+/// the explanation is already in hand, only the reading of it is missing.
+///
+/// Always falls back to device TTS rather than surfacing. It exists so the log
+/// line distinguishes "the voice service is down" from "this phone cannot
+/// speak".
+final class VoiceServiceFailure extends NetworkFailure {
+  const VoiceServiceFailure();
+}
+
+/// The voice stream stopped part-way through the paper (F37).
+///
+/// [heard] is how much of the reading actually reached the user before the
+/// socket died, and it is the whole reason this is its own leaf: the Live API
+/// cannot replay a partial turn, so reconnecting restarts from word one. Under
+/// a couple of seconds that is the right thing to do; any further in, the user
+/// would hear the beginning of their paper twice, so the read continues on
+/// device TTS instead.
+final class VoiceStreamInterruptedFailure extends NetworkFailure {
+  const VoiceStreamInterruptedFailure(this.heard);
+
+  final Duration heard;
+
+  @override
+  bool operator ==(Object other) =>
+      other is VoiceStreamInterruptedFailure && other.heard == heard;
+
+  @override
+  int get hashCode => heard.hashCode;
+}
+
 // ---------------------------------------------------------------------------
 // Business failures — the request/response was valid but the outcome isn't.
 // ---------------------------------------------------------------------------
@@ -254,6 +311,36 @@ sealed class BusinessFailure extends AppFailure {
 
 final class UnsupportedDocumentFailure extends BusinessFailure {
   const UnsupportedDocumentFailure();
+}
+
+/// The voice did not read the explanation as written (F37).
+///
+/// Live is a chat model used as a reader, so the risk it carries is not a bad
+/// connection but a *reworded* paper — and a user who cannot read has no way to
+/// notice that the date they were told is not the date on the page. The read is
+/// checked against the service's own transcription of its own speech, so no
+/// second speech-to-text is needed.
+///
+/// [wordErrorRate] is the measured divergence. It is carried so the retry
+/// decision and the log line have a number, and it is the **only** thing about
+/// the comparison that may be logged: the transcript and the source are both
+/// document content (CLAUDE.md §7).
+///
+/// Only reported while the read can still be abandoned. Once the user has heard
+/// most of the paper there is nothing to be gained by failing — the audio is
+/// kept and marked unverified instead.
+final class VoiceReadNotVerbatimFailure extends BusinessFailure {
+  const VoiceReadNotVerbatimFailure(this.wordErrorRate);
+
+  final double wordErrorRate;
+
+  @override
+  bool operator ==(Object other) =>
+      other is VoiceReadNotVerbatimFailure &&
+      other.wordErrorRate == wordErrorRate;
+
+  @override
+  int get hashCode => wordErrorRate.hashCode;
 }
 
 /// The document was analysed but some fields could not be read with confidence.

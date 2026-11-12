@@ -26,6 +26,8 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   TtsEngineUnavailableFailure(:final code) => code.logCode,
   NoArabicVoiceFailure() => 'TTS_NO_ARABIC_VOICE',
   ExternalLinkFailure() => 'EXTERNAL_LINK',
+  AudioPlaybackFailure() => 'AUDIO_PLAYBACK',
+  AudioEncodingFailure() => 'AUDIO_ENCODING',
   // Network
   NoInternetFailure() => 'NO_INTERNET',
   RequestTimeoutFailure() => 'REQUEST_TIMEOUT',
@@ -39,9 +41,16 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   InvalidAnalysisResponseFailure() => 'INVALID_ANALYSIS_RESPONSE',
   AiProviderRateLimitFailure() => 'AI_PROVIDER_RATE_LIMIT',
   OnlineOcrUnavailableFailure() => 'ONLINE_OCR_UNAVAILABLE',
+  VoiceServiceFailure() => 'VOICE_SERVICE',
+  VoiceStreamInterruptedFailure() => 'VOICE_STREAM_INTERRUPTED',
   // Business
   UnsupportedDocumentFailure() => 'UNSUPPORTED_DOCUMENT',
   PartialAnalysisFailure() => 'PARTIAL_ANALYSIS',
   AmbiguousDateFailure() => 'AMBIGUOUS_DATE',
   MissingReminderTimeFailure() => 'MISSING_REMINDER_TIME',
+  // Stable on purpose, unlike [TtsFailure] above: the measured word error rate
+  // belongs in a field beside this code, not inside it. Folding a float into
+  // the code would mint an unbounded set of codes and make the one thing worth
+  // counting — how often a read is refused — impossible to count.
+  VoiceReadNotVerbatimFailure() => 'VOICE_READ_NOT_VERBATIM',
 };

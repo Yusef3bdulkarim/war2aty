@@ -31,6 +31,12 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   UnsupportedAppVersionFailure() ||
   InvalidRequestFailure() => false,
 
+  // Reading a paper *out loud* (F37) happens after the page has already been
+  // read off the image, so a voice that could not be reached or that stopped
+  // part-way says nothing about whether this phone can extract text. Listed
+  // to keep the switch exhaustive.
+  VoiceServiceFailure() || VoiceStreamInterruptedFailure() => false,
+
   // Quota failures come from the analysis, never from a reading (a reading
   // takes no slot), so they cannot arrive here — and would not be helped.
   DailyLimitReachedFailure() || GlobalCapacityReachedFailure() => false,
@@ -57,6 +63,10 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   // about getting text off the page.
   NoArabicVoiceFailure() ||
   TtsEngineUnavailableFailure() ||
+  // Nor can playing or saving a Live reading (F37): both happen to audio that
+  // already exists, long after the page was read.
+  AudioPlaybackFailure() ||
+  AudioEncodingFailure() ||
   // Opening a policy page or a mail client (F27-T20) has nothing to do with
   // reading a paper; it is listed only to keep the switch exhaustive.
   ExternalLinkFailure() => false,
@@ -65,5 +75,8 @@ bool shouldFallBackToOnDeviceOcr(AppFailure failure) => switch (failure) {
   UnsupportedDocumentFailure() ||
   PartialAnalysisFailure() ||
   AmbiguousDateFailure() ||
-  MissingReminderTimeFailure() => false,
+  MissingReminderTimeFailure() ||
+  // A voice that reworded the explanation (F37) is a problem with the reading
+  // *aloud*, not with the reading *of the page*.
+  VoiceReadNotVerbatimFailure() => false,
 };

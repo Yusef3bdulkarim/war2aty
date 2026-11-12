@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 0 / 21 — not started.
+- **Progress:** 1 / 21 — T03 done (the domain layer). T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T04–T07 can proceed meanwhile.
 
 ## Why this feature exists
 
@@ -199,11 +199,65 @@ Both are gates. No client transport code is written until T02 is approved.
 
 ### Phase B — the domain, and one independent string change
 
-- [ ] **T03** Domain entities and sealed events: `VoiceSegment`,
+- [x] **T03** Domain entities and sealed events: `VoiceSegment`,
       `SpokenCardSpan(exact:)`, `VoiceReadEvent` (sealed), `VoiceEngine`, the
       failure union, and the three service interfaces `LiveVoiceSession`,
       `PcmAudioSink`, `AudioEncoder`. *Done when:* `features/voice/domain/`
       compiles with **zero** Flutter, plugin or Supabase imports.
+      > **DONE 2026-11-12.** Ten files under `lib/features/voice/domain/`
+      > (`entities/`: `voice_segment`, `pcm_format`, `spoken_card_span`,
+      > `voice_engine`, `live_voice_event`, `voice_read_event`,
+      > `voice_read_outcome`; `services/`: `live_voice_session`,
+      > `pcm_audio_sink`, `audio_encoder`). Imports are `dart:typed_data` plus
+      > `core/error` and `core/result` only — nothing else.
+      >
+      > **No separate failure union.** F37's failures are five new leaves on the
+      > existing `AppFailure`, not a parallel type: the project's contract is
+      > `Result<T, AppFailure>` everywhere, and a second union would have needed
+      > translating at every boundary. `AudioPlaybackFailure` and
+      > `AudioEncodingFailure` (local), `VoiceServiceFailure` and
+      > `VoiceStreamInterruptedFailure(heard)` (network),
+      > `VoiceReadNotVerbatimFailure(wordErrorRate)` (business).
+      >
+      > **The trap this uncovered, for every later task that adds a leaf.** Five
+      > new leaves broke **three** deliberately-exhaustive switches and one
+      > cross-stack test, and `flutter analyze` only reports them one at a time —
+      > fix one and the next appears. The full cost of one leaf is **five**
+      > places:
+      > 1. `lib/core/error/app_failure.dart` — the leaf itself.
+      > 2. `lib/core/logging/error_code.dart` — its content-free log code.
+      > 3. `lib/features/analysis/domain/usecases/should_fall_back_to_on_device_ocr.dart`
+      >    — F20 §1's closed allowlist, which exists precisely to force this
+      >    decision. All five voice leaves answer `false`: a voice problem says
+      >    nothing about whether text can be got off the page.
+      > 4. `test/core/error/app_failure_test.dart` — the `_describe` switch and
+      >    the three leaf counts (16/12/4 → **18/14/5**, total 32 → **37**).
+      > 5. **`supabase/functions/_shared/reports/error-report-codes.ts`** — the
+      >    one that is easy to miss, because it is in the *other* stack.
+      >    `error_report_codes_test` catches it with a message that names the
+      >    file: an unlisted code is a 400 the app's own sink swallows, so the
+      >    report would vanish silently rather than fail loudly.
+      >
+      > **Three design points worth keeping.** `PcmFormat.durationOfBytes`
+      > returns microseconds, not milliseconds: at 48 bytes per millisecond a
+      > millisecond grid would be visible in a card span. `SpokenCardSpan`
+      > is **half-open** (`contains` excludes `end`) so adjacent spans never
+      > both claim the boundary and two cards can never highlight at once.
+      > And `VoiceReadOutcome.verified` is `true` by construction on the device
+      > tier — a TTS engine speaks the exact string it is handed and cannot
+      > reword it — so the flag means "there is reason to trust this audio",
+      > not "a model was checked".
+      >
+      > **Ran before T01/T02**, as the plan allows: pure domain work with no
+      > transport dependency. 24 new tests, including a privacy guard asserting
+      > every `toString()` on a content-bearing type reports a size rather than
+      > the paper's words (CLAUDE.md §7) — a leak that is invisible in review,
+      > since a default `toString()` would simply print the sentence.
+      >
+      > Gate: `dart format` clean repo-wide, `flutter analyze` **0 errors**
+      > (19 pre-existing infos, none in a touched file), `flutter test`
+      > **2849 passed / 0 failed** (2825 + 24), `deno test` **1018 passed /
+      > 0 failed**.
 - [ ] **T04** Amend `privacyPointTextOnly` so it covers reading the paper aloud,
       not only analysing it. Touches `app_strings.dart`, `ar_strings.dart` and
       `en_strings.dart`. The wording must still name **no provider** and must not

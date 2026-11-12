@@ -9,7 +9,7 @@ String _categoryOf(AppFailure failure) => switch (failure) {
   BusinessFailure() => 'business',
 };
 
-/// Leaf-level exhaustive switch over ALL 32 leaves with no `default`.
+/// Leaf-level exhaustive switch over ALL 37 leaves with no `default`.
 ///
 /// This is the exhaustiveness guard: adding a new [AppFailure] leaf without
 /// handling it here fails to compile, so the taxonomy can never silently grow.
@@ -31,6 +31,8 @@ String _describe(AppFailure failure) => switch (failure) {
   TtsEngineUnavailableFailure() => 'tts-engine-unavailable',
   NoArabicVoiceFailure() => 'tts-no-arabic-voice',
   ExternalLinkFailure() => 'external-link',
+  AudioPlaybackFailure() => 'audio-playback',
+  AudioEncodingFailure() => 'audio-encoding',
   // Network
   NoInternetFailure() => 'no-internet',
   RequestTimeoutFailure() => 'timeout',
@@ -44,11 +46,14 @@ String _describe(AppFailure failure) => switch (failure) {
   InvalidAnalysisResponseFailure() => 'invalid-response',
   AiProviderRateLimitFailure() => 'ai-provider-rate-limit',
   OnlineOcrUnavailableFailure() => 'online-ocr-unavailable',
+  VoiceServiceFailure() => 'voice-service',
+  VoiceStreamInterruptedFailure() => 'voice-stream-interrupted',
   // Business
   UnsupportedDocumentFailure() => 'unsupported-document',
   PartialAnalysisFailure() => 'partial-analysis',
   AmbiguousDateFailure() => 'ambiguous-date',
   MissingReminderTimeFailure() => 'missing-reminder-time',
+  VoiceReadNotVerbatimFailure() => 'voice-read-not-verbatim',
 };
 
 void main() {
@@ -69,6 +74,8 @@ void main() {
     const TtsEngineUnavailableFailure(TtsErrorCode.service),
     const NoArabicVoiceFailure(),
     const ExternalLinkFailure(),
+    const AudioPlaybackFailure(),
+    const AudioEncodingFailure(),
   ];
   final networkLeaves = <AppFailure>[
     const NoInternetFailure(),
@@ -83,19 +90,22 @@ void main() {
     const InvalidAnalysisResponseFailure(),
     const AiProviderRateLimitFailure(),
     const OnlineOcrUnavailableFailure(),
+    const VoiceServiceFailure(),
+    const VoiceStreamInterruptedFailure(Duration(seconds: 1)),
   ];
   final businessLeaves = <AppFailure>[
     const UnsupportedDocumentFailure(),
     PartialAnalysisFailure(['amount']),
     const AmbiguousDateFailure(),
     const MissingReminderTimeFailure(),
+    const VoiceReadNotVerbatimFailure(0.4),
   ];
 
   group('taxonomy shape', () {
-    test('has 16 local + 12 network + 4 business leaves', () {
-      expect(localLeaves, hasLength(16));
-      expect(networkLeaves, hasLength(12));
-      expect(businessLeaves, hasLength(4));
+    test('has 18 local + 14 network + 5 business leaves', () {
+      expect(localLeaves, hasLength(18));
+      expect(networkLeaves, hasLength(14));
+      expect(businessLeaves, hasLength(5));
     });
   });
 
@@ -120,10 +130,10 @@ void main() {
   });
 
   group('leaf-level exhaustiveness', () {
-    test('all 32 leaves describe to distinct labels', () {
+    test('all 37 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(32));
+      expect(labels, hasLength(37));
     });
   });
 
