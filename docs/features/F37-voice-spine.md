@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 1 / 21 — T03 done (the domain layer). T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T04–T07 can proceed meanwhile.
+- **Progress:** 2 / 21 — T03 (the domain layer) and T04 (the privacy copy) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T05–T07 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -258,12 +258,52 @@ Both are gates. No client transport code is written until T02 is approved.
       > (19 pre-existing infos, none in a touched file), `flutter test`
       > **2849 passed / 0 failed** (2825 + 24), `deno test` **1018 passed /
       > 0 failed**.
-- [ ] **T04** Amend `privacyPointTextOnly` so it covers reading the paper aloud,
+- [x] **T04** Amend `privacyPointTextOnly` so it covers reading the paper aloud,
       not only analysing it. Touches `app_strings.dart`, `ar_strings.dart` and
       `en_strings.dart`. The wording must still name **no provider** and must not
       claim nobody reads the text (CLAUDE.md §7). *Done when:* all three files
       are updated and `app_strings_test`'s privacy assertions are extended to
       the new claim rather than merely still passing.
+      > **DONE 2026-11-12.** The point now states both sends, in the same
+      > three-part shape F20-T24 approved for the image — what leaves, what we
+      > promise, what we cannot:
+      >
+      > > «بنبعت نص ورقتك مشفَّر لخدمات خارجية علشان نفهمه ونقراه لك بصوت عالي،
+      > > ومانحفظش النص عندنا. بس ممكن يراجعه موظفين في الخدمات دي لتحسين
+      > > خدماتها.»
+      >
+      > Two assertions added, so the claim is tested rather than merely
+      > tolerated: the copy must say it is read aloud (`بصوت عالي` /
+      > `read it aloud`) and must not hide human review (`يراجعه موظفين` /
+      > `staff at those services may review it`). The privacy group is 7 → 9
+      > tests. The existing bans still hold — no provider named, no
+      > «محدش بيقرا», no "nobody sees the text".
+      >
+      > **Why "خدمات" plural rather than naming a second service.** The user
+      > does not need to count our vendors; they need to know their paper's
+      > words leave the phone and that people may read them. Naming a second
+      > service would also drift towards naming providers, which §7 forbids.
+      >
+      > ⚠️ **Two carry-forwards to F44, both of which are correct TODAY and
+      > become false the moment 1.1.0 ships.** Neither is fixed here, on
+      > purpose: the published policy must describe the **published** app, and
+      > 1.0.2 genuinely does neither of these things.
+      > 1. **`legal/privacy.html` still says the text goes only to an analysis
+      >    service** (lines ~46 and ~125, and the English at ~330–337). It is
+      >    deployed to `gh-pages` as `privacy.html`, so updating it before
+      >    release would describe a data flow the shipped app does not have.
+      >    F44 must update it **in the same release** as this string.
+      > 2. **The same file advertises "a switch that stops any text being sent
+      >    for analysis"** (line ~370). F35 deleted that setting entirely. Still
+      >    true of published 1.0.2; false from 1.1.0. Already stale against this
+      >    branch, and easy to miss because nothing tests the HTML.
+      >
+      > Also feeds Play's **Data safety** form: on the token transport the
+      > phone sends the explanation to an outside service **directly**, which is
+      > a new disclosed flow rather than a re-wording of an existing one.
+      >
+      > Gate: `flutter analyze` 0 errors, `flutter test` **2851 passed /
+      > 0 failed** (2849 + 2).
 - [ ] **T05** `NormaliseArabicForDiff` + `VerifyVerbatimRead`, **prefix-capable**
       so a bad read is caught early rather than after 75 s. A Dart port of the
       spike's normaliser and WER diff. *Done when:* all 11 cases from

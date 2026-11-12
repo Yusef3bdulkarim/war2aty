@@ -52,8 +52,13 @@ abstract interface class AppStrings {
   /// [privacyPointExtractText] says what happens to the PHOTO (F20-T24): sent
   /// to an outside reader when online — which may keep it for a while and let
   /// its staff review it — and read only on the phone when offline.
-  /// [privacyPointTextOnly] says what happens to the TEXT (F18-T02). Neither
-  /// may claim nobody sees what is sent, and neither may name a provider.
+  /// [privacyPointTextOnly] says what happens to the TEXT (F18-T02, amended by
+  /// F37): it goes out twice, for two different purposes — once to be
+  /// understood and once to be read aloud — and the staff of those services may
+  /// review it. The voice send was added when the explanation stopped being
+  /// something the user reads and became something they only ever hear.
+  /// Neither point may claim nobody sees what is sent, and neither may name a
+  /// provider.
   String get privacyPointExtractText;
   String get privacyPointTextOnly;
 
