@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 12 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge) and T14 (silence detection — **rejected** as primary) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 13 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary) and T15 (encrypted audio store) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -743,10 +743,51 @@ binary, with a small control `MethodChannel` beside it.
 
 ### Phase E — storage and replay
 
-- [ ] **T15** `EncryptedAudioStore` + `FileEncryptedAudioStore`, mirroring
+- [x] **T15** `EncryptedAudioStore` + `FileEncryptedAudioStore`, mirroring
       `FileDocumentImageStore`, writing to the app-private directory and keyed by
       a plain id string. *Done when:* round-trip passes and a truncated file
       yields a `FileEncryptionFailure` rather than a crash.
+      > **DONE 2026-11-13.** Two files under `lib/core/voice/`:
+      > `encrypted_audio_store.dart` (interface) and
+      > `file_encrypted_audio_store.dart` (implementation). In `core/` rather
+      > than the feature, because F38, F39, F40 and F43 all consume it — the
+      > Files section already planned this.
+      >
+      > **Input is bytes, not a file path.** The encoder (`AacEncoder.finish()`)
+      > returns a `Uint8List`, and the store encrypts it directly — no plaintext
+      > file is ever created, so there is no window where a readable recording of
+      > someone's paper sits on disk (CLAUDE.md §7). This is the key difference
+      > from `FileDocumentImageStore`, which takes a source path and deletes it
+      > after encryption.
+      >
+      > **The file is `audio.m4a.enc`**, not `original.enc`: there is no
+      > "original" — the audio was never a user-visible file. Stored under
+      > `voice_audio/{id}/` inside the app's private support directory.
+      >
+      > **`exists(id)`** added beyond the image store's interface: T16 and T17
+      > need to check whether offline replay is available without decrypting the
+      > whole file.
+      >
+      > **The `await` trap.** The image store test already guards against
+      > returning a `Future` without `await` inside a try block (the encryptor
+      > that throws test). The same pattern is applied here: both `load()` and
+      > `exists()` await their async operations inside the try, so a throwing
+      > encryptor or a filesystem error is classified into an `AppFailure`
+      > rather than escaping as an unhandled exception.
+      >
+      > 15 tests: store writes encrypted bytes under the correct path, store
+      > propagates encryption failure, store overwrites an existing file for
+      > the same id; load reads back the stored bytes, load on a missing id
+      > yields `FileStorageFailure`, a truncated file through the real AES-GCM
+      > encryptor yields `FileEncryptionFailure`, a throwing encryptor is
+      > classified not left to escape, round-trip through the real AES-GCM
+      > encryptor; exists returns false/true/false around store and delete;
+      > delete removes the directory, delete is a quiet no-op; deleteAll removes
+      > the entire voice_audio directory, deleteAll is a quiet no-op.
+      >
+      > Gate: `dart format` clean, `flutter analyze` **0 errors** (20
+      > pre-existing infos, none in a touched file), `flutter test` **3029
+      > passed / 0 failed** (3014 + 15).
 - [ ] **T16** `just_audio` + `EncryptedM4aAudioSource`: a `StreamAudioSource`
       serving range requests from a **fully decrypted in-memory buffer**
       (AES-GCM concatenation forbids random-access decryption; 0.3 MB is fine).
