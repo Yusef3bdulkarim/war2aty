@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 9 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource) and T12 (AAC encoder) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 11 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder) and T13 (method channel bridge) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -539,12 +539,41 @@ Kotlin holds **zero decisions**: it fans the PCM stream out and encodes. Dart
 does not fan out — `BasicMessageChannel` with `BinaryCodec` carries ~96 KB/s of
 binary, with a small control `MethodChannel` beside it.
 
-- [ ] **T11** `AudioTrack` PCM sink: plays chunks as they land, requests **audio
+- [x] **T11** `AudioTrack` PCM sink: plays chunks as they land, requests **audio
       focus** (`usage=MEDIA`, `contentType=SPEECH` — `flutter_tts` does this for
       us, `AudioTrack` does not), exposes `getPlaybackHeadPosition` as the
       playback clock, and enforces a single-owner gate so `flutter_tts` and
       `AudioTrack` can never both play. *Done when:* an incoming call interrupts
       the read on the device.
+      > **DONE 2026-11-13.** One file:
+      > `android/app/src/main/kotlin/com/war2aty/app/voice/PcmPlayer.kt` —
+      > `AudioTrack` in `MODE_STREAM` with `USAGE_MEDIA` / `CONTENT_TYPE_SPEECH`
+      > audio attributes. Requests `AUDIOFOCUS_GAIN` on `open()`, which causes
+      > the system to send `AUDIOFOCUS_LOSS` to whatever held focus before —
+      > including `flutter_tts` — so the two can never both play.
+      >
+      > **Audio focus handling.** An `OnAudioFocusChangeListener` pauses the
+      > track on `AUDIOFOCUS_LOSS`, `LOSS_TRANSIENT` and
+      > `LOSS_TRANSIENT_CAN_DUCK` (an incoming call falls into these), and
+      > resumes on `AUDIOFOCUS_GAIN`. The `onFocusLost` callback notifies the
+      > plugin. The `@Volatile hasFocus` flag prevents resume when focus has not
+      > been regained.
+      >
+      > **`write()` is blocking** in `MODE_STREAM`: it returns only when the
+      > hardware has consumed enough of its buffer to accept the new chunk. The
+      > caller (T13's channel handler) must therefore call it off the UI thread.
+      >
+      > **The playback clock** is `getPlaybackHeadPosition` converted to
+      > microseconds: the number of frames the hardware has rendered, divided by
+      > the sample rate. This is the single source of truth for the reading's
+      > position, shared between the segment-span alignment and the cubit.
+      >
+      > **Buffer sizing.** `maxOf(getMinBufferSize(), bytesPerSecond)` gives a
+      > ~1 s buffer. At 48 KB/s input this accommodates the ~2× real-time
+      > delivery rate without dropping, while keeping latency under a second.
+      >
+      > The Kotlin path is not unit-testable (no Robolectric AudioTrack mock);
+      > T21's device checklist on the physical RMX2001 (API 30) covers it.
 - [x] **T12** `MediaCodec` + `MediaMuxer` AAC-LC encoder off the **same** stream:
       24 kHz mono, 32 kbps; keeps consuming while playback is paused (pausing it
       corrupts the file); `abort()` deletes a partial. *Done when:* a 75-second
@@ -589,9 +618,57 @@ binary, with a small control `MethodChannel` beside it.
       > our file), `dart format` 0 changed, `flutter analyze` **0 errors**
       > (20 pre-existing infos, none in a touched file), `flutter test`
       > **2951 passed / 0 failed**, `deno test` **1032 passed / 0 failed**.
-- [ ] **T13** `MethodChannelLiveAudioOutput`, implementing **both** sink
+- [x] **T13** `MethodChannelLiveAudioOutput`, implementing **both** sink
       interfaces over `com.war2aty.app/voice_audio`. *Done when:* channel tests
       assert chunk order and map `MissingPluginException` to an `AppFailure`.
+      > **DONE 2026-11-13.** Three files:
+      >
+      > **`VoiceAudioPlugin.kt`**
+      > (`android/app/src/main/kotlin/com/war2aty/app/voice/`) — the Kotlin host.
+      > A control `MethodChannel` (`com.war2aty.app/voice_audio`) handles
+      > open / pause / resume / stop / beginEncode / finishEncode / abortEncode /
+      > getPosition. A binary channel (`com.war2aty.app/voice_audio_pcm`) carries
+      > the raw PCM on a **background task queue** (`makeBackgroundTaskQueue`)
+      > so that `PcmPlayer.write()`'s blocking call does not stall the UI thread.
+      > Every binary chunk is fanned to both `PcmPlayer` and `AacEncoder` on the
+      > Kotlin side — Dart sends once, Kotlin delivers twice.
+      >
+      > **`MethodChannelLiveAudioOutput`**
+      > (`lib/features/voice/data/services/`) — the Dart class implementing
+      > **both** `PcmAudioSink` and `AudioEncoder`. `write()` sends via the
+      > binary channel; `feed()` is a documented no-op because the Kotlin handler
+      > already fanned the chunk. `open()` and `begin()` are separate calls so
+      > the player and encoder can be opened independently, and
+      > `MissingPluginException` on either maps to the correct `AppFailure`
+      > (`AudioPlaybackFailure` for the sink, `AudioEncodingFailure` for the
+      > encoder). `PlatformException` maps the same way.
+      >
+      > **Position polling.** A `Timer.periodic` (default 200 ms, injectable
+      > for tests) calls `getPosition` on the control channel and emits to a
+      > **sync broadcast** `StreamController<Duration>`. Sync delivery means the
+      > cubit's state is always up to date when the next poll fires. The timer
+      > starts on `open()` and is cancelled by `stop()`. `stop()` also emits
+      > the final played position before returning.
+      >
+      > **Registration.** `VoiceAudioPlugin` is instantiated in
+      > `MainActivity.configureFlutterEngine` beside the existing system-settings
+      > channel.
+      >
+      > 33 tests: open success / host false / MissingPlugin / PlatformException /
+      > format params; write through binary channel / chunk order preserved /
+      > silent before open / silent after stop; pause / resume / their
+      > MissingPlugin resilience; stop returns duration / MissingPlugin →
+      > Duration.zero / PlatformException → Duration.zero / emits final position;
+      > beginEncode success / false / MissingPlugin / PlatformException; feed
+      > no-op; finishEncode returns bytes / null → Err / empty → Err /
+      > MissingPlugin / PlatformException; abort / abort MissingPlugin;
+      > position stream polls after open / stops polling after stop; full flow
+      > open → begin → write → stop → finish; abort discards without finish.
+      >
+      > Gate: `dart format` 0 changed, Gradle `compileDebugKotlin` **BUILD
+      > SUCCESSFUL**, `flutter analyze` **0 errors** (20 pre-existing infos,
+      > none in a touched file), `flutter test` **2995 passed / 0 failed**
+      > (2962 + 33), `deno test` **1032 passed / 0 failed**.
 - [ ] **T14** Probe PCM **silence detection** (RMS below threshold for > 250 ms)
       as a transcript-independent source of segment boundaries, matched in order
       to the N−1 boundaries T06 created. *Done when:* measured against a real
