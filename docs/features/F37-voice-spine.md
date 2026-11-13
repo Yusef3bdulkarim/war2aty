@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 7 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T07 (alignment), T08 (frame DTOs), T09 (Live session) and T10 (live-token endpoint + Dart datasource) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 8 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource) and T12 (AAC encoder) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -514,10 +514,50 @@ binary, with a small control `MethodChannel` beside it.
       playback clock, and enforces a single-owner gate so `flutter_tts` and
       `AudioTrack` can never both play. *Done when:* an incoming call interrupts
       the read on the device.
-- [ ] **T12** `MediaCodec` + `MediaMuxer` AAC-LC encoder off the **same** stream:
+- [x] **T12** `MediaCodec` + `MediaMuxer` AAC-LC encoder off the **same** stream:
       24 kHz mono, 32 kbps; keeps consuming while playback is paused (pausing it
       corrupts the file); `abort()` deletes a partial. *Done when:* a 75-second
       read yields a ≤ 0.35 MB `.m4a` that plays in an external player.
+      > **DONE 2026-11-13.** One file:
+      > `android/app/src/main/kotlin/com/war2aty/app/voice/AacEncoder.kt` —
+      > `MediaCodec` (AAC-LC, `AACObjectLC`) encodes the PCM and `MediaMuxer`
+      > (`MUXER_OUTPUT_MPEG_4`) writes the `.m4a` container. The temp file sits
+      > in the app's cache directory, named with `System.nanoTime()` to avoid
+      > collisions, and is deleted after `finish()` reads it back or `abort()`
+      > discards it.
+      >
+      > **The encoder never pauses.** `feed()` keeps accepting chunks regardless
+      > of whether `PcmPlayer` is paused: a paused muxer would break the
+      > timestamp sequence (`presentationTimeUs` is computed from cumulative
+      > bytes, not wall clock) and produce a corrupt file. The two share the
+      > same sequential call site (T13's channel handler), so there is no
+      > concurrency.
+      >
+      > **Budget check.** 32 kbps × 75 s = 300 KB of AAC payload, plus
+      > container overhead ≈ 0.29–0.31 MB — comfortably under the 0.35 MB cap.
+      >
+      > **Three safety valves.** (1) `acquireInputBuffer` retries up to 100
+      > times (each with a 10 ms dequeue timeout, ~1 s total) before dropping
+      > the rest of a chunk — at 48 KB/s input vs 4 KB/s output the codec
+      > should always keep up, but a stuck codec must not hang the handler.
+      > (2) The EOS drain in `finish()` uses a longer 100 ms timeout and caps
+      > at 500 rounds (~50 s) so a codec that never delivers EOS does not block
+      > forever. (3) `releaseQuietly` wraps both stop+release in try/catch so a
+      > double-release or a release after an error frame never crashes.
+      >
+      > **`finish()` returns `ByteArray?`**, not a file path: the only
+      > permitted resting place for the audio is encrypted
+      > (`EncryptedAudioStore`, T15), and handing back a plaintext file would
+      > leave a readable recording of someone's paper on disk however briefly.
+      >
+      > **The Kotlin path is not unit-testable** (no robolectric MediaCodec
+      > mock), which is why it holds no decisions; T21's device checklist on
+      > the physical RMX2001 (API 30) covers it.
+      >
+      > Gate: Gradle `compileDebugKotlin` **BUILD SUCCESSFUL** (no warnings in
+      > our file), `dart format` 0 changed, `flutter analyze` **0 errors**
+      > (20 pre-existing infos, none in a touched file), `flutter test`
+      > **2951 passed / 0 failed**, `deno test` **1032 passed / 0 failed**.
 - [ ] **T13** `MethodChannelLiveAudioOutput`, implementing **both** sink
       interfaces over `com.war2aty.app/voice_audio`. *Done when:* channel tests
       assert chunk order and map `MissingPluginException` to an `AppFailure`.
