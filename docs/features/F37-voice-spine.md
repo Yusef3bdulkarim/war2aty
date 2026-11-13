@@ -287,11 +287,39 @@ Both are gates. No client transport code is written until T02 is approved.
       > unauthenticated echo server that someone's `deploy --all` puts on the
       > hosted project is a free-tier bandwidth hole for no standing benefit.
       > `ws-edge-probe.ts` carries the eight lines to recreate it.
-- [ ] **T02** `docs/API_CONTRACT.md` **§34** — the chosen transport's contract in
+- [x] **T02** `docs/API_CONTRACT.md` **§34** — the chosen transport's contract in
       §33's style: request and response shapes, the error-mapping table, the
       token's lifetime and single-use semantics (or the relay's frame protocol),
       and the gates it honours. Preserve the file's **CRLF**. *Done when:* the
       owner approves it in writing and §34 is in the contract.
+      > **DONE 2026-11-13. Approved by the owner**, as drafted — §34 is in the
+      > contract and T08 onward are unblocked. CRLF preserved (verified by
+      > byte count, not by eye).
+      >
+      > **Three things the draft decided rather than described**, each raised
+      > with the owner and approved as written:
+      >
+      > 1. **Reading is free.** No slot, no daily-limit check — `explain-document`
+      >    already charged for the explanation. So a user out of daily analyses
+      >    can still mint tokens and still hear the paper they already paid for.
+      >    The ceiling on abuse is Google's Live quota, not ours.
+      > 2. **The two-minute session window stays a written rule, not a field.**
+      >    `newSessionExpireTime` is not in the response; the client sees only
+      >    the 30-minute `expires_at`. **T17 must mint immediately before
+      >    connecting** — a token fetched when the result screen opens and used
+      >    when the user presses play is already dead if they hesitated. Adding
+      >    `session_window_expires_at` was considered and declined as T10 churn;
+      >    revisit if T17's device testing shows users hitting it.
+      > 3. **`INTERNAL_ERROR` deliberately merges "Google refused" with "we are
+      >    broken".** The client does the same thing either way (fall to device
+      >    TTS), so the distinction lives in `live-token.mint_failed` server-side
+      >    instead of in the contract.
+      >
+      > **The one line with reach beyond F37:** §34.3 records that `speechConfig`
+      > is refused everywhere, so **the voice is Google's default and cannot be
+      > pinned** — no setting, no fallback, no warning if they change it. This is
+      > now contract, not a footnote: any F38–F41 work that assumes a choosable
+      > or stable voice has to be re-planned.
 
 ### Phase B — the domain, and one independent string change
 
