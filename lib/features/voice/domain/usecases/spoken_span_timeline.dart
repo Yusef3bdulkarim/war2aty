@@ -77,3 +77,20 @@ List<SpokenCardSpan> partitionSpans({
     );
   });
 }
+
+/// Which segment [position] falls in, or `null` when no span covers it.
+///
+/// `null` is not an error and is not "no segment": it is "nothing placed here
+/// yet" — the read is before the spans resolved, or the position fell in a gap
+/// a degenerate span left — and a position event carrying `null` asks the
+/// screen to hold the highlight it has rather than clear it.
+///
+/// Shared by the two things that have to answer "which card is being spoken
+/// now" from a resolved partition: the tier ladder while a paper is being read,
+/// and the replay of a saved one (CLAUDE.md §2).
+String? segmentAt(List<SpokenCardSpan> spans, Duration position) {
+  for (final span in spans) {
+    if (span.contains(position)) return span.segmentId;
+  }
+  return null;
+}

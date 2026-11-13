@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 18 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder) and T18 (the device-TTS adapter) done. Next: T19 (`VoicePlaybackCubit`). **T04 left two carry-forwards for F44** — see its note, and **T17 left two questions for the owner** — see its note.
+- **Progress:** 19 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder), T18 (the device-TTS adapter) and T19 (the playback cubit) done. Next: **T20 — and it has the feature's one remaining gate: the owner edits the Arabic of the fixed lines and runs the generator on his own machine (D5).** **T04 left two carry-forwards for F44** — see its note; **T17 left two questions for the owner**, and **T19 left two more** (D7's mid-read handoff, and whether the device tier should be made pausable) — see their notes.
 
 ## Why this feature exists
 
@@ -1234,10 +1234,150 @@ binary, with a small control `MethodChannel` beside it.
       > Gate: `dart format .` **0 changed** (783 files), `flutter analyze`
       > **0 errors / 0 warnings** (21 infos, none in a touched file),
       > `flutter test` **3116 passed / 0 failed** (3074 + 42).
-- [ ] **T19** `VoicePlaybackCubit` + `VoicePlaybackState`, declaring the two
+- [x] **T19** `VoicePlaybackCubit` + `VoicePlaybackState`, declaring the two
       phases — `streaming` (play/pause/stop, `canSeek: false`) and `file` (full
       seek once the muxer closes). *Done when:* the cubit depends on **use cases
       only** and no state exposes a service.
+      > **DONE 2026-11-14.** Five new files, and the second phase had to be
+      > built before the cubit could drive it:
+      >
+      > **`lib/core/voice/voice_playback_state.dart`** — the sealed state.
+      > `VoicePlaybackIdle`, `VoicePlaybackPreparing`,
+      > `VoicePlaybackStreaming`, `VoicePlaybackReadFinished`,
+      > `VoicePlaybackFile`, `VoicePlaybackFailed`, with `canSeek`, `canPause`
+      > and `isSpeaking` answered **by the state** rather than worked out by
+      > each screen. No state carries a service, a session, a player or a
+      > stream: positions, spans, ids, two booleans and an `AppFailure`.
+      >
+      > **`lib/core/voice/voice_playback_cubit.dart`** — `readAloud`, `replay`,
+      > `pause`, `resume`, `seek`, `seekToSegment`, `stop`. Depends on
+      > `ReadPaperAloud` and `ReplaySavedAudio` and nothing else; in `core/`
+      > for the reason `AudioReaderCubit` is, since F39's capture, F40's result
+      > and F41's saved papers all build it and a feature screen never imports
+      > another feature. Nothing is wired into a tree — the scope fence holds.
+      >
+      > **`lib/features/voice/domain/services/saved_audio_player.dart`** +
+      > **`usecases/replay_saved_audio.dart`** + **`entities/voice_replay_event.dart`**
+      > — the second phase, which T16 left as a data-layer class with no way up.
+      > `JustAudioEncryptedPlayer` now implements the port (`positionStream` →
+      > `position`, `playerStateStream` → a `completions` stream that is the
+      > *edge* of `ProcessingState.completed`, so a paper heard to the end is
+      > reported once). `ReplaySavedAudio` is shaped like `ReadPaperAloud` on
+      > purpose — single-subscription stream, starts on listen, cancelling
+      > stops — so the cubit has one habit rather than two.
+      >
+      > **Two owner decisions are recorded in the code, not taken here:**
+      >
+      > 1. **D7's "~12 s in" is not reachable through T17's events.** The
+      >    ladder emits `VoiceReadCompleted` *after* the drain — i.e. when the
+      >    user has heard the whole paper (~75 s), not when the muxer closed
+      >    (~12 s). There is no mid-read signal that the file has landed, so the
+      >    cubit cannot offer the file phase while the paper is still playing.
+      >    Built as **streaming → `VoicePlaybackReadFinished(canReplay)` →
+      >    `file` on `replay()`**, which is honest and loses nothing the user
+      >    could have used: a mid-read handoff means stopping `AudioTrack` and
+      >    starting `just_audio` at the right offset mid-sentence, which is a
+      >    feature, not a state. D7 was already flagged for F40 to confirm —
+      >    **this is the thing to confirm.**
+      > 2. **The device tier declares it cannot pause.**
+      >    `VoiceEngine.canPauseMidRead` is false for `deviceTts`, and not
+      >    because `flutter_tts` has no pause: it has one, and the 1.0.2
+      >    mini-player uses it. What it has no version of is a resume that
+      >    keeps counting — Android resumes by speaking a **fresh** utterance
+      >    covering only the unread remainder, so the character offsets restart
+      >    from zero, and those offsets are the whole of T18's evidence for
+      >    which card is being spoken. A pausable device tier would highlight
+      >    the first card for the rest of the paper. Trading a non-reader's
+      >    auto-scroll for a pause button is not a trade this tier gets to make
+      >    silently, so it declares the limit and the screen offers stop
+      >    instead. Making it pausable means tracking the resume offset inside
+      >    the adapter — **F40's call, with the owner.**
+      >
+      > **Three things T19 had to add below itself,** because a state that
+      > advertises a control the spine cannot perform is the silent failure
+      > CLAUDE.md §3 forbids:
+      >
+      > 1. **`ReadPaperAloud.pause()` / `.resume()`.** Only the ladder knows
+      >    which tier is speaking, so the control belongs to it rather than to
+      >    a sink the presentation layer may not touch. They answer `bool` —
+      >    "it is now held" — and `false` on all three refusals (no read,
+      >    already paused, a tier that cannot), so the cubit never emits a
+      >    silence the user is not hearing. The ladder holds the read in flight
+      >    on `_current` for exactly this; there is one speaker, therefore one
+      >    read.
+      > 2. **The drain no longer cuts a paused read off.** T17's drain waits
+      >    `duration - played + drainGrace` for the speaker's own clock, which
+      >    is a guard against a clock that *stalled*. A clock standing still
+      >    because the user asked for silence is not that, and the 2 s grace
+      >    would have fired, called `stop()` and emitted
+      >    `VoiceReadCompleted` **over the unheard rest of the paper**. The
+      >    wait is now re-armed while the read is paused, and lets go on a
+      >    cancel. Pinned by a test that fails against the old `if`.
+      > 3. **`segmentAt(spans, position)`** lifted out of `ReadPaperAloud`'s
+      >    privates into `spoken_span_timeline.dart` (CLAUDE.md §2) — the
+      >    replay asks the same question of the same partition, and a second
+      >    copy could have answered it differently.
+      >
+      > **The highlight is held in the cubit, once.** A position event carrying
+      > `segmentId: null` means "nothing placed here", not "no card", and the
+      > state's `copyWith` leaves an unset id alone — so the gap between two
+      > cards keeps the highlight the user is looking at, and no screen has to
+      > remember to implement that rule.
+      >
+      > **Two holes the review found and this task closed:**
+      >
+      > 1. **A pause lost to its own position event.** A control is two turns
+      >    long — ask the tier, then say so — and the first cut of this wrote
+      >    the hold back only if the state was *unchanged* in between. The Live
+      >    tier reports a position five times a second (T13's 200 ms poll), so
+      >    the state had almost always changed: the speaker really was paused
+      >    and the screen went on drawing a voice that was speaking, with no way
+      >    back except pressing pause again. The hold is now written onto the
+      >    reading **as it is now**, and only skipped if the *phase* changed —
+      >    a read that finished, failed, or fell to a tier that cannot pause has
+      >    the truer state. Pinned by a test that fails against the old rule.
+      > 2. **A replay that started after the listener left.** `ReplaySavedAudio`
+      >    only released what it had *already* subscribed, so a cancel landing
+      >    inside `load` — decrypting a third of a megabyte is not instant —
+      >    released nothing, and the load then went on to `play()`: a paper
+      >    reading itself aloud on a screen the user had walked away from. The
+      >    same hole T17 closed in the ladder, in the one place it could
+      >    reappear. The cancel is now recorded on the replay itself and checked
+      >    when the load answers; the decoder is let go, unless a replay that
+      >    started since has taken the player — in which case silencing it would
+      >    have been the next bug. Two tests.
+      >
+      > **Privacy.** Nothing is logged anywhere in the phase: the cubit takes
+      > no log sink, the segments pass straight through to the use case, and
+      > the state is positions, ids and booleans. A test asserts no emitted
+      > *state*'s `toString()` contains a word of the page (CLAUDE.md §7).
+      >
+      > 78 tests. **40** on the cubit, driven through the **real** use cases
+      > over fake services the way T21 will wire them — what this cubit *is* is
+      > the translation of two unlike readings into one state, so faking the
+      > ladder would have tested the translation against a fiction of itself:
+      > the preparing lead-in, both tiers announcing themselves, the played
+      > clock moving the state, spans landing mid-read, the held highlight, the
+      > replayable and the unreplayable finish, the device failure intact,
+      > pause on Live and refused on the device, a position landing mid-pause,
+      > a read that finished while a pause was in flight, the phase change with
+      > the read's own spans, a saved paper opened fresh with its own, seek
+      > refused while streaming, card-jumping, a finished replay still
+      > seekable, stop, close, and the privacy assertion. **28** on
+      > `ReplaySavedAudio` (load, the unknown length, both store failures, a
+      > player that refuses to start, positions into cards, the end, the
+      > clamps, supersession, cancellation, and the two decrypt-window cases)
+      > and **10** added to T17's own file for the pause path, the drain, and a
+      > read that fell to the device dropping the pause with it.
+      > `FakeSavedAudioPlayer` is in `test/support/fakes.dart` because both new
+      > files drive it.
+      >
+      > **DI is deliberately not touched** — `_registerVoice` is T21's, and
+      > T19 ends at an injectable cubit.
+      >
+      > Gate: `dart format .` **0 changed** (790 files), `flutter analyze`
+      > **0 errors / 0 warnings** (21 infos, none in a touched file),
+      > `flutter test` **3194 passed / 0 failed** (3116 + 78).
 
 ### Phase G — fixed lines and the gate
 
@@ -1256,9 +1396,10 @@ binary, with a small control `MethodChannel` beside it.
 ## Files
 
 **`lib/features/voice/domain/`** — `entities/voice_segment.dart`,
-`spoken_card_span.dart`, `voice_read_event.dart` (sealed), `voice_engine.dart`;
+`spoken_card_span.dart`, `voice_read_event.dart` (sealed),
+`voice_replay_event.dart` (sealed), `voice_engine.dart`;
 `services/live_voice_session.dart`, `pcm_audio_sink.dart`, `audio_encoder.dart`,
-`device_voice_reader.dart`;
+`device_voice_reader.dart`, `saved_audio_player.dart`;
 `usecases/read_paper_aloud.dart`, `verify_verbatim_read.dart`,
 `normalise_arabic_for_diff.dart`, `align_segments_to_audio.dart`,
 `build_voice_turn_text.dart`, `spoken_span_timeline.dart`,

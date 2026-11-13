@@ -76,6 +76,7 @@ import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
 import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
 import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
+import 'package:war2aty/features/voice/domain/services/saved_audio_player.dart';
 
 /// An [AppDatabase] backed by a fresh in-memory SQLite instance.
 AppDatabase memoryDatabase() => AppDatabase(NativeDatabase.memory());
@@ -1609,4 +1610,82 @@ final class FakeImagePreprocessor implements ImagePreprocessor {
   @override
   Future<Result<String, AppFailure>> preprocess(String imagePath) async =>
       fails ? const Err(ImageProcessingFailure()) : Ok(imagePath);
+}
+
+/// Scriptable [SavedAudioPlayer] — the second phase's player with no platform
+/// behind it (F37-T19).
+///
+/// Drives everything `ReplaySavedAudio` and `VoicePlaybackCubit` have to get
+/// right about a replay: a load that fails, a load that cannot report the
+/// length, a position that moves, an end that arrives, and a player that
+/// throws on the way in.
+final class FakeSavedAudioPlayer implements SavedAudioPlayer {
+  FakeSavedAudioPlayer({this.duration = const Duration(seconds: 30)});
+
+  /// What [load] answers with, or the [failure] below instead.
+  Duration duration;
+
+  AppFailure? failure;
+
+  /// A player that accepted the audio and then refused to start.
+  bool throwOnPlay = false;
+
+  /// Holds [load] open, so a test can let the listener leave while the audio
+  /// is still being decrypted.
+  Completer<void>? holdLoad;
+
+  final _positions = StreamController<Duration>.broadcast(sync: true);
+  final _completions = StreamController<void>.broadcast(sync: true);
+
+  final List<String> loaded = [];
+  var plays = 0;
+  var pauses = 0;
+  var stops = 0;
+  final List<Duration> seeks = [];
+
+  @override
+  Future<Result<Duration, AppFailure>> load(String id) async {
+    loaded.add(id);
+    await holdLoad?.future;
+    final failure = this.failure;
+    if (failure != null) return Err(failure);
+    return Ok(duration);
+  }
+
+  @override
+  Future<void> play() async {
+    if (throwOnPlay) throw const _NoAudioPlayer();
+    plays++;
+  }
+
+  @override
+  Future<void> pause() async => pauses++;
+
+  @override
+  Future<void> seek(Duration position) async => seeks.add(position);
+
+  @override
+  Future<void> stop() async => stops++;
+
+  @override
+  Stream<Duration> get position => _positions.stream;
+
+  @override
+  Stream<void> get completions => _completions.stream;
+
+  /// The player reporting where it has reached.
+  void tick(Duration position) => _positions.add(position);
+
+  /// The player reaching the end of the audio.
+  void finish() => _completions.add(null);
+
+  Future<void> dispose() async {
+    await _positions.close();
+    await _completions.close();
+  }
+}
+
+/// What a platform player with nothing behind it throws.
+final class _NoAudioPlayer implements Exception {
+  const _NoAudioPlayer();
 }

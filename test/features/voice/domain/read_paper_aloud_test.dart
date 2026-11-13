@@ -547,6 +547,149 @@ void main() {
       }
     });
   });
+
+  // ── holding a read in flight (F37-T19) ───────────────────────────────────
+
+  group('pause and resume', () {
+    test('a Live read is held at the speaker, not at the service', () async {
+      await start();
+      sessions.single.audio(oneSecond);
+      await settle();
+
+      expect(await readPaperAloud.pause(), isTrue);
+
+      expect(sink.pauses, 1);
+      // The producer is not asked to stop — it cannot be (T11).
+      expect(sessions.single.cancels, 0);
+    });
+
+    test('resume carries on where it stopped', () async {
+      await start();
+      await readPaperAloud.pause();
+
+      expect(await readPaperAloud.resume(), isTrue);
+      expect(sink.resumes, 1);
+    });
+
+    test('a second pause is refused', () async {
+      await start();
+      await readPaperAloud.pause();
+
+      expect(await readPaperAloud.pause(), isFalse);
+      expect(sink.pauses, 1);
+    });
+
+    test('a resume with nothing paused is refused', () async {
+      await start();
+
+      expect(await readPaperAloud.resume(), isFalse);
+      expect(sink.resumes, 0);
+    });
+
+    test('the device tier refuses to pause, and is not touched', () async {
+      // Its offsets restart from zero on resume, which would freeze the
+      // auto-scroll on the first card — see VoiceEngine.canPauseMidRead.
+      sink.openResult = const Err(AudioPlaybackFailure());
+      await start();
+
+      expect(await readPaperAloud.pause(), isFalse);
+      expect(sink.pauses, 0);
+      expect(device.reads, 1);
+    });
+
+    test('a read that fell to the device drops the pause with it', () async {
+      await start();
+      await readPaperAloud.pause();
+      // Live drops after the pause; the device engine is not holding anything
+      // back, so the read must not still think it is paused.
+      sessions.single.lose(const VoiceServiceFailure());
+      await settle();
+
+      expect(device.reads, 1);
+      expect(await readPaperAloud.resume(), isFalse);
+    });
+
+    test('nothing to pause before a read, or after one', () async {
+      expect(await readPaperAloud.pause(), isFalse);
+
+      await start();
+      await liveReads(sessions.single, perfectTranscript);
+
+      expect(await readPaperAloud.pause(), isFalse);
+      expect(sink.pauses, 0);
+    });
+
+    test('a paused read is not cut off by the drain', () async {
+      // The drain's grace period guards against a clock that stalled. A clock
+      // standing still because the user asked for silence is not that, and
+      // cutting the rest of the paper off would be the one thing the drain
+      // exists to prevent.
+      readPaperAloud = ReadPaperAloud(
+        openSession: () {
+          final session = _FakeLiveSession(
+            startResult: const Ok<void, AppFailure>(null),
+          );
+          sessions.add(session);
+          return session;
+        },
+        sink: sink,
+        encoder: encoder,
+        audioStore: store,
+        deviceReader: device,
+        verify: const VerifyVerbatimRead(NormaliseArabicForDiff()),
+        align: const AlignSegmentsToAudio(NormaliseArabicForDiff()),
+        drainGrace: Duration.zero,
+      );
+      // The speaker reports nothing on its own: the test is the clock. One
+      // sample of audio, so the wait the drain arms is microseconds long and
+      // really does elapse while the read is held.
+      sink.emitClock = false;
+      await start();
+      sessions.single.audio(2);
+      await settle();
+      await readPaperAloud.pause();
+      sessions.single.transcript(perfectTranscript);
+      sessions.single.complete();
+      await settle();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      // Paused: the grace period has passed and the read is still open.
+      expect(events.whereType<VoiceReadCompleted>(), isEmpty);
+      expect(sink.stops, 0);
+
+      await readPaperAloud.resume();
+      sink.tick(const Duration(seconds: 1));
+      await settle();
+
+      expect(outcomeOf(events).engine, VoiceEngine.geminiLive);
+      expect(sink.stops, 1);
+    });
+
+    test('leaving the screen lets a paused read go', () async {
+      await start();
+      sessions.single.audio(oneSecond);
+      await settle();
+      await readPaperAloud.pause();
+
+      await subscription.cancel();
+      await settle();
+
+      expect(sessions.single.cancels, greaterThanOrEqualTo(1));
+      expect(await readPaperAloud.pause(), isFalse);
+    });
+  });
+
+  group('privacy', () {
+    test('no event describes the page in words, on any path', () async {
+      await start();
+      await liveReads(sessions.single, perfectTranscript);
+
+      for (final event in events) {
+        expect(event.toString(), isNot(contains('فاتورة')));
+        expect(event.toString(), isNot(contains('نوفمبر')));
+      }
+    });
+  });
 }
 
 final class _FakeLiveSession implements LiveVoiceSession {
@@ -633,6 +776,8 @@ final class _FakeSink implements PcmAudioSink {
   bool throwOnStop = false;
 
   var opens = 0;
+  var pauses = 0;
+  var resumes = 0;
   var stops = 0;
   var written = 0;
   var played = Duration.zero;
@@ -651,10 +796,10 @@ final class _FakeSink implements PcmAudioSink {
   }
 
   @override
-  Future<void> pause() async {}
+  Future<void> pause() async => pauses++;
 
   @override
-  Future<void> resume() async {}
+  Future<void> resume() async => resumes++;
 
   @override
   Future<Duration> stop() async {

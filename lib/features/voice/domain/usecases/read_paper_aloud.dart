@@ -16,6 +16,7 @@ import '../services/live_voice_session.dart';
 import '../services/pcm_audio_sink.dart';
 import 'align_segments_to_audio.dart';
 import 'build_voice_turn_text.dart';
+import 'spoken_span_timeline.dart';
 import 'verify_verbatim_read.dart';
 
 /// Reads a page aloud, choosing and falling between the tiers (F37-T17).
@@ -46,6 +47,12 @@ import 'verify_verbatim_read.dart';
 ///    this use case does not open them itself, because throwing a user into
 ///    system settings without a tap is a decision for the screen, not the
 ///    domain.
+///
+/// **The read in flight can be held.** [pause] and [resume] reach whichever
+/// tier is speaking now, which is why they live here rather than on a sink the
+/// layers above may not touch; [VoiceEngine.canPauseMidRead] says in advance
+/// whether the tier that announced itself has a pause at all, so no screen
+/// offers a control that cannot work (F37-T19).
 ///
 /// **What it never does:** log the transcript, the page, or any part of
 /// either. They are document content (CLAUDE.md §7). The only number worth
@@ -98,6 +105,15 @@ final class ReadPaperAloud {
   /// device can read it now.
   static const int maxLiveAttempts = 2;
 
+  /// The read in flight, or `null` between reads.
+  ///
+  /// Held because [pause] and [resume] have to reach whichever tier is
+  /// speaking *now*, and only this use case knows which that is. There is one
+  /// speaker and therefore one read at a time: a second [call] that is
+  /// listened to while one is running takes this over, which is also what the
+  /// cubit above does to the first read's subscription.
+  _Read? _current;
+
   /// Below this, restarting Live is better than falling to the device.
   ///
   /// The Live API cannot replay a partial turn — reconnecting restarts from
@@ -122,16 +138,51 @@ final class ReadPaperAloud {
     final out = StreamController<VoiceReadEvent>();
     final read = _Read();
     out.onListen = () {
+      _current = read;
       unawaited(_run(out, read, segments, audioId));
     };
     out.onCancel = () async {
       read.cancelled = true;
+      if (identical(_current, read)) _current = null;
       // Closing the session's own stream is what ends the frame loop; the
       // tiers then unwind through their normal clean-up.
       await read.session?.cancel();
       await _deviceReader.stop();
     };
     return out.stream;
+  }
+
+  /// Pauses the reading in flight, and answers whether it is now paused.
+  ///
+  /// `false` means nothing changed and the caller should keep showing a
+  /// reading in progress: there is no read, or it is already paused, or it is
+  /// on a tier that cannot pause — see [VoiceEngine.canPauseMidRead], which is
+  /// the only thing a caller needs in order to not offer a control that cannot
+  /// work.
+  ///
+  /// On the Live tier this is a **consumer-side** pause: the service goes on
+  /// streaming and the rest of the paper accumulates behind the speaker, which
+  /// is what `PcmAudioSink.pause` documents. It also holds off the drain's
+  /// grace period — a clock standing still because someone asked for silence
+  /// is not the stalled clock that guard is for.
+  Future<bool> pause() async {
+    final read = _current;
+    if (read == null || read.paused) return false;
+    if (read.engine?.canPauseMidRead != true) return false;
+    read.paused = true;
+    await _sink.pause();
+    return true;
+  }
+
+  /// Resumes a reading [pause] paused, and answers whether it is now playing
+  /// again. `false` on the same three grounds [pause] answers `false` on.
+  Future<bool> resume() async {
+    final read = _current;
+    if (read == null || !read.paused) return false;
+    if (read.engine?.canPauseMidRead != true) return false;
+    read.paused = false;
+    await _sink.resume();
+    return true;
   }
 
   Future<void> _run(
@@ -159,7 +210,7 @@ final class ReadPaperAloud {
         // _LiveOutcome.retry — one more Live attempt, if one is left.
       }
 
-      await _readOnDevice(out, turn);
+      await _readOnDevice(out, read, turn);
     } catch (_) {
       // A tier threw where its contract says it reports — a platform channel
       // with no host behind it, say. The read is over either way, and the one
@@ -167,6 +218,8 @@ final class ReadPaperAloud {
       // to be told something (CLAUDE.md §3: no silent failures).
       if (!read.cancelled) out.add(const VoiceReadFailed(TtsFailure()));
     } finally {
+      // Nothing is speaking any more, so there is nothing left to pause.
+      if (identical(_current, read)) _current = null;
       if (!out.isClosed) await out.close();
     }
   }
@@ -203,6 +256,7 @@ final class ReadPaperAloud {
 
     // Each attempt announces itself. A retry restarts Live from word one, so a
     // screen that resets its highlight on this is doing the right thing.
+    read.beginTier(VoiceEngine.geminiLive);
     out.add(const VoiceReadStarted(VoiceEngine.geminiLive));
 
     var spans = const <SpokenCardSpan>[];
@@ -215,7 +269,7 @@ final class ReadPaperAloud {
       out.add(
         VoiceReadPositionChanged(
           position: position,
-          segmentId: _segmentAt(spans, position),
+          segmentId: segmentAt(spans, position),
         ),
       );
       final waiter = drained;
@@ -323,13 +377,24 @@ final class ReadPaperAloud {
     out.add(VoiceReadSpansResolved(spans));
 
     final duration = format.durationOfBytes(audioBytes);
-    if (lastPosition < duration) {
+    while (lastPosition < duration && !read.cancelled) {
       drainTarget = duration;
       final waiter = drained = Completer<void>();
       await waiter.future.timeout(
         duration - lastPosition + _drainGrace,
         onTimeout: () {},
       );
+      // A clock standing still because the user asked for silence is not the
+      // stalled clock the grace period guards against, so the wait is re-armed
+      // rather than the rest of the paper being cut off. A read left paused
+      // never completes, which is correct: it has not been heard. Leaving the
+      // screen cancels the subscription and the loop lets go.
+      if (!read.paused) break;
+    }
+
+    if (read.cancelled) {
+      await _abandonLive(session, canSave: canSave, positionSub: positionSub);
+      return _LiveOutcome.fallBack;
     }
 
     await _release(_sink.stop);
@@ -422,8 +487,10 @@ final class ReadPaperAloud {
 
   Future<void> _readOnDevice(
     StreamController<VoiceReadEvent> out,
+    _Read read,
     VoiceTurnText turn,
   ) async {
+    read.beginTier(VoiceEngine.deviceTts);
     out.add(const VoiceReadStarted(VoiceEngine.deviceTts));
 
     var spans = const <SpokenCardSpan>[];
@@ -454,13 +521,6 @@ final class ReadPaperAloud {
         out.add(VoiceReadFailed(failure));
     }
   }
-
-  String? _segmentAt(List<SpokenCardSpan> spans, Duration position) {
-    for (final span in spans) {
-      if (span.contains(position)) return span.segmentId;
-    }
-    return null;
-  }
 }
 
 /// The mutable part of one read: what the cancel callback has to reach.
@@ -472,6 +532,26 @@ final class ReadPaperAloud {
 final class _Read {
   bool cancelled = false;
   LiveVoiceSession? session;
+
+  /// The tier speaking now, or `null` before the first one announces itself.
+  ///
+  /// What [ReadPaperAloud.pause] consults: the two tiers do not both have a
+  /// pause, and a read that has fallen from one to the other has changed its
+  /// answer.
+  VoiceEngine? engine;
+
+  /// Whether the user asked for silence, which the drain also has to know.
+  bool paused = false;
+
+  /// Moves the read onto [next], unpausing it.
+  ///
+  /// A pause belongs to the tier it was asked of: the Live attempt it silenced
+  /// is over, its speaker released, and the device engine about to read is not
+  /// holding anything back.
+  void beginTier(VoiceEngine next) {
+    engine = next;
+    paused = false;
+  }
 }
 
 /// How one Live attempt ended, from the ladder's point of view.
