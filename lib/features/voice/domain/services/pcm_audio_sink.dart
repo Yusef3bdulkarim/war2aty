@@ -51,5 +51,8 @@ abstract interface class PcmAudioSink {
   /// The single source of truth for the reading's position, so that a segment
   /// span measured in bytes and a position measured in played frames share one
   /// timeline.
+  ///
+  /// Broadcast: it is subscribed to once per reading attempt, and a retry
+  /// (F37-T17) is a second attempt on the same sink.
   Stream<Duration> get position;
 }

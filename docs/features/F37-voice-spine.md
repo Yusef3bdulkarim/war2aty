@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 14 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store) and T16 (just_audio replay) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 17 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay) and T17 (the tier ladder) done. Next: T18 (device-TTS adapter, which implements T17's `DeviceVoiceReader`). **T04 left two carry-forwards for F44** — see its note, and **T17 left two questions for the owner** — see its note.
 
 ## Why this feature exists
 
@@ -975,12 +975,156 @@ binary, with a small control `MethodChannel` beside it.
 
 ### Phase F — the spine
 
-- [ ] **T17** `ReadPaperAloud` — the tier selector: Live → early-abort verify →
+- [x] **T17** `ReadPaperAloud` — the tier selector: Live → early-abort verify →
       retry once → device TTS → the open-TTS-settings escape, and discard the
       partial file on a drop. A **late** mismatch keeps the audio and marks
       `verified: false` for F38 rather than spending another 75 s; the transcript
       is document content and is **never logged** (CLAUDE.md §7). *Done when:*
       all five paths have a test.
+      > **DONE 2026-11-13.** Two new files plus one doc line:
+      >
+      > **`lib/features/voice/domain/usecases/read_paper_aloud.dart`** — the
+      > ladder. `call({segments, audioId})` returns a single-subscription
+      > `Stream<VoiceReadEvent>` and the read starts on listen. The Live attempt
+      > opens the speaker **before** the session (a session the device cannot
+      > play into is a free-tier session spent on silence), begins the encoder,
+      > starts the turn, then consumes `session.events` with `await for` —
+      > awaiting `sink.write` inside the loop, which is what paces the read to
+      > the speed of speech rather than the speed of the socket, since
+      > `PcmPlayer.write()` blocks (T11).
+      >
+      > **`lib/features/voice/domain/services/device_voice_reader.dart`** — the
+      > fallback tier's interface, implemented in T18. `read(turn)` answers when
+      > the reading has **ended** (deliberately unlike
+      > `TextToSpeechService.speak`, which answers once the engine merely took
+      > the utterance) and carries the spoken duration; `events` carries
+      > progress in F37's own shape. It never emits the envelope —
+      > `VoiceReadStarted` / `Completed` / `Failed` are the use case's, because
+      > only the use case knows this is the last tier, which is what
+      > `VoiceReadFailed`'s own contract requires.
+      >
+      > **The retry matrix, as built:**
+      >
+      > | What happened | What the ladder does |
+      > | --- | --- |
+      > | `sink.open` Err | device TTS; no session is started at all |
+      > | `session.start` Err | device TTS; never retried (`VoiceServiceFailure` always falls back) |
+      > | `encoder.begin` Err | **the read continues** — `audioSaved: false`, `feed` never called |
+      > | prefix verdict `notVerbatim` | abort, discard the file, **retry Live once**, then device TTS |
+      > | drop with `heard < 2 s` | retry Live once |
+      > | drop with `heard ≥ 2 s` | device TTS — the user would otherwise hear the beginning twice |
+      > | stream closed with no terminal frame | treated as a drop → device TTS |
+      > | `turnComplete`, final verdict not `verbatim` | **audio kept**, `verified: false` |
+      > | `encoder.finish` / `store` Err | read completes, `audioSaved: false` |
+      > | device read Err | one `VoiceReadFailed`, the failure intact |
+      >
+      > `maxLiveAttempts = 2` and `minHeardBeforeLiveRestart = 2 s` are named
+      > constants on the class.
+      >
+      > **Spans land mid-read, as designed.** Alignment runs at
+      > `LiveTurnComplete` — which, at roughly twice real time, is about halfway
+      > through what the user is hearing — so `VoiceReadSpansResolved` arrives
+      > while the paper is still being spoken. Positions before it carry
+      > `segmentId: null`, exactly as the event documents.
+      >
+      > **The drain.** After the spans, the read waits for the sink's own clock
+      > to reach `format.durationOfBytes(audioBytes)` before calling `stop()`,
+      > so the last second still in `AudioTrack`'s ~1 s buffer is not cut off.
+      > The wait is a completer fed by the position subscription, bounded by
+      > `drainGrace` (2 s, injectable) in case the clock stalls — no second
+      > subscription, so `position` is subscribed exactly once per attempt.
+      >
+      > **Anchors: a documented proxy.** T07 wants anchors only from frames
+      > carrying **both** audio and transcript, but `LiveVoiceEvent` flattens a
+      > frame into separate `LivePcmChunk` and `LiveTranscriptDelta` events, so
+      > "the same frame" is not observable above the data layer. The ladder
+      > anchors a delta when **audio has arrived since the previous delta** —
+      > always true for a both-frame, and false for consecutive transcript-only
+      > frames. The one false positive left is a transcript-only frame directly
+      > after an audio-only frame, which over-counts bytes and places that
+      > anchor late; T07 discards out-of-order and over-sized anchors and marks
+      > unmatched spans `exact: false`, so the cost is accuracy, not
+      > correctness. **Open for the owner:** making this exact needs a frame
+      > boundary in the union (a T08/T09 change), which was not worth reopening
+      > two closed tasks for.
+      >
+      > **The escape hatch is reported, not taken.** A `NoArabicVoiceFailure`
+      > reaches `VoiceReadFailed` intact so the screen can offer F30-T07's
+      > «افتح إعدادات القراءة» button; this use case does not call
+      > `OpenSystemTtsSettings` itself, because throwing a user into system
+      > settings with no tap is a decision for the screen, not the domain. The
+      > wiring is F39/F40's. **Owner: say so if you wanted it auto-opened.**
+      >
+      > **An empty page** is refused before any engine is touched, with the same
+      > `TtsFailure()` `ReadingQueue.speak` answers an empty reading with — the
+      > existing precedent, rather than a new failure leaf.
+      >
+      > **Three holes the reviews found and this task closed:**
+      >
+      > 1. **A sink that throws.** `MethodChannelLiveAudioOutput.write` does not
+      >    guard its binary-channel `send` — unlike `pause` / `stop`, it reports
+      >    a dead host by **throwing**, not with a `Result` (T13). Unhandled,
+      >    that escaped the frame loop inside an `unawaited` future, left the
+      >    output stream open forever and the screen waiting to be told
+      >    something: a silent failure (CLAUDE.md §3). The Live tier now catches
+      >    it, releases everything and falls to the device — so a phone with no
+      >    audio host still hears its paper. Fixed in the ladder, not in T13,
+      >    because what a tier failure *means* is the ladder's decision.
+      > 2. **Cleanup could flip a successful read into a failed one.** The
+      >    release chain (`sink.stop` → `positionSub.cancel` →
+      >    `session.cancel`) ran unguarded, so a throw from an early step
+      >    skipped the session cancel behind it — leaking the socket until the
+      >    server's expiry — and, on the happy path, escaped into `_run`'s
+      >    guard and emitted `VoiceReadFailed` **after the user had heard the
+      >    whole paper**. Neither shipping implementation throws today
+      >    (`MethodChannelLiveAudioOutput.stop` and
+      >    `GeminiLiveVoiceSession.cancel` both catch), so this was latent — a
+      >    future iOS sink would have surfaced it. Every release step now runs
+      >    through `_release`, which absorbs a throw: by then the read is
+      >    already decided, and the terminal event is what must be right.
+      >    Raised by `@code-reviewer`, fixed here, pinned by a test.
+      > 3. **Nothing stopped a read.** Cancelling the returned subscription did
+      >    not stop anything: the socket kept streaming and the speaker kept
+      >    talking for a user who had left the screen, holding a Live session —
+      >    the scarce resource on this service. `onCancel` now cancels the
+      >    session, stops the device tier, discards the partial file and stops
+      >    the ladder from quietly advancing a tier for a listener who has gone.
+      >    This is also the `stop` T19's `streaming` phase needs.
+      >
+      > **One doc line added outside the task:**
+      > `PcmAudioSink.position` now states it is broadcast, because the retry
+      > subscribes a second time on the same sink. The Android implementation
+      > already is (sync broadcast, T13); nothing changed in behaviour.
+      >
+      > **Privacy.** Nothing is logged at all: the use case takes no log sink.
+      > The page, the turn text and the transcript stay in locals, and a test
+      > asserts no emitted event's `toString()` contains a word from the page
+      > (CLAUDE.md §7).
+      >
+      > 26 tests, covering all five paths and then some: the Live read (events,
+      > spans, outcome, the turn text sent, bytes played and fed, the encrypted
+      > store write, speaker and session released, the device never touched),
+      > positions before spans, positions mapped to segments plus the drain
+      > gate, the early abort (file discarded, nothing stored), the retry
+      > (exactly one, then the device; a retry that succeeds), `start` Err,
+      > `open` Err, a late drop, an early drop, a silent stream close, the
+      > device outcome (verbatim by construction, no file, spans forwarded),
+      > `NoArabicVoiceFailure` intact, exactly one failure after every tier, the
+      > late mismatch (audio kept, `verified: false`), `begin` / `finish` /
+      > `store` failures losing only the replay, an empty page, a blank-segment
+      > page, a throwing sink, a sink that throws on the way out, a cancelled
+      > subscription, and the privacy assertion.
+      >
+      > A real fake-session trap worth keeping: a non-broadcast
+      > `StreamController.close()` does not complete until its stream has been
+      > listened to, so a session cancelled **before** the ladder subscribes
+      > (unopenable speaker, refused `start`) hangs if `cancel()` awaits the
+      > close. `GeminiLiveVoiceSession.cancel()` already uses `unawaited` for
+      > exactly this reason; the fake now matches it.
+      >
+      > Gate: `dart format .` **0 changed** (779 files), `flutter analyze`
+      > **0 errors / 0 warnings** (21 infos, none in a touched file),
+      > `flutter test` **3074 passed / 0 failed** (3048 + 26).
 - [ ] **T18** Device-TTS adapter: maps `TtsEvent` char offsets to segment ids via
       T06's offsets, so F40 gets auto-scroll in the fallback tier for free.
       *Done when:* both tiers emit the same `VoiceReadEvent` shape.
@@ -1007,7 +1151,8 @@ binary, with a small control `MethodChannel` beside it.
 
 **`lib/features/voice/domain/`** — `entities/voice_segment.dart`,
 `spoken_card_span.dart`, `voice_read_event.dart` (sealed), `voice_engine.dart`;
-`services/live_voice_session.dart`, `pcm_audio_sink.dart`, `audio_encoder.dart`;
+`services/live_voice_session.dart`, `pcm_audio_sink.dart`, `audio_encoder.dart`,
+`device_voice_reader.dart`;
 `usecases/read_paper_aloud.dart`, `verify_verbatim_read.dart`,
 `normalise_arabic_for_diff.dart`, `align_segments_to_audio.dart`,
 `build_voice_turn_text.dart`, `replay_saved_audio.dart`.
