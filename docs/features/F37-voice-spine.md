@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 17 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay) and T17 (the tier ladder) done. Next: T18 (device-TTS adapter, which implements T17's `DeviceVoiceReader`). **T04 left two carry-forwards for F44** — see its note, and **T17 left two questions for the owner** — see its note.
+- **Progress:** 18 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder) and T18 (the device-TTS adapter) done. Next: T19 (`VoicePlaybackCubit`). **T04 left two carry-forwards for F44** — see its note, and **T17 left two questions for the owner** — see its note.
 
 ## Why this feature exists
 
@@ -1125,9 +1125,115 @@ binary, with a small control `MethodChannel` beside it.
       > Gate: `dart format .` **0 changed** (779 files), `flutter analyze`
       > **0 errors / 0 warnings** (21 infos, none in a touched file),
       > `flutter test` **3074 passed / 0 failed** (3048 + 26).
-- [ ] **T18** Device-TTS adapter: maps `TtsEvent` char offsets to segment ids via
+- [x] **T18** Device-TTS adapter: maps `TtsEvent` char offsets to segment ids via
       T06's offsets, so F40 gets auto-scroll in the fallback tier for free.
       *Done when:* both tiers emit the same `VoiceReadEvent` shape.
+      > **DONE 2026-11-14.** One new file plus one extraction:
+      >
+      > **`lib/features/voice/data/services/reading_queue_voice_reader.dart`** —
+      > `ReadingQueueVoiceReader implements DeviceVoiceReader`, over
+      > `ReadingQueue` rather than over `flutter_tts`, which is what the scope
+      > fence asked for: voice selection, mixed-script runs, transliteration on
+      > an Arabic-only device, the engine's input-length ceiling and the one
+      > silent retry on a passing error are all behaviour F30/F31 drove out on
+      > the owner's own phone. The queue also *owns* the engine, so going around
+      > it would have broken whatever was already playing.
+      >
+      > **It adds exactly three things:**
+      >
+      > 1. **A read that answers when the reading has ended.**
+      >    `ReadingQueue.speak` answers once the engine has merely *taken* the
+      >    first utterance — a second into a ninety-second reading — so the call
+      >    is held open on a completer until a terminal engine event arrives.
+      > 2. **Char offsets → segment ids.** The queue already reports progress in
+      >    offsets into the text it was handed, which is T06's turn text, so
+      >    `VoiceTurnText.offsets` says directly which card is being spoken.
+      >    This is *better* evidence than the primary tier has: Live has to
+      >    match a transcription of its own speech, the device engine says where
+      >    in the string it is. An offset inside T06's `.\n\n` separator reports
+      >    `segmentId: null`, which is what `VoiceReadPositionChanged` asks the
+      >    screen to hold its highlight through.
+      > 3. **Spans.** See below.
+      >
+      > **The timeline is the app's clock, because the engine has none.** The
+      > device engine reports *where* it has reached, never *when*: there is no
+      > byte count to convert, so `VoiceReadPositionChanged.position` and the
+      > read's duration are both measured with an injected
+      > `DateTime Function()` (the project's existing clock idiom), from the
+      > moment the engine said it began — not from when `read` was called, since
+      > the engine's own start-up is time the user did not hear.
+      >
+      > **Spans arrive at the end of the read, and that is deliberate.** The
+      > total is unknown until the reading stops, so there is nothing honest to
+      > emit earlier — and nothing is lost by it: on this tier every position
+      > event already carries its own `segmentId`, so F40's auto-scroll never
+      > waits for the spans. They are emitted **before** the read answers and on
+      > a **synchronous** broadcast controller, because `ReadPaperAloud` cancels
+      > its subscription the instant `read()` completes; an asynchronously
+      > delivered span event would arrive with nobody listening. The evidence is
+      > every word boundary the engine reported, plus the start and the end of
+      > the reading; a card a boundary landed inside is `exact: true`, one that
+      > none did is interpolated between the boundaries around it, and with no
+      > boundaries at all it reduces to each card's share of the page — the same
+      > floor T07 has.
+      >
+      > **The extraction, outside the task but required by CLAUDE.md §2:**
+      > `lib/features/voice/domain/usecases/spoken_span_timeline.dart` now holds
+      > the two steps both tiers share — `interpolateAt` and `partitionSpans` —
+      > lifted verbatim out of `AlignSegmentsToAudio`'s private methods, which
+      > now delegate. The partition invariant (each span ends where the next
+      > begins, the last ends with the read) is what lets F40 always have
+      > exactly one answer to "which card is being read now", so a second copy
+      > of it could have drifted into the fallback tier highlighting differently
+      > from the primary one. T07's 60-odd tests pass unchanged, which is what
+      > pins the extraction as behaviour-preserving.
+      >
+      > **Four traps the `ReadingQueue` reuse brought with it, all closed:**
+      >
+      > 1. **A cancel is not only what a stop produces.** The engine reports one
+      >    for the utterance a newly started reading just *flushed*, and it
+      >    arrives after our reading is installed. Acting on it would have failed
+      >    a paper that was about to be read perfectly well, so a cancel is
+      >    terminal only once the engine has told us this reading is speaking —
+      >    the same `_currentStarted` rule the queue itself follows.
+      > 2. **A passing error is already retried in silence** (F30-T16, RC-2), so
+      >    a `TtsFailed` that reaches here is final by construction and is
+      >    reported as the one `TtsFailure` the rest of this stack uses. A test
+      >    drives `notInstalledYet` through and asserts the ladder is never told.
+      > 3. **The engine is shared.** `ReadPaperAloud` calls
+      >    `deviceReader.stop()` on *every* cancel, including one where Live was
+      >    the tier that read, so an unconditional `queue.stop()` here would
+      >    have silenced whatever else was using the engine — the Settings voice
+      >    preview, or the 1.0.2 result screen's reader, which is still shipping
+      >    until F40. `stop()` is a no-op unless a reading of ours is in flight.
+      > 4. **A stop is not a failure.** It answers `Ok` with what was read: the
+      >    caller tearing the read down is the one that asked for it, and an
+      >    `Err` there would have put «جرّب تاني» on screen for a user who had
+      >    just left it.
+      >
+      > **Privacy.** Nothing is logged; the adapter takes no log sink. The turn
+      > text passes straight through to the engine, the boundaries are integers,
+      > and a test asserts no emitted event's `toString()` contains a word of the
+      > page (CLAUDE.md §7).
+      >
+      > 42 tests. 31 on the adapter, driven through a **real** `ReadingQueue`
+      > over `FakeTextToSpeechService` rather than a fake queue — the offset
+      > translation it inherits is half of what T18 is, so faking it would have
+      > tested nothing: the read held open, the duration measured from the
+      > engine's start, a start-less engine, `TtsContinued` as the start marker,
+      > the opening highlight, offsets mapped to cards, the separator's `null`,
+      > positions on the app clock, a transliterated run's offsets moved into
+      > reading coordinates, the span partition, measured vs interpolated cards,
+      > the no-boundary floor, spans before the answer, no spans on a failure,
+      > `NoArabicVoiceFailure` intact, a refused paper, an empty page, a final
+      > engine failure, the absorbed passing one, a foreign cancel, a flushed
+      > cancel ignored, one answer per read however many terminal events arrive,
+      > a superseded read, a foreign pause, the stop, the shared-engine no-op,
+      > and the privacy assertion. 11 more on the extracted arithmetic.
+      >
+      > Gate: `dart format .` **0 changed** (783 files), `flutter analyze`
+      > **0 errors / 0 warnings** (21 infos, none in a touched file),
+      > `flutter test` **3116 passed / 0 failed** (3074 + 42).
 - [ ] **T19** `VoicePlaybackCubit` + `VoicePlaybackState`, declaring the two
       phases — `streaming` (play/pause/stop, `canSeek: false`) and `file` (full
       seek once the muxer closes). *Done when:* the cubit depends on **use cases
@@ -1155,12 +1261,13 @@ binary, with a small control `MethodChannel` beside it.
 `device_voice_reader.dart`;
 `usecases/read_paper_aloud.dart`, `verify_verbatim_read.dart`,
 `normalise_arabic_for_diff.dart`, `align_segments_to_audio.dart`,
-`build_voice_turn_text.dart`, `replay_saved_audio.dart`.
+`build_voice_turn_text.dart`, `spoken_span_timeline.dart`,
+`replay_saved_audio.dart`.
 
 **`lib/features/voice/data/`** — `models/live_setup_dto.dart`,
 `live_server_frame_dto.dart`; `services/gemini_live_voice_session.dart`,
 `method_channel_live_audio_output.dart`, `just_audio_encrypted_player.dart`,
-`encrypted_m4a_audio_source.dart`;
+`encrypted_m4a_audio_source.dart`, `reading_queue_voice_reader.dart`;
 `datasources/edge_function_live_token_data_source.dart`.
 
 **`lib/core/voice/`** — `voice_playback_cubit.dart`, `voice_playback_state.dart`,

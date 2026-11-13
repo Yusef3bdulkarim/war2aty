@@ -5,6 +5,7 @@ import '../entities/spoken_card_span.dart';
 import '../entities/transcript_audio_anchor.dart';
 import '../entities/voice_segment.dart';
 import 'normalise_arabic_for_diff.dart';
+import 'spoken_span_timeline.dart';
 
 /// Works out when each segment of the page is spoken, from the read's own
 /// transcription and the frames that carried transcript and audio together
@@ -92,7 +93,7 @@ final class AlignSegmentsToAudio {
       exact[i] = true;
       startMicros[i] = format
           .durationOfBytes(
-            _interpolateAt(anchorPoints.wordCounts, anchorPoints.bytes, word),
+            interpolateAt(anchorPoints.wordCounts, anchorPoints.bytes, word),
           )
           .inMicroseconds;
     }
@@ -288,55 +289,26 @@ final class AlignSegmentsToAudio {
 
     for (var i = 0; i < startMicros.length; i++) {
       if (exact[i]) continue;
-      startMicros[i] = _interpolateAt(knownChars, knownMicros, charsBefore[i]);
+      startMicros[i] = interpolateAt(knownChars, knownMicros, charsBefore[i]);
     }
-  }
-
-  /// Linear interpolation of [ys] at [x] over the non-decreasing [xs].
-  int _interpolateAt(List<int> xs, List<int> ys, int x) {
-    if (x <= xs.first) return ys.first;
-    if (x >= xs.last) return ys.last;
-    var hi = 1;
-    while (hi < xs.length - 1 && xs[hi] < x) {
-      hi++;
-    }
-    final lo = hi - 1;
-    final run = xs[hi] - xs[lo];
-    if (run <= 0) return ys[hi];
-    return ys[lo] + (x - xs[lo]) * (ys[hi] - ys[lo]) ~/ run;
   }
 
   /// Turns per-segment starts into a partition of the read.
   ///
-  /// The first segment starts with the audio by construction, each span ends
-  /// where the next begins, and the last ends with the audio — so a position
-  /// anywhere in the read belongs to exactly one segment. The monotonic clamp
-  /// is a guard, not an expectation.
+  /// The partition itself is [partitionSpans], shared with the device-TTS tier
+  /// (F37-T18) so both tiers hand F40 spans built by the same rule; this only
+  /// names the segments it is placing.
   List<SpokenCardSpan> _spansFrom({
     required List<VoiceSegment> segments,
     required List<int> starts,
     required List<bool> exact,
     required int totalMicros,
-  }) {
-    final ordered = List<int>.filled(segments.length, 0);
-    var previous = 0;
-    for (var i = 0; i < segments.length; i++) {
-      previous = i == 0
-          ? 0
-          : math.min(math.max(starts[i], previous), totalMicros);
-      ordered[i] = previous;
-    }
-
-    return List<SpokenCardSpan>.generate(segments.length, (i) {
-      final end = i == segments.length - 1 ? totalMicros : ordered[i + 1];
-      return SpokenCardSpan(
-        segmentId: segments[i].id,
-        start: Duration(microseconds: ordered[i]),
-        end: Duration(microseconds: math.max(ordered[i], end)),
-        exact: exact[i],
-      );
-    });
-  }
+  }) => partitionSpans(
+    segmentIds: [for (final segment in segments) segment.id],
+    startMicros: starts,
+    exact: exact,
+    totalMicros: totalMicros,
+  );
 }
 
 final class _AnchorPoints {

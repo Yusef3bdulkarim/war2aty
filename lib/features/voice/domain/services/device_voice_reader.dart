@@ -35,6 +35,9 @@ abstract interface class DeviceVoiceReader {
 
   /// Progress while [read] runs, in F37's own shape.
   ///
+  /// Broadcast: `ReadPaperAloud` subscribes afresh for each read, and the
+  /// adapter outlives every one of them.
+  ///
   /// [VoiceReadPositionChanged] as the engine advances, and at most one
   /// [VoiceReadSpansResolved] — T18 derives both from `TtsEvent`'s character
   /// offsets against [VoiceTurnText.offsets], which is what gives the fallback
