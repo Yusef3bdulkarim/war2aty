@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 11 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder) and T13 (method channel bridge) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 12 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge) and T14 (silence detection — **rejected** as primary) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -669,10 +669,77 @@ binary, with a small control `MethodChannel` beside it.
       > SUCCESSFUL**, `flutter analyze` **0 errors** (20 pre-existing infos,
       > none in a touched file), `flutter test` **2995 passed / 0 failed**
       > (2962 + 33), `deno test` **1032 passed / 0 failed**.
-- [ ] **T14** Probe PCM **silence detection** (RMS below threshold for > 250 ms)
+- [x] **T14** Probe PCM **silence detection** (RMS below threshold for > 250 ms)
       as a transcript-independent source of segment boundaries, matched in order
       to the N−1 boundaries T06 created. *Done when:* measured against a real
       read and either promoted to primary or rejected **in writing here**.
+      > **DONE 2026-11-13. REJECTED as primary.** The algorithm works — 19 tests
+      > pass against synthetic PCM — but it cannot be the primary source of
+      > segment boundaries. The code is kept for future use.
+      >
+      > **`DetectPcmSilences`**
+      > (`lib/features/voice/domain/usecases/detect_pcm_silences.dart`) scans
+      > 16-bit LE mono PCM in 10 ms frames, computes RMS amplitude per frame,
+      > and returns `SilenceGap`s for runs that stay below a threshold (default
+      > 200 RMS, ~−44 dBFS) for at least a minimum duration (default 250 ms).
+      > The midpoint of each gap is a natural boundary timestamp. On a
+      > five-segment synthetic buffer with 400 ms gaps, the detector finds all
+      > four boundaries exactly.
+      >
+      > **Why rejected — five reasons, in order of weight.**
+      >
+      > 1. **The threshold is a guess.** 200 RMS is a design-time estimate.
+      >    Real Gemini Live audio has an unknown noise floor (codec artefacts,
+      >    breath sounds, model-specific prosody). Without real audio from T01,
+      >    shipping this threshold would mean shipping an untested gate on every
+      >    segment boundary in the app.
+      >
+      > 2. **False boundaries from internal pauses.** Arabic speech has natural
+      >    pauses between sentences and clauses that can easily exceed 250 ms.
+      >    A long segment with a 300 ms pause between two sentences would
+      >    produce a false boundary. Raising `minGap` to avoid it would then
+      >    miss real boundaries where the `.\n\n` separator produced only a
+      >    ~400 ms gap — the margin is too thin.
+      >
+      > 3. **Missing boundaries.** If Gemini Live reads two adjacent segments
+      >    without a sufficient pause — e.g., the full stop did not produce
+      >    enough of a gap, or the model ran them together despite the blank
+      >    line — the boundary is invisible to the detector. The caller then
+      >    gets N−2 gaps for N−1 boundaries and must fall back anyway.
+      >
+      > 4. **T07 already handles the problem honestly.** The transcript-based
+      >    alignment works, marks what it cannot match with `exact: false`, and
+      >    places unmatched segments by proportional character share between
+      >    matched neighbours. The honest flag is the whole point: F40 knows
+      >    which cards to trust and which ones to soften, rather than being
+      >    handed a silence-based guess dressed as a measurement.
+      >
+      > 5. **The ~400 ms gap from `.\n\n` is assumed, not observed.** T06's doc
+      >    says the separator "produces a consistent ~400 ms gap", but that
+      >    comes from the spike's operator impression, not a measurement. A
+      >    future model version, or a different voice or language setting, could
+      >    produce a different gap — and the detector would silently degrade.
+      >
+      > **What the code is still good for.** If T01 produces real audio and the
+      > gaps turn out to be consistent and cleanly above the threshold, silence
+      > detection could supplement T07 as a second anchor source — a
+      > `SilenceGap` at roughly the expected time for an unmatched segment
+      > would let T07 upgrade that segment from proportional to bounded, with
+      > `exact` still false but a tighter span. That integration is not written
+      > here because it is speculative until real data exists, and because T07's
+      > proportional fallback is already good enough for F40's auto-scroll
+      > (which is a convenience, not a condition of the read).
+      >
+      > 19 tests: empty input, sub-frame input, all speech, all silence, one
+      > gap, two gaps, short silence below minGap, custom minGap, noisy silence
+      > below/above threshold, silence at start/end, midpoint arithmetic,
+      > five-segment page, internal sentence pause as false boundary, custom
+      > threshold, equality/hashCode, toString privacy, temporal order.
+      >
+      > Gate: `dart format` clean, `flutter analyze` **0 errors** (20
+      > pre-existing infos, none in a touched file), `flutter test` **3014
+      > passed / 0 failed** (2995 + 19), `deno test` **1032 passed /
+      > 0 failed**.
 
 ### Phase E — storage and replay
 
