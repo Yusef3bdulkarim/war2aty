@@ -24,7 +24,7 @@ const MINTED: MintResult = {
   ok: true,
   token: {
     wsUrl:
-      "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token=ephemeral-123",
+      "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=ephemeral-123",
     model: `models/${MODEL}`,
     expiresAt: "2026-11-13T10:30:00.000Z",
   },

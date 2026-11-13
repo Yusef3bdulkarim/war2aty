@@ -114,8 +114,12 @@ export async function mintEphemeralToken(
     return { ok: false, reason: "not_available" };
   }
 
+  // Ephemeral tokens are only accepted on the CONSTRAINED endpoint. The
+  // unconstrained one takes an API key and answers a token with
+  // `1008 Permission denied`; the constrained one answers a key with
+  // `1007 Missing or malformed auth token`. Verified both ways, T01.
   const wsUrl =
-    `${WS_BASE}/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateContent` +
+    `${WS_BASE}/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateContentConstrained` +
     `?access_token=${encodeURIComponent(token)}`;
 
   return {

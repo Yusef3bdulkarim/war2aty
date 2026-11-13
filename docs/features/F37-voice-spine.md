@@ -62,7 +62,7 @@ F39 and F40 do that.
 | **D3** | **Amend `privacyPointTextOnly` to cover the voice send** (T04). Reading aloud is a *second* outbound send of the paper's text, for a different purpose, and on the token path it leaves the phone for Google directly. |
 | **D4** | **Hand-roll the Live client** over `web_socket_channel`. `just_audio` is added too, for replay only. |
 | **D5** | **ffmpeg is available on the owner's machine**, so T20's generator encodes the fixed lines to AAC directly and the ~360 KB budget holds. |
-| **D6** | **Transport fallback is B1** (the streaming relay) if T01 finds no ephemeral tokens, chosen to preserve "speech starts after about a second". **B3** (batch via Live) is the recorded graceful degradation if Supabase Edge will not sustain a WebSocket upgrade, or if egress bites. See "The transport fork" below. |
+| **D6** | **Transport fallback is B1** (the streaming relay) if T01 finds no ephemeral tokens, chosen to preserve "speech starts after about a second". **B3** (batch via Live) is the recorded graceful degradation if Supabase Edge will not sustain a WebSocket upgrade, or if egress bites. See "The transport fork" below. **Outcome (T01): not needed — Path A works on the free tier**, so there is no Supabase egress to budget. B1 stays viable if it is ever wanted: a per-worker Edge runtime held a socket 15 s and round-tripped a 3.6 MB burst. |
 | **D7** | **No seeking while the audio is still streaming.** Taken as recommended rather than explicitly ruled on, so it is **flagged for F40 to confirm**: the user hears the paper from the top automatically, and full seek plus card-jumping appear once the file lands, ~12 s in. |
 
 ## What the spike handed over
@@ -104,11 +104,18 @@ in production without a second STT. Changing any of them reopens the gate.
 The API key can never ship inside the app, so the phone needs either a
 short-lived credential of its own or a server in front of it.
 
+**Path A is the chosen transport — T01 proved it on the free tier.** The rest of
+this section is kept as the reasoning behind the fallbacks, which still stand if
+Path A is ever withdrawn.
+
 **Path A — ephemeral token (preferred).** `POST /functions/v1/live-token`
 authenticates the Supabase anonymous user, checks `analysis_enabled` +
 `explain_enabled`, mints a token from the key in Supabase Secrets, and returns
 `{ token, expires_at }`. The phone opens
 `wss://…GenerativeService.BidiGenerateContentConstrained?access_token=…`.
+That endpoint name is load-bearing: the unconstrained `BidiGenerateContent`
+takes an API key and closes `1008` on a token. T01 found the shipped client
+sending tokens to the wrong one.
 
 Path A's advantage is not only that the key stays home: the audio goes **Google
 → phone directly**, costing **zero Supabase egress**. Every fallback ships
@@ -182,7 +189,7 @@ onward; T03 and T05–T07 are pure domain work and can proceed alongside T01.
 
 Both are gates. No client transport code is written until T02 is approved.
 
-- [ ] **T01** **GATE · re-run the spike and decide the transport.** Run
+- [x] **T01** **GATE · re-run the spike and decide the transport.** Run
       `supabase/tools/live-spike.ts` **on the owner's machine** (the dev
       sandboxes cannot reach Google). Answer, in writing: (a) does the free tier
       mint an ephemeral token from the minimal body; (b) which constraint field
@@ -191,6 +198,95 @@ Both are gates. No client transport code is written until T02 is approved.
       Supabase Edge Function sustain a WebSocket upgrade, and for how long** —
       which decides whether D6's B1 is even available. *Done when:* this file
       records all five answers and names the chosen transport.
+      > **DONE 2026-11-13. The transport is Path A — the ephemeral token.**
+      > Raw runs: `docs/features/F37-T01-spike-run.md` (a–d) and
+      > `docs/features/F37-T01-ws-probe-run.md` (e).
+      >
+      > **(a) Yes.** The minimal body (`uses`, `expireTime`,
+      > `newSessionExpireTime`) mints on the free tier — HTTP 200 on **both**
+      > `v1alpha` and `v1beta`. No paid tier, no allow-list, no extra field.
+      >
+      > **(b) None of the six.** `liveConnectConstraints`,
+      > `bidiGenerateContentSetup`, `liveConnectConfig`, `liveConstrainedSetup`,
+      > `config` and `setup` are each rejected 400 "unknown field". The token
+      > therefore ships **unconstrained** — acceptable, and recorded as such:
+      > it is single-use (`uses: 1`), it dies two minutes after minting
+      > (`newSessionExpireTime`), and it only ever reaches the phone that asked
+      > for it over an authenticated call. Re-probe if Google documents the
+      > field; until then this is a finding, not a blocker.
+      >
+      > **(c) No — on either endpoint or version.** `speechConfig` is refused
+      > with `1007 … Unknown name "speechConfig" at 'setup'` on v1alpha and
+      > v1beta, unconstrained and constrained alike, with `languageCode` alone
+      > and with a named voice. **F37 takes the service's default voice.** It
+      > reads Egyptian Arabic correctly without being asked to, so this costs
+      > nothing today, but it means *the voice cannot be chosen or kept stable*
+      > — if Google changes the default, the app's voice changes with it, and
+      > there is no setting to pin it. Anything in F38–F41 that assumes a
+      > choosable voice has to be re-planned.
+      >
+      > **(d) At least 4 concurrent, no rate-limit error.** Not pushed further:
+      > D2 already settled the quota row (RPM unlimited, TPM 1 M, RPD
+      > unlimited) and concurrency is not a differentiator between transports
+      > anyway — see "The transport fork".
+      >
+      > **(e) Yes — but only on a runtime that is not `oneshot`.** With
+      > `--policy=per_worker`: upgrade succeeded, the socket held **15.0 s** of
+      > paced streaming with **100 %** of bytes echoed, then round-tripped a
+      > **3.6 MB** burst — one paper's audio — without dropping. So **B1 stays
+      > available as the D6 fallback**, which is what this question was for.
+      >
+      > ### The correction that decided this task
+      >
+      > **The spike's own verdict on tokens was wrong, and it is the reason
+      > Path A looked dead.** `live-spike.ts` sent its ephemeral token to
+      > `…GenerativeService.BidiGenerateContent` and got
+      > `1008 Permission denied on the service`, which reads like "the free
+      > tier refuses tokens". It is not. Google keeps **two** Live services and
+      > each refuses the other's credential:
+      >
+      > | | `BidiGenerateContent` | `BidiGenerateContentConstrained` |
+      > |---|---|---|
+      > | API key | works | `1007 Missing or malformed auth token` |
+      > | ephemeral token | `1008 Permission denied` | **works** |
+      >
+      > Verified in both directions, on both API versions. A full read over the
+      > constrained endpoint with a minted token returned **0.0 % WER** and
+      > 1191 KiB of audio — Path A end to end, on the free tier.
+      >
+      > **This was a live bug in shipped T10 code.** `gemini-token-client.ts`
+      > built the unconstrained URL, so `live-token` would have handed every
+      > phone a URL that closes 1008 — after the single-use token was already
+      > spent. Nothing caught it: the handler test injects a canned minter, and
+      > no test covered the URL builder. Fixed, and
+      > `tests/unit/gemini-token-client.test.ts` now fails if the endpoint name
+      > regresses. `live-spike.ts` picks the endpoint from the credential too,
+      > so a re-run cannot repeat the wrong conclusion.
+      >
+      > ### Two traps for whoever touches this next
+      >
+      > 1. **`supabase functions serve` cannot test a WebSocket at all.** It
+      >    starts the runtime with `--policy=oneshot`, which kills the worker
+      >    the moment the handler returns — every socket dies ~10 ms after the
+      >    upgrade with "Unexpected EOF", no matter what the function does. The
+      >    first probe runs failed this way and it looked like Edge Functions
+      >    simply do not support WebSockets. They do. Test against a runtime
+      >    started with `--policy=per_worker`.
+      > 2. **Hitting the runtime directly skips Kong's path rewrite.** Kong
+      >    strips `/functions/v1`, so a direct container request is `/ws-echo`,
+      >    not `/functions/v1/ws-echo`, and the entrypoints are resolved
+      >    relative to the container's `/work/war2aty` working directory.
+      >
+      > **Still owed, and deliberately not blocking:** (e) was answered on the
+      > local emulator. Hosted Supabase may hold sockets for less. That only
+      > matters if B1 is ever reached, so re-probe staging **before** falling
+      > back, not now.
+      >
+      > The `ws-echo` function the probe needs is **deliberately not in the
+      > repo**, and neither is its `verify_jwt = false` entry: an
+      > unauthenticated echo server that someone's `deploy --all` puts on the
+      > hosted project is a free-tier bandwidth hole for no standing benefit.
+      > `ws-edge-probe.ts` carries the eight lines to recreate it.
 - [ ] **T02** `docs/API_CONTRACT.md` **§34** — the chosen transport's contract in
       §33's style: request and response shapes, the error-mapping table, the
       token's lifetime and single-use semantics (or the relay's frame protocol),
@@ -519,9 +615,10 @@ Both are gates. No client transport code is written until T02 is approved.
       `get-usage`'s shape, plus the Dart datasource behind
       `LiveSessionEndpoint`. *Done when:* 401, 429 and offline map to **distinct**
       `AppFailure`s and the Deno tests are green.
-      > **Built for Path A** (ephemeral token) — T01 hasn't run yet, but T08/T09
-      > set the precedent that Path A is the default, and the swap to B1 is one
-      > file by design. Server: `gemini-token-client.ts` mints a single-use
+      > **Built for Path A** (ephemeral token) — the bet T01 later confirmed,
+      > though it also found this file pointing at the wrong Live endpoint
+      > (see T01; fixed there, with a test). Server:
+      > `gemini-token-client.ts` mints a single-use
       > token (30 min TTL, 2 min session window, uses=1) from Google's
       > `auth_tokens` REST API; `live-token-handler.ts` gates on auth +
       > `analysisEnabled` + `explainEnabled`, then mints and returns
