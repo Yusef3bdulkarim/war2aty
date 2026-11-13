@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 13 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary) and T15 (encrypted audio store) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 14 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store) and T16 (just_audio replay) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -788,11 +788,65 @@ binary, with a small control `MethodChannel` beside it.
       > Gate: `dart format` clean, `flutter analyze` **0 errors** (20
       > pre-existing infos, none in a touched file), `flutter test` **3029
       > passed / 0 failed** (3014 + 15).
-- [ ] **T16** `just_audio` + `EncryptedM4aAudioSource`: a `StreamAudioSource`
+- [x] **T16** `just_audio` + `EncryptedM4aAudioSource`: a `StreamAudioSource`
       serving range requests from a **fully decrypted in-memory buffer**
       (AES-GCM concatenation forbids random-access decryption; 0.3 MB is fine).
       *Done when:* range requests and seek work off the buffer, with the
       decrypt-to-cache fallback documented if it misbehaves on a cheap device.
+      > **DONE 2026-11-13.** Two files under
+      > `lib/features/voice/data/services/`:
+      >
+      > **`EncryptedM4aAudioSource`** extends `StreamAudioSource` and serves
+      > arbitrary range requests from a fully decrypted in-memory `Uint8List`.
+      > AES-GCM concatenation forbids random-access decryption, so the entire
+      > ~0.3 MB audio is decrypted once and held in RAM — this is how seek works:
+      > `just_audio`'s platform player issues `request(start, end)` calls and
+      > the source serves the requested slice from the buffer, with no file I/O.
+      > Content type is `audio/mp4` (the standard MIME type for `.m4a`).
+      >
+      > **`JustAudioEncryptedPlayer`** wraps `just_audio`'s `AudioPlayer` and
+      > `EncryptedAudioStore`. `load(id)` decrypts the stored audio, creates an
+      > `EncryptedM4aAudioSource`, and feeds it to the platform player. Store
+      > failures (`FileStorageFailure`, `FileEncryptionFailure`) propagate
+      > unchanged; a platform player failure (e.g. `MissingPluginException` on
+      > a device that cannot initialise the audio pipeline) is caught and
+      > returned as `AudioPlaybackFailure`. The player is injectable
+      > (`AudioPlayer?` parameter) for testing.
+      >
+      > **Decrypt-to-cache fallback (documented, not built).** If in-memory
+      > playback causes issues on cheap devices — out-of-memory on a phone with
+      > < 1 GB free, or `just_audio`'s platform player failing to consume a
+      > `StreamAudioSource` on old Android versions — the alternative is:
+      > (1) write the decrypted bytes to a temp file in the app's cache
+      > directory, (2) use `AudioSource.file` instead of this source, (3) delete
+      > the temp file in `dispose()`. At 0.3 MB the window where plaintext sits
+      > on disk is brief and inside the app-private directory. Not built because
+      > the in-memory approach should work on any phone that runs the rest of the
+      > app — the owner's flagged risk (the "Risks" section) and this
+      > documentation satisfy T16's done-when for the fallback.
+      >
+      > **`StreamAudioSource` is marked `@experimental` by `just_audio`.**
+      > Suppressed with `// ignore_for_file: experimental_member_use` because
+      > there is no non-experimental API for serving audio from memory, and D4
+      > chose `just_audio` for replay.
+      >
+      > **Dependency added:** `just_audio: ^0.9.42` (replay only, as D4
+      > decided).
+      >
+      > 19 tests: 13 for `EncryptedM4aAudioSource` (full request, metadata,
+      > range with start only, range with start and end, content type,
+      > length getter, empty buffer, single byte, zero-length range, single
+      > stream event, multiple sequential requests, tail request, 0.3 MB seek)
+      > and 6 for `JustAudioEncryptedPlayer` (isLoaded initial, store
+      > FileStorageFailure propagation, store FileEncryptionFailure propagation,
+      > platform failure → AudioPlaybackFailure, dispose resets isLoaded, id
+      > forwarded to store). The player test mocks `just_audio`'s platform
+      > channels (`com.ryanheise.just_audio.methods` global + per-player) to
+      > exercise the full load-and-fail path without a device.
+      >
+      > Gate: `dart format` clean, `flutter analyze` **0 errors / 0 warnings**
+      > (20 pre-existing infos, none in a touched file), `flutter test` **3048
+      > passed / 0 failed** (3029 + 19).
 
 ### Phase F — the spine
 
