@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 8 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource) and T12 (AAC encoder) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. T06 can proceed meanwhile. **T04 left two carry-forwards for F44** — see its note.
+- **Progress:** 9 / 21 — T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource) and T12 (AAC encoder) done. T01 is with the owner: it runs on his machine, since the dev sandboxes cannot reach Google. **T04 left two carry-forwards for F44** — see its note.
 
 ## Why this feature exists
 
@@ -349,10 +349,41 @@ Both are gates. No client transport code is written until T02 is approved.
       >
       > Gate: `flutter analyze` 0 errors, `flutter test` **2871 passed /
       > 0 failed** (2851 + 20).
-- [ ] **T06** `BuildVoiceTurnText` — segments → one turn plus per-segment
+- [x] **T06** `BuildVoiceTurnText` — segments → one turn plus per-segment
       character offsets, with segments separated by a blank line and a full stop
       so Live actually pauses between them (which T14 depends on). *Done when:* a
       six-card page yields exact per-segment offsets.
+      > **DONE 2026-11-13.** One file:
+      > `lib/features/voice/domain/usecases/build_voice_turn_text.dart` — a pure
+      > function, no dependencies beyond `VoiceSegment`. The result is
+      > `VoiceTurnText`: the assembled turn text and a list of
+      > `SegmentCharOffset` (half-open `start..end` into the text, one per input
+      > segment, in order).
+      >
+      > **The separator is `.\n\n`** — a full stop followed by a blank line.
+      > The full stop tells Live the sentence ended (so it pauses), and the blank
+      > line gives a visual break. Together they produce the consistent gap T14's
+      > silence detector will look for. The separator sits *between* segments
+      > only — the last segment has no trailing stop, so Live does not add a
+      > spurious pause before `turnComplete`.
+      >
+      > **Offsets are character-level, not byte-level**, because the text travels
+      > as a JSON string and Gemini counts characters. Each offset extracts its
+      > segment's original text via `text.substring(start, end)` — tested with a
+      > six-card page whose every offset round-trips.
+      >
+      > **Privacy.** `VoiceTurnText.toString()` reports length and segment count,
+      > never the text (CLAUDE.md §7). Asserted.
+      >
+      > 11 tests: empty input, single segment (no separator), two segments
+      > (separator present), six-card page with exact round-tripping offsets,
+      > separator structure (full stop, blank line), whitespace preservation,
+      > empty-text segments (zero-length offsets), total length arithmetic,
+      > toString privacy, and SegmentCharOffset equality/hashCode.
+      >
+      > Gate: `dart format` clean, `flutter analyze` **0 errors** (20
+      > pre-existing infos, none in a touched file), `flutter test` **2962
+      > passed / 0 failed** (2951 + 11).
 - [x] **T07** `AlignSegmentsToAudio` — anchor only on frames carrying **both**
       audio and transcript, forward-only LCS over normalised words, interpolate
       between anchors, and fall back to a proportional span
