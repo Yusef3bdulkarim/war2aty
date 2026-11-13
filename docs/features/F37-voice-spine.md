@@ -1324,7 +1324,7 @@ binary, with a small control `MethodChannel` beside it.
       > cards keeps the highlight the user is looking at, and no screen has to
       > remember to implement that rule.
       >
-      > **Two holes the review found and this task closed:**
+      > **Three holes the reviews found and this task closed:**
       >
       > 1. **A pause lost to its own position event.** A control is two turns
       >    long — ask the tier, then say so — and the first cut of this wrote
@@ -1346,13 +1346,33 @@ binary, with a small control `MethodChannel` beside it.
       >    when the load answers; the decoder is let go, unless a replay that
       >    started since has taken the player — in which case silencing it would
       >    have been the next bug. Two tests.
+      > 3. **A finished replay could not be played again.** Raised by
+      >    `@code-reviewer`. A replay that ran to its end emitted
+      >    `VoiceReplayFinished` and the cubit drew it as paused — correctly —
+      >    but `ReplaySavedAudio` still thought it was playing, so `resume()`
+      >    refused and the play button on screen did **nothing**: a user who
+      >    heard their bill and wanted the amount again had no way back except
+      >    leaving the screen. A reading that reached its own end is now
+      >    recorded as held. The reviewer's one-liner (`paused = true`) was not
+      >    enough on its own: the player is sitting on the last frame, so
+      >    `play()` there is a voice the state claims is speaking and nobody can
+      >    hear — so a finished reading also records `atEnd`, and resuming one
+      >    reads the paper **again from the top**, while dragging back into it
+      >    first clears that and carries on from the finger. Four tests, all of
+      >    which fail against the old listener.
+      >
+      > Also from that review, and left alone deliberately: `VoiceReadOutcome`
+      > has no `==`, so two identical `VoicePlaybackReadFinished` states compare
+      > unequal and `Cubit` cannot de-duplicate them. It is emitted exactly once
+      > per read, so nothing manifests; it is T17's entity and T19 is not the
+      > place to change it. **Worth fixing when F38 starts reading outcomes.**
       >
       > **Privacy.** Nothing is logged anywhere in the phase: the cubit takes
       > no log sink, the segments pass straight through to the use case, and
       > the state is positions, ids and booleans. A test asserts no emitted
       > *state*'s `toString()` contains a word of the page (CLAUDE.md §7).
       >
-      > 78 tests. **40** on the cubit, driven through the **real** use cases
+      > 82 tests. **41** on the cubit, driven through the **real** use cases
       > over fake services the way T21 will wire them — what this cubit *is* is
       > the translation of two unlike readings into one state, so faking the
       > ladder would have tested the translation against a fiction of itself:
@@ -1363,12 +1383,13 @@ binary, with a small control `MethodChannel` beside it.
       > a read that finished while a pause was in flight, the phase change with
       > the read's own spans, a saved paper opened fresh with its own, seek
       > refused while streaming, card-jumping, a finished replay still
-      > seekable, stop, close, and the privacy assertion. **28** on
-      > `ReplaySavedAudio` (load, the unknown length, both store failures, a
-      > player that refuses to start, positions into cards, the end, the
-      > clamps, supersession, cancellation, and the two decrypt-window cases)
-      > and **10** added to T17's own file for the pause path, the drain, and a
-      > read that fell to the device dropping the pause with it.
+      > seekable, a finished replay played again, stop, close, and the privacy
+      > assertion. **31** on `ReplaySavedAudio` (load, the unknown length, both
+      > store failures, a player that refuses to start, positions into cards,
+      > the end, the clamps, supersession, cancellation, the two
+      > decrypt-window cases, and the three on a reading that reached its own
+      > end) and **10** added to T17's own file for the pause path, the drain,
+      > and a read that fell to the device dropping the pause with it.
       > `FakeSavedAudioPlayer` is in `test/support/fakes.dart` because both new
       > files drive it.
       >
@@ -1377,7 +1398,7 @@ binary, with a small control `MethodChannel` beside it.
       >
       > Gate: `dart format .` **0 changed** (790 files), `flutter analyze`
       > **0 errors / 0 warnings** (21 infos, none in a touched file),
-      > `flutter test` **3194 passed / 0 failed** (3116 + 78).
+      > `flutter test` **3198 passed / 0 failed** (3116 + 82).
 
 ### Phase G — fixed lines and the gate
 

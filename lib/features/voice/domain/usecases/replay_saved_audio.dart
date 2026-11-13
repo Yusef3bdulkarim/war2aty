@@ -73,10 +73,21 @@ final class ReplaySavedAudio {
   }
 
   /// Resumes a replay [pause] paused, and answers whether it is now playing.
+  ///
+  /// A reading that ran to its end counts as paused — there is nothing left to
+  /// play and the screen offers the same button — so resuming one reads the
+  /// paper **again from the top**: the player is sitting on the last frame,
+  /// and playing from there would be a voice the state claims is speaking and
+  /// the user cannot hear. Dragging back into the reading first clears that,
+  /// and then resuming carries on from wherever the finger left it.
   Future<bool> resume() async {
     final replay = _current;
     if (replay == null || !replay.paused) return false;
     replay.paused = false;
+    if (replay.atEnd) {
+      replay.atEnd = false;
+      await _player.seek(Duration.zero);
+    }
     await _player.play();
     return true;
   }
@@ -96,6 +107,9 @@ final class ReplaySavedAudio {
       target = replay.duration;
     }
     await _player.seek(target);
+    // Back inside the reading: resuming now carries on from here rather than
+    // starting the paper over.
+    replay.atEnd = false;
     return true;
   }
 
@@ -145,8 +159,13 @@ final class ReplaySavedAudio {
       );
     });
     replay.completions = _player.completions.listen((_) {
-      // The stream stays open: the audio is still loaded, and a user who hears
-      // their paper to the end may well drag back to the bit they missed.
+      // A reading that reached its own end is held, not over: the audio stays
+      // loaded, and a user who heard their paper through may well drag back to
+      // the bit they missed. Recorded as paused so [resume] has something to
+      // answer — without this, the screen draws a play button on a replay the
+      // use case thinks is still playing, and pressing it does nothing.
+      replay.paused = true;
+      replay.atEnd = true;
       if (!out.isClosed) out.add(const VoiceReplayFinished());
     });
 
@@ -177,13 +196,20 @@ final class ReplaySavedAudio {
   Future<void> _release(_Replay replay) async {
     final holdsPlayer = identical(_current, replay);
     if (holdsPlayer) _current = null;
+    // Separately, so a throw from one does not leave the other listening to a
+    // player that has stopped. Neither shipping implementation throws today;
+    // a future one on iOS would have found this.
+    await _cancelQuietly(replay.positions);
+    await _cancelQuietly(replay.completions);
+    if (holdsPlayer) await _stopQuietly();
+  }
+
+  Future<void> _cancelQuietly(StreamSubscription<void>? subscription) async {
     try {
-      await replay.positions?.cancel();
-      await replay.completions?.cancel();
+      await subscription?.cancel();
     } on Object {
       // Nothing left to recover, and nothing in reach worth logging.
     }
-    if (holdsPlayer) await _stopQuietly();
   }
 
   /// Stops the player, absorbing a throw: every caller is already past
@@ -207,7 +233,16 @@ final class _Replay {
   /// every seek is clamped into. Zero until the load answers.
   Duration duration = Duration.zero;
 
+  /// Whether the reading is being held — which a reading that reached its own
+  /// end is, since there is nothing left for it to play.
   bool paused = false;
+
+  /// Whether the player is sitting on the last frame.
+  ///
+  /// The difference between the two ways a replay can be stopped: one the user
+  /// asked for mid-paper, which carries on where it was, and one the audio
+  /// reached by itself, which has to start over.
+  bool atEnd = false;
 
   /// Whether the listener left. Set before the load answers, in the window
   /// where there is nothing yet to release.

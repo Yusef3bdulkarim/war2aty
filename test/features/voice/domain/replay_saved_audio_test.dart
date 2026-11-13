@@ -220,6 +220,43 @@ void main() {
       expect(player.plays, 1);
     });
 
+    test('a reading that reached its end counts as held', () async {
+      await start();
+
+      player.finish();
+      await settle();
+
+      // Not "already playing": the screen is drawing a play button, and it has
+      // to do something.
+      expect(await replay.pause(), isFalse);
+      expect(await replay.resume(), isTrue);
+    });
+
+    test('resuming a finished reading starts the paper over', () async {
+      await start();
+      player.finish();
+      await settle();
+
+      await replay.resume();
+
+      // The player was sitting on the last frame; playing from there would be
+      // a voice the state claims is speaking and nobody can hear.
+      expect(player.seeks, [Duration.zero]);
+      expect(player.plays, 2);
+    });
+
+    test('dragging back first resumes from there, not from the top', () async {
+      await start();
+      player.finish();
+      await settle();
+
+      await replay.seek(const Duration(seconds: 8));
+      await replay.resume();
+
+      expect(player.seeks, [const Duration(seconds: 8)]);
+      expect(player.plays, 2);
+    });
+
     test('nothing to pause before a replay has started', () async {
       expect(await replay.pause(), isFalse);
       expect(await replay.resume(), isFalse);

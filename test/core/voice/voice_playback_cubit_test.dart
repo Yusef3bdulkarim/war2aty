@@ -462,6 +462,19 @@ void main() {
       },
     );
 
+    test('a finished replay can be played again', () async {
+      await cubit.replay(audioId: 'old-paper');
+      await settle();
+      player.finish();
+      await settle();
+
+      await cubit.resume();
+
+      // The button the finished state draws actually does something.
+      expect(player.plays, 2);
+      expect((cubit.state as VoicePlaybackFile).isPaused, isFalse);
+    });
+
     test('seek moves the player, not the state', () async {
       await cubit.replay(audioId: 'old-paper');
       await settle();
