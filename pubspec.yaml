@@ -108,6 +108,12 @@ flutter:
     # Canned analyze-document responses for the mock datasource (F05-T08/T09).
     # Used to build the result screen before Groq is wired up.
     - assets/fixtures/analysis/
+    # The fixed spoken UI lines (F37-T20), ~217 KB. Bundled rather than spoken
+    # on demand because each one is needed in the state that makes speaking it
+    # impossible: the offline line with no connection, the no-Arabic-voice line
+    # with no voice installed. `voice_line_test` holds this directory and
+    # `VoiceLine` to parity in both directions.
+    - assets/voice_lines/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

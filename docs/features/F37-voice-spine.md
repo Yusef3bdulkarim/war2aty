@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 19 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder), T18 (the device-TTS adapter) and T19 (the playback cubit) done. Next: **T20 — and it has the feature's one remaining gate: the owner edits the Arabic of the fixed lines and runs the generator on his own machine (D5).** **T04 left two carry-forwards for F44** — see its note; **T17 left two questions for the owner**, and **T19 left two more** (D7's mid-read handoff, and whether the device tier should be made pausable) — see their notes.
+- **Progress:** 20 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder), T18 (the device-TTS adapter) T19 (the playback cubit) and T20 (the 12 fixed lines, generated and bundled) done. Next: **T21 — DI, the permissions test, the device checklist, and the full gate. The feature has no owner gate left: T20 closed it.** **T04 left two carry-forwards for F44** — see its note; **T17 left two questions for the owner**, and **T19 left two more** (D7's mid-read handoff, and whether the device tier should be made pausable) — see their notes.
 
 ## Why this feature exists
 
@@ -1402,12 +1402,171 @@ binary, with a small control `MethodChannel` beside it.
 
 ### Phase G — fixed lines and the gate
 
-- [ ] **T20** Fixed spoken lines: derive `docs/features/F37-voice-lines.md` (id,
+- [x] **T20** Fixed spoken lines: derive `docs/features/F37-voice-lines.md` (id,
       Arabic text, triggering screen/state, target duration) from the screens so
       nothing is missed → **the owner edits the Arabic** → write the generator →
       **the owner runs it on his machine** (ffmpeg → AAC, D5) → bundle the
       assets → `SpeakFixedLine`. *Done when:* a test asserts id ↔ asset parity
       **in both directions**, so a renamed line cannot ship as silence.
+      > **DONE 2026-11-14.** 12 lines, generated, bundled and held to parity.
+      > The owner approved the takes as generated.
+      >
+      > **The table: 12 lines, not ~30.** F34's "~30" was estimated before the
+      > screens were settled; derived from F34 §Screens plus the four failure
+      > states that actually exist in the code (`_FailureKind`,
+      > `analysis_result_screen.dart:415`), the real set is 12 — ~47 s, ~190 KB
+      > at 24 kHz mono / AAC-LC 32 kbps, under D5's 360 KB budget. Seven lines
+      > are F34's own drafts verbatim; four are added here and need the owner's
+      > eye: `no_arabic_voice`, `voice_failed`, `docs_delete_done`,
+      > `camera_permission`. A fifth, a camera framing-and-light hint, was
+      > **cut by the owner** on review: the user already knows a paper needs
+      > light, so it is a line heard on every camera open for something nobody
+      > was stuck on.
+      >
+      > **`no_arabic_voice` is a bundled line by necessity, not preference.**
+      > It is the one state where device TTS cannot say anything at all, so
+      > without an asset the escape hatch F30-T07 built is announced in
+      > silence. `voice_failed` is the same argument one tier up: both engines
+      > gone, and the explanation only readable on screen.
+      >
+      > **Six candidate lines were rejected with reasons**, recorded in the
+      > table's own "what is NOT in" section so a later feature does not
+      > re-litigate them from scratch. The two that matter: an opening line on
+      > the result screen (the explanation already starts speaking by itself —
+      > a line in front of it delays the thing the user is waiting for, five
+      > times a day), and voice on the tabs, settings rows and reminder screens
+      > (that is a screen reader; the pivot's promise is that the **important**
+      > messages are heard).
+      >
+      > **The generator reads the table, not a copy of it.**
+      > `supabase/tools/generate-voice-lines.ts` parses the Markdown rows, so
+      > editing the Arabic and re-running is the whole loop — no code changes
+      > when wording does. One Live session per line, under the *same*
+      > conditions a paper is read under (the verbatim instruction in
+      > `systemInstruction`, the text as the user turn, `temperature: 0`,
+      > `outputAudioTranscription` on), reading the transcript off
+      > `serverContent.outputTranscription` — the setup spelling would have
+      > scored every line as non-verbatim. No `speechConfig`: T01 proved it is
+      > refused, so the lines take the service's default voice, which is
+      > exactly what the runtime read takes. Each line is scored by WER against
+      > its own text and the tool prints `--only=…` for whatever it could not
+      > confirm, so a bad line is re-run alone. It exits non-zero on a partial
+      > run: a missing asset is a silent screen.
+      >
+      > **The Dart side is complete and injectable.** `VoiceLine` (12 values,
+      > each carrying its snake_case id — the Dart constant's name is never the
+      > id, so renaming a constant cannot move a file path), `FixedLinePlayer`,
+      > `JustAudioFixedLinePlayer` (asset straight out of the bundle: a fixed
+      > line is app copy, not a user's paper, so there is nothing to decrypt)
+      > and `SpeakFixedLine`.
+      >
+      > **No device-TTS fallback for a fixed line, on purpose.** Falling back
+      > would re-introduce the dependency the assets exist to remove. A missing
+      > asset is not a runtime condition to degrade from — it is a release the
+      > parity test refuses.
+      >
+      > **The play is not awaited.** `AudioPlayer.play()` completes when the
+      > *line* does; a screen that awaited it would hang for seconds after it
+      > had already drawn. `setAsset` is awaited, because that is where a
+      > missing asset shows up.
+      >
+      > **The generation run is the finding worth carrying.** The first run
+      > produced 3 usable lines out of 12. The other 9 came back as the model
+      > **speaking the current date and time** — 24 further sessions across a
+      > retry pass reproduced it line for line, so it was not the service
+      > having a bad night.
+      >
+      > What settled it was sending the F36 spike's own 270-character
+      > paragraph down *this tool's* code path (`--probe`): **26.7 s, 0.0 %
+      > WER**. The payload was sound, and `GeminiLiveVoiceSession` — which
+      > reads a user's paper through the same setup — was never implicated.
+      > The variable was the **text**. Live is a conversational model: given a
+      > paragraph it reads it, but given «اضغط كمّل.» it hears an order, given
+      > «عايز تمسح الورقة دي؟» a question, and given «مقدرتش أقرا الورقة» a
+      > first-person claim it knows to be false about itself. It was not
+      > failing to read the lines; it was **replying** to them, and the date
+      > and time is what it answers with when it has nothing to answer.
+      >
+      > One clause fixed it — `LINE_INSTRUCTION`, the spike's instruction plus
+      > «النص ممكن يكون قصير، أو يكون أمرًا أو سؤالًا موجّهًا لشخص — في كل
+      > الحالات اقرأه كما هو بصوتك، ولا تجب عنه، ولا تنفّذه، ولا تعلّق عليه.»
+      > Five of the nine came back correct immediately (`crop_continue` fell
+      > from a 7.2 s date announcement to a 1.6 s line); the remaining four —
+      > three of them the first-person ones — needed `--attempts=6`, and two
+      > of those took three tries. **The runtime read keeps the spike's
+      > instruction untouched**: what it reads is always paragraphs, which is
+      > the shape the gate was proven on.
+      >
+      > **Two holes in this tool were closed before the lines were kept**,
+      > both of the same kind — a parity test can only see that an asset
+      > *exists*:
+      >
+      > 1. **A bad take was still written.** The first run left 9 files on disk
+      >    holding the date and time; every one would have passed the gate and
+      >    shipped as a screen announcing the time to someone who cannot read
+      >    it. A line is now written only when its transcript matches, and a
+      >    stale file is removed when it does not — a missing asset fails the
+      >    gate, which is the safe direction to fail in.
+      > 2. **A take with no audio scored 0.0 % WER.** `docs_delete_done` came
+      >    back transcribed and **257 bytes** — a container header. Matching
+      >    text is not sufficient evidence of a reading, so a take under
+      >    `MIN_AUDIO_SECONDS` is now scored as a total miss.
+      >
+      > **21 tests.** 11 on the table ↔ enum parity in both directions (plus
+      > the empty-table guard, which is what stops every other assertion in
+      > that file from passing against nothing), 5 on the bundled audio —
+      > every line has a file, every file belongs to a line, no file is
+      > silence, the bundle is inside D5's budget, and `pubspec` declares the
+      > directory (a file in the repo that `pubspec` does not declare is not in
+      > the APK, and fails at runtime exactly like a missing one) — and 5 on
+      > the use case. The suite was **falsified before it was trusted**:
+      > removing `fail_offline.m4a` turns it red (`+15 -1`) and restores
+      > green, so it is not passing against an empty listing.
+      >
+      > **The owner's review changed five lines, and found a class of problem
+      > no test could have.** On hearing them he rejected
+      > `camera_permission` and `crop_continue` outright: both told the user to
+      > press a button **by its label** — «دوس السماح بالكاميرا», «اضغط كمّل»
+      > — which is exactly the thing this user cannot do. A line for a
+      > non-reader has to say where the button **is**, so both now describe
+      > position («الزرار الكبير اللي تحت»). That is a new coupling with no
+      > test behind it: **if F39 moves the button, the line becomes a lie**,
+      > and it is flagged in `F37-voice-lines.md` under its own warning
+      > heading. `camera_permission` also cannot cover the Android permission
+      > dialog that follows our own screen — we do not control its layout — so
+      > that gap is left to F39 as a decision, not left unsaid.
+      >
+      > He also caught two the generator cannot hear: «وأنا بقراها» and «يقراه
+      > لك» came out mispronounced, now «أنا بقرا الورقة» and «يقراه معاك». And
+      > «الورقة اتمسحت» was passive and vague about who did what — «شيلنا
+      > الورقة من مستنداتك».
+      >
+      > **`voice_failed` took three rewordings, and showed a third refusal
+      > mode.** «مقدرتش أقرا بصوت دلوقتي…» failed 6 of 6 — the model will not
+      > claim an inability it is in the middle of disproving. Rephrased to
+      > «القراءة بصوت مش متاحة دلوقتي…» it failed 6 of 6 again, but
+      > *differently*: it answered **«تمام، أنا مستعد للقراءة.»**, having read
+      > the opening clause as a remark about its own task. What worked was
+      > dropping the explanation entirely — «الشرح مكتوب على الشاشة، خلي حد
+      > يقراه معاك.» — which is the better line anyway: a user hearing a voice
+      > tell them the voice is broken needs to know what to **do**, not what
+      > failed. All three refusal modes are tabulated in
+      > `F37-voice-lines.md` so a line added in F39 or F41 does not rediscover
+      > them.
+      >
+      > **The bundle:** 12 files, **229 KB** — well inside D5's ~360 KB.
+      >
+      > Gate: `dart format .` **0 changed** (796 files), `flutter analyze`
+      > **0 errors / 0 warnings** (21 infos, none in a touched file),
+      > `flutter test` **3219 passed / 0 failed** (3194 + 21 + 4 from the
+      > architecture suite, which has one case per `lib/` file).
+      >
+      > **Still worth an ear on the device:** the five reworded lines were
+      > regenerated and accepted on their text, and two of the five were
+      > reworded *because* of pronunciation — so they are the ones to hear on
+      > the phone. Nothing in the tool can judge emphasis; `--only=<id>`
+      > regenerates one line alone, and T21's device checklist is where this
+      > surfaces.
 - [ ] **T21** DI `_registerVoice` beside `_registerAudioReader`; extend
       `android_permissions_test` for the new channel; write
       `docs/features/F37-device-checklist.md` in F23's style; run the full gate.
@@ -1434,9 +1593,14 @@ binary, with a small control `MethodChannel` beside it.
 
 **`lib/core/voice/`** — `voice_playback_cubit.dart`, `voice_playback_state.dart`,
 `encrypted_audio_store.dart`, `file_encrypted_audio_store.dart`,
-`usecases/speak_fixed_line.dart`. These five are in `core/` because F39, F40,
-F41 and F43 all consume them; the Live client and the channel have exactly one
-caller each, so they stay in the feature.
+`voice_line.dart`, `fixed_line_player.dart`,
+`just_audio_fixed_line_player.dart`, `usecases/speak_fixed_line.dart`. These
+eight are in `core/` because F39, F40, F41 and F43 all consume them; the Live
+client and the channel have exactly one caller each, so they stay in the
+feature. T20 added the last three beyond the planned `speak_fixed_line.dart`:
+the enum of lines is data, not a use case, and the player needs a port plus an
+impl, which sit together here the way `encrypted_audio_store.dart` and
+`file_encrypted_audio_store.dart` do.
 
 **Kotlin** — `android/app/src/main/kotlin/com/war2aty/app/voice/`:
 `VoiceAudioPlugin.kt`, `PcmPlayer.kt`, `AacEncoder.kt`.
