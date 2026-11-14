@@ -23,23 +23,72 @@ class PcmPlayer(
     private val audioManager: AudioManager,
     private val onFocusLost: () -> Unit,
 ) {
+    companion object {
+        private const val FULL_VOLUME = 1.0f
+
+        /**
+         * The level a duck drops to — quiet enough that a notification tone
+         * is audible over it, loud enough that the sentence is still
+         * followable, which is the whole point of ducking rather than
+         * pausing.
+         */
+        private const val DUCKED_VOLUME = 0.3f
+    }
+
     private var audioTrack: AudioTrack? = null
     private var sampleRate: Int = 0
     @Volatile private var hasFocus = false
 
     private var focusRequest: Any? = null
 
+    /**
+     * Whether playback was paused by a *transient* focus loss, and so should
+     * resume by itself when focus comes back.
+     *
+     * A permanent [AudioManager.AUDIOFOCUS_LOSS] deliberately does not set
+     * this: the read does not restart on its own into a room the user has
+     * walked away from.
+     */
+    @Volatile private var pausedByTransientLoss = false
+
     private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
         when (change) {
-            AudioManager.AUDIOFOCUS_LOSS,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+            // Permanent: something else owns the speaker now. Stay paused even
+            // when focus returns — see [pausedByTransientLoss].
+            AudioManager.AUDIOFOCUS_LOSS -> {
                 hasFocus = false
+                pausedByTransientLoss = false
                 audioTrack?.pause()
                 onFocusLost()
             }
+            // Transient and silence-requiring (a call ringing, a navigation
+            // prompt): pause, and resume on GAIN. Before F37-T21's device pass
+            // this fell into the same branch as the two below and nothing ever
+            // called `play()` again, so the paper stopped mid-sentence for
+            // good.
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                hasFocus = false
+                pausedByTransientLoss = true
+                audioTrack?.pause()
+            }
+            // Duckable: the system is asking us to get quieter, not to stop —
+            // typically a notification tone. Owner's decision (2026-11-14):
+            // **keep reading at a lower volume**. Pausing here was the
+            // original behaviour and it meant any notification killed the
+            // read; and for a user whose only output is this voice, a gap is
+            // worse than a moment of competing sound.
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                audioTrack?.setVolume(DUCKED_VOLUME)
+            }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasFocus = true
+                // Undo a duck, whether or not we also paused: GAIN is the only
+                // signal that the volume may go back up.
+                audioTrack?.setVolume(FULL_VOLUME)
+                if (pausedByTransientLoss) {
+                    pausedByTransientLoss = false
+                    audioTrack?.play()
+                }
             }
         }
     }
@@ -138,6 +187,10 @@ class PcmPlayer(
         audioTrack = null
         sampleRate = 0
         hasFocus = false
+        // Otherwise a focus loss during the read that was just stopped would
+        // leave this set, and the *next* read's GAIN would auto-resume a
+        // reading the user never started.
+        pausedByTransientLoss = false
         track?.stop()
         track?.release()
         abandonFocus()

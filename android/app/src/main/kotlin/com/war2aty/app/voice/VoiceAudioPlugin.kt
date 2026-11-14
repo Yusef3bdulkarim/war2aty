@@ -28,8 +28,16 @@ class VoiceAudioPlugin(engine: FlutterEngine, context: Context) {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
     private val player = PcmPlayer(audioManager) {
-        // Audio focus lost — PcmPlayer already pauses the AudioTrack.
-        // The Dart side detects the stall through the position stream.
+        // Audio focus lost **permanently** — `PcmPlayer` has already paused
+        // the track and will not resume it, by design: a read does not start
+        // speaking again by itself once something else has taken the speaker
+        // for good.
+        //
+        // Nothing is forwarded to Dart. There is no focus handling on that
+        // side at all, and the position stream simply stops advancing, which
+        // is what the ladder's drain already treats as the end of the audio.
+        // Transient losses and ducks never reach here — the player handles
+        // both itself (F37-T21's device pass).
     }
 
     private val encoder = AacEncoder(context.cacheDir)

@@ -4,7 +4,7 @@
 - **Milestone:** post-F36, the third feature of the F34 pivot
 - **Depends on:** F35 (closed 2026-11-09). F36 is *in* the branch but F37 does not depend on its schema — see the scope fence.
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The spike's handover is [F36-live-spike.md](F36-live-spike.md).
-- **Progress:** 20 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder), T18 (the device-TTS adapter) T19 (the playback cubit) and T20 (the 12 fixed lines, generated and bundled) done. Next: **T21 — DI, the permissions test, the device checklist, and the full gate. The feature has no owner gate left: T20 closed it.** **T04 left two carry-forwards for F44** — see its note; **T17 left two questions for the owner**, and **T19 left two more** (D7's mid-read handoff, and whether the device tier should be made pausable) — see their notes.
+- **Progress:** 21 / 21 — T01 (transport gate), T02 (§34 contract), T03 (domain), T04 (privacy copy), T05 (verbatim judgement), T06 (turn text builder), T07 (alignment), T08 (frame DTOs), T09 (Live session), T10 (live-token endpoint + Dart datasource), T11 (AudioTrack PCM sink), T12 (AAC encoder), T13 (method channel bridge), T14 (silence detection — **rejected** as primary), T15 (encrypted audio store), T16 (just_audio replay), T17 (the tier ladder), T18 (the device-TTS adapter) T19 (the playback cubit) T20 (the 12 fixed lines, generated and bundled) and T21 (DI, the channel guard, the device checklist) done. **All 21 tasks closed.** Outstanding: the device pass is written but **blocked on having no trigger** — F37 builds no screen, so nothing can start a read; see T21's note for the three ways out, which is an owner decision. **T04 left two carry-forwards for F44** — see its note; **T17 left two questions for the owner**, and **T19 left two more** (D7's mid-read handoff, and whether the device tier should be made pausable) — see their notes.
 
 ## Why this feature exists
 
@@ -1567,11 +1567,263 @@ binary, with a small control `MethodChannel` beside it.
       > the phone. Nothing in the tool can judge emphasis; `--only=<id>`
       > regenerates one line alone, and T21's device checklist is where this
       > surfaces.
-- [ ] **T21** DI `_registerVoice` beside `_registerAudioReader`; extend
+- [x] **T21** DI `_registerVoice` beside `_registerAudioReader`; extend
       `android_permissions_test` for the new channel; write
       `docs/features/F37-device-checklist.md` in F23's style; run the full gate.
       *Done when:* `RECORD_AUDIO` is still asserted removed and the whole gate is
       green with counter lines read.
+      > **DONE 2026-11-14 — except the device pass, which has no trigger yet
+      > and is recorded as blocked rather than skipped.**
+      >
+      > **`_registerVoice` is its own module beside `_registerAudioReader`,**
+      > and the split is the point: that one serves the published 1.0.2 result
+      > screen, still shipping until F40 deletes it. The only thing shared is
+      > `ReadingQueue` — `DeviceVoiceReader` resolves to an adapter over that
+      > same singleton, not a second queue.
+      >
+      > **The task had to add two files below itself**, because "just wire it
+      > up" turned out to hide a shape mismatch:
+      >
+      > 1. **`TokenedLiveVoiceSession`.** `ReadPaperAloud` takes a
+      >    **synchronous** `LiveVoiceSession Function()` — a session is
+      >    single-use, so the retry needs a second one without awaiting
+      >    anything in the read's hot path. But the endpoint carries a token
+      >    minted per read (`uses=1`, T10), and minting is asynchronous. The
+      >    two alternatives were worse: making `openSession` return a `Future`
+      >    changes a use case with 60-odd tests behind it, and caching one
+      >    token hands the second read a spent credential. So the fetch moved
+      >    inside `start`, which is already async and already the place a
+      >    session reports that nothing will arrive. `format` deliberately
+      >    answers **without** a token, because `ReadPaperAloud` reads it to
+      >    reserve the speaker *before* opening the session — and the format is
+      >    a property of the service, not the credential.
+      > 2. **`connectWebSocket`.** The one production connector, in the data
+      >    layer so `web_socket_channel` stays out of `app/di`. It **awaits
+      >    `channel.ready`**, which is the whole value: `connect` returns
+      >    before the handshake, so a refused endpoint would otherwise surface
+      >    as a stream error *after* the session had reported success and the
+      >    read had told the user it was starting.
+      >
+      > **One registration is a correctness trap, and it has a test.** T11's
+      > sink and T12's encoder are **one** native object behind two
+      > interfaces — one `AudioTrack` + `MediaCodec` pair across the channel.
+      > Registered as two lazy singletons they would be two instances, opening
+      > two tracks that fight each other for audio focus, and the symptom would
+      > appear only on a device. Hence the concrete registration plus two
+      > aliases, and `expect(getIt<PcmAudioSink>(), same(getIt<AudioEncoder>()))`.
+      >
+      > **`test/app/voice_registration_test.dart` — 7 tests, and until F39
+      > lands it is the module's only consumer.** A `get_it` registration is a
+      > closure: it compiles whatever it holds, so a missing dependency, a
+      > wrong binding or a factory where the design needs one instance are all
+      > invisible until something resolves them. The pure registrations are
+      > resolved for real; the platform-bound ones are asserted *registered*,
+      > because building `just_audio` or the `flutter_tts` queue needs a
+      > platform. Falsified before being trusted: re-registering `AudioEncoder`
+      > as its own instance turns it red.
+      >
+      > **`android_permissions_test` grew two ways, 4 tests → 9.** The
+      > permission half is a named guard that **the voice spine added
+      > nothing** — F37 plays and encodes, it never records, and "the app
+      > speaks so it needs the microphone" is the obvious wrong assumption for
+      > whoever touches this next; the microphone is the one permission this
+      > app's privacy promise cannot survive asking for. The channel half is
+      > new and is the more valuable: a method channel is **a string on each
+      > side**, no compiler sees both languages, and a mismatch does not throw
+      > — the call reaches a channel with no handler, the paper is read in
+      > silence, and nothing reports anything. The test compares the literals
+      > in `VoiceAudioPlugin.kt` and
+      > `method_channel_live_audio_output.dart`, asserts `MainActivity`
+      > actually constructs the plugin, and compares the channel **sets** so a
+      > third channel added on one side only is caught too.
+      >
+      > **The device checklist, and the harness the owner chose to make it
+      > runnable.** `docs/features/F37-device-checklist.md` is 26 rows over six
+      > groups — the streamed read, an interrupted read, the device tier,
+      > offline replay, audio focus and a real incoming call, and the 12 fixed
+      > lines. But the scope fence meant **nothing in the app could start a
+      > read**: the spine ends at an injectable cubit, and F39/F40/F41 are what
+      > build it. Three ways out were put to the owner — defer the pass to F40,
+      > a dev-only harness, or new `integration_test/` infrastructure — and the
+      > owner chose the harness.
+      >
+      > **`lib/app/dev/voice_harness_screen.dart`** is therefore a deliberate
+      > hole in the fence, authorised and kept as small as it can be. It prints
+      > the playback state as plain text — `canSeek`, `canPause`, `isSpeaking`,
+      > the engine, the position — because those are the fields the checklist
+      > asks about and a designed UI would hide them. Pause and Seek stay
+      > **enabled while the state refuses them**, since rows C2 and D3 are
+      > about seeing the refusal. The canned paper is invented, so no real
+      > document is sent from here.
+      >
+      > **It is reached by asking for it, not by a link.**
+      > `--dart-define=VOICE_HARNESS=true` on a dev run makes it the router's
+      > initial location; without it there is no settings row, no menu and no
+      > product screen that mentions it. That shape was chosen over a dev-only
+      > Settings row precisely because the row would have meant three new
+      > imports in a **product** screen — a bigger hole than the thing it was
+      > opening. The harness path is also exempted from the first-run redirect,
+      > so the checklist can be run on a fresh install without completing
+      > onboarding first.
+      >
+      > **"Dev-only" is a claim, so it is enforced** —
+      > `voice_harness_guard_test.dart`, 4 tests: `createAppRouter` defaults
+      > the harness **off** (a caller that forgets the argument gets a router
+      > with no such path, not one quietly carrying it); the one real caller's
+      > condition is `isDev && bool.fromEnvironment(...)`, asserted as a shape
+      > so a refactor that drops the `&&` fails; and **nothing in `lib/`
+      > imports the harness except the router**. Falsified: removing `isDev`
+      > from the registration turns two of them red.
+      >
+      > The harness is deleted with F40's wiring, which replaces it with the
+      > real screen.
+      >
+      > ---
+      >
+      > ### What the device pass found: four defects, and why none of them
+      > ### could have been caught here
+      >
+      > **Live did not work at all.** Not "worked badly" — every read on the
+      > phone failed and fell to device TTS, while 3,235 unit tests were green
+      > and `live-token` answered 200. The user would have heard their paper in
+      > the phone's robotic voice and had no way to know anything was wrong,
+      > because something *did* speak. That is the failure this whole feature
+      > exists to avoid, and it was one `flutter run` away from shipping.
+      >
+      > **1 · Any notification stopped a read permanently.**
+      > `PcmPlayer`'s focus listener lumped `AUDIOFOCUS_LOSS`,
+      > `LOSS_TRANSIENT` and `LOSS_TRANSIENT_CAN_DUCK` into one branch that
+      > paused the `AudioTrack`, and `AUDIOFOCUS_GAIN` only set a flag — it
+      > never called `play()`. A notification tone therefore killed the read
+      > for good. Split three ways: a duck now **lowers the volume to 0.3 and
+      > keeps reading** (owner's choice — for a user whose only output is this
+      > voice, a gap is worse than a moment of competing sound), a transient
+      > loss pauses and resumes on GAIN, and a permanent loss stays paused. The
+      > flag is also cleared in `stop()`, or a focus loss during one read would
+      > have auto-started the *next* one.
+      >
+      > **2 · The model id was prefixed twice.** `live-token` returns
+      > `models/gemini-…` (§34: "prefixed; goes in the setup frame") and the
+      > session sent `'models/$_model'`, so Google received
+      > `models/models/gemini-…`. **The existing test asserted the doubling as
+      > the expected value** — it injected a bare `test-model` and expected
+      > `models/test-model`, which is why 22 tests passed over it. The fixture
+      > now carries a realistic prefixed id and the setup frame must pass it
+      > through unchanged.
+      >
+      > **3 · Live answered with the date and time instead of reading.** The
+      > runtime instruction was the spike's, and T20 had already met this
+      > refusal while generating the fixed lines and fixed it with one extra
+      > clause — but **deliberately did not apply it to the runtime**, on the
+      > reasoning that a paper is always paragraphs and paragraphs were the
+      > proven shape. The device pass disproved that: a real four-card,
+      > ~280-character explanation of an electricity bill came back spoken as
+      > «Saturday, November 14, 2026 at 9:41 PM UTC». Replaying the app's exact
+      > path from the host, the only variable being that clause, turned 449 KB
+      > of the wrong audio into 1,163 KB of the paper. The clause is now in
+      > `GeminiLiveVoiceSession` and asserted on its own line so deleting it as
+      > verbose fails loudly.
+      >
+      > **4 · Every incoming frame was silently dropped.** The root cause of
+      > the fallbacks. **Gemini Live sends binary frames**, which
+      > `web_socket_channel` delivers as `List<int>`, and the session did
+      > `jsonDecode(data as String)` inside a `try`/`catch` that `return`ed
+      > quietly. So on a real socket nothing was ever parsed: `setupComplete`
+      > never arrived, `start` waited out its timeout, and the ladder fell to
+      > the device. It survived every test because the fake channel sends
+      > `String`s — and the spike's own tool had a `readFrame()` helper written
+      > for exactly this, a lesson that never reached the client. The fake now
+      > **sends binary by default**, so a new test is realistic unless it asks
+      > otherwise; re-introducing the cast turns 10 tests red.
+      >
+      > **5 · Live sessions fail intermittently, about one attempt in four —
+      > OPEN, cause unknown.** Eleven of fourteen reads delivered a full
+      > 557k–612k frames; three delivered **zero** and fell to device TTS.
+      > `live-token` answered 200 every time, so the failure is in the Live
+      > session itself.
+      >
+      > | gap after the previous read | frames |
+      > |---|---|
+      > | 0.9 s | **0** |
+      > | 2.3 s | 602,880 |
+      > | 3.3 s | **0** |
+      > | 16 s / 50 s / 2 min | 557k–612k |
+      >
+      > **The obvious hypothesis is wrong.** The first two failures both
+      > followed a read by about a second, which looked like the service
+      > refusing a second session while the first was still open — a clean
+      > story with a sharp boundary. Then a read **2.3 s** after the previous
+      > one succeeded and a read **3.3 s** after one failed, which kills the
+      > rule. Session count in a window does not separate the cases either.
+      > Recorded here as what it is: intermittent, with no established cause,
+      > and the gap correlation suggestive at best.
+      >
+      > **Why it still matters.** The ladder does its job — the user always
+      > hears their paper — but one read in four arrives in the phone's
+      > robotic voice, which for a non-reader is the difference the whole
+      > feature exists to make. And `ReadPaperAloud`'s one retry for a
+      > non-verbatim read opens its second session immediately, so if the
+      > cause does turn out to be timing, that safety net is weaker than it
+      > looks.
+      >
+      > **What this needs first is not a fix but evidence.** The client
+      > discards the reason: `start` returns a bare `VoiceServiceFailure` and
+      > the socket's close code and reason are never recorded, which is
+      > exactly why four hours on a device could not name the cause. The next
+      > step is to log the close code and reason (codes only — no document
+      > content, §7), so the next occurrence identifies itself. Guessing at
+      > fixes — awaiting the socket's close, delaying the next session,
+      > retrying after a pause — all trade against "speech starts after about
+      > a second", which is the claim the transport was chosen for, and none
+      > of them should be spent on an unidentified cause.
+      >
+      > **The pattern worth keeping.** Three of the four fixed ones hid behind green
+      > tests, and two of those hid behind tests that were *actively wrong*:
+      > one asserted the defect as the expected value, the other injected a
+      > data shape the real service never sends. A test that fabricates its
+      > input proves the code handles the fabrication. Where F37's own
+      > testing notes say the socket is driven by "golden frames copied
+      > verbatim from the spike", that was true of the frames' **contents** and
+      > false of their **encoding**, and the encoding was the bug.
+      >
+      > **Observed and deliberately not fixed:** the turn text contains a
+      > double full stop («جنيه..») because `BuildVoiceTurnText` appends `.`
+      > to segments that already end in one. The service reads it correctly and
+      > verbatim verification strips punctuation, so it changes nothing
+      > audible; changing the separator would shift the character offsets T07
+      > and T18 are built on, which is a larger risk than a cosmetic artifact
+      > justifies. Noted here so it is a decision and not an oversight.
+      >
+      > **`@code-reviewer` found a sixth defect, in code written for T21
+      > itself.** `TokenedLiveVoiceSession.cancel()` delegated to
+      > `_inner?.cancel()` — and `_inner` is null until the token fetch
+      > returns, so **a cancel during the fetch did nothing at all**. The
+      > whole cancel path depends on it: `ReadPaperAloud.onCancel` ends its
+      > frame loop by *closing the session's stream*, and the loop itself never
+      > checks `read.cancelled`, so the paper went on being written to the
+      > speaker to the end. The user's stop was ignored, and the text was sent
+      > to the service after they had stopped it. The window is the fetch —
+      > **429–514 ms, measured in our own `live-token` logs** — which is
+      > exactly long enough to press play and change your mind. Fixed with a
+      > `_cancelled` flag set in `cancel()` and checked after the fetch
+      > returns, before the socket is built.
+      >
+      > The class had shipped with **no tests of its own**, which is the
+      > larger miss: it now has 11, and the one for this defect was falsified
+      > — removing the flag check turns two of them red. Two smaller points
+      > from the same review were taken: the first-run redirect's exemption for
+      > the harness path is now gated on the same flag that registers the
+      > route, so it cannot read as a release-build hole, and the class comment
+      > no longer claims the wrapper "adds no behaviour" when it enforces
+      > single use. The reviewer traced the `PcmPlayer` focus machine through
+      > every transition and found it sound, confirmed the harness cannot reach
+      > a release build, and found no §7 violation.
+      >
+      > Gate, re-run after the device pass's four fixes and the review's:
+      > `dart format .`
+      > **0 changed** (802 files), `flutter analyze` **0 errors / 0 warnings**
+      > (21 infos, none in a touched file), `flutter test`
+      > **3246 passed / 0 failed**.
 
 ## Files
 
@@ -1588,8 +1840,13 @@ binary, with a small control `MethodChannel` beside it.
 **`lib/features/voice/data/`** — `models/live_setup_dto.dart`,
 `live_server_frame_dto.dart`; `services/gemini_live_voice_session.dart`,
 `method_channel_live_audio_output.dart`, `just_audio_encrypted_player.dart`,
-`encrypted_m4a_audio_source.dart`, `reading_queue_voice_reader.dart`;
-`datasources/edge_function_live_token_data_source.dart`.
+`encrypted_m4a_audio_source.dart`, `reading_queue_voice_reader.dart`,
+`tokened_live_voice_session.dart`, `web_socket_connect.dart`;
+`datasources/edge_function_live_token_data_source.dart`. T21 added the last
+two services — see its note: one closes the sync/async mismatch between
+`openSession` and minting a per-read token, the other is the single production
+WebSocket connector, here rather than in `app/di` so `web_socket_channel` stays
+in the data layer.
 
 **`lib/core/voice/`** — `voice_playback_cubit.dart`, `voice_playback_state.dart`,
 `encrypted_audio_store.dart`, `file_encrypted_audio_store.dart`,
@@ -1601,6 +1858,12 @@ feature. T20 added the last three beyond the planned `speak_fixed_line.dart`:
 the enum of lines is data, not a use case, and the player needs a port plus an
 impl, which sit together here the way `encrypted_audio_store.dart` and
 `file_encrypted_audio_store.dart` do.
+
+**`lib/app/`** — `di/service_locator.dart`'s `_registerVoice`, and
+`dev/voice_harness_screen.dart` with its guarded route in
+`router/app_router.dart`. The harness is a **dev-only tool**, not part of the
+feature: see T21's note, and `test/app/voice_harness_guard_test.dart` for what
+keeps it out of a release build. F40 deletes it.
 
 **Kotlin** — `android/app/src/main/kotlin/com/war2aty/app/voice/`:
 `VoiceAudioPlugin.kt`, `PcmPlayer.kt`, `AacEncoder.kt`.
@@ -1658,3 +1921,33 @@ counter lines read; `RECORD_AUDIO` still asserted removed; a device pass on the
 RMX2001 covering a streamed read, an interrupted read, offline replay and an
 incoming call; `@code-reviewer` passed; and the fixed-line assets bundled with
 id ↔ asset parity enforced both ways.
+
+**Status 2026-11-14 — three of these are met, two are not, and the difference
+matters:**
+
+| Condition | State |
+|---|---|
+| 21 / 21 with findings inline | ✅ |
+| Full gate green, counters read | ✅ 799 files / 0 errors 0 warnings / 3231 passed |
+| `RECORD_AUDIO` still removed | ✅ and now also guarded by name for F37 |
+| Fixed lines bundled, parity both ways | ✅ 12 lines, 229 KB, falsified before trusted |
+| **Device pass on the RMX2001** | ✅ **run 2026-11-14/15 and accepted by the owner.** 20 rows pass, 2 partial, 7 not run (a real incoming call, removing the Arabic voice, and three rows that need F39/F40's screens). Row by row in `F37-device-checklist.md` |
+| **`@code-reviewer` passed** | ✅ after one fix — see below |
+
+**The pass found five defects; four are fixed, the fifth is open and
+accepted.** Live did not work on the phone at all before them — every read fell
+to device TTS while the suite was green. T21's note has each one.
+
+**Open, carried out of this feature with the owner's agreement:**
+
+- **Live sessions fail intermittently, about one in four** (defect 5). The
+  ladder covers it — the user always hears their paper — but one read in four
+  arrives in the phone's voice. Cause unidentified; the first step for whoever
+  takes it is to log the socket's close code, which the client currently
+  discards.
+- **A failed read leaves a zero-byte temp file in `cache/`.** No content, but
+  §7 asks for temp files to be cleaned up.
+- **Three checklist rows need screens F37 does not build** — the two fixed
+  lines that describe where a button is (F39 must honour or regenerate them),
+  and whether a fixed line should interrupt a paper being read (F40's call, now
+  with the mechanism documented).

@@ -90,6 +90,30 @@ void main() {
       }
     });
 
+    test('the voice spine added no permission (F37-T21)', () {
+      // F37 plays audio and encodes it; it never records. `AudioTrack`,
+      // `MediaCodec` and `just_audio` all need nothing declared, so the voice
+      // spine must leave this file exactly as it was — and `RECORD_AUDIO` in
+      // particular must stay *removed*, which the list above already asserts.
+      //
+      // This is here as a named guard rather than trusted to the list, because
+      // "the app speaks and records" is the obvious wrong assumption for
+      // someone adding a voice feature later, and the microphone is the one
+      // permission this app's privacy promise cannot survive asking for.
+      expect(
+        manifest,
+        isNot(contains('android.permission.MODIFY_AUDIO_SETTINGS')),
+        reason:
+            'audio focus for playback needs no permission; declaring this '
+            'would appear in the Play listing for nothing',
+      );
+      expect(
+        manifest.contains('android.permission.RECORD_AUDIO'),
+        isTrue,
+        reason: 'the removal directive itself must still be present',
+      );
+    });
+
     test('no permission is declared beyond the two lists', () {
       // Catches a new permission arriving without anyone deciding it should.
       final found = RegExp(
@@ -102,6 +126,83 @@ void main() {
         reason:
             'a permission appeared in the manifest that this guard does not '
             'know about — justify it and add it to `declared`, or remove it',
+      );
+    });
+  });
+
+  /// F37-T21: the voice channel's two ends agree, and something plugs it in.
+  ///
+  /// A method channel is a **string on each side**. Nothing checks that the two
+  /// match: no compiler sees both languages, and a mismatch does not throw —
+  /// the Dart call simply goes to a channel with no handler, so the paper is
+  /// read in silence and the only symptom is a voice that never speaks. The
+  /// same is true of forgetting to construct the plugin in `MainActivity`:
+  /// every name can be right and still nothing listens.
+  ///
+  /// So this reads both files and compares the literals. It belongs beside the
+  /// permission guard for the same reason that one exists — these are
+  /// cross-language facts that no unit test reaches and that only a device
+  /// would otherwise reveal.
+  group('the voice audio channel (F37-T21)', () {
+    final plugin = File(
+      'android/app/src/main/kotlin/com/war2aty/app/voice/VoiceAudioPlugin.kt',
+    ).readAsStringSync();
+    final mainActivity = File(
+      'android/app/src/main/kotlin/com/war2aty/app/MainActivity.kt',
+    ).readAsStringSync();
+    final dartSide = File(
+      'lib/features/voice/data/services/method_channel_live_audio_output.dart',
+    ).readAsStringSync();
+
+    /// Both ends name the same two channels: one for control, one for PCM.
+    const channels = [
+      'com.war2aty.app/voice_audio',
+      'com.war2aty.app/voice_audio_pcm',
+    ];
+
+    test('MainActivity constructs the plugin', () {
+      expect(
+        mainActivity,
+        contains('VoiceAudioPlugin(flutterEngine, this)'),
+        reason:
+            'without this line the channels have no handler and every read is '
+            'silent, with no error anywhere',
+      );
+    });
+
+    for (final channel in channels) {
+      test('"$channel" is named identically on both sides', () {
+        expect(
+          plugin,
+          contains('"$channel"'),
+          reason: 'the Kotlin side no longer serves this channel name',
+        );
+        expect(
+          dartSide,
+          contains("'$channel'"),
+          reason: 'the Dart side no longer calls this channel name',
+        );
+      });
+    }
+
+    test('neither side invents a third voice channel', () {
+      // A new channel on one side only is the same silent failure as a
+      // renamed one. Catching it needs the *set*, not each name.
+      final found = {
+        ...RegExp(
+          r'"(com\.war2aty\.app/voice[a-z_]*)"',
+        ).allMatches(plugin).map((m) => m.group(1)!),
+        ...RegExp(
+          r"'(com\.war2aty\.app/voice[a-z_]*)'",
+        ).allMatches(dartSide).map((m) => m.group(1)!),
+      };
+
+      expect(
+        found,
+        unorderedEquals(channels),
+        reason:
+            'a voice channel appeared on one side that this guard does not '
+            'know about — add it here and to the other side',
       );
     });
   });
