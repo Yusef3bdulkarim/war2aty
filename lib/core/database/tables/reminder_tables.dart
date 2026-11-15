@@ -2,40 +2,24 @@ import 'package:drift/drift.dart';
 
 import '../../reminders/reminder_alert_status.dart';
 import '../../reminders/reminder_status.dart';
-import 'document_tables.dart';
 
 /// A thing the user wants to be reminded about (F09).
 ///
-/// One row per reminder, either linked to a [Documents] row it was created
-/// from ([documentId] set) or entered by hand ([documentId] `null`). The
-/// times it fires live in [ReminderAlerts], a separate table, because a
-/// reminder can carry up to three of them (F09-T08) — the *event* below is
-/// singular, the *alerts* about it are not.
+/// One row per reminder. The times it fires live in [ReminderAlerts], a
+/// separate table, because a reminder can carry up to three of them
+/// (F09-T08) — the *event* below is singular, the *alerts* about it are not.
 ///
-/// Deleting the linked document cascades onto this row: once F09-T10's
-/// scheduler cancels its OS-side alerts (see `DriftDocumentsRepository`'s
-/// document-delete path), there is nothing left worth keeping a reminder for
-/// — the paper it was about is gone. A manual reminder has no such row to
-/// cascade from and survives its (non-existent) link forever.
-///
-/// No `document_title_snapshot` column, unlike the plan's original sketch:
-/// the cascade above means a reminder can never outlive the document it
-/// points at, so the live title is always one join away and a copy would
-/// only be one more place for it to go stale.
+/// Every reminder is manual as of schema v4 (F38-D4): the link to a saved
+/// document that [Reminders] once carried (`document_id`, F09-T03) is gone —
+/// dropped by the v4 migration along with every reminder it still pointed at.
+/// [isManual] stays regardless (F38-D5): it drives whether
+/// `ReminderFormState` requires a time, which has nothing to do with where a
+/// reminder came from.
 @DataClassName('ReminderRow')
 @TableIndex(name: 'reminders_event_date', columns: {#eventDate})
 @TableIndex(name: 'reminders_status', columns: {#status})
-@TableIndex(name: 'reminders_document', columns: {#documentId})
 class Reminders extends Table {
   TextColumn get id => text()();
-
-  /// The saved document this was created from, or `null` for a manual
-  /// reminder (F09-T04).
-  TextColumn get documentId => text().nullable().references(
-    Documents,
-    #id,
-    onDelete: KeyAction.cascade,
-  )();
 
   /// Editable by the user; prefilled from the document's title when created
   /// from a date (F09-T03).

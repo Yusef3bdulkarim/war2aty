@@ -71,7 +71,6 @@ final class DriftRemindersRepository implements RemindersRepository {
       await _dao.saveReminder(
         reminderWriteOf(
           id: id,
-          documentId: documentId,
           title: title,
           description: description,
           eventDate: eventDate,
@@ -169,18 +168,6 @@ final class DriftRemindersRepository implements RemindersRepository {
   Future<Result<List<Reminder>, AppFailure>> pendingReminders() async {
     try {
       final bundles = await _dao.pendingBundles();
-      return Ok(bundles.map(reminderOf).toList());
-    } on Object {
-      return const Err(LocalDatabaseFailure());
-    }
-  }
-
-  @override
-  Future<Result<List<Reminder>, AppFailure>> remindersForDocument(
-    String documentId,
-  ) async {
-    try {
-      final bundles = await _dao.bundlesForDocument(documentId);
       return Ok(bundles.map(reminderOf).toList());
     } on Object {
       return const Err(LocalDatabaseFailure());

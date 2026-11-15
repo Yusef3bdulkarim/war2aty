@@ -8,9 +8,8 @@ import 'reminder_alert_status.dart';
 /// Lives in `core/` for the same reason `DocumentsRepository` does: more than
 /// one feature reaches it — the reminders screens read and write through it,
 /// while `ReminderScheduler` (F09-T10) reads [allReminders] to keep the OS
-/// side in step, and `DriftDocumentsRepository` reads [remindersForDocument]
-/// before a document delete cascades onto its reminder. Nothing here ever
-/// reaches the network — a reminder stays on the phone (CLAUDE.md §7).
+/// side in step. Nothing here ever reaches the network — a reminder stays on
+/// the phone (CLAUDE.md §7).
 abstract interface class RemindersRepository {
   /// Watches every reminder, oldest event first. The reminders list (F09-T11)
   /// buckets these into القادمة/الفائتة/المكتملة itself — [Reminder.status]
@@ -71,12 +70,6 @@ abstract interface class RemindersRepository {
   /// Every reminder still pending, for [ReminderScheduler.reconcile]
   /// (F09-T13) to check against what the OS actually has scheduled.
   Future<Result<List<Reminder>, AppFailure>> pendingReminders();
-
-  /// Every reminder linked to [documentId] — read before the document is
-  /// deleted, while the alert ids/notification ids are still there to cancel.
-  Future<Result<List<Reminder>, AppFailure>> remindersForDocument(
-    String documentId,
-  );
 
   /// Records what the scheduler learned about one alert — scheduled, failed,
   /// or (best-effort, on reconcile) delivered. Bookkeeping only: nothing in
