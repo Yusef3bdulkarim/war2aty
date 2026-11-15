@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 6 / 12
+- **Progress:** 7 / 12
 
 ## Why this feature exists
 
@@ -338,7 +338,7 @@ any order. T05 gates T06–T09.
       dead code — `editing.isManual` is always `true` — left in place as this
       task named nothing in that file beyond the linked-document row.
 
-- [ ] **T07** `PapersDao`, `paper_read_mapper`, `paper_write_mapper`,
+- [x] **T07** `PapersDao`, `paper_read_mapper`, `paper_write_mapper`,
       `PapersRepository` (interface, `core/papers/`) and
       `DriftPapersRepository`. Reads: `watchPapers()` (the whole list — F41
       splits it), `watchPaper(id)`. Writes: `insertPaper`, `recordReading`,
@@ -350,6 +350,42 @@ any order. T05 gates T06–T09.
       paper takes its children **and** its encrypted image and audio, and a row
       whose stored enum no longer parses degrades rather than throwing (the rule
       `document_tables.dart` already states).
+
+      One file T08 was meant to own landed here instead:
+      `core/papers/paper_image_store.dart` (the `PaperImageStore` interface,
+      no file-backed implementation). `deletePaper`/`deleteAllPapers` have to
+      remove a paper's encrypted picture alongside its row, so
+      `DriftPapersRepository`'s constructor needs *something* typed to call —
+      and the interface is a two-minute mirror of `DocumentImageStore` (D13
+      already says `FilePaperImageStore` mirrors `FileDocumentImageStore`, so
+      its interface mirrors `DocumentImageStore`). T08 still owns
+      `FilePaperImageStore`, the only piece that touches a file.
+
+      `insertPaper` takes an **already-encrypted** `encryptedImagePath`
+      (nullable), not a plaintext source path — unlike
+      `DriftDocumentsRepository.saveWithImage`, which encrypts internally.
+      D9 assigns photo encryption to the `SavePaper` use case (T09), not to
+      this repository: T09's own done-when ("a `SavePaper` whose image
+      encryption fails still saves the row and reports the image's loss
+      separately") only works if the row write and the encryption are two
+      separate, independently-failable calls. `PaperImageStore` is therefore
+      wired into `DriftPapersRepository` for deletion only; T09 calls it
+      directly for encryption.
+
+      `Papers.status` is a `textEnum` column (T05), so it throws on an
+      unparseable value rather than degrading — the same trade-off
+      `Reminders.status` makes (`reminder_read_mapper.dart`'s own comment).
+      The enum this bullet's "degrades rather than throwing" line actually
+      describes is `voiceEngine`, which `paper_tables.dart` (T05) deliberately
+      left as plain text for exactly this reason; `paper_read_mapper.dart`
+      reads it back by name and falls back to `null` for a build that no
+      longer recognizes it, mirroring `document_read_mapper._enumOf`.
+
+      `watchPapers()`/`watchPaper(id)` return full `PaperBundle`s (paragraphs
+      and spans included), not a lightweight summary row — there is no
+      "RecentPaper" projection anywhere in this feature's file list, and a
+      paper's full content is modest (1–4 paragraphs, a handful of spans), so
+      one entity type is enough until F41's own needs say otherwise.
 
 - [ ] **T08** `PaperImageStore` + `FilePaperImageStore` →
       `paper_images/{id}/image.enc` (D13). Takes the cropped plaintext path,
