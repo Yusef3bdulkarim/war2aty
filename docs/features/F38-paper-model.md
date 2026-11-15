@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 7 / 12
+- **Progress:** 8 / 12
 
 ## Why this feature exists
 
@@ -387,13 +387,34 @@ any order. T05 gates T06–T09.
       paper's full content is modest (1–4 paragraphs, a handful of spans), so
       one entity type is enough until F41's own needs say otherwise.
 
-- [ ] **T08** `PaperImageStore` + `FilePaperImageStore` →
+- [x] **T08** `PaperImageStore` + `FilePaperImageStore` →
       `paper_images/{id}/image.enc` (D13). Takes the cropped plaintext path,
       encrypts, deletes the plaintext, answers the stored path. *Done when:*
       round-trip passes, a truncated file yields `FileEncryptionFailure` rather
       than a crash, the plaintext is gone after an `Ok` and **left in place**
       after an `Err`, and a throwing encryptor is classified instead of escaping
       (the `await`-inside-`try` trap F37-T15 names).
+
+      The interface half of this bullet was already done — T07 landed
+      `core/papers/paper_image_store.dart` early because
+      `DriftPapersRepository`'s constructor needed something typed to call for
+      delete. T08 is `FilePaperImageStore` only: a byte-for-byte mirror of
+      `FileDocumentImageStore` (D13) over `paper_images/{id}/image.enc`
+      instead of `documents/{id}/original.enc`, same `await`-inside-`try` on
+      `load` so a throwing `FileEncryptor.decrypt` is classified rather than
+      escaping (F37-T15's trap), same best-effort `on Object` swallow on
+      `delete`/`deleteAll`/the plaintext cleanup. No doc comments, unlike its
+      mirror — CLAUDE.md §B.11 bans them outright now, and this file is new
+      code, not an old one grandfathered in.
+
+      "A truncated file yields `FileEncryptionFailure`" is tested two ways,
+      because the bullet's own wording covers two different failures: a real
+      `AesGcmFileEncryptor` fed a sliced-down ciphertext (the actual truncated
+      case — `SecretBox.fromConcatenation` throws on the short nonce/tag, caught
+      inside `decrypt` itself, never reaching the store), and a fake encryptor
+      whose `decrypt` throws outright (the `await`-inside-`try` regression test,
+      mirroring `file_document_image_store_test.dart`'s own one). Both land on
+      a classified `Err`, never an unhandled exception.
 
 - [ ] **T09** The use cases, in `core/papers/usecases/`: `SavePaper` (row +
       photo, D9), `RecordPaperReading` (the `VoiceReadOutcome` and its spans
