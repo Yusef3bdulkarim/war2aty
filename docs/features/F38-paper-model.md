@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 2 / 12
+- **Progress:** 3 / 12
 
 ## Why this feature exists
 
@@ -193,7 +193,7 @@ any order. T05 gates T06–T09.
       calls the validator directly, exactly as `DefaultAnalysisRepository`
       calls its own.
 
-- [ ] **T03** `ExplainRequestDto` + `EdgeFunctionExplainRemoteDataSource` +
+- [x] **T03** `ExplainRequestDto` + `EdgeFunctionExplainRemoteDataSource` +
       `DefaultExplainRepository` + the `ExplainPaper` use case, under
       `lib/features/explain/`. The envelope copies `DefaultAnalysisRepository`'s
       (`installation_id` from `InstallationIdProvider`, `app_version`, a fresh
@@ -205,6 +205,28 @@ any order. T05 gates T06–T09.
       gateway body is `AnalysisServiceFailure` and not a crash (§31 rule 4),
       offline and too-slow are distinguishable, and **no test or log line
       carries the image or a card** (§7).
+
+      All twelve rows of the §33.7 table already land on an existing
+      `AppFailure` leaf through the shared `failureFromErrorBody` /
+      `failureFromDioException` mappers — no new leaf, no change to either
+      mapper, confirmed table-driven in the test. `status: "unsupported"`
+      is passed through as `Ok` (D10), not rejected the way the legacy
+      `analyze-document` repository rejects it.
+
+      Two additions neither file list anticipated, both load-bearing for T09:
+      `RuntimeConfig`/`RuntimeConfigDto` gained `explainSchemaVersion` (default
+      `'1.0'`) and `explainTimeout` (default 40 s) — optional, defaulted
+      fields, so no existing call site broke — giving the request envelope's
+      version and the per-call `Options(sendTimeout/receiveTimeout)` override a
+      real config source instead of a literal. `LogStage` gained `explain`.
+      `core/papers/explain_outcome.dart` adds `ExplainOutcome`, a `({
+      explanation, sessionId, explainSchemaVersion})` record typedef: T01 built
+      `PaperExplanation` with neither field (content only) and `SavedPaper`
+      with both (bookkeeping), so something has to carry the repository's
+      freshly-minted `session_id` and the response's echoed schema version
+      across to T09's `SavePaper` — and it has to live in `core/`, not in
+      `features/explain/`, because `core/papers/usecases/SavePaper` is the
+      consumer and core never imports a feature.
 
 - [ ] **T04** `BuildPaperVoiceSegments` — the entity → `List<VoiceSegment>`,
       with the stable id scheme: `explain`, `todo`, `date`, `caution`,
