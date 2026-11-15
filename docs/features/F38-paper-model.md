@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 4 / 12
+- **Progress:** 5 / 12
 
 ## Why this feature exists
 
@@ -260,7 +260,7 @@ any order. T05 gates T06–T09.
 
 ### Phase B — the schema and the store
 
-- [ ] **T05** **Schema v4** — the four steps above, in `app_database.dart`, with
+- [x] **T05** **Schema v4** — the four steps above, in `app_database.dart`, with
       `schemaVersion` 4 and a `_paperSchema` list beside `_documentSchema`.
       *Done when:* a seeded v3 database upgrades with its manual reminders
       intact and **zero** rows left in any of the seven document tables, in
@@ -269,6 +269,38 @@ any order. T05 gates T06–T09.
       `PRAGMA table_info`, not by compiling); the v1 and v2 migration tests
       still pass; and the FK-off trap above has a test that fails if the deletes
       are left to the cascade.
+
+      The rewrite uses drift's `TableMigration(reminders)` (no
+      `columnTransformer` needed — dropping a column is just "don't declare it
+      on the new side," drift copies every surviving column by name). Its own
+      index-recreation step blindly replays every index `sqlite_master` had on
+      the old table, so `reminders_document` has to be dropped by hand
+      (`DROP INDEX IF EXISTS`) *before* calling it — left in place, drift
+      would try to recreate an index on a column that no longer exists and the
+      whole migration would fail. The linked-reminder and alert deletes
+      (`_dropDocumentLinkedReminders`) stay raw SQL on purpose: `from < 3`
+      devices get today's already-linkless `reminders` shape straight from
+      `_reminderSchema` (no `document_id` was ever created for them), so that
+      whole step — deletes, index drop, `alterTable` — is gated on `from >= 3`,
+      the only case where a physical `document_id` column, and rows that might
+      point through it, ever existed to clean up.
+
+      Dropping the column at the schema level forced three call sites to stop
+      reading/writing it to keep the build green — `reminder_read_mapper.dart`,
+      `reminder_write_mapper.dart`, and the one caller in
+      `drift_reminders_repository.dart` that forwarded it — plus deleting
+      `RemindersDao.bundlesForDocument` and
+      `RemindersRepository.remindersForDocument`/its `DriftRemindersRepository`
+      override, since both only existed to query that column and neither had a
+      caller outside the reminders feature itself. `RemindersRepository
+      .createReminder`'s own `documentId` parameter is **left in place**,
+      unused past the write mapper: `ReminderFormCubit` still passes
+      `args.documentId`/`editing.documentId` into it, and untangling that is
+      D4's UI-facing cleanup, not this task's schema change. T06 still owns
+      removing that parameter, `Reminder.documentId` itself, and everything
+      D4 lists that reads it (the "two reminder mappers' field" bullet is now
+      just the domain entity's own field, since both mappers already stopped
+      touching the column here).
 
 - [ ] **T06** Cut the reminder ↔ document link in the code (D4). Remove
       `CreateReminderFromDocumentDate`, `ReminderFromDocumentArgs`,
