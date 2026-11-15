@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/papers/paper_date.dart';
 import 'package:war2aty/core/papers/paper_explanation.dart';
 import 'package:war2aty/core/papers/paper_status.dart';
 import 'package:war2aty/core/result/result.dart';
@@ -70,6 +71,100 @@ Map<String, dynamic> _bankLetter() => {
   'date': null,
   'caution': null,
   'contact': {'name': 'البنك الأهلي', 'phone': '19623'},
+  'place': null,
+};
+
+Map<String, dynamic> _governmentForm() => {
+  'explain_schema_version': '1.0',
+  'session_id': 'session-5',
+  'status': 'success',
+  'paper': {'title': 'استمارة الأحوال المدنية'},
+  'explain': [
+    'دي استمارة من الأحوال المدنية لاستخراج بطاقة رقم قومي بدل تالفة.',
+  ],
+  'todo': {
+    'required': true,
+    'text':
+        'املا الاستمارة وروح بيها السجل المدني. خد معاك البطاقة القديمة، وصورة شخصية حديثة، و٧٠ جنيه رسوم.',
+  },
+  'date': null,
+  'caution': {'text': 'الاستمارة لازم تتسلّم في خلال ٣٠ يوم من تاريخ ختمها.'},
+  'contact': null,
+  'place': {'text': 'السجل المدني، شارع الجيش، طنطا'},
+};
+
+Map<String, dynamic> _appointmentCard() => {
+  'explain_schema_version': '1.0',
+  'session_id': 'session-6',
+  'status': 'success',
+  'paper': {'title': 'ميعاد عند الدكتور'},
+  'explain': ['دي كارتة ميعاد من عيادة الدكتور محمد سالم، أخصائي العظام.'],
+  'todo': {
+    'required': true,
+    'text': 'روح العيادة في الميعاد، وخد معاك الأشعة اللي عملتها قبل كده.',
+  },
+  'date': {'date': '2026-11-14', 'time': '18:30', 'text': 'ميعاد الكشف'},
+  'caution': null,
+  'contact': {'name': 'عيادة الدكتور محمد سالم', 'phone': '01012345678'},
+  'place': {'text': '٢٢ شارع النصر، المنصورة، الدور التالت'},
+};
+
+Map<String, dynamic> _rentContract() => {
+  'explain_schema_version': '1.0',
+  'session_id': 'session-7',
+  'status': 'success',
+  'paper': {'title': 'عقد إيجار الشقة'},
+  'explain': [
+    'ده عقد إيجار شقة بينك وبين المالك أحمد كامل. العقد مدته سنة، بيبدأ أول ديسمبر ٢٠٢٦.',
+    'الإيجار ٣٥٠٠ جنيه في الشهر، بيتدفع في أول كل شهر.',
+    'العقد بيقول إن الصيانة الصغيرة عليك، والكبيرة على المالك.',
+    'فيه تأمين ٧٠٠٠ جنيه بترجعلك آخر العقد لو الشقة مفيهاش تلفيات.',
+  ],
+  'todo': {
+    'required': true,
+    'text':
+        'امضي على العقد ومعاك صورة بطاقتك، وادفع الإيجار أول كل شهر. خلي نسخة من العقد عندك.',
+  },
+  'date': {'date': '2026-12-01', 'time': null, 'text': 'بداية العقد'},
+  'caution': {
+    'text':
+        'لو عايز تسيب الشقة قبل آخر السنة، لازم تبلّغ المالك قبلها بشهرين، وإلا بتخسر التأمين.',
+  },
+  'contact': {'name': 'أحمد كامل', 'phone': '01122334455'},
+  'place': null,
+};
+
+Map<String, dynamic> _prescription() => {
+  'explain_schema_version': '1.0',
+  'session_id': 'session-8',
+  'status': 'success',
+  'paper': {'title': 'روشتة من الدكتور'},
+  'explain': ['دي روشتة من الدكتور سامي فؤاد، بتاريخ ٣ نوفمبر، وفيها ٤ أدوية.'],
+  'todo': {
+    'required': true,
+    'text':
+        'خد الروشتة للصيدلي، وخليه هو اللي يقرالك الأدوية ومواعيدها. متاخدش أي دوا من نفسك.',
+  },
+  'date': null,
+  'caution': null,
+  'contact': null,
+  'place': null,
+};
+
+Map<String, dynamic> _labResult() => {
+  'explain_schema_version': '1.0',
+  'session_id': 'session-9',
+  'status': 'success',
+  'paper': {'title': 'نتيجة تحاليل'},
+  'explain': ['دي نتيجة تحاليل من معمل البرج، بتاريخ ٥ نوفمبر.'],
+  'todo': {
+    'required': true,
+    'text':
+        'وري النتيجة دي لدكتورك، هو اللي يعرف يشرحها لك. الأرقام اللي فيها محتاجة دكتور يقراها.',
+  },
+  'date': null,
+  'caution': null,
+  'contact': {'name': 'معمل البرج', 'phone': '19911'},
   'place': null,
 };
 
@@ -156,6 +251,49 @@ void main() {
 
       expect(explanation.status, PaperStatus.unsupported);
       expect(explanation.todo.required, isFalse);
+    });
+
+    test('government form carries required documents inside todo', () {
+      final explanation = _expectOk(_validator.validate(_governmentForm()));
+
+      expect(explanation.date, isNull);
+      expect(explanation.contact, isNull);
+      expect(explanation.place?.text, 'السجل المدني، شارع الجيش، طنطا');
+      expect(explanation.todo.text, contains('٧٠ جنيه رسوم'));
+    });
+
+    test('appointment card carries both a date with a time and a place', () {
+      final explanation = _expectOk(_validator.validate(_appointmentCard()));
+
+      expect(explanation.date?.day, DateTime(2026, 11, 14));
+      expect(explanation.date?.time, const PaperTime(hour: 18, minute: 30));
+      expect(explanation.caution, isNull);
+      expect(explanation.place, isNotNull);
+    });
+
+    test('rent contract is explained in four paragraphs', () {
+      final explanation = _expectOk(_validator.validate(_rentContract()));
+
+      expect(explanation.paragraphs, hasLength(4));
+      expect(explanation.date?.time, isNull);
+      expect(explanation.place, isNull);
+    });
+
+    test('prescription carries no card beyond explain and todo', () {
+      final explanation = _expectOk(_validator.validate(_prescription()));
+
+      expect(explanation.date, isNull);
+      expect(explanation.caution, isNull);
+      expect(explanation.contact, isNull);
+      expect(explanation.place, isNull);
+    });
+
+    test('lab result carries a contact but no interpreted numbers', () {
+      final explanation = _expectOk(_validator.validate(_labResult()));
+
+      expect(explanation.contact?.name, 'معمل البرج');
+      expect(explanation.date, isNull);
+      expect(explanation.caution, isNull);
     });
 
     test('accepts a real decoded JSON string', () {
