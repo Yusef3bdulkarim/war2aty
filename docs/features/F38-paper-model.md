@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 1 / 12
+- **Progress:** 2 / 12
 
 ## Why this feature exists
 
@@ -172,7 +172,7 @@ any order. T05 gates T06–T09.
       reports shapes and lengths rather than content (§7, the guard F37-T03
       wrote), and `==`/`hashCode` are hand-written — no Freezed, no codegen.
 
-- [ ] **T02** `ExplainResponseDto` + `ExplainResponseMapper`: §33's success body
+- [x] **T02** `ExplainResponseDto` + `ExplainResponseMapper`: §33's success body
       → `PaperExplanation`, hand-written `fromJson` (json_serializable is
       forbidden). Null cards stay null; `explain` and `todo` are required;
       `explain_schema_version` is compared against
@@ -181,6 +181,17 @@ any order. T05 gates T06–T09.
       missing `todo` is `InvalidAnalysisResponseFailure`, a wrong-typed `date`
       is the same, a paper with every optional card null round-trips, and an
       over-cap title is accepted with a test that says so on purpose.
+
+      Landed as three files, not two: the mapper extension (`toDomain()`,
+      throws `ExplainMappingException` on a bad date/time or an unknown
+      status — the same split `AnalysisResponseMapper` uses) plus a small
+      `ExplainResponseValidator` that decodes, checks
+      `explain_schema_version` against `kSupportedExplainSchemaVersions`,
+      and catches that exception into `InvalidAnalysisResponseFailure` —
+      the "decode, then classify" precedent `AnalysisResponseValidator` set,
+      named in the existing-code-analysis table above. T03's repository
+      calls the validator directly, exactly as `DefaultAnalysisRepository`
+      calls its own.
 
 - [ ] **T03** `ExplainRequestDto` + `EdgeFunctionExplainRemoteDataSource` +
       `DefaultExplainRepository` + the `ExplainPaper` use case, under
