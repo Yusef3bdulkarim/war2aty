@@ -9,6 +9,7 @@ import '../papers/paper_status.dart';
 import '../reminders/reminder_alert_status.dart';
 import '../reminders/reminder_status.dart';
 import 'daos/documents_dao.dart';
+import 'daos/papers_dao.dart';
 import 'daos/reminders_dao.dart';
 import 'tables/document_tables.dart';
 import 'tables/paper_tables.dart';
@@ -63,7 +64,7 @@ class UsageCache extends Table {
     PaperParagraphs,
     PaperSpans,
   ],
-  daos: [DocumentsDao, RemindersDao],
+  daos: [DocumentsDao, RemindersDao, PapersDao],
 )
 class AppDatabase extends _$AppDatabase {
   /// Opens the on-device database. Pass an [executor] (e.g. an in-memory one)
