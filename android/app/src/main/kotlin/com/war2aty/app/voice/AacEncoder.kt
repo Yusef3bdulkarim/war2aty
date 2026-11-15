@@ -72,7 +72,7 @@ class AacEncoder(private val cacheDir: File) {
 
             true
         } catch (_: Exception) {
-            releaseQuietly()
+            abort()
             false
         }
     }

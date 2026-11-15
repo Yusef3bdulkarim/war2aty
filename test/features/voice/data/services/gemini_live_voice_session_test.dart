@@ -559,6 +559,54 @@ void main() {
     });
   });
 
+  // ── close code and reason (F38-T10) ─────────────────────────────────────
+
+  group('socket close after setup, no audio yet', () {
+    test('the lost event carries the close code and reason length', () {
+      fakeAsync((async) {
+        session = buildSession();
+        final events = <LiveVoiceEvent>[];
+        session.events.listen(events.add);
+
+        session.start('text').then((_) {});
+        async.flushMicrotasks();
+
+        fakeChannel.serverSends(setupCompleteFrame);
+        async.flushMicrotasks();
+
+        fakeChannel.serverCloses(1006, 'idle');
+        async.flushMicrotasks();
+
+        final lost = events.whereType<LiveSessionLost>().single;
+        final failure = lost.failure as VoiceServiceFailure;
+        expect(failure.closeCode, 1006);
+        expect(failure.closeReasonLength, 4);
+      });
+    });
+
+    test('a close with no reason carries a null length, not a crash', () {
+      fakeAsync((async) {
+        session = buildSession();
+        final events = <LiveVoiceEvent>[];
+        session.events.listen(events.add);
+
+        session.start('text').then((_) {});
+        async.flushMicrotasks();
+
+        fakeChannel.serverSends(setupCompleteFrame);
+        async.flushMicrotasks();
+
+        fakeChannel.serverCloses(1006);
+        async.flushMicrotasks();
+
+        final lost = events.whereType<LiveSessionLost>().single;
+        final failure = lost.failure as VoiceServiceFailure;
+        expect(failure.closeCode, 1006);
+        expect(failure.closeReasonLength, isNull);
+      });
+    });
+  });
+
   // ── unknown frames are ignored ──────────────────────────────────────────
 
   test('unknown frames do not crash or finish the session', () {

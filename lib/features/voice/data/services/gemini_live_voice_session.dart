@@ -158,7 +158,7 @@ final class GeminiLiveVoiceSession implements LiveVoiceSession {
           if (!setupDone.isCompleted) {
             setupDone.completeError(const VoiceServiceFailure());
           }
-          _onSocketDone();
+          _onSocketDone(channel.closeCode, channel.closeReason);
         },
       );
 
@@ -232,12 +232,15 @@ final class GeminiLiveVoiceSession implements LiveVoiceSession {
     }
   }
 
-  void _onSocketDone() {
+  void _onSocketDone(int? closeCode, String? closeReason) {
     if (_finished) return;
     _emitLoss(
       _audioBytes > 0
           ? VoiceStreamInterruptedFailure(format.durationOfBytes(_audioBytes))
-          : const VoiceServiceFailure(),
+          : VoiceServiceFailure(
+              closeCode: closeCode,
+              closeReasonLength: closeReason?.length,
+            ),
     );
   }
 

@@ -278,7 +278,19 @@ final class OnlineOcrUnavailableFailure extends NetworkFailure {
 /// line distinguishes "the voice service is down" from "this phone cannot
 /// speak".
 final class VoiceServiceFailure extends NetworkFailure {
-  const VoiceServiceFailure();
+  const VoiceServiceFailure({this.closeCode, this.closeReasonLength});
+
+  final int? closeCode;
+  final int? closeReasonLength;
+
+  @override
+  bool operator ==(Object other) =>
+      other is VoiceServiceFailure &&
+      other.closeCode == closeCode &&
+      other.closeReasonLength == closeReasonLength;
+
+  @override
+  int get hashCode => Object.hash(closeCode, closeReasonLength);
 }
 
 /// The voice stream stopped part-way through the paper (F37).

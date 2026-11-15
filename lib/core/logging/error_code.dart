@@ -41,7 +41,10 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   InvalidAnalysisResponseFailure() => 'INVALID_ANALYSIS_RESPONSE',
   AiProviderRateLimitFailure() => 'AI_PROVIDER_RATE_LIMIT',
   OnlineOcrUnavailableFailure() => 'ONLINE_OCR_UNAVAILABLE',
-  VoiceServiceFailure() => 'VOICE_SERVICE',
+  VoiceServiceFailure(:final closeCode, :final closeReasonLength) =>
+    closeCode == null
+        ? 'VOICE_SERVICE'
+        : 'VOICE_SERVICE_${closeCode}_${closeReasonLength ?? 0}',
   VoiceStreamInterruptedFailure() => 'VOICE_STREAM_INTERRUPTED',
   // Business
   UnsupportedDocumentFailure() => 'UNSUPPORTED_DOCUMENT',

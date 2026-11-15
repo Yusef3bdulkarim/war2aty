@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 9 / 12
+- **Progress:** 10 / 12
 
 ## Why this feature exists
 
@@ -471,7 +471,7 @@ any order. T05 gates T06–T09.
 
 ### Phase C — the carry-overs, the wiring and the device
 
-- [ ] **T10** F37's three carry-overs (D12). (a) `==`/`hashCode` on
+- [x] **T10** F37's three carry-overs (D12). (a) `==`/`hashCode` on
       `VoiceReadOutcome`, with a test that two equal outcomes compare equal —
       the de-duplication `Cubit` could not do. (b) `GeminiLiveVoiceSession`
       records the socket's **close code and reason** and carries them into
@@ -481,6 +481,32 @@ any order. T05 gates T06–T09.
       or is cancelled. *Done when:* (a) and (b) have tests, (b) is asserted to
       log no content, and (c) is verified on the device in T12 (Kotlin holds no
       decisions and is not unit-testable — F37's own rule).
+
+      (a) mirrors `SavedPaper`'s own pattern exactly: hand-written `==`/
+      `hashCode` with `listEquals`/`Object.hashAll` over `spans`, so two
+      outcomes built from separately-constructed-but-equal span lists compare
+      equal. (b) `VoiceServiceFailure` gained two optional fields, `closeCode`
+      and `closeReasonLength` — the reason's **length**, never its text, which
+      is what makes this safe where `VoiceReadNotVerbatimFailure`'s word error
+      rate was not: a WebSocket close code is a small, bounded, standardised
+      set of integers, not a continuous measurement, so folding it into
+      `errorCodeOf`'s string (`VOICE_SERVICE_<code>_<reasonLength>`) does not
+      mint an unbounded code space the way the rate would have. Only
+      `_onSocketDone` — the one call site where the socket actually closed, so
+      `channel.closeCode`/`closeReason` are meaningful — reads and forwards
+      them; the timeout-driven call sites (`_onTotalTimeout`, the inter-frame
+      watchdog) still emit a bare `VoiceServiceFailure()`, because at that
+      point nothing has closed yet and the values would be meaningless. (c)
+      was the narrowest fix available: `begin()`'s catch block already had a
+      `tempFile` reference sitting unused on the failure path; swapping
+      `releaseQuietly()` for the existing `abort()` (which already did
+      `releaseQuietly()` + delete + null the field, written for the Dart-side
+      `abortEncode` call) closes the leak with no new logic. Confirmed this
+      was the only gap: `finish()` already deletes the temp file on both its
+      success and its failure branch, and the Dart-side `_abandonLive` already
+      calls `abort()` whenever `begin()` succeeded — the leak was specifically
+      a `begin()`-throws-after-creating-the-file case, which no existing path
+      cleaned up.
 
 - [ ] **T11** The bootstrap purge step (D14): a `BootstrapStage.cleanup` step
       that deletes the legacy `documents/` directory if present,

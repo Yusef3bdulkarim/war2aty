@@ -76,6 +76,42 @@ void main() {
     });
   });
 
+  group('a Live session the socket closed on', () {
+    test('logs the close code, bounded unlike a measured rate', () {
+      expect(errorCodeOf(const VoiceServiceFailure()), 'VOICE_SERVICE');
+      expect(
+        errorCodeOf(const VoiceServiceFailure(closeCode: 1007)),
+        'VOICE_SERVICE_1007_0',
+      );
+    });
+
+    test('logs the reason by length, never by its text', () {
+      expect(
+        errorCodeOf(
+          const VoiceServiceFailure(closeCode: 1007, closeReasonLength: 6),
+        ),
+        isNot(contains('goAway')),
+      );
+      expect(
+        errorCodeOf(
+          const VoiceServiceFailure(closeCode: 1007, closeReasonLength: 6),
+        ),
+        'VOICE_SERVICE_1007_6',
+      );
+    });
+
+    test('two outcomes with the same close info are the same value', () {
+      expect(
+        const VoiceServiceFailure(closeCode: 1007, closeReasonLength: 6),
+        const VoiceServiceFailure(closeCode: 1007, closeReasonLength: 6),
+      );
+      expect(
+        const VoiceServiceFailure(closeCode: 1007),
+        isNot(const VoiceServiceFailure(closeCode: 1006)),
+      );
+    });
+  });
+
   group('a stream that died part-way', () {
     test('carries how much was heard, which decides restart vs fallback', () {
       // Live cannot replay a partial turn, so this number is the difference
