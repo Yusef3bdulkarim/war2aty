@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 0 / 12
+- **Progress:** 1 / 12
 
 ## Why this feature exists
 
@@ -161,7 +161,7 @@ any order. T05 gates T06–T09.
 
 ### Phase A — the entity and the wire
 
-- [ ] **T01** `lib/core/papers/` — the entity. `PaperExplanation` (title,
+- [x] **T01** `lib/core/papers/` — the entity. `PaperExplanation` (title,
       `List<String>` paragraphs, `PaperTodo`, and the nullable `PaperDate`,
       `PaperCaution`, `PaperContact`, `PaperPlace`), `PaperStatus`
       (`success | partial | unsupported`), and `SavedPaper` (the entity plus the
