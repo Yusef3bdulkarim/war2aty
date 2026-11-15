@@ -8,9 +8,9 @@ import '../reminders_repository.dart';
 
 /// Creates a reminder the user entered by hand — «إضافة تذكير» (F09-T04).
 ///
-/// Unlike [CreateReminderFromDocumentDate], [eventMinuteOfDay] is never
-/// `null` in practice: the manual form marks the time required, since there
-/// is no paper to be silent about it — the user is the source.
+/// [eventMinuteOfDay] is never `null` in practice: the manual form marks the
+/// time required, since there is no paper to be silent about it — the user is
+/// the source.
 final class CreateManualReminder {
   const CreateManualReminder(this._repository, this._scheduler);
 
