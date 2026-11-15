@@ -13,6 +13,8 @@ final class RuntimeConfig {
     required this.schemaVersion,
     required this.minimumAppVersion,
     this.maintenanceMessage,
+    this.explainSchemaVersion = '1.0',
+    this.explainTimeout = const Duration(seconds: 40),
   });
 
   /// Local fallback values. Conservative and safe to ship.
@@ -38,6 +40,8 @@ final class RuntimeConfig {
 
   /// Shown to the user when set; `null` means normal operation.
   final String? maintenanceMessage;
+  final String explainSchemaVersion;
+  final Duration explainTimeout;
 
   @override
   bool operator ==(Object other) =>
@@ -48,7 +52,9 @@ final class RuntimeConfig {
       other.analysisTimeout == analysisTimeout &&
       other.schemaVersion == schemaVersion &&
       other.minimumAppVersion == minimumAppVersion &&
-      other.maintenanceMessage == maintenanceMessage;
+      other.maintenanceMessage == maintenanceMessage &&
+      other.explainSchemaVersion == explainSchemaVersion &&
+      other.explainTimeout == explainTimeout;
 
   @override
   int get hashCode => Object.hash(
@@ -59,5 +65,7 @@ final class RuntimeConfig {
     schemaVersion,
     minimumAppVersion,
     maintenanceMessage,
+    explainSchemaVersion,
+    explainTimeout,
   );
 }

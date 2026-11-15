@@ -3,7 +3,7 @@ import 'error_code.dart';
 
 /// Analysis pipeline stage a log line refers to. Closed set — grown as the
 /// pipeline gains stages; never free text.
-enum LogStage { capture, ocr, analyze, save }
+enum LogStage { capture, ocr, analyze, save, explain }
 
 /// Outcome of an analysis attempt.
 enum LogResultStatus { success, partial, failure }
