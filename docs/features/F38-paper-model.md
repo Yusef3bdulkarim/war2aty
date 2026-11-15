@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 5 / 12
+- **Progress:** 6 / 12
 
 ## Why this feature exists
 
@@ -302,7 +302,7 @@ any order. T05 gates T06–T09.
       just the domain entity's own field, since both mappers already stopped
       touching the column here).
 
-- [ ] **T06** Cut the reminder ↔ document link in the code (D4). Remove
+- [x] **T06** Cut the reminder ↔ document link in the code (D4). Remove
       `CreateReminderFromDocumentDate`, `ReminderFromDocumentArgs`,
       `ReminderFormCubit.fromDocument`, the `/reminders/create` route, the
       router's `_startReminderFromDate` / `_startReminderFromDocumentDate`, the
@@ -312,6 +312,31 @@ any order. T05 gates T06–T09.
       still build and run with no bell, the manual reminder flow is untouched
       and its own tests unchanged, and the ~8 affected test files are deleted or
       rewritten rather than skipped.
+
+      The two reminder mappers' field was confirmed already gone — T05's own
+      notes were accurate, neither `reminder_read_mapper.dart` nor
+      `reminder_write_mapper.dart` touched `document_id`. `Reminder.documentId`
+      going away cascaded further than the bullet names: the details screen's
+      own linked-document display (`ReminderDetailsCubit`'s `WatchDocument`
+      dependency, `_LinkedDocumentButton`, and the three strings
+      `reminderLinkedDocumentSectionLabel`/`...ValueLabel`/
+      `reminderDetailsLinkedDocumentLabel`) read that field directly and had
+      to go with it, alongside `ReminderLinkedDocumentRow` (the from-document
+      form's own read-only link display). `ReminderFormEditing.documentId`/
+      `documentTitle` and `RemindersRepository.createReminder`'s `documentId`
+      parameter went too. The count ran past ~8 once cascades are counted: 4
+      test files deleted outright (the two the bullet implies, plus
+      `reminder_missing_time_test.dart` — F09-T06's warning only ever fired for
+      `!isManual`, now unreachable — and
+      `test/app/document_details_reminder_routing_test.dart`, whose regression
+      no longer has a code path to reproduce), 9 rewritten, and
+      `test/integration/invoice_journey_test.dart` lost one whole `journeyTest`
+      (the before-save, unlinked-reminder scenario) and had its happy path's
+      reminder leg cut, going back to Home from the result screen's own back
+      button instead. F09-T06's missing-event-time warning
+      (`_missingEventTimeSuggestion` in `reminder_form_screen.dart`) is now
+      dead code — `editing.isManual` is always `true` — left in place as this
+      task named nothing in that file beyond the linked-document row.
 
 - [ ] **T07** `PapersDao`, `paper_read_mapper`, `paper_write_mapper`,
       `PapersRepository` (interface, `core/papers/`) and
