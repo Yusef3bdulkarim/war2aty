@@ -174,11 +174,6 @@ void main() {
       expect(harness.location, AppRoutes.reminderSuccess);
       final reminders = await harness.savedReminders();
       expect(reminders, hasLength(1));
-      expect(
-        reminders.single.documentId,
-        saved.single.id,
-        reason: 'the paper was already saved, so the two are linked',
-      );
       final alerts = await harness.savedAlerts();
       expect(alerts, hasLength(1), reason: 'the form opened with one alert');
       expect(
@@ -313,11 +308,6 @@ void main() {
 
       final reminders = await harness.savedReminders();
       expect(reminders, hasLength(1));
-      expect(
-        reminders.single.documentId,
-        isNull,
-        reason: 'a reminder does not require the paper to be kept',
-      );
       expect(await harness.savedDocuments(), isEmpty);
 
       // Both ways off the confirmation leave the scan for good (`go`, not

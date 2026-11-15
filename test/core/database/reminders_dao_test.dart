@@ -3,8 +3,6 @@ import 'package:drift/drift.dart' hide isNotNull, isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/database/daos/reminders_dao.dart';
-import 'package:war2aty/core/documents/document_category.dart';
-import 'package:war2aty/core/documents/recent_document.dart';
 import 'package:war2aty/core/reminders/reminder_alert_status.dart';
 import 'package:war2aty/core/reminders/reminder_status.dart';
 
@@ -29,7 +27,6 @@ void main() {
       expect(bundle, isNotNull);
       expect(bundle!.reminder.title, 'دفع فاتورة الكهرباء');
       expect(bundle.reminder.status, ReminderStatus.pending);
-      expect(bundle.reminder.documentId, isNull);
       expect(bundle.alerts, isEmpty);
     });
 
@@ -135,20 +132,6 @@ void main() {
     expect(pending.map((b) => b.reminder.id), ['r1']);
   });
 
-  test(
-    'bundlesForDocument narrows to reminders linked to that document',
-    () async {
-      await db.into(db.documents).insert(_documentRow('doc-1'));
-      await dao.saveReminder(
-        ReminderWrite(reminder: _reminder('r1', documentId: 'doc-1')),
-      );
-      await dao.saveReminder(ReminderWrite(reminder: _reminder('r2')));
-
-      final linked = await dao.bundlesForDocument('doc-1');
-      expect(linked.map((b) => b.reminder.id), ['r1']);
-    },
-  );
-
   group('updateReminder', () {
     test('changes only the given fields', () async {
       await dao.saveReminder(ReminderWrite(reminder: _reminder('r1')));
@@ -245,35 +228,22 @@ void main() {
       expect(byId['a2'], ReminderAlertStatus.scheduled);
     },
   );
-
-  test('deleting the linked document cascades onto the reminder', () async {
-    await db.into(db.documents).insert(_documentRow('doc-1'));
-    await dao.saveReminder(
-      ReminderWrite(reminder: _reminder('r1', documentId: 'doc-1')),
-    );
-
-    await (db.delete(db.documents)..where((t) => t.id.equals('doc-1'))).go();
-
-    expect(await dao.reminderById('r1'), isNull);
-  });
 }
 
-RemindersCompanion _reminder(
-  String id, {
-  String? documentId,
-  String? description,
-}) => RemindersCompanion.insert(
-  id: id,
-  documentId: documentId == null ? const Value.absent() : Value(documentId),
-  title: 'دفع فاتورة الكهرباء',
-  description: description == null ? const Value.absent() : Value(description),
-  eventDate: DateTime(2026, 8, 25),
-  eventMinuteOfDay: const Value(600),
-  status: ReminderStatus.pending,
-  isManual: documentId == null,
-  createdAt: DateTime(2026),
-  updatedAt: DateTime(2026),
-);
+RemindersCompanion _reminder(String id, {String? description}) =>
+    RemindersCompanion.insert(
+      id: id,
+      title: 'دفع فاتورة الكهرباء',
+      description: description == null
+          ? const Value.absent()
+          : Value(description),
+      eventDate: DateTime(2026, 8, 25),
+      eventMinuteOfDay: const Value(600),
+      status: ReminderStatus.pending,
+      isManual: true,
+      createdAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+    );
 
 ReminderAlertsCompanion _alert(String id, String reminderId, DateTime at) =>
     ReminderAlertsCompanion.insert(
@@ -284,19 +254,3 @@ ReminderAlertsCompanion _alert(String id, String reminderId, DateTime at) =>
       status: ReminderAlertStatus.scheduled,
       createdAt: DateTime(2026),
     );
-
-DocumentsCompanion _documentRow(String id) => DocumentsCompanion.insert(
-  id: id,
-  title: 'فاتورة كهرباء',
-  category: DocumentCategory.invoice,
-  kind: 'invoice',
-  status: 'complete',
-  kindConfidence: 'high',
-  summaryShort: 'ملخص',
-  summaryDetailed: 'شرح',
-  extractedText: 'نص',
-  storageMode: DocumentStorageMode.resultOnly,
-  sessionId: 's1',
-  savedAt: DateTime(2026),
-  updatedAt: DateTime(2026),
-);

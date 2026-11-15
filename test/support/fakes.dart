@@ -1310,13 +1310,6 @@ final class FakeRemindersRepository implements RemindersRepository {
   Future<Result<List<Reminder>, AppFailure>> pendingReminders() async =>
       pendingOutcome;
 
-  Result<List<Reminder>, AppFailure> forDocumentOutcome = const Ok([]);
-
-  @override
-  Future<Result<List<Reminder>, AppFailure>> remindersForDocument(
-    String documentId,
-  ) async => forDocumentOutcome;
-
   Result<void, AppFailure> setAlertStatusOutcome = const Ok(null);
   String? lastAlertStatusId;
   ReminderAlertStatus? lastAlertStatus;

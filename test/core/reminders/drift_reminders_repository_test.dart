@@ -1,8 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/database/app_database.dart';
 import 'package:war2aty/core/database/daos/reminders_dao.dart';
-import 'package:war2aty/core/documents/document_category.dart';
-import 'package:war2aty/core/documents/recent_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/reminders/drift_reminders_repository.dart';
 import 'package:war2aty/core/reminders/reminder.dart';
@@ -163,21 +161,6 @@ void main() {
     ]);
   });
 
-  test('remindersForDocument narrows to the linked document', () async {
-    await db.into(db.documents).insert(_documentRow('doc-1'));
-    final linkedReminder = await create(
-      documentId: 'doc-1',
-      title: 'من ورقة',
-      isManual: false,
-    );
-    await create(title: 'يدوي');
-
-    final linked = await repository.remindersForDocument('doc-1');
-    expect((linked as Ok<List<Reminder>, AppFailure>).value.map((r) => r.id), [
-      linkedReminder.id,
-    ]);
-  });
-
   test('setAlertStatus updates just that alert', () async {
     final reminder = await create();
 
@@ -206,19 +189,3 @@ void main() {
     expect(emissions, [reminder.id, null]);
   });
 }
-
-DocumentsCompanion _documentRow(String id) => DocumentsCompanion.insert(
-  id: id,
-  title: 'فاتورة كهرباء',
-  category: DocumentCategory.invoice,
-  kind: 'invoice',
-  status: 'complete',
-  kindConfidence: 'high',
-  summaryShort: 'ملخص',
-  summaryDetailed: 'شرح',
-  extractedText: 'نص',
-  storageMode: DocumentStorageMode.resultOnly,
-  sessionId: 's1',
-  savedAt: DateTime(2026),
-  updatedAt: DateTime(2026),
-);
