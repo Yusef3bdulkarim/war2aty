@@ -1033,10 +1033,6 @@ final class ArStrings implements AppStrings {
   @override
   String get reminderNoteHint => 'ضيف أي تفاصيل محتاج تفتكرها.';
   @override
-  String get reminderLinkedDocumentSectionLabel => 'ربط بمستند محفوظ';
-  @override
-  String get reminderLinkedDocumentValueLabel => 'مرتبط بـ';
-  @override
   String get reminderSaveAction => 'حفظ التذكير';
   @override
   String get reminderAlertOffsetThreeDays => 'قبل الموعد بـ3 أيام';
@@ -1056,8 +1052,6 @@ final class ArStrings implements AppStrings {
   @override
   String reminderSuggestedAlertTime(String time) =>
       'اقتراح: نبّهني الساعة $time';
-  @override
-  String get reminderCreateScreenTitle => 'إنشاء تذكير';
   @override
   String get reminderAddAction => 'إضافة تذكير';
   @override
@@ -1183,8 +1177,6 @@ final class ArStrings implements AppStrings {
   String get reminderDetailsAlertLabel => 'موعد التنبيه';
   @override
   String get reminderDetailsDescriptionLabel => 'ملاحظة';
-  @override
-  String get reminderDetailsLinkedDocumentLabel => 'عرض المستند المرتبط';
   @override
   String get reminderDetailsNotFoundTitle => 'التذكير مش موجود';
   @override

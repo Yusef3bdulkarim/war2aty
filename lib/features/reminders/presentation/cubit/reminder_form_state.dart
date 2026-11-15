@@ -23,8 +23,6 @@ final class ReminderFormEditing extends ReminderFormState {
     this.eventDate,
     this.eventMinuteOfDay,
     this.alerts = const [],
-    this.documentId,
-    this.documentTitle,
     required this.isManual,
     this.isSaving = false,
   });
@@ -43,10 +41,6 @@ final class ReminderFormEditing extends ReminderFormState {
 
   /// Up to three, in the order they were added (F09-T08).
   final List<ReminderAlertDraft> alerts;
-
-  /// Set only when created from a document's date.
-  final String? documentId;
-  final String? documentTitle;
 
   final bool isManual;
 
@@ -94,8 +88,6 @@ final class ReminderFormEditing extends ReminderFormState {
           ? this.eventMinuteOfDay
           : eventMinuteOfDay as int?,
       alerts: alerts ?? this.alerts,
-      documentId: documentId,
-      documentTitle: documentTitle,
       isManual: isManual,
       isSaving: isSaving ?? this.isSaving,
     );
@@ -110,8 +102,6 @@ final class ReminderFormEditing extends ReminderFormState {
           other.eventDate == eventDate &&
           other.eventMinuteOfDay == eventMinuteOfDay &&
           listEquals(other.alerts, alerts) &&
-          other.documentId == documentId &&
-          other.documentTitle == documentTitle &&
           other.isManual == isManual &&
           other.isSaving == isSaving;
 
@@ -122,8 +112,6 @@ final class ReminderFormEditing extends ReminderFormState {
     eventDate,
     eventMinuteOfDay,
     Object.hashAll(alerts),
-    documentId,
-    documentTitle,
     isManual,
     isSaving,
   );

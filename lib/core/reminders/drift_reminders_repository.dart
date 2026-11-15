@@ -56,7 +56,6 @@ final class DriftRemindersRepository implements RemindersRepository {
 
   @override
   Future<Result<Reminder, AppFailure>> createReminder({
-    String? documentId,
     required String title,
     String? description,
     required DateTime eventDate,

@@ -17,28 +17,19 @@ final class ReminderDetailsLoading extends ReminderDetailsState {
   const ReminderDetailsLoading();
 }
 
-/// [reminder], plus its linked document's title if it has one.
-///
-/// [linkedDocumentTitle] is `null` while [Reminder.documentId] is `null`
-/// (nothing to show), while the linked document's own read is still in
-/// flight, or once that document has been deleted out from under the
-/// reminder — the row that shows it treats all three the same way, since
-/// none of them is something the user can act on from here.
+/// [reminder] itself.
 final class ReminderDetailsAvailable extends ReminderDetailsState {
-  const ReminderDetailsAvailable(this.reminder, {this.linkedDocumentTitle});
+  const ReminderDetailsAvailable(this.reminder);
 
   final Reminder reminder;
-  final String? linkedDocumentTitle;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is ReminderDetailsAvailable &&
-          other.reminder == reminder &&
-          other.linkedDocumentTitle == linkedDocumentTitle;
+      other is ReminderDetailsAvailable && other.reminder == reminder;
 
   @override
-  int get hashCode => Object.hash(reminder, linkedDocumentTitle);
+  int get hashCode => reminder.hashCode;
 }
 
 /// The reminder is gone — deleted (by this screen or elsewhere), or a stale

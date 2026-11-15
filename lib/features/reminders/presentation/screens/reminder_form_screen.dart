@@ -13,7 +13,6 @@ import '../widgets/notification_permission_sheet.dart';
 import '../widgets/reminder_alert_list_section.dart';
 import '../widgets/reminder_date_time_pickers.dart';
 import '../widgets/reminder_event_info_card.dart';
-import '../widgets/reminder_linked_document_row.dart';
 import '../widgets/reminder_text_field.dart';
 
 // From `Waraqti.dc.html` → `reminderCreate` / `manualReminder`, which share
@@ -195,8 +194,6 @@ class _ReminderFormScreenState extends State<ReminderFormScreen> {
                                   .read<ReminderFormCubit>()
                                   .setDescription,
                             ),
-                            if (editing.documentTitle case final title?)
-                              ReminderLinkedDocumentRow(documentTitle: title),
                           ],
                         ),
                       ),

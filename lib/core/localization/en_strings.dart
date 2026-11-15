@@ -1026,10 +1026,6 @@ final class EnStrings implements AppStrings {
   @override
   String get reminderNoteHint => 'Add anything you need to remember.';
   @override
-  String get reminderLinkedDocumentSectionLabel => 'Link a saved document';
-  @override
-  String get reminderLinkedDocumentValueLabel => 'Linked to';
-  @override
   String get reminderSaveAction => 'Save reminder';
   @override
   String get reminderAlertOffsetThreeDays => '3 days before';
@@ -1049,8 +1045,6 @@ final class EnStrings implements AppStrings {
   @override
   String reminderSuggestedAlertTime(String time) =>
       'Suggested: remind me at $time';
-  @override
-  String get reminderCreateScreenTitle => 'Create reminder';
   @override
   String get reminderAddAction => 'Add reminder';
   @override
@@ -1167,8 +1161,6 @@ final class EnStrings implements AppStrings {
   String get reminderDetailsAlertLabel => 'Alert time';
   @override
   String get reminderDetailsDescriptionLabel => 'Note';
-  @override
-  String get reminderDetailsLinkedDocumentLabel => 'View linked document';
   @override
   String get reminderDetailsNotFoundTitle => 'Reminder not found';
   @override

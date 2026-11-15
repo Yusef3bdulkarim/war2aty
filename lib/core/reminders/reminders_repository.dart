@@ -26,7 +26,6 @@ abstract interface class RemindersRepository {
   /// with zero alerts (F09-T08's cap is enforced by the form, not here, but
   /// "at least one" is a data invariant every write path shares).
   Future<Result<Reminder, AppFailure>> createReminder({
-    String? documentId,
     required String title,
     String? description,
     required DateTime eventDate,

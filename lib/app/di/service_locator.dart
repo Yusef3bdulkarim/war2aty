@@ -93,7 +93,6 @@ import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
 import '../../core/reminders/usecases/complete_reminder.dart';
 import '../../core/reminders/usecases/create_manual_reminder.dart';
-import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../core/reminders/usecases/delete_all_reminders.dart';
 import '../../core/reminders/usecases/delete_reminder.dart';
 import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
@@ -219,7 +218,6 @@ import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart'
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
 import '../../features/reminders/presentation/models/manual_reminder_seed.dart';
-import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
@@ -868,9 +866,6 @@ void _registerReminders() {
         getIt(),
       ),
     )
-    ..registerFactory<CreateReminderFromDocumentDate>(
-      () => CreateReminderFromDocumentDate(getIt(), getIt()),
-    )
     ..registerFactory<CreateManualReminder>(
       () => CreateManualReminder(getIt(), getIt()),
     )
@@ -904,30 +899,13 @@ void _registerReminders() {
     ..registerFactory<OpenNotificationPermissionSettings>(
       () => OpenNotificationPermissionSettings(getIt()),
     )
-    // From a document's date (F09-T03): one cubit per opened form, seeded
-    // with what the router already knows (the chosen date, and the document
-    // it came from, if any).
-    ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
-      (args, _) => ReminderFormCubit.fromDocument(
-        createFromDocumentDate: getIt(),
-        createManual: getIt(),
-        getNotificationPermission: getIt(),
-        requestNotificationPermission: getIt(),
-        args: args,
-      ),
-    )
-    // Manual (F09-T04): a distinct registration under the same type, since
-    // it starts from nothing rather than from router args — `instanceName`
-    // is how get_it tells the two apart.
-    //
-    // Parameterised since F29, but on a **nullable** seed: «إضافة تذكير» in
-    // the list header still opens an empty form and passes nothing, while a
-    // quick row passes the date it offered. A nullable `P1` is why `null` is
-    // a legal `param1` here — get_it only type-checks a parameter it was
-    // given, or one whose type cannot be null.
+    // F09-T04. Parameterised since F29, but on a **nullable** seed: «إضافة
+    // تذكير» in the list header still opens an empty form and passes
+    // nothing, while a quick row passes the date it offered. A nullable
+    // `P1` is why `null` is a legal `param1` here — get_it only type-checks
+    // a parameter it was given, or one whose type cannot be null.
     ..registerFactoryParam<ReminderFormCubit, ManualReminderSeed?, void>(
       (seed, _) => ReminderFormCubit.manual(
-        createFromDocumentDate: getIt(),
         createManual: getIt(),
         getNotificationPermission: getIt(),
         requestNotificationPermission: getIt(),
@@ -945,7 +923,7 @@ void _registerReminders() {
     // One cubit per opened details screen, parameterised by the reminder's
     // id — the same shape `DocumentDetailsCubit` uses.
     ..registerFactory<ReminderDetailsCubit>(
-      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
+      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt()),
     );
 }
 

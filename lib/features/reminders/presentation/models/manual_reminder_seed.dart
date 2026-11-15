@@ -9,8 +9,7 @@
 /// guessing one would either be wrong or would let an untitled reminder
 /// through. One step fewer, not zero.
 ///
-/// The sibling of `ReminderFromDocumentArgs` for the manual flow, and the
-/// reason the manual form has a parameter at all. Kept separate from
+/// The reason the manual form has a parameter at all. Kept separate from
 /// `QuickReminderSlot` in `core/`: the form does not need to know that a
 /// seed came from a quick row rather than from anywhere else.
 final class ManualReminderSeed {
@@ -23,10 +22,9 @@ final class ManualReminderSeed {
   /// `year`/`month`/`day` are read downstream.
   final DateTime eventDate;
 
-  /// Minutes since midnight on [eventDate]. Required, unlike the
-  /// from-document args' own nullable one: a manual reminder's time is
-  /// mandatory (there is no paper to be silent about it), so a seed that
-  /// omitted it would open a form that still could not be saved.
+  /// Minutes since midnight on [eventDate]. Required: a manual reminder's
+  /// time is mandatory, so a seed that omitted it would open a form that
+  /// still could not be saved.
   final int eventMinuteOfDay;
 
   @override
