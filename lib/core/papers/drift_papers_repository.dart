@@ -63,23 +63,24 @@ final class DriftPapersRepository implements PapersRepository {
 
   @override
   Future<Result<String, AppFailure>> insertPaper({
+    String? id,
     required ExplainOutcome outcome,
     required DateTime photographedAt,
     String? encryptedImagePath,
   }) async {
-    final id = _generateId();
+    final paperId = id ?? _generateId();
 
     try {
       await _dao.insertPaper(
         paperWriteOf(
-          id: id,
+          id: paperId,
           outcome: outcome,
           photographedAt: photographedAt,
           savedAt: _now(),
           encryptedImagePath: encryptedImagePath,
         ),
       );
-      return Ok(id);
+      return Ok(paperId);
     } on Object {
       return const Err(LocalDatabaseFailure());
     }

@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 8 / 12
+- **Progress:** 9 / 12
 
 ## Why this feature exists
 
@@ -416,7 +416,7 @@ any order. T05 gates T06–T09.
       mirroring `file_document_image_store_test.dart`'s own one). Both land on
       a classified `Err`, never an unhandled exception.
 
-- [ ] **T09** The use cases, in `core/papers/usecases/`: `SavePaper` (row +
+- [x] **T09** The use cases, in `core/papers/usecases/`: `SavePaper` (row +
       photo, D9), `RecordPaperReading` (the `VoiceReadOutcome` and its spans
       onto the row), `WatchPapers`, `WatchPaper`, `DeletePaper`,
       `DeleteAllPapers`, `LoadPaperImage`. *Done when:* the D9 ordering is
@@ -426,6 +426,48 @@ any order. T05 gates T06–T09.
       forbids losing all of it over the photo); `RecordPaperReading` on a
       device-TTS outcome stores `audioSaved: false` with its spans; and
       `DeleteAllPapers` clears rows, images and audio.
+
+      One addition neither T07 nor this bullet anticipated: `PapersRepository
+      .insertPaper` gained an optional `id` parameter. `PaperImageStore
+      .encryptAndStore` and `DocumentImageStore.encryptAndStore` before it
+      both key the file by the id the *row* ends up with, but T07's
+      `insertPaper` only ever generated that id internally — there was no way
+      for a caller to learn it before the row existed, and no way to hand it
+      to the image store first. `SavePaper` resolves this the way
+      `DriftDocumentsRepository.saveWithImage` already does for documents:
+      generate the id once (its own injectable `IdGenerator`, defaulting to
+      `Uuid().v4()`, mirroring the repository's own), encrypt the photo under
+      it, then insert the row under that same id — except where
+      `saveWithImage` fails the whole save when encryption fails,
+      `SavePaper` does not (D9/D7's point of the row surviving a lost photo),
+      so the two calls had to stay independently failable rather than
+      chained through `Result.flatMap`. `id` defaults to `null` (falls back
+      to the repository's own generator) so every T07 call site and test
+      kept working unchanged; one new repository test
+      (`uses a given id instead of generating one`) pins the override.
+
+      `SavePaper` returns `Result<SavePaperOutcome, AppFailure>` where
+      `SavePaperOutcome = ({String id, bool imageSaved})` — a record typedef
+      alongside `ExplainOutcome`'s, not a new `AppFailure` leaf, because a
+      lost photo is not a failure the save needs to report as one: the row
+      still saved, and the only thing worth telling the caller is whether the
+      picture made it. An `Err` is reserved for the one real failure left —
+      the database write itself — and on that path `SavePaper` deletes the
+      already-encrypted photo first, the same orphan-cleanup `_writeRow` does
+      for documents.
+
+      `imagePath` is `required`, not optional, unlike `SaveDocument`'s
+      `resultOnly` vs `withImage` split: D7 already settled that a paper's
+      auto-save is unconditional, so there is no "save without a picture"
+      entry point for `SavePaper` to expose. `RecordPaperReading`,
+      `WatchPapers`, `WatchPaper`, `DeletePaper`, `DeleteAllPapers` and
+      `LoadPaperImage` are thin, comment-free delegations to the repository
+      (or, for `LoadPaperImage`, straight to `PaperImageStore`, mirroring
+      `LoadDocumentImage`) — none needed anything beyond what T07/T08 already
+      built. `FakePapersRepository`, `FakePaperImageStore` and
+      `savedPaperWith()` were added to `test/support/fakes.dart` alongside
+      the documents equivalents they mirror, for this task's tests and
+      whatever F39 needs next.
 
 ### Phase C — the carry-overs, the wiring and the device
 

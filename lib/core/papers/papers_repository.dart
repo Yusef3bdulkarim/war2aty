@@ -10,6 +10,7 @@ abstract interface class PapersRepository {
   Stream<Result<SavedPaper?, AppFailure>> watchPaper(String id);
 
   Future<Result<String, AppFailure>> insertPaper({
+    String? id,
     required ExplainOutcome outcome,
     required DateTime photographedAt,
     String? encryptedImagePath,

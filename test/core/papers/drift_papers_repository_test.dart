@@ -116,6 +116,18 @@ void main() {
       );
     });
 
+    test('uses a given id instead of generating one', () async {
+      final outcome = await repository.insertPaper(
+        id: 'caller-chosen',
+        outcome: _outcome(),
+        photographedAt: DateTime(2026, 11, 16, 9),
+      );
+
+      expect(outcome, const Ok<String, AppFailure>('caller-chosen'));
+      expect(await dao.paperById('caller-chosen'), isNotNull);
+      expect(await dao.paperById('p1'), isNull);
+    });
+
     test('does not touch the image or audio stores', () async {
       await repository.insertPaper(
         outcome: _outcome(),
