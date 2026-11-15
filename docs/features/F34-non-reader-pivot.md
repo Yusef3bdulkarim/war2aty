@@ -183,7 +183,7 @@ needlessly sequential.
 |---|---|---|
 | F35 | Groundwork and safe removals — [task file](F35-groundwork-and-removals.md), **closed 2026-11-09** | — |
 | F36 | Server: `explain-document` — [task file](F36-server-explain-document.md), **in progress** | F35 |
-| F37 | Voice spine: Gemini Live | F35 |
+| F37 | Voice spine: Gemini Live — [task file](F37-voice-spine.md), **closed 2026-11-15 with one open defect, see below** | F35 |
 | F38 | Paper model, auto-save and audio storage | F36 schema, F37 |
 | F39 | Capture flow | F38 |
 | F40 | Result screen | F38, F37 |
@@ -191,6 +191,42 @@ needlessly sequential.
 | F42 | Share from WhatsApp | F39 |
 | F43 | Video, «؟» clips and splash | F39, F40 |
 | F44 | Release 1.1.0 | all |
+
+### ⚠ Carried out of F37 — F39 and F40 must pick these up
+
+F37 closed on the owner's decision with its device pass accepted and **one open
+defect**. Recorded here, not only in F37's own file, because the features that
+have to act on it do not have task files yet.
+
+1. **Live sessions fail intermittently, about one read in four** (F37-T21,
+   defect 5). The tier ladder covers it — the user always hears their paper —
+   but one read in four arrives in the phone's robotic voice instead of the
+   natural one, which is close to the whole difference this pivot is for. The
+   cause is unidentified after a full device session, for a specific reason:
+   **the client throws the evidence away.** `GeminiLiveVoiceSession.start`
+   returns a bare `VoiceServiceFailure` and never records the socket's close
+   code or reason. **Logging those two values is the first thing to do** —
+   codes only, no document content (§7) — and it is cheap. Do not spend a fix
+   on a guess: awaiting the socket's close, delaying the next session and
+   retrying after a pause all trade against "speech starts after about a
+   second", which is why this transport was chosen.
+2. **Two fixed lines describe where a button is** — `crop_continue` («الزرار
+   الكبير اللي تحت») and `camera_permission` («الزرار الكبير اللي في وسط
+   الشاشة»). The owner rejected naming the button, correctly: a user who cannot
+   read cannot find «كمّل». **If F39 moves either button, the line becomes a
+   lie**, and no test can catch it. Regenerate with
+   `supabase/tools/generate-voice-lines.ts --only=<id>`. `camera_permission`
+   also does not cover Android's own permission dialog, whose layout we do not
+   control — F39 decides whether that needs its own line.
+3. **A fixed line stops a paper being read, permanently.** A line plays through
+   `just_audio`, whose focus request sends `AUDIOFOCUS_LOSS` to `PcmPlayer`,
+   which treats a permanent loss as final by design. F37 deliberately does not
+   coordinate the two — `SpeakFixedLine` owns only its own player — so **F40
+   decides** what should happen when a screen wants to speak over a reading.
+4. **A failed read leaves a zero-byte temp file in `cache/`.** Successful reads
+   clean up. No content leaks, but §7 asks for temp files to be removed.
+5. **Three device-checklist rows need screens F37 does not build**, and one
+   needs a real incoming call — see `F37-device-checklist.md`'s results table.
 
 Three changes of substance against F34's phase order:
 

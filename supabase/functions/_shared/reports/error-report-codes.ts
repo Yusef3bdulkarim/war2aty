@@ -67,6 +67,12 @@ export const REPORTABLE_ERROR_CODES = [
   // server has to accept it, even though nothing reports it today: it is a
   // settings-screen link that would not open.
   "EXTERNAL_LINK",
+  // F37. Playing and saving a streamed reading. Separate codes because the
+  // consequences differ: a playback failure means the user heard nothing and
+  // the read is retried on the device, while an encoding failure means they
+  // heard their paper and only the offline replay is missing.
+  "AUDIO_PLAYBACK",
+  "AUDIO_ENCODING",
   // F35-T07 removed the consent setting, so builds from 1.1.0 on cannot
   // produce this. DO NOT DELETE IT: 1.0.2 is published, still has the setting,
   // and still reports this code when it blocks a run. An unlisted code is a
@@ -88,11 +94,19 @@ export const REPORTABLE_ERROR_CODES = [
   "INVALID_ANALYSIS_RESPONSE",
   "AI_PROVIDER_RATE_LIMIT",
   "ONLINE_OCR_UNAVAILABLE",
+  // F37. The voice service could not be reached, or the stream died part-way
+  // through a paper.
+  "VOICE_SERVICE",
+  "VOICE_STREAM_INTERRUPTED",
   // Business outcomes
   "UNSUPPORTED_DOCUMENT",
   "PARTIAL_ANALYSIS",
   "AMBIGUOUS_DATE",
   "MISSING_REMINDER_TIME",
+  // F37. The voice read the explanation back in different words. Worth
+  // counting in production: the whole voice design rests on the reading being
+  // verbatim, and this is the only signal that it stopped being so.
+  "VOICE_READ_NOT_VERBATIM",
   // Uncaught errors (LogCrashKind) — the two H1 was really about
   "UNCAUGHT_FLUTTER_ERROR",
   "UNCAUGHT_PLATFORM_ERROR",

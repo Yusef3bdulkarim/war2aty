@@ -683,6 +683,25 @@ void main() {
       expect(en.privacyPointTextOnly, contains('do not keep the text'));
     });
 
+    test('the text copy says it is also sent out to be read aloud (F37)', () {
+      // The pivot made the explanation something the user only ever HEARS, so
+      // the text now leaves the phone twice, for two different purposes. Copy
+      // that mentions only the analysis would describe half of what happens.
+      expect(ar.privacyPointTextOnly, contains('بصوت عالي'));
+      expect(en.privacyPointTextOnly.toLowerCase(), contains('read it aloud'));
+    });
+
+    test('the text copy does not hide that people may review it (F37)', () {
+      // Same honesty the image copy already owes (F20-T24): the voice runs on
+      // a free tier whose terms permit human review, so silence here would be
+      // the old «محدش بيقرا» claim by omission.
+      expect(ar.privacyPointTextOnly, contains('يراجعه موظفين'));
+      expect(
+        en.privacyPointTextOnly.toLowerCase(),
+        contains('staff at those services may review it'),
+      );
+    });
+
     test('no user-facing privacy copy names a provider', () {
       // §7, unchanged since F13-T18 and binding on every string here.
       const providers = [

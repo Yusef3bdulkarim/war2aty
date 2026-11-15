@@ -50,6 +50,7 @@ dependencies:
   go_router: ^17.3.0
   image: ^4.9.1
   image_picker: ^1.2.3
+  just_audio: ^0.9.42
   package_info_plus: ^10.2.1
   path: ^1.9.1
   path_provider: ^2.1.6
@@ -60,6 +61,7 @@ dependencies:
   # mailto, from the settings screen. flutter.dev first-party plugin.
   url_launcher: ^6.3.3
   uuid: ^4.6.0
+  web_socket_channel: ^3.0.0
 
 dev_dependencies:
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -69,6 +71,7 @@ dev_dependencies:
   # rules and activating additional ones.
   build_runner: ^2.15.1
   drift_dev: ^2.34.0
+  fake_async: ^1.3.0
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
@@ -105,6 +108,12 @@ flutter:
     # Canned analyze-document responses for the mock datasource (F05-T08/T09).
     # Used to build the result screen before Groq is wired up.
     - assets/fixtures/analysis/
+    # The fixed spoken UI lines (F37-T20), ~217 KB. Bundled rather than spoken
+    # on demand because each one is needed in the state that makes speaking it
+    # impossible: the offline line with no connection, the no-Arabic-voice line
+    # with no voice installed. `voice_line_test` holds this directory and
+    # `VoiceLine` to parity in both directions.
+    - assets/voice_lines/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -257,9 +257,19 @@ type Read = {
   error: string | null;
 };
 
+/**
+ * The two credentials have two different endpoints, and each refuses the
+ * other's: a token on `BidiGenerateContent` closes 1008 "Permission denied",
+ * an API key on `BidiGenerateContentConstrained` closes 1007 "Missing or
+ * malformed auth token". An earlier run of this tool sent tokens to the
+ * unconstrained endpoint and concluded the free tier refuses them — it does
+ * not. Verified both ways, T01.
+ */
 function wsUrl(auth: Auth, apiVersion: string): string {
-  const base =
-    `${WS}/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateContent`;
+  const service = auth.kind === "api-key"
+    ? "BidiGenerateContent"
+    : "BidiGenerateContentConstrained";
+  const base = `${WS}/google.ai.generativelanguage.${apiVersion}.GenerativeService.${service}`;
   return auth.kind === "api-key"
     ? `${base}?key=${encodeURIComponent(KEY!)}`
     : `${base}?access_token=${encodeURIComponent(auth.token)}`;

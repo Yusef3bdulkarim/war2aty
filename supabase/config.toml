@@ -97,6 +97,12 @@ verify_jwt = true
 [functions.explain-document]
 verify_jwt = true
 
+# F37-T10. Mints a single-use ephemeral token for Gemini Live. Authenticated
+# like the rest — the key stays server-side, the phone gets a short-lived
+# credential that can only open a Live session.
+[functions.live-token]
+verify_jwt = true
+
 # Health is an unauthenticated liveness probe and returns no secrets (§23).
 [functions.health]
 verify_jwt = false

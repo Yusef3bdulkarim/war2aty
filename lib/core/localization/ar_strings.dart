@@ -111,7 +111,9 @@ final class ArStrings implements AppStrings {
 
   @override
   String get privacyPointTextOnly =>
-      'بنبعت نص ورقتك مشفَّر لخدمة تحليل علشان نفهمه، ومانحفظش النص عندنا.';
+      'بنبعت نص ورقتك مشفَّر لخدمات خارجية علشان نفهمه ونقراه لك بصوت عالي، '
+      'ومانحفظش النص عندنا. بس ممكن يراجعه موظفين في الخدمات دي '
+      'لتحسين خدماتها.';
 
   @override
   String get privacyPointImageOptIn =>

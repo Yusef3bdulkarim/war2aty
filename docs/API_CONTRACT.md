@@ -1346,3 +1346,170 @@ The app does not interpret medicine; it tells the user who can.
   "place":   null
 }
 ```
+
+---
+
+## §34 · `live-token` — the voice transport (Path A, ephemeral token)
+
+**APPROVED by the owner 2026-11-13 (F37-T02).** Nothing here is new
+behaviour: `live-token` was built in F37-T10 and T01 settled the transport it
+serves. This section writes that contract down so the client side of F37 (T17
+onward) and every later voice feature (F38–F41) build against a fixed shape.
+
+`POST /functions/v1/live-token` hands the phone a **short-lived credential of
+its own** so it can open a Gemini Live session **directly to Google**. The
+audio never passes through our project: that is the whole point of the choice,
+and it is what keeps the free tier viable — every alternative transport ships
+~3.6 MB of audio per paper through Supabase, a ceiling of roughly 1,400 papers
+a month on the free 5 GB.
+
+The API key stays in Supabase Secrets and never reaches the device.
+
+**T01 proved this works on the free tier** (2026-11-13): tokens mint, the
+constrained Live endpoint accepts them, and a full read came back verbatim at
+0.0 % WER. The relay fallback (B1) is not needed and is not specified here; if
+it is ever reached, it gets its own subsection and the client does not change
+shape — see §34.5.
+
+### Request
+
+**Auth header:** `Authorization: Bearer <supabase-anon-jwt>` (required).
+
+**There is no request body.** The server needs nothing from the caller: the
+model and API version are server configuration, and the token is not scoped to
+a particular paper. A body, if sent, is ignored.
+
+`GET` is refused `400 INVALID_REQUEST` — this endpoint is POST only.
+
+### Gated twice, charged never
+
+`analysis_enabled` (the service-wide kill switch) and `explain_enabled` (the
+explain flow's opt-in flag) must **both** be on. Either one off answers
+`503 ANALYSIS_DISABLED`.
+
+**No usage slot is reserved and no daily limit is checked.** The token reads an
+explanation that `explain-document` has already produced and already charged
+against the daily limit (§33). Charging again would mean a user who replays a
+paper they already paid for is refused the voice — the paper is explained, the
+words are on screen, and the one thing a non-reader needs is the one thing they
+would lose. Reading is free; explaining is what costs.
+
+A consequence worth stating plainly: **a caller who is out of daily analyses can
+still mint tokens.** That is deliberate. The abuse ceiling is Google's own Live
+quota, not ours.
+
+### Success response (`200 OK`)
+
+```jsonc
+{
+  "ws_url":     "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=…",
+  "model":      "models/gemini-2.5-flash-native-audio-latest",  // prefixed; goes in the setup frame
+  "expires_at": "2026-11-13T10:30:00.000Z"                      // ISO-8601, UTC
+}
+```
+
+**`ws_url` is a credential.** The token is embedded in it. It must never be
+logged, never written to disk, never put in an error report, and never shown in
+a debug overlay. The app's own datasource does not log it and neither may
+anything downstream.
+
+### §34.1 · Token lifetime — three separate clocks
+
+| Field | Value | What it bounds |
+|---|---|---|
+| `uses` | `1` | The token opens **one** session. A second connection with the same token is refused. |
+| `expireTime` | **30 minutes** | After this the token is dead outright. Echoed to the client as `expires_at`. |
+| `newSessionExpireTime` | **2 minutes** | A session must be *started* within two minutes of minting. |
+
+The two-minute window is the one that bites, and it is not visible in the
+response. **Mint immediately before connecting, never ahead of time.** A token
+fetched when the result screen opens and used when the user presses play is
+already a bug if they hesitated. `expires_at` tells the client when the token is
+dead but says nothing about the shorter window to open with it — treat
+`expires_at` as a backstop, not a budget.
+
+A refused or expired token is **not** recoverable by retry on the same token:
+fetch a new one.
+
+### §34.2 · The endpoint name is load-bearing
+
+Google runs **two** Live WebSocket services and each rejects the other's
+credential:
+
+| | `…GenerativeService.BidiGenerateContent` | `…GenerativeService.BidiGenerateContentConstrained` |
+|---|---|---|
+| API key (`?key=`) | works | closes `1007` — "Missing or malformed auth token" |
+| ephemeral token (`?access_token=`) | closes `1008` — "Permission denied on the service" | **works** |
+
+Verified both directions, on `v1alpha` and `v1beta` (T01). The server builds the
+constrained URL; the client connects to whatever `ws_url` says and must not
+reconstruct it. This is recorded because getting it wrong is **silent until
+runtime and expensive**: the token is single-use, so a wrong URL spends it and
+the retry needs a fresh mint. It was wrong in shipped code until T01 caught it.
+
+### §34.3 · The session the phone then opens
+
+Under Path A the phone speaks Google's protocol directly, so these are part of
+the transport contract even though our server is no longer in the path.
+
+**Setup frame** — send `model` exactly as returned, `responseModalities:
+["AUDIO"]`, and `outputAudioTranscription: {}` to receive the transcript the
+verbatim check needs.
+
+**The transcript arrives under a different name than it was requested.** The
+setup key is `outputAudioTranscription`; the server frames carry the text at
+**`serverContent.outputTranscription.text`**. Reading the setup spelling off the
+server frame yields an empty transcript, which makes every read look
+non-verbatim and silently drops every user to device TTS. The whole voice spine
+fails open and quiet if this is wrong.
+
+**No `speechConfig`.** It is rejected `1007 … Unknown name "speechConfig" at
+'setup'` on every endpoint and both API versions, with a `languageCode` alone
+and with a named voice. **The app takes the service's default voice and cannot
+pin it.** It reads Egyptian Arabic correctly today without being asked to, so
+this costs nothing now — but the voice is Google's to change, and there is no
+setting, no fallback and no warning if they do. **Any F38–F41 feature that
+assumes a choosable or stable voice has to be re-planned.** Re-probe before
+building on one.
+
+**Session length is the generation, not the playback.** The socket closes when
+Gemini finishes generating (~12–29 s observed); the phone plays from its buffer
+for ~75 s afterwards. Concurrency budgets must count generations, not listeners.
+
+### §34.4 · Error codes
+
+All errors follow §31's envelope. `live-token` raises a subset:
+
+| HTTP | Code | AppFailure | Description |
+|---|---|---|---|
+| 400 | `INVALID_REQUEST` | `InvalidRequestFailure` | Method other than POST |
+| 401 | `UNAUTHORIZED` | `UnauthorizedFailure` | Missing/invalid/expired JWT |
+| 429 | `AI_RATE_LIMITED` | `AiProviderRateLimitFailure` | Google rate-limited the mint |
+| 500 | `INTERNAL_ERROR` | `AnalysisServiceFailure` | Mint failed for any other reason — upstream refusal, a bad key, a malformed answer |
+| 503 | `ANALYSIS_DISABLED` | `AnalysisDisabledFailure` | `analysis_enabled` or `explain_enabled` is off |
+
+**There is no code that means "the voice is unavailable but the paper is
+fine".** `INTERNAL_ERROR` covers a Google-side refusal as well as our own fault,
+because the client's response is the same either way: fall to the device-TTS
+tier. The distinction matters for our logs, not for the user, and
+`live-token.mint_failed` carries the reason server-side.
+
+### §34.5 · Client rules
+
+1. **A voice failure is never a paper failure.** Transport problems map to
+   `VoiceServiceFailure`, not `AnalysisServiceFailure` — the explanation is
+   already on screen and must keep being readable. Only connectivity maps
+   across (`NoInternetFailure`, `RequestTimeoutFailure`).
+2. **A malformed 200 is a failure.** A missing or non-string `ws_url`, `model`
+   or `expires_at`, or a `ws_url` that will not parse as a URI, is
+   `VoiceServiceFailure`. Never connect to a partially-parsed endpoint.
+3. **Never log `ws_url`** — see above. `model` and `expires_at` are safe.
+4. **Do not retry a spent token.** Re-fetch.
+5. **Every failure here falls to the next tier** (device TTS), never to a dead
+   play button — the tier ladder is T17's job and this endpoint is only its
+   first rung.
+6. **The transport is injected.** The client depends on `LiveSessionEndpoint`,
+   not on Google. If the transport ever changes, `ws_url` points somewhere else
+   and auth becomes the Supabase JWT; **the response shape does not change** and
+   neither does anything above the datasource. That is the property this section
+   is protecting, and the reason the relay needs no separate client contract.

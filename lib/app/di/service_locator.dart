@@ -119,6 +119,12 @@ import '../../core/usage/usage_repository.dart';
 import '../../core/usage/usecases/get_daily_usage.dart';
 import '../../core/usage/usecases/sync_daily_usage.dart';
 import '../../core/usage/usecases/watch_daily_usage.dart';
+import '../../core/voice/encrypted_audio_store.dart';
+import '../../core/voice/file_encrypted_audio_store.dart';
+import '../../core/voice/fixed_line_player.dart';
+import '../../core/voice/just_audio_fixed_line_player.dart';
+import '../../core/voice/usecases/speak_fixed_line.dart';
+import '../../core/voice/voice_playback_cubit.dart';
 import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
@@ -218,6 +224,24 @@ import '../../features/saved_papers/presentation/cubit/document_details_cubit.da
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/settings/presentation/cubit/settings_cubit.dart';
+import '../../features/voice/data/datasources/edge_function_live_token_data_source.dart';
+import '../../features/voice/data/services/gemini_live_voice_session.dart';
+import '../../features/voice/data/services/just_audio_encrypted_player.dart';
+import '../../features/voice/data/services/method_channel_live_audio_output.dart';
+import '../../features/voice/data/services/reading_queue_voice_reader.dart';
+import '../../features/voice/data/services/tokened_live_voice_session.dart';
+import '../../features/voice/data/services/web_socket_connect.dart';
+import '../../features/voice/domain/services/audio_encoder.dart';
+import '../../features/voice/domain/services/device_voice_reader.dart';
+import '../../features/voice/domain/services/live_voice_session.dart';
+import '../../features/voice/domain/services/pcm_audio_sink.dart';
+import '../../features/voice/domain/services/saved_audio_player.dart';
+import '../../features/voice/domain/usecases/align_segments_to_audio.dart';
+import '../../features/voice/domain/usecases/build_voice_turn_text.dart';
+import '../../features/voice/domain/usecases/normalise_arabic_for_diff.dart';
+import '../../features/voice/domain/usecases/read_paper_aloud.dart';
+import '../../features/voice/domain/usecases/replay_saved_audio.dart';
+import '../../features/voice/domain/usecases/verify_verbatim_read.dart';
 import '../launch_status.dart';
 import '../notifications/reminder_notification_taps.dart';
 import '../router/app_router.dart';
@@ -245,6 +269,7 @@ Future<void> configureDependencies(
   _registerSavedPapers();
   _registerReminders();
   _registerAudioReader();
+  _registerVoice();
   _registerLegal();
   _registerSettings();
   _registerRouting();
@@ -1034,6 +1059,105 @@ void _registerAudioReader() {
     );
 }
 
+/// F37-T21. The voice spine: Gemini Live, device TTS under it, the encrypted
+/// replay, and the bundled fixed lines.
+///
+/// Registered beside `_registerAudioReader` rather than inside it, and the
+/// split is the point: that module serves the **published 1.0.2** result
+/// screen, whose five reading modes and mini-player are still shipping until
+/// F40 removes them. This one serves the pivot. The only thing they share is
+/// `ReadingQueue` — the device tier reuses it rather than replacing it, which
+/// is also why `DeviceVoiceReader` resolves to an adapter over that same
+/// singleton instead of a second queue.
+///
+/// **Nothing here is built into a widget tree.** F37 ends at an injectable
+/// spine; F39, F40 and F41 construct `VoicePlaybackCubit` and call
+/// `SpeakFixedLine`.
+void _registerVoice() {
+  getIt
+    // T10. The ephemeral token comes from our own Edge Function, over the one
+    // shared Dio — so it carries the anonymous session's access token, and the
+    // Gemini key never reaches the device.
+    ..registerLazySingleton<LiveTokenDataSource>(
+      () => EdgeFunctionLiveTokenDataSource(getIt()),
+    )
+    // T11 + T12 are ONE native object behind two interfaces. It must stay one
+    // instance: the sink and the encoder are two faces of a single
+    // `AudioTrack` + `MediaCodec` pair on the other side of the channel, and a
+    // second instance would open a second track that fights the first for
+    // audio focus. Hence the concrete registration plus two aliases to it,
+    // rather than two `registerLazySingleton` calls that would each build one.
+    ..registerLazySingleton<MethodChannelLiveAudioOutput>(
+      MethodChannelLiveAudioOutput.new,
+    )
+    ..registerLazySingleton<PcmAudioSink>(
+      getIt.call<MethodChannelLiveAudioOutput>,
+    )
+    ..registerLazySingleton<AudioEncoder>(
+      getIt.call<MethodChannelLiveAudioOutput>,
+    )
+    // T15. The same `FileEncryptor` the document images use (F19-T02), so a
+    // paper's photo and its reading are protected by one key, not two.
+    ..registerLazySingleton<EncryptedAudioStore>(
+      () => FileEncryptedAudioStore(getIt()),
+    )
+    // T18. A singleton because it subscribes to `ReadingQueue.events` for its
+    // whole life: a second instance would add a second listener to the one
+    // engine's queue and read the first's completions as its own.
+    ..registerLazySingleton<DeviceVoiceReader>(
+      () => ReadingQueueVoiceReader(getIt()),
+    )
+    // T16 + T19. One platform player, so a singleton — and the replay is what
+    // `VoicePlaybackCubit`'s file phase drives.
+    ..registerLazySingleton<SavedAudioPlayer>(
+      () => JustAudioEncryptedPlayer(store: getIt()),
+    )
+    // T20. Its own player, separate from the replay's: a fixed line is app
+    // copy read straight from the bundle, and sharing the replay's player
+    // would mean a line could tear down a paper the user is listening to.
+    ..registerLazySingleton<FixedLinePlayer>(JustAudioFixedLinePlayer.new)
+    // T05, T06, T07 — pure, stateless and total, so factories, the same shape
+    // as `BuildReadingText` above.
+    ..registerFactory<NormaliseArabicForDiff>(NormaliseArabicForDiff.new)
+    ..registerFactory<BuildVoiceTurnText>(BuildVoiceTurnText.new)
+    ..registerFactory<VerifyVerbatimRead>(() => VerifyVerbatimRead(getIt()))
+    ..registerFactory<AlignSegmentsToAudio>(() => AlignSegmentsToAudio(getIt()))
+    // T09 + T21. A factory of sessions, not a session: Live sessions are
+    // single-use, so the ladder's retry needs a second one. Each is wrapped by
+    // `TokenedLiveVoiceSession`, which mints that read's own token inside
+    // `start` — the token is `uses=1`, so one cached session would hand the
+    // second read a spent credential.
+    ..registerFactory<LiveVoiceSession>(
+      () => TokenedLiveVoiceSession(
+        tokens: getIt(),
+        build: (endpoint) => GeminiLiveVoiceSession(
+          endpoint: endpoint.wsUrl,
+          model: endpoint.model,
+          connect: connectWebSocket,
+        ),
+      ),
+    )
+    // T17. The tier ladder. A factory: it holds one read's state, and two
+    // screens reading at once is not a thing the app does.
+    ..registerFactory<ReadPaperAloud>(
+      () => ReadPaperAloud(
+        openSession: getIt.call<LiveVoiceSession>,
+        sink: getIt(),
+        encoder: getIt(),
+        audioStore: getIt(),
+        deviceReader: getIt(),
+        verify: getIt(),
+        align: getIt(),
+      ),
+    )
+    ..registerFactory<ReplaySavedAudio>(() => ReplaySavedAudio(getIt()))
+    ..registerFactory<SpeakFixedLine>(() => SpeakFixedLine(getIt()))
+    // One per screen that plays a paper, like `AudioReaderCubit` above.
+    ..registerFactory<VoicePlaybackCubit>(
+      () => VoicePlaybackCubit(getIt(), getIt()),
+    );
+}
+
 /// F27-T20. The published privacy policy and terms, and the support mailbox.
 ///
 /// Its own module rather than part of `_registerSettings`, because two
@@ -1111,6 +1235,17 @@ void _registerRouting() {
     // and the notification opener read it (F28-T07).
     ..registerLazySingleton<LaunchStatus>(LaunchStatus.new)
     ..registerLazySingleton<GoRouter>(
-      () => createAppRouter(onboardingGate: getIt(), launchStatus: getIt()),
+      () => createAppRouter(
+        onboardingGate: getIt(),
+        launchStatus: getIt(),
+        // F37-T21. Dev builds only — see `createAppRouter`'s doc and
+        // `voice_harness_guard_test`.
+        // Two conditions, both required: a dev build AND the run asking for
+        // it. The dart-define means a normal dev run is untouched, and
+        // `isDev` means no define can conjure it in a release build.
+        devVoiceHarness:
+            getIt<AppEnvironment>().isDev &&
+            const bool.fromEnvironment('VOICE_HARNESS'),
+      ),
     );
 }
