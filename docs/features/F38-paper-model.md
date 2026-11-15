@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 3 / 12
+- **Progress:** 4 / 12
 
 ## Why this feature exists
 
@@ -228,7 +228,7 @@ any order. T05 gates T06–T09.
       `features/explain/`, because `core/papers/usecases/SavePaper` is the
       consumer and core never imports a feature.
 
-- [ ] **T04** `BuildPaperVoiceSegments` — the entity → `List<VoiceSegment>`,
+- [x] **T04** `BuildPaperVoiceSegments` — the entity → `List<VoiceSegment>`,
       with the stable id scheme: `explain`, `todo`, `date`, `caution`,
       `contact`, `place`, in that order, one segment **per card** (the approved
       design's status segments are per card, so the 1–4 `explain` paragraphs
@@ -239,6 +239,24 @@ any order. T05 gates T06–T09.
       invalidates every stored span), the order is pinned, a paper with only
       the two required cards yields exactly one segment, and the same paper
       yields byte-identical segments on a second call.
+
+      Correction while implementing: `explain` and `todo` are both required
+      (T01), so "the two required cards" is `explain` **and** `todo` —
+      per-card segmentation means a minimal paper yields **two** segments, not
+      one. The "exactly one segment" line in this bullet undercounts; the
+      tests assert two, which is the only reading consistent with "one segment
+      per card" two sentences earlier.
+
+      Per §33.3's own page-total list, each card's spoken text is the field
+      it names and nothing else: `contact` speaks `name` only — `phone` is
+      drawn, never spoken, and the test asserts the digits do not appear in
+      the segment. `date` speaks `date.text` only; the «نوفمبر / 20 / يوم
+      الخميس» formatting in that section's Notes column is the *drawn* card,
+      not a voice format F38 has to build, and a test pins this by asserting
+      the day number does not appear in the spoken text either. The `explain`
+      segment is `'$title. ${paragraphs.join(' ')}'` — a period after the
+      title so Live/device TTS actually pause before the body, which is not
+      specified anywhere and is recorded here as the implementation's choice.
 
 ### Phase B — the schema and the store
 
