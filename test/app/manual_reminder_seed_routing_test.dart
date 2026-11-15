@@ -8,7 +8,6 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
-import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
 import 'package:war2aty/core/time/document_date_label.dart';
@@ -58,8 +57,8 @@ void main() {
       )
       ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       // The registration under test, shaped exactly as `service_locator.dart`
-      // shapes it: a factory parameterised on a **nullable** seed, told apart
-      // from the from-document one by `instanceName`.
+      // shapes it: a factory parameterised on a **nullable** seed, under the
+      // `instanceName` `app_router.dart`'s manual route resolves it by.
       ..registerFactoryParam<ReminderFormCubit, ManualReminderSeed?, void>((
         seed,
         _,
@@ -69,10 +68,6 @@ void main() {
         final scheduler = FakeReminderScheduler();
         final permissions = FakeNotificationPermissionRepository();
         return ReminderFormCubit.manual(
-          createFromDocumentDate: CreateReminderFromDocumentDate(
-            reminders,
-            scheduler,
-          ),
           createManual: CreateManualReminder(reminders, scheduler),
           getNotificationPermission: GetNotificationPermission(permissions),
           requestNotificationPermission: RequestNotificationPermission(

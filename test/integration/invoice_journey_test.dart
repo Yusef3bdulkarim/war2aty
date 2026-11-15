@@ -13,7 +13,6 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/network/interceptors/request_id_interceptor.dart';
 import 'package:war2aty/core/time/document_date_label.dart';
 import 'package:war2aty/core/usage/usage_remote_data_source.dart';
-import 'package:war2aty/core/widgets/result_action_bar.dart';
 import 'package:war2aty/features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
 import 'package:war2aty/features/capture/presentation/screens/camera_capture_screen.dart';
 
@@ -153,37 +152,11 @@ void main() {
       await tester.pump(_saveFeedback);
       await tester.pumpAndSettle();
 
-      // ── Reminder, for the deadline the paper carries ───────────────────
-      // The bar's reminder action, not the dates card's — the bar is the one
-      // that asks which date first (UX §5.8).
-      await tester.tap(
-        find.descendant(
-          of: find.byType(ResultActionBar),
-          matching: find.text(_ar.resultCreateReminder),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_ar.resultDateReminderWorthy));
-      await tester.pumpAndSettle();
-
-      expect(harness.location, AppRoutes.reminderCreate);
-
-      await tester.tap(find.text(_ar.reminderSaveAction));
-      await tester.pumpAndSettle();
-
-      expect(harness.location, AppRoutes.reminderSuccess);
-      final reminders = await harness.savedReminders();
-      expect(reminders, hasLength(1));
-      final alerts = await harness.savedAlerts();
-      expect(alerts, hasLength(1), reason: 'the form opened with one alert');
-      expect(
-        harness.notifications.scheduled,
-        hasLength(alerts.length),
-        reason: 'every alert the user confirmed reached the OS',
-      );
-
       // ── Home, with the paper and the count the journey earned ──────────
-      await tester.tap(find.text(_ar.actionBack));
+      // The reminder bell the result screen once offered here was cut with
+      // the reminder ↔ document link (F38-T06, D4); creating one is now only
+      // reachable from the reminders tab.
+      await tester.tap(find.byTooltip(_ar.analysisResultBackLabel));
       await tester.pumpAndSettle();
 
       expect(harness.location, AppRoutes.home);
@@ -275,51 +248,6 @@ void main() {
       expect(harness.backend.usedToday, 1);
       expect(harness.backend.unexpectedPaths, isEmpty);
       expect(tester.takeException(), isNull);
-    },
-  );
-
-  journeyTest(
-    'a reminder made before the paper is saved is kept, unlinked — and the '
-    'result page is not there to go back to',
-    (harness) async {
-      final tester = harness.tester;
-
-      await tester.tap(find.text(_ar.homeScanTitle));
-      await tester.pumpAndSettle();
-      await tester.tap(find.bySemanticsLabel(_ar.cameraShutterLabel));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_ar.previewUseImage));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_ar.ocrContinue));
-      await tester.pumpAndSettle();
-
-      // Straight to the reminder, with nothing saved yet.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(ResultActionBar),
-          matching: find.text(_ar.resultCreateReminder),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_ar.resultDateReminderWorthy));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(_ar.reminderSaveAction));
-      await tester.pumpAndSettle();
-
-      final reminders = await harness.savedReminders();
-      expect(reminders, hasLength(1));
-      expect(await harness.savedDocuments(), isEmpty);
-
-      // Both ways off the confirmation leave the scan for good (`go`, not
-      // `pop`), so saving the paper afterwards is not a path the user has:
-      // the save has to come first for the two to be linked.
-      await tester.tap(find.text(_ar.reminderSuccessViewAction));
-      await tester.pumpAndSettle();
-
-      expect(harness.location, AppRoutes.reminders);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.text(_ar.resultSavePaper), findsNothing);
     },
   );
 }

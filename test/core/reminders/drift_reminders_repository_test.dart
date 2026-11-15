@@ -29,7 +29,6 @@ void main() {
   tearDown(() => db.close());
 
   Future<Reminder> create({
-    String? documentId,
     String title = 'دفع فاتورة الكهرباء',
     String? description,
     DateTime? eventDate,
@@ -38,7 +37,6 @@ void main() {
     List<DateTime> alertTimes = const [],
   }) async {
     final outcome = await repository.createReminder(
-      documentId: documentId,
       title: title,
       description: description,
       eventDate: eventDate ?? DateTime(2026, 8, 25),

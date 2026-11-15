@@ -1128,7 +1128,6 @@ final class FakeDocumentsRepository implements DocumentsRepository {
 /// values matter less than that every required one is present.
 Reminder fakeReminder({
   String id = 'r1',
-  String? documentId,
   String title = 'دفع فاتورة الكهرباء',
   String? description,
   ReminderStatus status = ReminderStatus.pending,
@@ -1136,7 +1135,6 @@ Reminder fakeReminder({
   List<DateTime> alertTimes = const [],
 }) => Reminder(
   id: id,
-  documentId: documentId,
   title: title,
   description: description,
   eventDate: DateTime(2026, 8, 25),
@@ -1222,7 +1220,6 @@ final class FakeRemindersRepository implements RemindersRepository {
   /// The arguments [createReminder] was last called with.
   String? lastCreatedTitle;
   String? lastCreatedDescription;
-  String? lastCreatedDocumentId;
   DateTime? lastCreatedEventDate;
   int? lastCreatedEventMinuteOfDay;
   bool? lastCreatedIsManual;
@@ -1230,7 +1227,6 @@ final class FakeRemindersRepository implements RemindersRepository {
 
   @override
   Future<Result<Reminder, AppFailure>> createReminder({
-    String? documentId,
     required String title,
     String? description,
     required DateTime eventDate,
@@ -1238,7 +1234,6 @@ final class FakeRemindersRepository implements RemindersRepository {
     required bool isManual,
     required List<DateTime> alertTimes,
   }) async {
-    lastCreatedDocumentId = documentId;
     lastCreatedTitle = title;
     lastCreatedDescription = description;
     lastCreatedEventDate = eventDate;

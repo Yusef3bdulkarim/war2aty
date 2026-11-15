@@ -6,11 +6,9 @@ import 'package:war2aty/core/permissions/usecases/get_notification_permission.da
 import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
 import 'package:war2aty/core/reminders/alert_time_offset.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
-import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_state.dart';
 import 'package:war2aty/features/reminders/presentation/models/reminder_alert_draft.dart';
-import 'package:war2aty/features/reminders/presentation/models/reminder_from_document_args.dart';
 import 'package:war2aty/features/reminders/presentation/screens/reminder_form_screen.dart';
 
 import '../../support/fakes.dart';
@@ -22,7 +20,6 @@ import '../../support/pump_app.dart';
 void main() {
   const ar = ArStrings();
   late FakeRemindersRepository repository;
-  late CreateReminderFromDocumentDate createFromDocumentDate;
   late CreateManualReminder createManual;
   late GetNotificationPermission getNotificationPermission;
   late RequestNotificationPermission requestNotificationPermission;
@@ -30,10 +27,6 @@ void main() {
   setUp(() {
     repository = FakeRemindersRepository();
     final scheduler = FakeReminderScheduler();
-    createFromDocumentDate = CreateReminderFromDocumentDate(
-      repository,
-      scheduler,
-    );
     createManual = CreateManualReminder(repository, scheduler);
     final notificationPermissionRepository =
         FakeNotificationPermissionRepository();
@@ -47,17 +40,21 @@ void main() {
 
   final eventInstant = DateTime.utc(2026, 8, 25, 8); // 10:00 Cairo.
 
-  ReminderFormCubit buildCubit() => ReminderFormCubit.fromDocument(
-    createFromDocumentDate: createFromDocumentDate,
-    createManual: createManual,
-    getNotificationPermission: getNotificationPermission,
-    requestNotificationPermission: requestNotificationPermission,
-    args: ReminderFromDocumentArgs(
-      title: 'دفع فاتورة الكهرباء',
-      eventDate: DateTime(2026, 8, 25),
-      eventMinuteOfDay: 600,
-    ),
-  );
+  // Filled in, with its own default "at event time" alert already seeded —
+  // the manual form's equivalent starting point to the from-document form's
+  // old "a day before" default (F09-T05, removed with it in F38-T06).
+  ReminderFormCubit buildCubit() {
+    final cubit = ReminderFormCubit.manual(
+      createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
+    );
+    cubit
+      ..setTitle('دفع فاتورة الكهرباء')
+      ..setEventDate(DateTime(2026, 8, 25))
+      ..setEventMinuteOfDay(600);
+    return cubit;
+  }
 
   ReminderAlertDraft draftFor(AlertTimeOffset offset) =>
       ReminderAlertDraft(time: offset.applyTo(eventInstant), offset: offset);
@@ -67,7 +64,7 @@ void main() {
         tester,
         BlocProvider<ReminderFormCubit>.value(
           value: cubit,
-          child: ReminderFormScreen(screenTitle: ar.reminderCreateScreenTitle),
+          child: ReminderFormScreen(screenTitle: ar.reminderAddAction),
         ),
       );
 
@@ -84,8 +81,8 @@ void main() {
     addTearDown(cubit.close);
     await pumpScreen(tester, cubit);
 
-    // Starts with the default "a day before" alert (F09-T05); add the two
-    // remaining offsets to reach the cap.
+    // Starts with the default "at event time" alert; add the two remaining
+    // offsets to reach the cap.
     expect((cubit.state as ReminderFormEditing).alerts, hasLength(1));
 
     await tapVisible(tester, find.text(ar.reminderAddAnotherAlert));

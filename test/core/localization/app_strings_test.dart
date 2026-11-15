@@ -388,9 +388,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'reminderRemoveAlertLabel': (s) => s.reminderRemoveAlertLabel,
   'reminderNoteLabel': (s) => s.reminderNoteLabel,
   'reminderNoteHint': (s) => s.reminderNoteHint,
-  'reminderLinkedDocumentSectionLabel': (s) =>
-      s.reminderLinkedDocumentSectionLabel,
-  'reminderLinkedDocumentValueLabel': (s) => s.reminderLinkedDocumentValueLabel,
   'reminderSaveAction': (s) => s.reminderSaveAction,
   'reminderAlertOffsetThreeDays': (s) => s.reminderAlertOffsetThreeDays,
   'reminderAlertOffsetOneDay': (s) => s.reminderAlertOffsetOneDay,
@@ -400,7 +397,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'reminderAlertPickerTitle': (s) => s.reminderAlertPickerTitle,
   'reminderMissingEventTimeWarning': (s) => s.reminderMissingEventTimeWarning,
   'reminderSuggestedAlertTime': (s) => s.reminderSuggestedAlertTime('9:00'),
-  'reminderCreateScreenTitle': (s) => s.reminderCreateScreenTitle,
   'reminderAddAction': (s) => s.reminderAddAction,
   'reminderSuccessTitle': (s) => s.reminderSuccessTitle,
   'reminderSuccessViewAction': (s) => s.reminderSuccessViewAction,
@@ -457,8 +453,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'reminderDetailsTimeLabel': (s) => s.reminderDetailsTimeLabel,
   'reminderDetailsAlertLabel': (s) => s.reminderDetailsAlertLabel,
   'reminderDetailsDescriptionLabel': (s) => s.reminderDetailsDescriptionLabel,
-  'reminderDetailsLinkedDocumentLabel': (s) =>
-      s.reminderDetailsLinkedDocumentLabel,
   'reminderDetailsNotFoundTitle': (s) => s.reminderDetailsNotFoundTitle,
   'reminderDetailsNotFoundMessage': (s) => s.reminderDetailsNotFoundMessage,
   'reminderDetailsErrorTitle': (s) => s.reminderDetailsErrorTitle,
