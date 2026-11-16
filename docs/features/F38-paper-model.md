@@ -4,7 +4,8 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 11 / 12
+- **Progress:** 12 / 12 — **CLOSED 2026-11-17** by owner decision, with T12's
+  device pass accepted partially run. See "Status" under Definition of done.
 
 ## Why this feature exists
 
@@ -556,7 +557,7 @@ any order. T05 gates T06–T09.
       step needs a fake the same way a cubit's own dependency would, even when
       nothing else in the codebase consumes it.
 
-- [ ] **T12** DI (`_registerPapers`, `_registerExplain`) beside
+- [x] **T12** DI (`_registerPapers`, `_registerExplain`) beside
       `_registerVoice`; extend `lib/app/dev/voice_harness_screen.dart` with an
       "explain → save → list → replay" path behind the existing `VOICE_HARNESS`
       flag; write `docs/features/F38-device-checklist.md` in F23/F37's style;
@@ -573,13 +574,21 @@ any order. T05 gates T06–T09.
       written back into D8.
 
       **Code landed and committed** (DI, the harness path, the checklist, the
-      registration test — 45818f1); the device pass itself is **paused
-      mid-way** to start F39. The v3 → v4 migration (checklist §A) is fully
-      verified on the RMX2001 with real seeded data. §B (explain → save →
-      read) found and fixed a local-secrets gap (`GEMINI_OCR_MODELS` missing
-      from `supabase/.env`) but has not yet completed a successful run —
-      resume from `docs/features/F38-device-checklist.md`'s Results section.
-      T12 is **not done**; progress stays 11/12 until the pass finishes.
+      registration test — 45818f1). The device pass itself ran only
+      partially before the owner closed the feature on 2026-11-17 to move to
+      F39+F40 (built together this time, so the capture flow has a real
+      result screen to hand off to from day one — see "Status" below). The
+      v3 → v4 migration (checklist §A) is **fully verified** on the RMX2001
+      with real seeded data: schema reaches v4, the legacy tables and image
+      directory are wiped, the reminder linked to the wiped document (and its
+      alert) are gone, and the unrelated reminders survive. §B (explain →
+      save → read) found and fixed a real local-secrets gap
+      (`GEMINI_OCR_MODELS` missing from `supabase/.env`) but had not yet
+      completed a successful end-to-end run when the pass was paused by host
+      memory pressure; §C–G never ran. `docs/features/F38-device-checklist.md`
+      has the exact resume point, left there on purpose — F40's own device
+      pass is the next chance to exercise the rest of this list on real
+      papers, since by then there is a real screen to read them on.
 
 ## Files
 
@@ -677,3 +686,23 @@ papers; one paper explained, auto-saved, replayed offline and deleted on the
 RMX2001; the per-paper disk cost measured and written into D8;
 `@code-reviewer` passed; and `docs/features/F38-device-checklist.md` filled in
 row by row. Then `/explain-feature`, then the PR.
+
+**Status 2026-11-17 — closed by owner decision, three of these met in full,
+two met partially:**
+
+| Condition | State |
+|---|---|
+| 12 / 12 with findings inline | ✅ |
+| Full gate green, counters read | ✅ 856 files / 0 errors 0 warnings (21 pre-existing infos) / 3,440 passed |
+| v3 → v4 migration verified on a device with saved papers | ✅ run on the RMX2001 against real seeded data (one document + image, one linked reminder + alert, two unrelated reminders) — every checklist §A row passed |
+| One paper explained, auto-saved, replayed offline, deleted on the RMX2001 | ❌ **not reached.** §B hit a real local-secrets gap (`GEMINI_OCR_MODELS` missing from `supabase/.env`, fixed) and then two `RequestTimeoutFailure`s, most likely host memory pressure from a concurrent Android build. §C–G never ran |
+| Per-paper disk cost measured, written into D8 | ❌ not reached — depends on §B |
+| `@code-reviewer` passed | — (gate to run before merge) |
+
+**Accepted by the owner, carried into F39+F40:** the rest of
+`docs/features/F38-device-checklist.md` (§B onward) is unrun. F39 and F40 are
+being built together specifically so the capture flow has a real result
+screen to hand its first paper to, rather than a dev harness — that pairing
+is also why the remaining checklist rows are deferred to *that* feature's own
+device pass rather than resumed here: by then there is a real paper, read
+through the real flow, to run them against.
