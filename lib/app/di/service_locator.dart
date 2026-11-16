@@ -155,8 +155,10 @@ import '../../features/audio_reader/domain/usecases/warm_up_reader.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
+import '../../features/bootstrap/data/services/file_legacy_document_files_purge.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
+import '../../features/bootstrap/domain/services/legacy_document_files_purge.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/finish_launch.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
@@ -402,6 +404,9 @@ void _registerLaunch(AppEnvironment env) {
     ..registerLazySingleton<AnalysisSessionStorage>(
       FileAnalysisSessionStorage.new,
     )
+    ..registerLazySingleton<LegacyDocumentFilesPurge>(
+      FileLegacyDocumentFilesPurge.new,
+    )
     ..registerLazySingleton<UsageRemoteDataSource>(
       () => EdgeFunctionUsageRemoteDataSource(getIt()),
     )
@@ -522,6 +527,11 @@ List<BootstrapStep> _buildDeferredSteps() {
           .deleteStaleSessions();
       return result.map<void>((_) {});
     }, critical: false),
+    BootstrapStep(
+      BootstrapStage.cleanup,
+      () => getIt<LegacyDocumentFilesPurge>()(),
+      critical: false,
+    ),
     BootstrapStep(BootstrapStage.reminders, () async {
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});

@@ -4,7 +4,7 @@
 - **Milestone:** post-F37, the fourth feature of the F34 pivot
 - **Depends on:** F35 (closed), F36's §33 contract (closed), F37's voice spine (closed 2026-11-15 with one accepted open defect)
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) — the pivot's decisions record, and its "Amendments (2026-11-08)" section, which wins wherever it disagrees with the body. The owner delegated F38's remaining open points to Claude on 2026-11-15; they are recorded as D1–D15 below and are decisions, not suggestions.
-- **Progress:** 10 / 12
+- **Progress:** 11 / 12
 
 ## Why this feature exists
 
@@ -508,13 +508,53 @@ any order. T05 gates T06–T09.
       a `begin()`-throws-after-creating-the-file case, which no existing path
       cleaned up.
 
-- [ ] **T11** The bootstrap purge step (D14): a `BootstrapStage.cleanup` step
+- [x] **T11** The bootstrap purge step (D14): a `BootstrapStage.cleanup` step
       that deletes the legacy `documents/` directory if present,
       `critical: false`, beside `deleteStaleSessions()`. *Done when:* it removes
       a seeded legacy directory, is a quiet no-op when there is none, is a quiet
       no-op twice in a row, and **cannot touch `paper_images/` or
       `voice_audio/`** — asserted by name, because the one way this step can do
       harm is by deleting the papers it was written to make room for.
+
+      Landed as an interface + impl pair, mirroring `AnalysisSessionStorage` /
+      `FileAnalysisSessionStorage` rather than `AnalysisSessionStorage`'s
+      lone-implementation sibling the first draft tried: `LegacyDocumentFilesPurge`
+      (`domain/services/`, one `call()` method) and `FileLegacyDocumentFilesPurge`
+      (`data/services/`, injectable `supportDirectory`, `Result<void, AppFailure>`,
+      `FileStorageFailure` on a thrown `Object`). It deletes
+      `kDocumentImagesDirName` ('documents') from `FileDocumentImageStore`,
+      reusing that constant rather than redeclaring the legacy folder's name a
+      second time. Registered in `_registerLaunch` and run as a second
+      `BootstrapStage.cleanup` step in `_buildDeferredSteps`, right after
+      `deleteStaleSessions()`. The "cannot touch `paper_images/`/`voice_audio/`"
+      guarantee is structural, not just tested: the implementation only ever
+      joins `kDocumentImagesDirName` onto the support path, so there is no
+      branch that could reach either sibling directory — the test seeds both
+      and asserts they and their files survive the purge untouched.
+
+      **The interface turned out not to be optional.** A first cut shipped it
+      as one concrete class with no abstract interface, reasoning that nothing
+      besides this one DI call site would ever need to fake it. `flutter test`
+      disagreed: `app_harness.dart` boots the real dependency graph, including
+      `FinishLaunch`'s deferred steps, inside `testWidgets`'s `FakeAsync` zone —
+      and `AppHarness`'s own doc comment already names the trap ("the online
+      reading reads the photo off disk... neither completes inside
+      `testWidgets`'s `FakeAsync` zone"). Real `Directory.exists()` /
+      `.delete()` calls hit the same wall: every journey test that boots the
+      app now left a 15-second `BootstrapStep` timeout `Timer` pending at
+      teardown, failing `invoice_journey_test.dart` and
+      `analysis_failure_paths_test.dart` outright. Pointing the first draft's
+      `supportDirectory` at the harness's own temp folder did not help — the
+      hang is the real `dart:io` call itself, not which path it is given.
+      The fix is the interface split above, with `FakeLegacyDocumentFilesPurge`
+      added to `fakes.dart` (no filesystem at all, mirroring
+      `FakeAnalysisSessionStorage`'s `deleteStaleSessions`) and wired into
+      `app_harness.dart` next to the other platform fakes. Recorded here as a
+      correction to the earlier "no interface needed" instinct: **any step
+      `FinishLaunch`/`InitializeApp` runs is reachable from a widget test that
+      boots the real app**, so a DI-registered dependency behind a bootstrap
+      step needs a fake the same way a cubit's own dependency would, even when
+      nothing else in the codebase consumes it.
 
 - [ ] **T12** DI (`_registerPapers`, `_registerExplain`) beside
       `_registerVoice`; extend `lib/app/dev/voice_harness_screen.dart` with an

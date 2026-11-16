@@ -65,6 +65,7 @@ import 'package:war2aty/features/analysis/data/datasources/edge_function_analysi
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/bootstrap/data/repositories/stub_auth_repository.dart';
 import 'package:war2aty/features/bootstrap/domain/repositories/auth_repository.dart';
+import 'package:war2aty/features/bootstrap/domain/services/legacy_document_files_purge.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
 import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
@@ -625,6 +626,9 @@ Future<AppHarness> bootApp(
     // Files: the session directory is real (the online route reads from it),
     // the encrypted store and the temp-file sweep are not.
     ..registerLazySingleton<AnalysisSessionStorage>(() => sessions)
+    ..registerLazySingleton<LegacyDocumentFilesPurge>(
+      FakeLegacyDocumentFilesPurge.new,
+    )
     ..registerLazySingleton<CaptureFileCleanup>(() => cleanup)
     ..registerLazySingleton<DocumentImageStore>(() => documentImages)
     // The one dependency DI builds inside a cubit factory rather than
