@@ -131,28 +131,51 @@ Run on the RMX2001 (API 30), against the local stack. Fill in after the pass —
 every row says what was actually observed; a row not run says so rather than
 borrowing a pass from a neighbour.
 
+**Paused mid-pass on 2026-11-16** to start F39. Everything below reflects what
+actually ran before the pause — resume from B1 with a fresh §0 setup (Docker,
+`supabase start`, `supabase functions serve --env-file supabase/.env`, `adb
+reverse`) and the device reconnected; nothing in A needs repeating unless a
+later schema change touches the migration.
+
 | ID | ✅ / ❌ | Notes |
 |---|---|---|
-| A1 | | |
-| A2 | | |
-| A3 | | |
-| A4 | | |
-| B1 | | |
-| B2 | | |
-| B3 | | |
-| B4 | | |
-| C1 | | |
-| C2 | | |
-| D0a | | |
-| D0b | | |
-| E1 | | |
-| E2 | | |
-| E3 | | |
-| F1 | | |
-| G1 | | |
-| G2 | | |
+| A1 | ✅ | App opened normally over the seeded v3 database |
+| A2 | ✅ | Legacy `documents/` directory gone from the app's private storage |
+| A3 | ✅ | The two reminders with no `document_id` (one of them manual) survived untouched, with their alerts |
+| A4 | ✅ | Schema `user_version` is 4; `reminders` has no `document_id` column; all seven legacy document tables empty; the one reminder that *was* linked to the wiped document, and its alert, are gone |
+| B1 | ❌ | Blocked twice: first by a missing `GEMINI_OCR_MODELS` in local `supabase/.env` (fixed — see below), then by two consecutive `RequestTimeoutFailure`s on the reading stage (both Gemini legs hit the 4 s attempt cap back-to-back), most likely the host's own memory pressure during a concurrent Android build slowing the edge-runtime container's outbound calls. Not yet confirmed working end-to-end |
+| B2 | — | Not run (depends on B1) |
+| B3 | — | Not run |
+| B4 | — | Not run |
+| C1 | — | Not run |
+| C2 | — | Not run |
+| D0a | — | Not run |
+| D0b | — | Not run |
+| E1 | — | Not run |
+| E2 | — | Not run |
+| E3 | — | Not run |
+| F1 | — | Not run |
+| G1 | — | Not run |
+| G2 | — | Not run |
 
 ## What this pass found
+
+1. **`supabase/.env` (local secrets) was missing `GEMINI_OCR_MODELS`.**
+   `ocr-document` only ever needed `GEMINI_MODEL` (singular); `explain-document`'s
+   reading chain (F36) needs the plural, comma-separated `GEMINI_OCR_MODELS` and
+   throws an uncaught error without it — surfaced to the client as a bare
+   `AnalysisServiceFailure` with no detail. **Fixed** by adding the line from
+   `supabase/.env.example`'s own documented default. This is a local-dev-secrets
+   gap, not a code defect, but worth a line here since it blocked the very first
+   real `explain-document` call this project ever made.
+2. **Two real `RequestTimeoutFailure`s on the reading stage**, both legs hitting
+   `DEFAULT_READ_ATTEMPT_CAP_MS` (4 s) back-to-back. Not yet root-caused — the
+   host was under severe memory pressure (Docker + an Android Gradle build +
+   this session) at the time, which is the leading suspect, but it was not
+   re-tested under calm conditions before the pause. **Whoever resumes this
+   checklist should retry B1 first, before anything else**, since a repeat
+   failure under a quiet host would point at the reading chain itself rather
+   than at contention.
 
 Filled in after the device pass, in F37's style: fixed defects, open ones, and
 anything D8's measurement changes about the retention question.

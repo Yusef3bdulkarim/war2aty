@@ -572,6 +572,15 @@ any order. T05 gates T06–T09.
       replay, delete removing both files, and the measured per-paper disk cost
       written back into D8.
 
+      **Code landed and committed** (DI, the harness path, the checklist, the
+      registration test — 45818f1); the device pass itself is **paused
+      mid-way** to start F39. The v3 → v4 migration (checklist §A) is fully
+      verified on the RMX2001 with real seeded data. §B (explain → save →
+      read) found and fixed a local-secrets gap (`GEMINI_OCR_MODELS` missing
+      from `supabase/.env`) but has not yet completed a successful run —
+      resume from `docs/features/F38-device-checklist.md`'s Results section.
+      T12 is **not done**; progress stays 11/12 until the pass finishes.
+
 ## Files
 
 **`lib/core/papers/`** — `paper_explanation.dart`, `paper_todo.dart`,
