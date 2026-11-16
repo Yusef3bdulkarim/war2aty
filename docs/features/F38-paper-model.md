@@ -697,7 +697,7 @@ two met partially:**
 | v3 → v4 migration verified on a device with saved papers | ✅ run on the RMX2001 against real seeded data (one document + image, one linked reminder + alert, two unrelated reminders) — every checklist §A row passed |
 | One paper explained, auto-saved, replayed offline, deleted on the RMX2001 | ❌ **not reached.** §B hit a real local-secrets gap (`GEMINI_OCR_MODELS` missing from `supabase/.env`, fixed) and then two `RequestTimeoutFailure`s, most likely host memory pressure from a concurrent Android build. §C–G never ran |
 | Per-paper disk cost measured, written into D8 | ❌ not reached — depends on §B |
-| `@code-reviewer` passed | — (gate to run before merge) |
+| `@code-reviewer` passed | ✅ 2026-11-17, no action items. It confirmed the dev harness calling use cases straight from a `StatefulWidget` is an acceptable scoped exception (dev-only, deleted in F40). One cosmetic note, deliberately not changed: `paperSpansOf` builds every span with `position: 0` and `PapersDao.recordReading` overwrites it, the same pattern the paragraphs follow |
 
 **Accepted by the owner, carried into F39+F40:** the rest of
 `docs/features/F38-device-checklist.md` (§B onward) is unrun. F39 and F40 are
