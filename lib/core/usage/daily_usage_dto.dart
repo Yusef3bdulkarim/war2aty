@@ -15,6 +15,7 @@ final class DailyUsageDto {
     required this.resetsAt,
     required this.analysisEnabled,
     this.onlineOcrEnabled = false,
+    this.explainEnabled,
   });
 
   factory DailyUsageDto.fromJson(Map<String, dynamic> json) {
@@ -32,6 +33,10 @@ final class DailyUsageDto {
       // `azure_ocr_enabled` is deliberately not read as a fallback: it
       // switched on a different provider (F20-T14).
       onlineOcrEnabled: json['online_ocr_enabled'] as bool? ?? false,
+      explainEnabled: switch (json['explain_enabled']) {
+        final bool flag => flag,
+        _ => null,
+      },
     );
   }
 
@@ -47,6 +52,7 @@ final class DailyUsageDto {
   final String resetsAt;
   final bool analysisEnabled;
   final bool onlineOcrEnabled;
+  final bool? explainEnabled;
 
   Map<String, dynamic> toJson() => {
     'schema_version': schemaVersion,
@@ -57,6 +63,7 @@ final class DailyUsageDto {
     'resets_at': resetsAt,
     'analysis_enabled': analysisEnabled,
     'online_ocr_enabled': onlineOcrEnabled,
+    if (explainEnabled != null) 'explain_enabled': explainEnabled,
   };
 
   /// @param syncedAt stamped by the caller so the entity records when this
@@ -70,6 +77,7 @@ final class DailyUsageDto {
       resetsAt: DateTime.parse(resetsAt).toUtc(),
       lastSyncedAt: syncedAt.toUtc(),
       onlineOcrEnabled: onlineOcrEnabled,
+      explainEnabled: explainEnabled,
     );
   }
 

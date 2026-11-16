@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 1 / 52
+- **Progress:** 2 / 52
 
 ## Why this feature exists
 
@@ -179,11 +179,23 @@ finished and the next one does not start.
 
 ### Phase A — foundations (domain/data, no UI)
 
-- [ ] **T02** `DailyUsage.explainEnabled` as a **`bool?`** (`null` = unknown),
+- [x] **T02** `DailyUsage.explainEnabled` as a **`bool?`** (`null` = unknown),
       parsed by `DailyUsageDto` from `get-usage`'s `explain_enabled` on a fresh
       sync only; a reading rebuilt from the local cache carries `null`, never
       `false`. *Done when:* tests cover present-true, present-false, absent,
       wrong type, and the cached reading's `null`.
+      *Found:* a wrong-typed flag reads as `null` and the quota still loads
+      (unlike `online_ocr_enabled`, whose wrong type refuses the whole body):
+      an unreadable emergency switch is "unknown", not a broken quota. The
+      cache rows and `StubUsageRepository` never set the field, so no schema
+      change. `API_CONTRACT.md` §32's row still said "absent or unreadable
+      reads as `false`"; it now says `null` + D4's fail-open (the
+      `code-reviewer` pass caught it). **For T03:** a failed `syncUsage()`
+      returns `Ok(cached)` with `explainEnabled == null` (now pinned by a
+      test), so a holder that writes on every `Ok` would wipe a known value;
+      write only non-null values. Gate: analyze 0 errors / 0 warnings / 21
+      info (pre-existing); `test/core/usage` +33 all passed; home, settings
+      and capture tests +472 all passed.
 - [ ] **T03** Keep the session's last fresh `explainEnabled` in memory
       (`UsageRepository` exposes it, or a small `core/usage` holder the
       repository writes on every successful sync — bootstrap's included).

@@ -908,7 +908,7 @@ token**, never from a parameter — a caller cannot read another install's quota
 | `remaining_today` | `remainingCount` |
 | `resets_at` | `resetsAt` |
 | `online_ocr_enabled` | `onlineOcrEnabled` (F20-T17; was `azure_ocr_enabled` / `azureOcrEnabled`). Absent reads as `false`, so an older app stays on the on-device route |
-| `explain_enabled` | `explainEnabled` (F36-T05). The capture gate for F34's one-call flow: absent, unreadable or "off" all read as `false`, and the app then shows the "our problem" screen rather than claiming the phone is offline. **Additive** — the published 1.0.2 app reads named keys only and ignores it |
+| `explain_enabled` | `explainEnabled` (F36-T05). The capture gate for F34's one-call flow, a `bool?` (F39+F40 T02, D4): `false` shows the "our problem" screen before the camera rather than claiming the phone is offline; absent or unreadable reads as `null` (unknown), and so does any reading rebuilt from the local cache, never `false`. On unknown the gate runs one fresh sync and, if that also fails, lets the capture proceed so the server's 503 decides. **Additive** — the published 1.0.2 app reads named keys only and ignores it |
 
 `remaining_today` also subtracts **in-flight reservations**, so for the few
 seconds an analysis is running it can be lower than `daily_limit - used_today`.

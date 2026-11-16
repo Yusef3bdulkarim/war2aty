@@ -11,6 +11,7 @@ final class DailyUsage {
     required this.resetsAt,
     this.lastSyncedAt,
     this.onlineOcrEnabled = false,
+    this.explainEnabled,
   });
 
   /// Cairo calendar day this quota belongs to (date-only, UTC midnight).
@@ -41,6 +42,8 @@ final class DailyUsage {
   /// avoidable offline-route capture.
   final bool onlineOcrEnabled;
 
+  final bool? explainEnabled;
+
   /// Whether the user can still run an analysis today.
   bool get hasQuotaLeft => remainingCount > 0;
 
@@ -53,7 +56,8 @@ final class DailyUsage {
       other.remainingCount == remainingCount &&
       other.resetsAt == resetsAt &&
       other.lastSyncedAt == lastSyncedAt &&
-      other.onlineOcrEnabled == onlineOcrEnabled;
+      other.onlineOcrEnabled == onlineOcrEnabled &&
+      other.explainEnabled == explainEnabled;
 
   @override
   int get hashCode => Object.hash(
@@ -64,5 +68,6 @@ final class DailyUsage {
     resetsAt,
     lastSyncedAt,
     onlineOcrEnabled,
+    explainEnabled,
   );
 }

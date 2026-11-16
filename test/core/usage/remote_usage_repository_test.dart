@@ -95,6 +95,19 @@ void main() {
       expect(result.valueOrNull!.remainingCount, 2);
     });
 
+    test(
+      'offline fallback carries unknown explain_enabled, not the last known value',
+      () async {
+        await repository(
+          _FakeRemote.ok({..._body, 'explain_enabled': true}),
+        ).syncUsage();
+
+        final result = await repository(_FakeRemote.offline()).syncUsage();
+
+        expect(result.valueOrNull!.explainEnabled, isNull);
+      },
+    );
+
     test('offline with nothing cached surfaces the network failure', () async {
       final result = await repository(_FakeRemote.offline()).syncUsage();
 
@@ -172,6 +185,42 @@ void main() {
         expect((await repo.syncUsage()).valueOrNull!.onlineOcrEnabled, isFalse);
       },
     );
+
+    test('explain_enabled true is read from the wire', () async {
+      final repo = repository(
+        _FakeRemote.ok({..._body, 'explain_enabled': true}),
+      );
+
+      expect((await repo.syncUsage()).valueOrNull!.explainEnabled, isTrue);
+    });
+
+    test('explain_enabled false is read from the wire', () async {
+      final repo = repository(
+        _FakeRemote.ok({..._body, 'explain_enabled': false}),
+      );
+
+      expect((await repo.syncUsage()).valueOrNull!.explainEnabled, isFalse);
+    });
+
+    test('an absent explain_enabled reads as unknown, not false', () async {
+      final repo = repository(_FakeRemote.ok());
+
+      expect((await repo.syncUsage()).valueOrNull!.explainEnabled, isNull);
+    });
+
+    test(
+      'a wrong-typed explain_enabled reads as unknown and keeps the quota',
+      () async {
+        final repo = repository(
+          _FakeRemote.ok({..._body, 'explain_enabled': 'yes'}),
+        );
+
+        final usage = (await repo.syncUsage()).valueOrNull!;
+
+        expect(usage.explainEnabled, isNull);
+        expect(usage.dailyLimit, 3);
+      },
+    );
   });
 
   group('cachedUsage', () {
@@ -182,6 +231,20 @@ void main() {
       expect(result, isA<Ok<DailyUsage?, AppFailure>>());
       expect(result.valueOrNull, isNull);
     });
+
+    test(
+      'a cached reading carries unknown explain_enabled, never false',
+      () async {
+        final repo = repository(
+          _FakeRemote.ok({..._body, 'explain_enabled': true}),
+        );
+        await repo.syncUsage();
+
+        final cached = (await repo.cachedUsage()).valueOrNull!;
+
+        expect(cached.explainEnabled, isNull);
+      },
+    );
 
     test('never hits the network', () async {
       final remote = _FakeRemote.ok();
