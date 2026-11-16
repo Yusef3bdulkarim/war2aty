@@ -14,7 +14,6 @@ import 'reminder_status.dart';
 /// [alertTimes]; the repository generates one fresh id per alert.
 ReminderWrite reminderWriteOf({
   required String id,
-  String? documentId,
   required String title,
   String? description,
   required DateTime eventDate,
@@ -33,7 +32,6 @@ ReminderWrite reminderWriteOf({
   return ReminderWrite(
     reminder: RemindersCompanion.insert(
       id: id,
-      documentId: documentId == null ? const Value.absent() : Value(documentId),
       title: title,
       description: description == null
           ? const Value.absent()

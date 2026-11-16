@@ -4,19 +4,15 @@ import 'reminder_alert.dart';
 import 'reminder_alert_status.dart';
 import 'reminder_status.dart';
 
-/// A thing the user wants to be reminded about (F09).
-///
-/// Either created from a date the analysis found on a saved document
-/// ([isManual] `false`, [documentId] set — F09-T03) or entered by hand
-/// ([isManual] `true`, [documentId] `null` — F09-T04). Both kinds share every
-/// other field: a reminder does not know or care where it came from once it
-/// exists.
+/// A thing the user wants to be reminded about (F09), entered by hand
+/// (F09-T04). [isManual] is always `true` — the create-from-a-document's-date
+/// flow (F09-T03) that once set it `false` was removed with the reminder ↔
+/// document link (F38-T06, D4) — but the field stays (D5).
 ///
 /// Pure Dart, no Flutter import.
 final class Reminder {
   const Reminder({
     required this.id,
-    this.documentId,
     required this.title,
     this.description,
     required this.eventDate,
@@ -30,10 +26,6 @@ final class Reminder {
   });
 
   final String id;
-
-  /// The saved document this was created from, or `null` for a manual
-  /// reminder.
-  final String? documentId;
 
   final String title;
 
@@ -104,7 +96,6 @@ final class Reminder {
       identical(this, other) ||
       other is Reminder &&
           other.id == id &&
-          other.documentId == documentId &&
           other.title == title &&
           other.description == description &&
           other.eventDate == eventDate &&
@@ -119,7 +110,6 @@ final class Reminder {
   @override
   int get hashCode => Object.hash(
     id,
-    documentId,
     title,
     description,
     eventDate,

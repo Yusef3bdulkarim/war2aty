@@ -141,20 +141,6 @@ class RemindersDao extends DatabaseAccessor<AppDatabase>
     ];
   }
 
-  /// Every reminder linked to [documentId] — read before the document is
-  /// deleted, so the caller can cancel their OS-side alerts while the
-  /// notification ids are still known.
-  Future<List<ReminderBundle>> bundlesForDocument(String documentId) async {
-    final rows = await (select(
-      reminders,
-    )..where((t) => t.documentId.equals(documentId))).get();
-
-    return [
-      for (final row in rows)
-        ReminderBundle(reminder: row, alerts: await _alertsOf(row.id)),
-    ];
-  }
-
   /// Updates the fields a reminder's own form can change, leaving the rest —
   /// alerts go through [replaceAlerts]. Every field is optional; passing none
   /// only touches `updatedAt`.

@@ -3,17 +3,14 @@ import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/permissions/usecases/get_notification_permission.dart';
 import 'package:war2aty/core/permissions/usecases/request_notification_permission.dart';
 import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
-import 'package:war2aty/core/reminders/usecases/create_reminder_from_document_date.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import 'package:war2aty/features/reminders/presentation/cubit/reminder_form_state.dart';
-import 'package:war2aty/features/reminders/presentation/models/reminder_from_document_args.dart';
 
 import '../../support/fakes.dart';
 
 // F09-T09: requesting notifications before the first reminder is saved.
 void main() {
   late FakeRemindersRepository remindersRepository;
-  late CreateReminderFromDocumentDate createFromDocumentDate;
   late CreateManualReminder createManual;
   late FakeNotificationPermissionRepository notificationPermissionRepository;
   late GetNotificationPermission getNotificationPermission;
@@ -22,10 +19,6 @@ void main() {
   setUp(() {
     remindersRepository = FakeRemindersRepository();
     final scheduler = FakeReminderScheduler();
-    createFromDocumentDate = CreateReminderFromDocumentDate(
-      remindersRepository,
-      scheduler,
-    );
     createManual = CreateManualReminder(remindersRepository, scheduler);
     notificationPermissionRepository = FakeNotificationPermissionRepository();
     getNotificationPermission = GetNotificationPermission(
@@ -36,17 +29,18 @@ void main() {
     );
   });
 
-  ReminderFormCubit buildCubit() => ReminderFormCubit.fromDocument(
-    createFromDocumentDate: createFromDocumentDate,
-    createManual: createManual,
-    getNotificationPermission: getNotificationPermission,
-    requestNotificationPermission: requestNotificationPermission,
-    args: ReminderFromDocumentArgs(
-      title: 'دفع فاتورة الكهرباء',
-      eventDate: DateTime(2026, 8, 25),
-      eventMinuteOfDay: 600,
-    ),
-  );
+  ReminderFormCubit buildCubit() {
+    final cubit = ReminderFormCubit.manual(
+      createManual: createManual,
+      getNotificationPermission: getNotificationPermission,
+      requestNotificationPermission: requestNotificationPermission,
+    );
+    cubit
+      ..setTitle('دفع فاتورة الكهرباء')
+      ..setEventDate(DateTime(2026, 8, 25))
+      ..setEventMinuteOfDay(600);
+    return cubit;
+  }
 
   test('already granted: save writes straight through, no sheet', () async {
     notificationPermissionRepository.status = PermissionOutcome.granted;

@@ -18,7 +18,6 @@ Reminder reminderOf(ReminderBundle bundle) {
 
   return Reminder(
     id: row.id,
-    documentId: row.documentId,
     title: row.title,
     description: row.description,
     eventDate: row.eventDate,

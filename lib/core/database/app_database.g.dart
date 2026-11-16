@@ -4050,20 +4050,6 @@ class $RemindersTable extends Reminders
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _documentIdMeta = const VerificationMeta(
-    'documentId',
-  );
-  @override
-  late final GeneratedColumn<String> documentId = GeneratedColumn<String>(
-    'document_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES documents (id) ON DELETE CASCADE',
-    ),
-  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -4165,7 +4151,6 @@ class $RemindersTable extends Reminders
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    documentId,
     title,
     description,
     eventDate,
@@ -4192,12 +4177,6 @@ class $RemindersTable extends Reminders
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
-    }
-    if (data.containsKey('document_id')) {
-      context.handle(
-        _documentIdMeta,
-        documentId.isAcceptableOrUnknown(data['document_id']!, _documentIdMeta),
-      );
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -4279,10 +4258,6 @@ class $RemindersTable extends Reminders
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      documentId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}document_id'],
-      ),
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -4336,10 +4311,6 @@ class $RemindersTable extends Reminders
 class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   final String id;
 
-  /// The saved document this was created from, or `null` for a manual
-  /// reminder (F09-T04).
-  final String? documentId;
-
   /// Editable by the user; prefilled from the document's title when created
   /// from a date (F09-T03).
   final String title;
@@ -4372,7 +4343,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   final DateTime? completedAt;
   const ReminderRow({
     required this.id,
-    this.documentId,
     required this.title,
     this.description,
     required this.eventDate,
@@ -4387,9 +4357,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    if (!nullToAbsent || documentId != null) {
-      map['document_id'] = Variable<String>(documentId);
-    }
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
@@ -4415,9 +4382,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   RemindersCompanion toCompanion(bool nullToAbsent) {
     return RemindersCompanion(
       id: Value(id),
-      documentId: documentId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(documentId),
       title: Value(title),
       description: description == null && nullToAbsent
           ? const Value.absent()
@@ -4443,7 +4407,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return ReminderRow(
       id: serializer.fromJson<String>(json['id']),
-      documentId: serializer.fromJson<String?>(json['documentId']),
       title: serializer.fromJson<String>(json['title']),
       description: serializer.fromJson<String?>(json['description']),
       eventDate: serializer.fromJson<DateTime>(json['eventDate']),
@@ -4462,7 +4425,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'documentId': serializer.toJson<String?>(documentId),
       'title': serializer.toJson<String>(title),
       'description': serializer.toJson<String?>(description),
       'eventDate': serializer.toJson<DateTime>(eventDate),
@@ -4479,7 +4441,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
 
   ReminderRow copyWith({
     String? id,
-    Value<String?> documentId = const Value.absent(),
     String? title,
     Value<String?> description = const Value.absent(),
     DateTime? eventDate,
@@ -4491,7 +4452,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     Value<DateTime?> completedAt = const Value.absent(),
   }) => ReminderRow(
     id: id ?? this.id,
-    documentId: documentId.present ? documentId.value : this.documentId,
     title: title ?? this.title,
     description: description.present ? description.value : this.description,
     eventDate: eventDate ?? this.eventDate,
@@ -4507,9 +4467,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   ReminderRow copyWithCompanion(RemindersCompanion data) {
     return ReminderRow(
       id: data.id.present ? data.id.value : this.id,
-      documentId: data.documentId.present
-          ? data.documentId.value
-          : this.documentId,
       title: data.title.present ? data.title.value : this.title,
       description: data.description.present
           ? data.description.value
@@ -4532,7 +4489,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   String toString() {
     return (StringBuffer('ReminderRow(')
           ..write('id: $id, ')
-          ..write('documentId: $documentId, ')
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('eventDate: $eventDate, ')
@@ -4549,7 +4505,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   @override
   int get hashCode => Object.hash(
     id,
-    documentId,
     title,
     description,
     eventDate,
@@ -4565,7 +4520,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       identical(this, other) ||
       (other is ReminderRow &&
           other.id == this.id &&
-          other.documentId == this.documentId &&
           other.title == this.title &&
           other.description == this.description &&
           other.eventDate == this.eventDate &&
@@ -4579,7 +4533,6 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
 
 class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   final Value<String> id;
-  final Value<String?> documentId;
   final Value<String> title;
   final Value<String?> description;
   final Value<DateTime> eventDate;
@@ -4592,7 +4545,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   final Value<int> rowid;
   const RemindersCompanion({
     this.id = const Value.absent(),
-    this.documentId = const Value.absent(),
     this.title = const Value.absent(),
     this.description = const Value.absent(),
     this.eventDate = const Value.absent(),
@@ -4606,7 +4558,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   });
   RemindersCompanion.insert({
     required String id,
-    this.documentId = const Value.absent(),
     required String title,
     this.description = const Value.absent(),
     required DateTime eventDate,
@@ -4626,7 +4577,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
        updatedAt = Value(updatedAt);
   static Insertable<ReminderRow> custom({
     Expression<String>? id,
-    Expression<String>? documentId,
     Expression<String>? title,
     Expression<String>? description,
     Expression<DateTime>? eventDate,
@@ -4640,7 +4590,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (documentId != null) 'document_id': documentId,
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (eventDate != null) 'event_date': eventDate,
@@ -4656,7 +4605,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
 
   RemindersCompanion copyWith({
     Value<String>? id,
-    Value<String?>? documentId,
     Value<String>? title,
     Value<String?>? description,
     Value<DateTime>? eventDate,
@@ -4670,7 +4618,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   }) {
     return RemindersCompanion(
       id: id ?? this.id,
-      documentId: documentId ?? this.documentId,
       title: title ?? this.title,
       description: description ?? this.description,
       eventDate: eventDate ?? this.eventDate,
@@ -4689,9 +4636,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
-    }
-    if (documentId.present) {
-      map['document_id'] = Variable<String>(documentId.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -4732,7 +4676,6 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   String toString() {
     return (StringBuffer('RemindersCompanion(')
           ..write('id: $id, ')
-          ..write('documentId: $documentId, ')
           ..write('title: $title, ')
           ..write('description: $description, ')
           ..write('eventDate: $eventDate, ')
@@ -5192,6 +5135,2026 @@ class ReminderAlertsCompanion extends UpdateCompanion<ReminderAlertRow> {
   }
 }
 
+class $PapersTable extends Papers with TableInfo<$PapersTable, PaperRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PapersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<PaperStatus, String> status =
+      GeneratedColumn<String>(
+        'status',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<PaperStatus>($PapersTable.$converterstatus);
+  static const VerificationMeta _todoRequiredMeta = const VerificationMeta(
+    'todoRequired',
+  );
+  @override
+  late final GeneratedColumn<bool> todoRequired = GeneratedColumn<bool>(
+    'todo_required',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("todo_required" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _todoTextMeta = const VerificationMeta(
+    'todoText',
+  );
+  @override
+  late final GeneratedColumn<String> todoText = GeneratedColumn<String>(
+    'todo_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dateDayMeta = const VerificationMeta(
+    'dateDay',
+  );
+  @override
+  late final GeneratedColumn<DateTime> dateDay = GeneratedColumn<DateTime>(
+    'date_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dateMinuteOfDayMeta = const VerificationMeta(
+    'dateMinuteOfDay',
+  );
+  @override
+  late final GeneratedColumn<int> dateMinuteOfDay = GeneratedColumn<int>(
+    'date_minute_of_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dateTextMeta = const VerificationMeta(
+    'dateText',
+  );
+  @override
+  late final GeneratedColumn<String> dateText = GeneratedColumn<String>(
+    'date_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cautionTextMeta = const VerificationMeta(
+    'cautionText',
+  );
+  @override
+  late final GeneratedColumn<String> cautionText = GeneratedColumn<String>(
+    'caution_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contactNameMeta = const VerificationMeta(
+    'contactName',
+  );
+  @override
+  late final GeneratedColumn<String> contactName = GeneratedColumn<String>(
+    'contact_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contactPhoneMeta = const VerificationMeta(
+    'contactPhone',
+  );
+  @override
+  late final GeneratedColumn<String> contactPhone = GeneratedColumn<String>(
+    'contact_phone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _placeTextMeta = const VerificationMeta(
+    'placeText',
+  );
+  @override
+  late final GeneratedColumn<String> placeText = GeneratedColumn<String>(
+    'place_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _photographedAtMeta = const VerificationMeta(
+    'photographedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> photographedAt =
+      GeneratedColumn<DateTime>(
+        'photographed_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _savedAtMeta = const VerificationMeta(
+    'savedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> savedAt = GeneratedColumn<DateTime>(
+    'saved_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _encryptedImagePathMeta =
+      const VerificationMeta('encryptedImagePath');
+  @override
+  late final GeneratedColumn<String> encryptedImagePath =
+      GeneratedColumn<String>(
+        'encrypted_image_path',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _eventDayMeta = const VerificationMeta(
+    'eventDay',
+  );
+  @override
+  late final GeneratedColumn<DateTime> eventDay = GeneratedColumn<DateTime>(
+    'event_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _eventMinuteOfDayMeta = const VerificationMeta(
+    'eventMinuteOfDay',
+  );
+  @override
+  late final GeneratedColumn<int> eventMinuteOfDay = GeneratedColumn<int>(
+    'event_minute_of_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _explainSchemaVersionMeta =
+      const VerificationMeta('explainSchemaVersion');
+  @override
+  late final GeneratedColumn<String> explainSchemaVersion =
+      GeneratedColumn<String>(
+        'explain_schema_version',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _voiceEngineMeta = const VerificationMeta(
+    'voiceEngine',
+  );
+  @override
+  late final GeneratedColumn<String> voiceEngine = GeneratedColumn<String>(
+    'voice_engine',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _audioSavedMeta = const VerificationMeta(
+    'audioSaved',
+  );
+  @override
+  late final GeneratedColumn<bool> audioSaved = GeneratedColumn<bool>(
+    'audio_saved',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("audio_saved" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _audioVerifiedMeta = const VerificationMeta(
+    'audioVerified',
+  );
+  @override
+  late final GeneratedColumn<bool> audioVerified = GeneratedColumn<bool>(
+    'audio_verified',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("audio_verified" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _audioDurationMsMeta = const VerificationMeta(
+    'audioDurationMs',
+  );
+  @override
+  late final GeneratedColumn<int> audioDurationMs = GeneratedColumn<int>(
+    'audio_duration_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    status,
+    todoRequired,
+    todoText,
+    dateDay,
+    dateMinuteOfDay,
+    dateText,
+    cautionText,
+    contactName,
+    contactPhone,
+    placeText,
+    photographedAt,
+    savedAt,
+    encryptedImagePath,
+    eventDay,
+    eventMinuteOfDay,
+    sessionId,
+    explainSchemaVersion,
+    voiceEngine,
+    audioSaved,
+    audioVerified,
+    audioDurationMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'papers';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaperRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('todo_required')) {
+      context.handle(
+        _todoRequiredMeta,
+        todoRequired.isAcceptableOrUnknown(
+          data['todo_required']!,
+          _todoRequiredMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_todoRequiredMeta);
+    }
+    if (data.containsKey('todo_text')) {
+      context.handle(
+        _todoTextMeta,
+        todoText.isAcceptableOrUnknown(data['todo_text']!, _todoTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_todoTextMeta);
+    }
+    if (data.containsKey('date_day')) {
+      context.handle(
+        _dateDayMeta,
+        dateDay.isAcceptableOrUnknown(data['date_day']!, _dateDayMeta),
+      );
+    }
+    if (data.containsKey('date_minute_of_day')) {
+      context.handle(
+        _dateMinuteOfDayMeta,
+        dateMinuteOfDay.isAcceptableOrUnknown(
+          data['date_minute_of_day']!,
+          _dateMinuteOfDayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('date_text')) {
+      context.handle(
+        _dateTextMeta,
+        dateText.isAcceptableOrUnknown(data['date_text']!, _dateTextMeta),
+      );
+    }
+    if (data.containsKey('caution_text')) {
+      context.handle(
+        _cautionTextMeta,
+        cautionText.isAcceptableOrUnknown(
+          data['caution_text']!,
+          _cautionTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('contact_name')) {
+      context.handle(
+        _contactNameMeta,
+        contactName.isAcceptableOrUnknown(
+          data['contact_name']!,
+          _contactNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('contact_phone')) {
+      context.handle(
+        _contactPhoneMeta,
+        contactPhone.isAcceptableOrUnknown(
+          data['contact_phone']!,
+          _contactPhoneMeta,
+        ),
+      );
+    }
+    if (data.containsKey('place_text')) {
+      context.handle(
+        _placeTextMeta,
+        placeText.isAcceptableOrUnknown(data['place_text']!, _placeTextMeta),
+      );
+    }
+    if (data.containsKey('photographed_at')) {
+      context.handle(
+        _photographedAtMeta,
+        photographedAt.isAcceptableOrUnknown(
+          data['photographed_at']!,
+          _photographedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_photographedAtMeta);
+    }
+    if (data.containsKey('saved_at')) {
+      context.handle(
+        _savedAtMeta,
+        savedAt.isAcceptableOrUnknown(data['saved_at']!, _savedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_savedAtMeta);
+    }
+    if (data.containsKey('encrypted_image_path')) {
+      context.handle(
+        _encryptedImagePathMeta,
+        encryptedImagePath.isAcceptableOrUnknown(
+          data['encrypted_image_path']!,
+          _encryptedImagePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('event_day')) {
+      context.handle(
+        _eventDayMeta,
+        eventDay.isAcceptableOrUnknown(data['event_day']!, _eventDayMeta),
+      );
+    }
+    if (data.containsKey('event_minute_of_day')) {
+      context.handle(
+        _eventMinuteOfDayMeta,
+        eventMinuteOfDay.isAcceptableOrUnknown(
+          data['event_minute_of_day']!,
+          _eventMinuteOfDayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('explain_schema_version')) {
+      context.handle(
+        _explainSchemaVersionMeta,
+        explainSchemaVersion.isAcceptableOrUnknown(
+          data['explain_schema_version']!,
+          _explainSchemaVersionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_explainSchemaVersionMeta);
+    }
+    if (data.containsKey('voice_engine')) {
+      context.handle(
+        _voiceEngineMeta,
+        voiceEngine.isAcceptableOrUnknown(
+          data['voice_engine']!,
+          _voiceEngineMeta,
+        ),
+      );
+    }
+    if (data.containsKey('audio_saved')) {
+      context.handle(
+        _audioSavedMeta,
+        audioSaved.isAcceptableOrUnknown(data['audio_saved']!, _audioSavedMeta),
+      );
+    }
+    if (data.containsKey('audio_verified')) {
+      context.handle(
+        _audioVerifiedMeta,
+        audioVerified.isAcceptableOrUnknown(
+          data['audio_verified']!,
+          _audioVerifiedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('audio_duration_ms')) {
+      context.handle(
+        _audioDurationMsMeta,
+        audioDurationMs.isAcceptableOrUnknown(
+          data['audio_duration_ms']!,
+          _audioDurationMsMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PaperRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaperRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      status: $PapersTable.$converterstatus.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}status'],
+        )!,
+      ),
+      todoRequired: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}todo_required'],
+      )!,
+      todoText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}todo_text'],
+      )!,
+      dateDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date_day'],
+      ),
+      dateMinuteOfDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}date_minute_of_day'],
+      ),
+      dateText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}date_text'],
+      ),
+      cautionText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}caution_text'],
+      ),
+      contactName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_name'],
+      ),
+      contactPhone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_phone'],
+      ),
+      placeText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}place_text'],
+      ),
+      photographedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}photographed_at'],
+      )!,
+      savedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}saved_at'],
+      )!,
+      encryptedImagePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}encrypted_image_path'],
+      ),
+      eventDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}event_day'],
+      ),
+      eventMinuteOfDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}event_minute_of_day'],
+      ),
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      explainSchemaVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}explain_schema_version'],
+      )!,
+      voiceEngine: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}voice_engine'],
+      ),
+      audioSaved: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}audio_saved'],
+      )!,
+      audioVerified: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}audio_verified'],
+      ),
+      audioDurationMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}audio_duration_ms'],
+      ),
+    );
+  }
+
+  @override
+  $PapersTable createAlias(String alias) {
+    return $PapersTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<PaperStatus, String, String> $converterstatus =
+      const EnumNameConverter<PaperStatus>(PaperStatus.values);
+}
+
+class PaperRow extends DataClass implements Insertable<PaperRow> {
+  final String id;
+  final String title;
+  final PaperStatus status;
+  final bool todoRequired;
+  final String todoText;
+  final DateTime? dateDay;
+  final int? dateMinuteOfDay;
+  final String? dateText;
+  final String? cautionText;
+  final String? contactName;
+  final String? contactPhone;
+  final String? placeText;
+  final DateTime photographedAt;
+  final DateTime savedAt;
+  final String? encryptedImagePath;
+  final DateTime? eventDay;
+  final int? eventMinuteOfDay;
+  final String sessionId;
+  final String explainSchemaVersion;
+  final String? voiceEngine;
+  final bool audioSaved;
+  final bool? audioVerified;
+  final int? audioDurationMs;
+  const PaperRow({
+    required this.id,
+    required this.title,
+    required this.status,
+    required this.todoRequired,
+    required this.todoText,
+    this.dateDay,
+    this.dateMinuteOfDay,
+    this.dateText,
+    this.cautionText,
+    this.contactName,
+    this.contactPhone,
+    this.placeText,
+    required this.photographedAt,
+    required this.savedAt,
+    this.encryptedImagePath,
+    this.eventDay,
+    this.eventMinuteOfDay,
+    required this.sessionId,
+    required this.explainSchemaVersion,
+    this.voiceEngine,
+    required this.audioSaved,
+    this.audioVerified,
+    this.audioDurationMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    {
+      map['status'] = Variable<String>(
+        $PapersTable.$converterstatus.toSql(status),
+      );
+    }
+    map['todo_required'] = Variable<bool>(todoRequired);
+    map['todo_text'] = Variable<String>(todoText);
+    if (!nullToAbsent || dateDay != null) {
+      map['date_day'] = Variable<DateTime>(dateDay);
+    }
+    if (!nullToAbsent || dateMinuteOfDay != null) {
+      map['date_minute_of_day'] = Variable<int>(dateMinuteOfDay);
+    }
+    if (!nullToAbsent || dateText != null) {
+      map['date_text'] = Variable<String>(dateText);
+    }
+    if (!nullToAbsent || cautionText != null) {
+      map['caution_text'] = Variable<String>(cautionText);
+    }
+    if (!nullToAbsent || contactName != null) {
+      map['contact_name'] = Variable<String>(contactName);
+    }
+    if (!nullToAbsent || contactPhone != null) {
+      map['contact_phone'] = Variable<String>(contactPhone);
+    }
+    if (!nullToAbsent || placeText != null) {
+      map['place_text'] = Variable<String>(placeText);
+    }
+    map['photographed_at'] = Variable<DateTime>(photographedAt);
+    map['saved_at'] = Variable<DateTime>(savedAt);
+    if (!nullToAbsent || encryptedImagePath != null) {
+      map['encrypted_image_path'] = Variable<String>(encryptedImagePath);
+    }
+    if (!nullToAbsent || eventDay != null) {
+      map['event_day'] = Variable<DateTime>(eventDay);
+    }
+    if (!nullToAbsent || eventMinuteOfDay != null) {
+      map['event_minute_of_day'] = Variable<int>(eventMinuteOfDay);
+    }
+    map['session_id'] = Variable<String>(sessionId);
+    map['explain_schema_version'] = Variable<String>(explainSchemaVersion);
+    if (!nullToAbsent || voiceEngine != null) {
+      map['voice_engine'] = Variable<String>(voiceEngine);
+    }
+    map['audio_saved'] = Variable<bool>(audioSaved);
+    if (!nullToAbsent || audioVerified != null) {
+      map['audio_verified'] = Variable<bool>(audioVerified);
+    }
+    if (!nullToAbsent || audioDurationMs != null) {
+      map['audio_duration_ms'] = Variable<int>(audioDurationMs);
+    }
+    return map;
+  }
+
+  PapersCompanion toCompanion(bool nullToAbsent) {
+    return PapersCompanion(
+      id: Value(id),
+      title: Value(title),
+      status: Value(status),
+      todoRequired: Value(todoRequired),
+      todoText: Value(todoText),
+      dateDay: dateDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateDay),
+      dateMinuteOfDay: dateMinuteOfDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateMinuteOfDay),
+      dateText: dateText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateText),
+      cautionText: cautionText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cautionText),
+      contactName: contactName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contactName),
+      contactPhone: contactPhone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(contactPhone),
+      placeText: placeText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(placeText),
+      photographedAt: Value(photographedAt),
+      savedAt: Value(savedAt),
+      encryptedImagePath: encryptedImagePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(encryptedImagePath),
+      eventDay: eventDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eventDay),
+      eventMinuteOfDay: eventMinuteOfDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eventMinuteOfDay),
+      sessionId: Value(sessionId),
+      explainSchemaVersion: Value(explainSchemaVersion),
+      voiceEngine: voiceEngine == null && nullToAbsent
+          ? const Value.absent()
+          : Value(voiceEngine),
+      audioSaved: Value(audioSaved),
+      audioVerified: audioVerified == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioVerified),
+      audioDurationMs: audioDurationMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(audioDurationMs),
+    );
+  }
+
+  factory PaperRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaperRow(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      status: $PapersTable.$converterstatus.fromJson(
+        serializer.fromJson<String>(json['status']),
+      ),
+      todoRequired: serializer.fromJson<bool>(json['todoRequired']),
+      todoText: serializer.fromJson<String>(json['todoText']),
+      dateDay: serializer.fromJson<DateTime?>(json['dateDay']),
+      dateMinuteOfDay: serializer.fromJson<int?>(json['dateMinuteOfDay']),
+      dateText: serializer.fromJson<String?>(json['dateText']),
+      cautionText: serializer.fromJson<String?>(json['cautionText']),
+      contactName: serializer.fromJson<String?>(json['contactName']),
+      contactPhone: serializer.fromJson<String?>(json['contactPhone']),
+      placeText: serializer.fromJson<String?>(json['placeText']),
+      photographedAt: serializer.fromJson<DateTime>(json['photographedAt']),
+      savedAt: serializer.fromJson<DateTime>(json['savedAt']),
+      encryptedImagePath: serializer.fromJson<String?>(
+        json['encryptedImagePath'],
+      ),
+      eventDay: serializer.fromJson<DateTime?>(json['eventDay']),
+      eventMinuteOfDay: serializer.fromJson<int?>(json['eventMinuteOfDay']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      explainSchemaVersion: serializer.fromJson<String>(
+        json['explainSchemaVersion'],
+      ),
+      voiceEngine: serializer.fromJson<String?>(json['voiceEngine']),
+      audioSaved: serializer.fromJson<bool>(json['audioSaved']),
+      audioVerified: serializer.fromJson<bool?>(json['audioVerified']),
+      audioDurationMs: serializer.fromJson<int?>(json['audioDurationMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'status': serializer.toJson<String>(
+        $PapersTable.$converterstatus.toJson(status),
+      ),
+      'todoRequired': serializer.toJson<bool>(todoRequired),
+      'todoText': serializer.toJson<String>(todoText),
+      'dateDay': serializer.toJson<DateTime?>(dateDay),
+      'dateMinuteOfDay': serializer.toJson<int?>(dateMinuteOfDay),
+      'dateText': serializer.toJson<String?>(dateText),
+      'cautionText': serializer.toJson<String?>(cautionText),
+      'contactName': serializer.toJson<String?>(contactName),
+      'contactPhone': serializer.toJson<String?>(contactPhone),
+      'placeText': serializer.toJson<String?>(placeText),
+      'photographedAt': serializer.toJson<DateTime>(photographedAt),
+      'savedAt': serializer.toJson<DateTime>(savedAt),
+      'encryptedImagePath': serializer.toJson<String?>(encryptedImagePath),
+      'eventDay': serializer.toJson<DateTime?>(eventDay),
+      'eventMinuteOfDay': serializer.toJson<int?>(eventMinuteOfDay),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'explainSchemaVersion': serializer.toJson<String>(explainSchemaVersion),
+      'voiceEngine': serializer.toJson<String?>(voiceEngine),
+      'audioSaved': serializer.toJson<bool>(audioSaved),
+      'audioVerified': serializer.toJson<bool?>(audioVerified),
+      'audioDurationMs': serializer.toJson<int?>(audioDurationMs),
+    };
+  }
+
+  PaperRow copyWith({
+    String? id,
+    String? title,
+    PaperStatus? status,
+    bool? todoRequired,
+    String? todoText,
+    Value<DateTime?> dateDay = const Value.absent(),
+    Value<int?> dateMinuteOfDay = const Value.absent(),
+    Value<String?> dateText = const Value.absent(),
+    Value<String?> cautionText = const Value.absent(),
+    Value<String?> contactName = const Value.absent(),
+    Value<String?> contactPhone = const Value.absent(),
+    Value<String?> placeText = const Value.absent(),
+    DateTime? photographedAt,
+    DateTime? savedAt,
+    Value<String?> encryptedImagePath = const Value.absent(),
+    Value<DateTime?> eventDay = const Value.absent(),
+    Value<int?> eventMinuteOfDay = const Value.absent(),
+    String? sessionId,
+    String? explainSchemaVersion,
+    Value<String?> voiceEngine = const Value.absent(),
+    bool? audioSaved,
+    Value<bool?> audioVerified = const Value.absent(),
+    Value<int?> audioDurationMs = const Value.absent(),
+  }) => PaperRow(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    status: status ?? this.status,
+    todoRequired: todoRequired ?? this.todoRequired,
+    todoText: todoText ?? this.todoText,
+    dateDay: dateDay.present ? dateDay.value : this.dateDay,
+    dateMinuteOfDay: dateMinuteOfDay.present
+        ? dateMinuteOfDay.value
+        : this.dateMinuteOfDay,
+    dateText: dateText.present ? dateText.value : this.dateText,
+    cautionText: cautionText.present ? cautionText.value : this.cautionText,
+    contactName: contactName.present ? contactName.value : this.contactName,
+    contactPhone: contactPhone.present ? contactPhone.value : this.contactPhone,
+    placeText: placeText.present ? placeText.value : this.placeText,
+    photographedAt: photographedAt ?? this.photographedAt,
+    savedAt: savedAt ?? this.savedAt,
+    encryptedImagePath: encryptedImagePath.present
+        ? encryptedImagePath.value
+        : this.encryptedImagePath,
+    eventDay: eventDay.present ? eventDay.value : this.eventDay,
+    eventMinuteOfDay: eventMinuteOfDay.present
+        ? eventMinuteOfDay.value
+        : this.eventMinuteOfDay,
+    sessionId: sessionId ?? this.sessionId,
+    explainSchemaVersion: explainSchemaVersion ?? this.explainSchemaVersion,
+    voiceEngine: voiceEngine.present ? voiceEngine.value : this.voiceEngine,
+    audioSaved: audioSaved ?? this.audioSaved,
+    audioVerified: audioVerified.present
+        ? audioVerified.value
+        : this.audioVerified,
+    audioDurationMs: audioDurationMs.present
+        ? audioDurationMs.value
+        : this.audioDurationMs,
+  );
+  PaperRow copyWithCompanion(PapersCompanion data) {
+    return PaperRow(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      status: data.status.present ? data.status.value : this.status,
+      todoRequired: data.todoRequired.present
+          ? data.todoRequired.value
+          : this.todoRequired,
+      todoText: data.todoText.present ? data.todoText.value : this.todoText,
+      dateDay: data.dateDay.present ? data.dateDay.value : this.dateDay,
+      dateMinuteOfDay: data.dateMinuteOfDay.present
+          ? data.dateMinuteOfDay.value
+          : this.dateMinuteOfDay,
+      dateText: data.dateText.present ? data.dateText.value : this.dateText,
+      cautionText: data.cautionText.present
+          ? data.cautionText.value
+          : this.cautionText,
+      contactName: data.contactName.present
+          ? data.contactName.value
+          : this.contactName,
+      contactPhone: data.contactPhone.present
+          ? data.contactPhone.value
+          : this.contactPhone,
+      placeText: data.placeText.present ? data.placeText.value : this.placeText,
+      photographedAt: data.photographedAt.present
+          ? data.photographedAt.value
+          : this.photographedAt,
+      savedAt: data.savedAt.present ? data.savedAt.value : this.savedAt,
+      encryptedImagePath: data.encryptedImagePath.present
+          ? data.encryptedImagePath.value
+          : this.encryptedImagePath,
+      eventDay: data.eventDay.present ? data.eventDay.value : this.eventDay,
+      eventMinuteOfDay: data.eventMinuteOfDay.present
+          ? data.eventMinuteOfDay.value
+          : this.eventMinuteOfDay,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      explainSchemaVersion: data.explainSchemaVersion.present
+          ? data.explainSchemaVersion.value
+          : this.explainSchemaVersion,
+      voiceEngine: data.voiceEngine.present
+          ? data.voiceEngine.value
+          : this.voiceEngine,
+      audioSaved: data.audioSaved.present
+          ? data.audioSaved.value
+          : this.audioSaved,
+      audioVerified: data.audioVerified.present
+          ? data.audioVerified.value
+          : this.audioVerified,
+      audioDurationMs: data.audioDurationMs.present
+          ? data.audioDurationMs.value
+          : this.audioDurationMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperRow(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('status: $status, ')
+          ..write('todoRequired: $todoRequired, ')
+          ..write('todoText: $todoText, ')
+          ..write('dateDay: $dateDay, ')
+          ..write('dateMinuteOfDay: $dateMinuteOfDay, ')
+          ..write('dateText: $dateText, ')
+          ..write('cautionText: $cautionText, ')
+          ..write('contactName: $contactName, ')
+          ..write('contactPhone: $contactPhone, ')
+          ..write('placeText: $placeText, ')
+          ..write('photographedAt: $photographedAt, ')
+          ..write('savedAt: $savedAt, ')
+          ..write('encryptedImagePath: $encryptedImagePath, ')
+          ..write('eventDay: $eventDay, ')
+          ..write('eventMinuteOfDay: $eventMinuteOfDay, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('explainSchemaVersion: $explainSchemaVersion, ')
+          ..write('voiceEngine: $voiceEngine, ')
+          ..write('audioSaved: $audioSaved, ')
+          ..write('audioVerified: $audioVerified, ')
+          ..write('audioDurationMs: $audioDurationMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    title,
+    status,
+    todoRequired,
+    todoText,
+    dateDay,
+    dateMinuteOfDay,
+    dateText,
+    cautionText,
+    contactName,
+    contactPhone,
+    placeText,
+    photographedAt,
+    savedAt,
+    encryptedImagePath,
+    eventDay,
+    eventMinuteOfDay,
+    sessionId,
+    explainSchemaVersion,
+    voiceEngine,
+    audioSaved,
+    audioVerified,
+    audioDurationMs,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaperRow &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.status == this.status &&
+          other.todoRequired == this.todoRequired &&
+          other.todoText == this.todoText &&
+          other.dateDay == this.dateDay &&
+          other.dateMinuteOfDay == this.dateMinuteOfDay &&
+          other.dateText == this.dateText &&
+          other.cautionText == this.cautionText &&
+          other.contactName == this.contactName &&
+          other.contactPhone == this.contactPhone &&
+          other.placeText == this.placeText &&
+          other.photographedAt == this.photographedAt &&
+          other.savedAt == this.savedAt &&
+          other.encryptedImagePath == this.encryptedImagePath &&
+          other.eventDay == this.eventDay &&
+          other.eventMinuteOfDay == this.eventMinuteOfDay &&
+          other.sessionId == this.sessionId &&
+          other.explainSchemaVersion == this.explainSchemaVersion &&
+          other.voiceEngine == this.voiceEngine &&
+          other.audioSaved == this.audioSaved &&
+          other.audioVerified == this.audioVerified &&
+          other.audioDurationMs == this.audioDurationMs);
+}
+
+class PapersCompanion extends UpdateCompanion<PaperRow> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<PaperStatus> status;
+  final Value<bool> todoRequired;
+  final Value<String> todoText;
+  final Value<DateTime?> dateDay;
+  final Value<int?> dateMinuteOfDay;
+  final Value<String?> dateText;
+  final Value<String?> cautionText;
+  final Value<String?> contactName;
+  final Value<String?> contactPhone;
+  final Value<String?> placeText;
+  final Value<DateTime> photographedAt;
+  final Value<DateTime> savedAt;
+  final Value<String?> encryptedImagePath;
+  final Value<DateTime?> eventDay;
+  final Value<int?> eventMinuteOfDay;
+  final Value<String> sessionId;
+  final Value<String> explainSchemaVersion;
+  final Value<String?> voiceEngine;
+  final Value<bool> audioSaved;
+  final Value<bool?> audioVerified;
+  final Value<int?> audioDurationMs;
+  final Value<int> rowid;
+  const PapersCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.status = const Value.absent(),
+    this.todoRequired = const Value.absent(),
+    this.todoText = const Value.absent(),
+    this.dateDay = const Value.absent(),
+    this.dateMinuteOfDay = const Value.absent(),
+    this.dateText = const Value.absent(),
+    this.cautionText = const Value.absent(),
+    this.contactName = const Value.absent(),
+    this.contactPhone = const Value.absent(),
+    this.placeText = const Value.absent(),
+    this.photographedAt = const Value.absent(),
+    this.savedAt = const Value.absent(),
+    this.encryptedImagePath = const Value.absent(),
+    this.eventDay = const Value.absent(),
+    this.eventMinuteOfDay = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.explainSchemaVersion = const Value.absent(),
+    this.voiceEngine = const Value.absent(),
+    this.audioSaved = const Value.absent(),
+    this.audioVerified = const Value.absent(),
+    this.audioDurationMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PapersCompanion.insert({
+    required String id,
+    required String title,
+    required PaperStatus status,
+    required bool todoRequired,
+    required String todoText,
+    this.dateDay = const Value.absent(),
+    this.dateMinuteOfDay = const Value.absent(),
+    this.dateText = const Value.absent(),
+    this.cautionText = const Value.absent(),
+    this.contactName = const Value.absent(),
+    this.contactPhone = const Value.absent(),
+    this.placeText = const Value.absent(),
+    required DateTime photographedAt,
+    required DateTime savedAt,
+    this.encryptedImagePath = const Value.absent(),
+    this.eventDay = const Value.absent(),
+    this.eventMinuteOfDay = const Value.absent(),
+    required String sessionId,
+    required String explainSchemaVersion,
+    this.voiceEngine = const Value.absent(),
+    this.audioSaved = const Value.absent(),
+    this.audioVerified = const Value.absent(),
+    this.audioDurationMs = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title),
+       status = Value(status),
+       todoRequired = Value(todoRequired),
+       todoText = Value(todoText),
+       photographedAt = Value(photographedAt),
+       savedAt = Value(savedAt),
+       sessionId = Value(sessionId),
+       explainSchemaVersion = Value(explainSchemaVersion);
+  static Insertable<PaperRow> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? status,
+    Expression<bool>? todoRequired,
+    Expression<String>? todoText,
+    Expression<DateTime>? dateDay,
+    Expression<int>? dateMinuteOfDay,
+    Expression<String>? dateText,
+    Expression<String>? cautionText,
+    Expression<String>? contactName,
+    Expression<String>? contactPhone,
+    Expression<String>? placeText,
+    Expression<DateTime>? photographedAt,
+    Expression<DateTime>? savedAt,
+    Expression<String>? encryptedImagePath,
+    Expression<DateTime>? eventDay,
+    Expression<int>? eventMinuteOfDay,
+    Expression<String>? sessionId,
+    Expression<String>? explainSchemaVersion,
+    Expression<String>? voiceEngine,
+    Expression<bool>? audioSaved,
+    Expression<bool>? audioVerified,
+    Expression<int>? audioDurationMs,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (status != null) 'status': status,
+      if (todoRequired != null) 'todo_required': todoRequired,
+      if (todoText != null) 'todo_text': todoText,
+      if (dateDay != null) 'date_day': dateDay,
+      if (dateMinuteOfDay != null) 'date_minute_of_day': dateMinuteOfDay,
+      if (dateText != null) 'date_text': dateText,
+      if (cautionText != null) 'caution_text': cautionText,
+      if (contactName != null) 'contact_name': contactName,
+      if (contactPhone != null) 'contact_phone': contactPhone,
+      if (placeText != null) 'place_text': placeText,
+      if (photographedAt != null) 'photographed_at': photographedAt,
+      if (savedAt != null) 'saved_at': savedAt,
+      if (encryptedImagePath != null)
+        'encrypted_image_path': encryptedImagePath,
+      if (eventDay != null) 'event_day': eventDay,
+      if (eventMinuteOfDay != null) 'event_minute_of_day': eventMinuteOfDay,
+      if (sessionId != null) 'session_id': sessionId,
+      if (explainSchemaVersion != null)
+        'explain_schema_version': explainSchemaVersion,
+      if (voiceEngine != null) 'voice_engine': voiceEngine,
+      if (audioSaved != null) 'audio_saved': audioSaved,
+      if (audioVerified != null) 'audio_verified': audioVerified,
+      if (audioDurationMs != null) 'audio_duration_ms': audioDurationMs,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PapersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<PaperStatus>? status,
+    Value<bool>? todoRequired,
+    Value<String>? todoText,
+    Value<DateTime?>? dateDay,
+    Value<int?>? dateMinuteOfDay,
+    Value<String?>? dateText,
+    Value<String?>? cautionText,
+    Value<String?>? contactName,
+    Value<String?>? contactPhone,
+    Value<String?>? placeText,
+    Value<DateTime>? photographedAt,
+    Value<DateTime>? savedAt,
+    Value<String?>? encryptedImagePath,
+    Value<DateTime?>? eventDay,
+    Value<int?>? eventMinuteOfDay,
+    Value<String>? sessionId,
+    Value<String>? explainSchemaVersion,
+    Value<String?>? voiceEngine,
+    Value<bool>? audioSaved,
+    Value<bool?>? audioVerified,
+    Value<int?>? audioDurationMs,
+    Value<int>? rowid,
+  }) {
+    return PapersCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      status: status ?? this.status,
+      todoRequired: todoRequired ?? this.todoRequired,
+      todoText: todoText ?? this.todoText,
+      dateDay: dateDay ?? this.dateDay,
+      dateMinuteOfDay: dateMinuteOfDay ?? this.dateMinuteOfDay,
+      dateText: dateText ?? this.dateText,
+      cautionText: cautionText ?? this.cautionText,
+      contactName: contactName ?? this.contactName,
+      contactPhone: contactPhone ?? this.contactPhone,
+      placeText: placeText ?? this.placeText,
+      photographedAt: photographedAt ?? this.photographedAt,
+      savedAt: savedAt ?? this.savedAt,
+      encryptedImagePath: encryptedImagePath ?? this.encryptedImagePath,
+      eventDay: eventDay ?? this.eventDay,
+      eventMinuteOfDay: eventMinuteOfDay ?? this.eventMinuteOfDay,
+      sessionId: sessionId ?? this.sessionId,
+      explainSchemaVersion: explainSchemaVersion ?? this.explainSchemaVersion,
+      voiceEngine: voiceEngine ?? this.voiceEngine,
+      audioSaved: audioSaved ?? this.audioSaved,
+      audioVerified: audioVerified ?? this.audioVerified,
+      audioDurationMs: audioDurationMs ?? this.audioDurationMs,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(
+        $PapersTable.$converterstatus.toSql(status.value),
+      );
+    }
+    if (todoRequired.present) {
+      map['todo_required'] = Variable<bool>(todoRequired.value);
+    }
+    if (todoText.present) {
+      map['todo_text'] = Variable<String>(todoText.value);
+    }
+    if (dateDay.present) {
+      map['date_day'] = Variable<DateTime>(dateDay.value);
+    }
+    if (dateMinuteOfDay.present) {
+      map['date_minute_of_day'] = Variable<int>(dateMinuteOfDay.value);
+    }
+    if (dateText.present) {
+      map['date_text'] = Variable<String>(dateText.value);
+    }
+    if (cautionText.present) {
+      map['caution_text'] = Variable<String>(cautionText.value);
+    }
+    if (contactName.present) {
+      map['contact_name'] = Variable<String>(contactName.value);
+    }
+    if (contactPhone.present) {
+      map['contact_phone'] = Variable<String>(contactPhone.value);
+    }
+    if (placeText.present) {
+      map['place_text'] = Variable<String>(placeText.value);
+    }
+    if (photographedAt.present) {
+      map['photographed_at'] = Variable<DateTime>(photographedAt.value);
+    }
+    if (savedAt.present) {
+      map['saved_at'] = Variable<DateTime>(savedAt.value);
+    }
+    if (encryptedImagePath.present) {
+      map['encrypted_image_path'] = Variable<String>(encryptedImagePath.value);
+    }
+    if (eventDay.present) {
+      map['event_day'] = Variable<DateTime>(eventDay.value);
+    }
+    if (eventMinuteOfDay.present) {
+      map['event_minute_of_day'] = Variable<int>(eventMinuteOfDay.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (explainSchemaVersion.present) {
+      map['explain_schema_version'] = Variable<String>(
+        explainSchemaVersion.value,
+      );
+    }
+    if (voiceEngine.present) {
+      map['voice_engine'] = Variable<String>(voiceEngine.value);
+    }
+    if (audioSaved.present) {
+      map['audio_saved'] = Variable<bool>(audioSaved.value);
+    }
+    if (audioVerified.present) {
+      map['audio_verified'] = Variable<bool>(audioVerified.value);
+    }
+    if (audioDurationMs.present) {
+      map['audio_duration_ms'] = Variable<int>(audioDurationMs.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PapersCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('status: $status, ')
+          ..write('todoRequired: $todoRequired, ')
+          ..write('todoText: $todoText, ')
+          ..write('dateDay: $dateDay, ')
+          ..write('dateMinuteOfDay: $dateMinuteOfDay, ')
+          ..write('dateText: $dateText, ')
+          ..write('cautionText: $cautionText, ')
+          ..write('contactName: $contactName, ')
+          ..write('contactPhone: $contactPhone, ')
+          ..write('placeText: $placeText, ')
+          ..write('photographedAt: $photographedAt, ')
+          ..write('savedAt: $savedAt, ')
+          ..write('encryptedImagePath: $encryptedImagePath, ')
+          ..write('eventDay: $eventDay, ')
+          ..write('eventMinuteOfDay: $eventMinuteOfDay, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('explainSchemaVersion: $explainSchemaVersion, ')
+          ..write('voiceEngine: $voiceEngine, ')
+          ..write('audioSaved: $audioSaved, ')
+          ..write('audioVerified: $audioVerified, ')
+          ..write('audioDurationMs: $audioDurationMs, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PaperParagraphsTable extends PaperParagraphs
+    with TableInfo<$PaperParagraphsTable, PaperParagraphRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PaperParagraphsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _paperIdMeta = const VerificationMeta(
+    'paperId',
+  );
+  @override
+  late final GeneratedColumn<String> paperId = GeneratedColumn<String>(
+    'paper_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES papers (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [paperId, position, value];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'paper_paragraphs';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaperParagraphRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('paper_id')) {
+      context.handle(
+        _paperIdMeta,
+        paperId.isAcceptableOrUnknown(data['paper_id']!, _paperIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paperIdMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positionMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {paperId, position};
+  @override
+  PaperParagraphRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaperParagraphRow(
+      paperId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paper_id'],
+      )!,
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+    );
+  }
+
+  @override
+  $PaperParagraphsTable createAlias(String alias) {
+    return $PaperParagraphsTable(attachedDatabase, alias);
+  }
+}
+
+class PaperParagraphRow extends DataClass
+    implements Insertable<PaperParagraphRow> {
+  final String paperId;
+  final int position;
+  final String value;
+  const PaperParagraphRow({
+    required this.paperId,
+    required this.position,
+    required this.value,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['paper_id'] = Variable<String>(paperId);
+    map['position'] = Variable<int>(position);
+    map['value'] = Variable<String>(value);
+    return map;
+  }
+
+  PaperParagraphsCompanion toCompanion(bool nullToAbsent) {
+    return PaperParagraphsCompanion(
+      paperId: Value(paperId),
+      position: Value(position),
+      value: Value(value),
+    );
+  }
+
+  factory PaperParagraphRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaperParagraphRow(
+      paperId: serializer.fromJson<String>(json['paperId']),
+      position: serializer.fromJson<int>(json['position']),
+      value: serializer.fromJson<String>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'paperId': serializer.toJson<String>(paperId),
+      'position': serializer.toJson<int>(position),
+      'value': serializer.toJson<String>(value),
+    };
+  }
+
+  PaperParagraphRow copyWith({String? paperId, int? position, String? value}) =>
+      PaperParagraphRow(
+        paperId: paperId ?? this.paperId,
+        position: position ?? this.position,
+        value: value ?? this.value,
+      );
+  PaperParagraphRow copyWithCompanion(PaperParagraphsCompanion data) {
+    return PaperParagraphRow(
+      paperId: data.paperId.present ? data.paperId.value : this.paperId,
+      position: data.position.present ? data.position.value : this.position,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperParagraphRow(')
+          ..write('paperId: $paperId, ')
+          ..write('position: $position, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(paperId, position, value);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaperParagraphRow &&
+          other.paperId == this.paperId &&
+          other.position == this.position &&
+          other.value == this.value);
+}
+
+class PaperParagraphsCompanion extends UpdateCompanion<PaperParagraphRow> {
+  final Value<String> paperId;
+  final Value<int> position;
+  final Value<String> value;
+  final Value<int> rowid;
+  const PaperParagraphsCompanion({
+    this.paperId = const Value.absent(),
+    this.position = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PaperParagraphsCompanion.insert({
+    required String paperId,
+    required int position,
+    required String value,
+    this.rowid = const Value.absent(),
+  }) : paperId = Value(paperId),
+       position = Value(position),
+       value = Value(value);
+  static Insertable<PaperParagraphRow> custom({
+    Expression<String>? paperId,
+    Expression<int>? position,
+    Expression<String>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (paperId != null) 'paper_id': paperId,
+      if (position != null) 'position': position,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PaperParagraphsCompanion copyWith({
+    Value<String>? paperId,
+    Value<int>? position,
+    Value<String>? value,
+    Value<int>? rowid,
+  }) {
+    return PaperParagraphsCompanion(
+      paperId: paperId ?? this.paperId,
+      position: position ?? this.position,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (paperId.present) {
+      map['paper_id'] = Variable<String>(paperId.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperParagraphsCompanion(')
+          ..write('paperId: $paperId, ')
+          ..write('position: $position, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PaperSpansTable extends PaperSpans
+    with TableInfo<$PaperSpansTable, PaperSpanRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PaperSpansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _paperIdMeta = const VerificationMeta(
+    'paperId',
+  );
+  @override
+  late final GeneratedColumn<String> paperId = GeneratedColumn<String>(
+    'paper_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES papers (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _segmentIdMeta = const VerificationMeta(
+    'segmentId',
+  );
+  @override
+  late final GeneratedColumn<String> segmentId = GeneratedColumn<String>(
+    'segment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startMsMeta = const VerificationMeta(
+    'startMs',
+  );
+  @override
+  late final GeneratedColumn<int> startMs = GeneratedColumn<int>(
+    'start_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endMsMeta = const VerificationMeta('endMs');
+  @override
+  late final GeneratedColumn<int> endMs = GeneratedColumn<int>(
+    'end_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _exactMeta = const VerificationMeta('exact');
+  @override
+  late final GeneratedColumn<bool> exact = GeneratedColumn<bool>(
+    'exact',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("exact" IN (0, 1))',
+    ),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    paperId,
+    position,
+    segmentId,
+    startMs,
+    endMs,
+    exact,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'paper_spans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PaperSpanRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('paper_id')) {
+      context.handle(
+        _paperIdMeta,
+        paperId.isAcceptableOrUnknown(data['paper_id']!, _paperIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paperIdMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_positionMeta);
+    }
+    if (data.containsKey('segment_id')) {
+      context.handle(
+        _segmentIdMeta,
+        segmentId.isAcceptableOrUnknown(data['segment_id']!, _segmentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_segmentIdMeta);
+    }
+    if (data.containsKey('start_ms')) {
+      context.handle(
+        _startMsMeta,
+        startMs.isAcceptableOrUnknown(data['start_ms']!, _startMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startMsMeta);
+    }
+    if (data.containsKey('end_ms')) {
+      context.handle(
+        _endMsMeta,
+        endMs.isAcceptableOrUnknown(data['end_ms']!, _endMsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endMsMeta);
+    }
+    if (data.containsKey('exact')) {
+      context.handle(
+        _exactMeta,
+        exact.isAcceptableOrUnknown(data['exact']!, _exactMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_exactMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {paperId, position};
+  @override
+  PaperSpanRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PaperSpanRow(
+      paperId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}paper_id'],
+      )!,
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      segmentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}segment_id'],
+      )!,
+      startMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}start_ms'],
+      )!,
+      endMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}end_ms'],
+      )!,
+      exact: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}exact'],
+      )!,
+    );
+  }
+
+  @override
+  $PaperSpansTable createAlias(String alias) {
+    return $PaperSpansTable(attachedDatabase, alias);
+  }
+}
+
+class PaperSpanRow extends DataClass implements Insertable<PaperSpanRow> {
+  final String paperId;
+  final int position;
+  final String segmentId;
+  final int startMs;
+  final int endMs;
+  final bool exact;
+  const PaperSpanRow({
+    required this.paperId,
+    required this.position,
+    required this.segmentId,
+    required this.startMs,
+    required this.endMs,
+    required this.exact,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['paper_id'] = Variable<String>(paperId);
+    map['position'] = Variable<int>(position);
+    map['segment_id'] = Variable<String>(segmentId);
+    map['start_ms'] = Variable<int>(startMs);
+    map['end_ms'] = Variable<int>(endMs);
+    map['exact'] = Variable<bool>(exact);
+    return map;
+  }
+
+  PaperSpansCompanion toCompanion(bool nullToAbsent) {
+    return PaperSpansCompanion(
+      paperId: Value(paperId),
+      position: Value(position),
+      segmentId: Value(segmentId),
+      startMs: Value(startMs),
+      endMs: Value(endMs),
+      exact: Value(exact),
+    );
+  }
+
+  factory PaperSpanRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PaperSpanRow(
+      paperId: serializer.fromJson<String>(json['paperId']),
+      position: serializer.fromJson<int>(json['position']),
+      segmentId: serializer.fromJson<String>(json['segmentId']),
+      startMs: serializer.fromJson<int>(json['startMs']),
+      endMs: serializer.fromJson<int>(json['endMs']),
+      exact: serializer.fromJson<bool>(json['exact']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'paperId': serializer.toJson<String>(paperId),
+      'position': serializer.toJson<int>(position),
+      'segmentId': serializer.toJson<String>(segmentId),
+      'startMs': serializer.toJson<int>(startMs),
+      'endMs': serializer.toJson<int>(endMs),
+      'exact': serializer.toJson<bool>(exact),
+    };
+  }
+
+  PaperSpanRow copyWith({
+    String? paperId,
+    int? position,
+    String? segmentId,
+    int? startMs,
+    int? endMs,
+    bool? exact,
+  }) => PaperSpanRow(
+    paperId: paperId ?? this.paperId,
+    position: position ?? this.position,
+    segmentId: segmentId ?? this.segmentId,
+    startMs: startMs ?? this.startMs,
+    endMs: endMs ?? this.endMs,
+    exact: exact ?? this.exact,
+  );
+  PaperSpanRow copyWithCompanion(PaperSpansCompanion data) {
+    return PaperSpanRow(
+      paperId: data.paperId.present ? data.paperId.value : this.paperId,
+      position: data.position.present ? data.position.value : this.position,
+      segmentId: data.segmentId.present ? data.segmentId.value : this.segmentId,
+      startMs: data.startMs.present ? data.startMs.value : this.startMs,
+      endMs: data.endMs.present ? data.endMs.value : this.endMs,
+      exact: data.exact.present ? data.exact.value : this.exact,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperSpanRow(')
+          ..write('paperId: $paperId, ')
+          ..write('position: $position, ')
+          ..write('segmentId: $segmentId, ')
+          ..write('startMs: $startMs, ')
+          ..write('endMs: $endMs, ')
+          ..write('exact: $exact')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(paperId, position, segmentId, startMs, endMs, exact);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PaperSpanRow &&
+          other.paperId == this.paperId &&
+          other.position == this.position &&
+          other.segmentId == this.segmentId &&
+          other.startMs == this.startMs &&
+          other.endMs == this.endMs &&
+          other.exact == this.exact);
+}
+
+class PaperSpansCompanion extends UpdateCompanion<PaperSpanRow> {
+  final Value<String> paperId;
+  final Value<int> position;
+  final Value<String> segmentId;
+  final Value<int> startMs;
+  final Value<int> endMs;
+  final Value<bool> exact;
+  final Value<int> rowid;
+  const PaperSpansCompanion({
+    this.paperId = const Value.absent(),
+    this.position = const Value.absent(),
+    this.segmentId = const Value.absent(),
+    this.startMs = const Value.absent(),
+    this.endMs = const Value.absent(),
+    this.exact = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PaperSpansCompanion.insert({
+    required String paperId,
+    required int position,
+    required String segmentId,
+    required int startMs,
+    required int endMs,
+    required bool exact,
+    this.rowid = const Value.absent(),
+  }) : paperId = Value(paperId),
+       position = Value(position),
+       segmentId = Value(segmentId),
+       startMs = Value(startMs),
+       endMs = Value(endMs),
+       exact = Value(exact);
+  static Insertable<PaperSpanRow> custom({
+    Expression<String>? paperId,
+    Expression<int>? position,
+    Expression<String>? segmentId,
+    Expression<int>? startMs,
+    Expression<int>? endMs,
+    Expression<bool>? exact,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (paperId != null) 'paper_id': paperId,
+      if (position != null) 'position': position,
+      if (segmentId != null) 'segment_id': segmentId,
+      if (startMs != null) 'start_ms': startMs,
+      if (endMs != null) 'end_ms': endMs,
+      if (exact != null) 'exact': exact,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PaperSpansCompanion copyWith({
+    Value<String>? paperId,
+    Value<int>? position,
+    Value<String>? segmentId,
+    Value<int>? startMs,
+    Value<int>? endMs,
+    Value<bool>? exact,
+    Value<int>? rowid,
+  }) {
+    return PaperSpansCompanion(
+      paperId: paperId ?? this.paperId,
+      position: position ?? this.position,
+      segmentId: segmentId ?? this.segmentId,
+      startMs: startMs ?? this.startMs,
+      endMs: endMs ?? this.endMs,
+      exact: exact ?? this.exact,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (paperId.present) {
+      map['paper_id'] = Variable<String>(paperId.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (segmentId.present) {
+      map['segment_id'] = Variable<String>(segmentId.value);
+    }
+    if (startMs.present) {
+      map['start_ms'] = Variable<int>(startMs.value);
+    }
+    if (endMs.present) {
+      map['end_ms'] = Variable<int>(endMs.value);
+    }
+    if (exact.present) {
+      map['exact'] = Variable<bool>(exact.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PaperSpansCompanion(')
+          ..write('paperId: $paperId, ')
+          ..write('position: $position, ')
+          ..write('segmentId: $segmentId, ')
+          ..write('startMs: $startMs, ')
+          ..write('endMs: $endMs, ')
+          ..write('exact: $exact, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -5214,6 +7177,11 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $DocumentTextItemsTable(this);
   late final $RemindersTable reminders = $RemindersTable(this);
   late final $ReminderAlertsTable reminderAlerts = $ReminderAlertsTable(this);
+  late final $PapersTable papers = $PapersTable(this);
+  late final $PaperParagraphsTable paperParagraphs = $PaperParagraphsTable(
+    this,
+  );
+  late final $PaperSpansTable paperSpans = $PaperSpansTable(this);
   late final Index documentsSavedAt = Index(
     'documents_saved_at',
     'CREATE INDEX documents_saved_at ON documents (saved_at)',
@@ -5230,16 +7198,17 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'reminders_status',
     'CREATE INDEX reminders_status ON reminders (status)',
   );
-  late final Index remindersDocument = Index(
-    'reminders_document',
-    'CREATE INDEX reminders_document ON reminders (document_id)',
-  );
   late final Index reminderAlertsReminder = Index(
     'reminder_alerts_reminder',
     'CREATE INDEX reminder_alerts_reminder ON reminder_alerts (reminder_id)',
   );
+  late final Index papersEventDay = Index(
+    'papers_event_day',
+    'CREATE INDEX papers_event_day ON papers (event_day, event_minute_of_day)',
+  );
   late final DocumentsDao documentsDao = DocumentsDao(this as AppDatabase);
   late final RemindersDao remindersDao = RemindersDao(this as AppDatabase);
+  late final PapersDao papersDao = PapersDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5256,12 +7225,15 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     documentTextItems,
     reminders,
     reminderAlerts,
+    papers,
+    paperParagraphs,
+    paperSpans,
     documentsSavedAt,
     documentsCategory,
     remindersEventDate,
     remindersStatus,
-    remindersDocument,
     reminderAlertsReminder,
+    papersEventDay,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -5311,17 +7283,24 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
-        'documents',
-        limitUpdateKind: UpdateKind.delete,
-      ),
-      result: [TableUpdate('reminders', kind: UpdateKind.delete)],
-    ),
-    WritePropagation(
-      on: TableUpdateQuery.onTableName(
         'reminders',
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('reminder_alerts', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'papers',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('paper_paragraphs', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'papers',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('paper_spans', kind: UpdateKind.delete)],
     ),
   ]);
 }
@@ -5879,24 +7858,6 @@ final class $$DocumentsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
-
-  static MultiTypedResultKey<$RemindersTable, List<ReminderRow>>
-  _remindersRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-    db.reminders,
-    aliasName: 'documents__id__reminders__document_id',
-  );
-
-  $$RemindersTableProcessedTableManager get remindersRefs {
-    final manager = $$RemindersTableTableManager(
-      $_db,
-      $_db.reminders,
-    ).filter((f) => f.documentId.id.sqlEquals($_itemColumn<String>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_remindersRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
 }
 
 class $$DocumentsTableFilterComposer
@@ -6131,31 +8092,6 @@ class $$DocumentsTableFilterComposer
           }) => $$DocumentTextItemsTableFilterComposer(
             $db: $db,
             $table: $db.documentTextItems,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-
-  Expression<bool> remindersRefs(
-    Expression<bool> Function($$RemindersTableFilterComposer f) f,
-  ) {
-    final $$RemindersTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.reminders,
-      getReferencedColumn: (t) => t.documentId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$RemindersTableFilterComposer(
-            $db: $db,
-            $table: $db.reminders,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -6469,31 +8405,6 @@ class $$DocumentsTableAnnotationComposer
         );
     return f(composer);
   }
-
-  Expression<T> remindersRefs<T extends Object>(
-    Expression<T> Function($$RemindersTableAnnotationComposer a) f,
-  ) {
-    final $$RemindersTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.reminders,
-      getReferencedColumn: (t) => t.documentId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$RemindersTableAnnotationComposer(
-            $db: $db,
-            $table: $db.reminders,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
 }
 
 class $$DocumentsTableTableManager
@@ -6516,7 +8427,6 @@ class $$DocumentsTableTableManager
             bool documentActionsRefs,
             bool documentWarningsRefs,
             bool documentTextItemsRefs,
-            bool remindersRefs,
           })
         > {
   $$DocumentsTableTableManager(_$AppDatabase db, $DocumentsTable table)
@@ -6618,7 +8528,6 @@ class $$DocumentsTableTableManager
                 documentActionsRefs = false,
                 documentWarningsRefs = false,
                 documentTextItemsRefs = false,
-                remindersRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -6629,7 +8538,6 @@ class $$DocumentsTableTableManager
                     if (documentActionsRefs) db.documentActions,
                     if (documentWarningsRefs) db.documentWarnings,
                     if (documentTextItemsRefs) db.documentTextItems,
-                    if (remindersRefs) db.reminders,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -6760,27 +8668,6 @@ class $$DocumentsTableTableManager
                               ),
                           typedResults: items,
                         ),
-                      if (remindersRefs)
-                        await $_getPrefetchedData<
-                          DocumentRow,
-                          $DocumentsTable,
-                          ReminderRow
-                        >(
-                          currentTable: table,
-                          referencedTable: $$DocumentsTableReferences
-                              ._remindersRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$DocumentsTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).remindersRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.documentId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
                     ];
                   },
                 );
@@ -6808,7 +8695,6 @@ typedef $$DocumentsTableProcessedTableManager =
         bool documentActionsRefs,
         bool documentWarningsRefs,
         bool documentTextItemsRefs,
-        bool remindersRefs,
       })
     >;
 typedef $$DocumentKeyInformationTableCreateCompanionBuilder =
@@ -8872,7 +10758,6 @@ typedef $$DocumentTextItemsTableProcessedTableManager =
 typedef $$RemindersTableCreateCompanionBuilder =
     RemindersCompanion Function({
       required String id,
-      Value<String?> documentId,
       required String title,
       Value<String?> description,
       required DateTime eventDate,
@@ -8887,7 +10772,6 @@ typedef $$RemindersTableCreateCompanionBuilder =
 typedef $$RemindersTableUpdateCompanionBuilder =
     RemindersCompanion Function({
       Value<String> id,
-      Value<String?> documentId,
       Value<String> title,
       Value<String?> description,
       Value<DateTime> eventDate,
@@ -8903,23 +10787,6 @@ typedef $$RemindersTableUpdateCompanionBuilder =
 final class $$RemindersTableReferences
     extends BaseReferences<_$AppDatabase, $RemindersTable, ReminderRow> {
   $$RemindersTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $DocumentsTable _documentIdTable(_$AppDatabase db) =>
-      db.documents.createAlias('reminders__document_id__documents__id');
-
-  $$DocumentsTableProcessedTableManager? get documentId {
-    final $_column = $_itemColumn<String>('document_id');
-    if ($_column == null) return null;
-    final manager = $$DocumentsTableTableManager(
-      $_db,
-      $_db.documents,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_documentIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
 
   static MultiTypedResultKey<$ReminderAlertsTable, List<ReminderAlertRow>>
   _reminderAlertsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
@@ -8999,29 +10866,6 @@ class $$RemindersTableFilterComposer
     column: $table.completedAt,
     builder: (column) => ColumnFilters(column),
   );
-
-  $$DocumentsTableFilterComposer get documentId {
-    final $$DocumentsTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.documentId,
-      referencedTable: $db.documents,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DocumentsTableFilterComposer(
-            $db: $db,
-            $table: $db.documents,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 
   Expression<bool> reminderAlertsRefs(
     Expression<bool> Function($$ReminderAlertsTableFilterComposer f) f,
@@ -9107,29 +10951,6 @@ class $$RemindersTableOrderingComposer
     column: $table.completedAt,
     builder: (column) => ColumnOrderings(column),
   );
-
-  $$DocumentsTableOrderingComposer get documentId {
-    final $$DocumentsTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.documentId,
-      referencedTable: $db.documents,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DocumentsTableOrderingComposer(
-            $db: $db,
-            $table: $db.documents,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$RemindersTableAnnotationComposer
@@ -9177,29 +10998,6 @@ class $$RemindersTableAnnotationComposer
     builder: (column) => column,
   );
 
-  $$DocumentsTableAnnotationComposer get documentId {
-    final $$DocumentsTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.documentId,
-      referencedTable: $db.documents,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$DocumentsTableAnnotationComposer(
-            $db: $db,
-            $table: $db.documents,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
   Expression<T> reminderAlertsRefs<T extends Object>(
     Expression<T> Function($$ReminderAlertsTableAnnotationComposer a) f,
   ) {
@@ -9239,7 +11037,7 @@ class $$RemindersTableTableManager
           $$RemindersTableUpdateCompanionBuilder,
           (ReminderRow, $$RemindersTableReferences),
           ReminderRow,
-          PrefetchHooks Function({bool documentId, bool reminderAlertsRefs})
+          PrefetchHooks Function({bool reminderAlertsRefs})
         > {
   $$RemindersTableTableManager(_$AppDatabase db, $RemindersTable table)
     : super(
@@ -9255,7 +11053,6 @@ class $$RemindersTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String?> documentId = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String?> description = const Value.absent(),
                 Value<DateTime> eventDate = const Value.absent(),
@@ -9268,7 +11065,6 @@ class $$RemindersTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => RemindersCompanion(
                 id: id,
-                documentId: documentId,
                 title: title,
                 description: description,
                 eventDate: eventDate,
@@ -9283,7 +11079,6 @@ class $$RemindersTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                Value<String?> documentId = const Value.absent(),
                 required String title,
                 Value<String?> description = const Value.absent(),
                 required DateTime eventDate,
@@ -9296,7 +11091,6 @@ class $$RemindersTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => RemindersCompanion.insert(
                 id: id,
-                documentId: documentId,
                 title: title,
                 description: description,
                 eventDate: eventDate,
@@ -9316,72 +11110,38 @@ class $$RemindersTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback:
-              ({documentId = false, reminderAlertsRefs = false}) {
-                return PrefetchHooks(
-                  db: db,
-                  explicitlyWatchedTables: [
-                    if (reminderAlertsRefs) db.reminderAlerts,
-                  ],
-                  addJoins:
-                      <
-                        T extends TableManagerState<
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic,
-                          dynamic
-                        >
-                      >(state) {
-                        if (documentId) {
-                          state =
-                              state.withJoin(
-                                    currentTable: table,
-                                    currentColumn: table.documentId,
-                                    referencedTable: $$RemindersTableReferences
-                                        ._documentIdTable(db),
-                                    referencedColumn: $$RemindersTableReferences
-                                        ._documentIdTable(db)
-                                        .id,
-                                  )
-                                  as T;
-                        }
-
-                        return state;
-                      },
-                  getPrefetchedDataCallback: (items) async {
-                    return [
-                      if (reminderAlertsRefs)
-                        await $_getPrefetchedData<
-                          ReminderRow,
-                          $RemindersTable,
-                          ReminderAlertRow
-                        >(
-                          currentTable: table,
-                          referencedTable: $$RemindersTableReferences
-                              ._reminderAlertsRefsTable(db),
-                          managerFromTypedResult: (p0) =>
-                              $$RemindersTableReferences(
-                                db,
-                                table,
-                                p0,
-                              ).reminderAlertsRefs,
-                          referencedItemsForCurrentItem:
-                              (item, referencedItems) => referencedItems.where(
-                                (e) => e.reminderId == item.id,
-                              ),
-                          typedResults: items,
-                        ),
-                    ];
-                  },
-                );
+          prefetchHooksCallback: ({reminderAlertsRefs = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [
+                if (reminderAlertsRefs) db.reminderAlerts,
+              ],
+              addJoins: null,
+              getPrefetchedDataCallback: (items) async {
+                return [
+                  if (reminderAlertsRefs)
+                    await $_getPrefetchedData<
+                      ReminderRow,
+                      $RemindersTable,
+                      ReminderAlertRow
+                    >(
+                      currentTable: table,
+                      referencedTable: $$RemindersTableReferences
+                          ._reminderAlertsRefsTable(db),
+                      managerFromTypedResult: (p0) =>
+                          $$RemindersTableReferences(
+                            db,
+                            table,
+                            p0,
+                          ).reminderAlertsRefs,
+                      referencedItemsForCurrentItem: (item, referencedItems) =>
+                          referencedItems.where((e) => e.reminderId == item.id),
+                      typedResults: items,
+                    ),
+                ];
               },
+            );
+          },
         ),
       );
 }
@@ -9398,7 +11158,7 @@ typedef $$RemindersTableProcessedTableManager =
       $$RemindersTableUpdateCompanionBuilder,
       (ReminderRow, $$RemindersTableReferences),
       ReminderRow,
-      PrefetchHooks Function({bool documentId, bool reminderAlertsRefs})
+      PrefetchHooks Function({bool reminderAlertsRefs})
     >;
 typedef $$ReminderAlertsTableCreateCompanionBuilder =
     ReminderAlertsCompanion Function({
@@ -9753,6 +11513,1402 @@ typedef $$ReminderAlertsTableProcessedTableManager =
       ReminderAlertRow,
       PrefetchHooks Function({bool reminderId})
     >;
+typedef $$PapersTableCreateCompanionBuilder =
+    PapersCompanion Function({
+      required String id,
+      required String title,
+      required PaperStatus status,
+      required bool todoRequired,
+      required String todoText,
+      Value<DateTime?> dateDay,
+      Value<int?> dateMinuteOfDay,
+      Value<String?> dateText,
+      Value<String?> cautionText,
+      Value<String?> contactName,
+      Value<String?> contactPhone,
+      Value<String?> placeText,
+      required DateTime photographedAt,
+      required DateTime savedAt,
+      Value<String?> encryptedImagePath,
+      Value<DateTime?> eventDay,
+      Value<int?> eventMinuteOfDay,
+      required String sessionId,
+      required String explainSchemaVersion,
+      Value<String?> voiceEngine,
+      Value<bool> audioSaved,
+      Value<bool?> audioVerified,
+      Value<int?> audioDurationMs,
+      Value<int> rowid,
+    });
+typedef $$PapersTableUpdateCompanionBuilder =
+    PapersCompanion Function({
+      Value<String> id,
+      Value<String> title,
+      Value<PaperStatus> status,
+      Value<bool> todoRequired,
+      Value<String> todoText,
+      Value<DateTime?> dateDay,
+      Value<int?> dateMinuteOfDay,
+      Value<String?> dateText,
+      Value<String?> cautionText,
+      Value<String?> contactName,
+      Value<String?> contactPhone,
+      Value<String?> placeText,
+      Value<DateTime> photographedAt,
+      Value<DateTime> savedAt,
+      Value<String?> encryptedImagePath,
+      Value<DateTime?> eventDay,
+      Value<int?> eventMinuteOfDay,
+      Value<String> sessionId,
+      Value<String> explainSchemaVersion,
+      Value<String?> voiceEngine,
+      Value<bool> audioSaved,
+      Value<bool?> audioVerified,
+      Value<int?> audioDurationMs,
+      Value<int> rowid,
+    });
+
+final class $$PapersTableReferences
+    extends BaseReferences<_$AppDatabase, $PapersTable, PaperRow> {
+  $$PapersTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static MultiTypedResultKey<$PaperParagraphsTable, List<PaperParagraphRow>>
+  _paperParagraphsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.paperParagraphs,
+    aliasName: 'papers__id__paper_paragraphs__paper_id',
+  );
+
+  $$PaperParagraphsTableProcessedTableManager get paperParagraphsRefs {
+    final manager = $$PaperParagraphsTableTableManager(
+      $_db,
+      $_db.paperParagraphs,
+    ).filter((f) => f.paperId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _paperParagraphsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$PaperSpansTable, List<PaperSpanRow>>
+  _paperSpansRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.paperSpans,
+    aliasName: 'papers__id__paper_spans__paper_id',
+  );
+
+  $$PaperSpansTableProcessedTableManager get paperSpansRefs {
+    final manager = $$PaperSpansTableTableManager(
+      $_db,
+      $_db.paperSpans,
+    ).filter((f) => f.paperId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_paperSpansRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+}
+
+class $$PapersTableFilterComposer
+    extends Composer<_$AppDatabase, $PapersTable> {
+  $$PapersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<PaperStatus, PaperStatus, String> get status =>
+      $composableBuilder(
+        column: $table.status,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<bool> get todoRequired => $composableBuilder(
+    column: $table.todoRequired,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get todoText => $composableBuilder(
+    column: $table.todoText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get dateDay => $composableBuilder(
+    column: $table.dateDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dateMinuteOfDay => $composableBuilder(
+    column: $table.dateMinuteOfDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get dateText => $composableBuilder(
+    column: $table.dateText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cautionText => $composableBuilder(
+    column: $table.cautionText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contactPhone => $composableBuilder(
+    column: $table.contactPhone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get placeText => $composableBuilder(
+    column: $table.placeText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get photographedAt => $composableBuilder(
+    column: $table.photographedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get encryptedImagePath => $composableBuilder(
+    column: $table.encryptedImagePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get eventDay => $composableBuilder(
+    column: $table.eventDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get eventMinuteOfDay => $composableBuilder(
+    column: $table.eventMinuteOfDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get explainSchemaVersion => $composableBuilder(
+    column: $table.explainSchemaVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get voiceEngine => $composableBuilder(
+    column: $table.voiceEngine,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get audioSaved => $composableBuilder(
+    column: $table.audioSaved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get audioVerified => $composableBuilder(
+    column: $table.audioVerified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get audioDurationMs => $composableBuilder(
+    column: $table.audioDurationMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  Expression<bool> paperParagraphsRefs(
+    Expression<bool> Function($$PaperParagraphsTableFilterComposer f) f,
+  ) {
+    final $$PaperParagraphsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paperParagraphs,
+      getReferencedColumn: (t) => t.paperId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaperParagraphsTableFilterComposer(
+            $db: $db,
+            $table: $db.paperParagraphs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> paperSpansRefs(
+    Expression<bool> Function($$PaperSpansTableFilterComposer f) f,
+  ) {
+    final $$PaperSpansTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paperSpans,
+      getReferencedColumn: (t) => t.paperId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaperSpansTableFilterComposer(
+            $db: $db,
+            $table: $db.paperSpans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PapersTableOrderingComposer
+    extends Composer<_$AppDatabase, $PapersTable> {
+  $$PapersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get todoRequired => $composableBuilder(
+    column: $table.todoRequired,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get todoText => $composableBuilder(
+    column: $table.todoText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get dateDay => $composableBuilder(
+    column: $table.dateDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dateMinuteOfDay => $composableBuilder(
+    column: $table.dateMinuteOfDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get dateText => $composableBuilder(
+    column: $table.dateText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cautionText => $composableBuilder(
+    column: $table.cautionText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contactPhone => $composableBuilder(
+    column: $table.contactPhone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get placeText => $composableBuilder(
+    column: $table.placeText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get photographedAt => $composableBuilder(
+    column: $table.photographedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get savedAt => $composableBuilder(
+    column: $table.savedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get encryptedImagePath => $composableBuilder(
+    column: $table.encryptedImagePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get eventDay => $composableBuilder(
+    column: $table.eventDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get eventMinuteOfDay => $composableBuilder(
+    column: $table.eventMinuteOfDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get explainSchemaVersion => $composableBuilder(
+    column: $table.explainSchemaVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get voiceEngine => $composableBuilder(
+    column: $table.voiceEngine,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get audioSaved => $composableBuilder(
+    column: $table.audioSaved,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get audioVerified => $composableBuilder(
+    column: $table.audioVerified,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get audioDurationMs => $composableBuilder(
+    column: $table.audioDurationMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PapersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PapersTable> {
+  $$PapersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<PaperStatus, String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<bool> get todoRequired => $composableBuilder(
+    column: $table.todoRequired,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get todoText =>
+      $composableBuilder(column: $table.todoText, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateDay =>
+      $composableBuilder(column: $table.dateDay, builder: (column) => column);
+
+  GeneratedColumn<int> get dateMinuteOfDay => $composableBuilder(
+    column: $table.dateMinuteOfDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get dateText =>
+      $composableBuilder(column: $table.dateText, builder: (column) => column);
+
+  GeneratedColumn<String> get cautionText => $composableBuilder(
+    column: $table.cautionText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contactName => $composableBuilder(
+    column: $table.contactName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contactPhone => $composableBuilder(
+    column: $table.contactPhone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get placeText =>
+      $composableBuilder(column: $table.placeText, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get photographedAt => $composableBuilder(
+    column: $table.photographedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get savedAt =>
+      $composableBuilder(column: $table.savedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get encryptedImagePath => $composableBuilder(
+    column: $table.encryptedImagePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get eventDay =>
+      $composableBuilder(column: $table.eventDay, builder: (column) => column);
+
+  GeneratedColumn<int> get eventMinuteOfDay => $composableBuilder(
+    column: $table.eventMinuteOfDay,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get explainSchemaVersion => $composableBuilder(
+    column: $table.explainSchemaVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get voiceEngine => $composableBuilder(
+    column: $table.voiceEngine,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get audioSaved => $composableBuilder(
+    column: $table.audioSaved,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get audioVerified => $composableBuilder(
+    column: $table.audioVerified,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get audioDurationMs => $composableBuilder(
+    column: $table.audioDurationMs,
+    builder: (column) => column,
+  );
+
+  Expression<T> paperParagraphsRefs<T extends Object>(
+    Expression<T> Function($$PaperParagraphsTableAnnotationComposer a) f,
+  ) {
+    final $$PaperParagraphsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paperParagraphs,
+      getReferencedColumn: (t) => t.paperId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaperParagraphsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.paperParagraphs,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<T> paperSpansRefs<T extends Object>(
+    Expression<T> Function($$PaperSpansTableAnnotationComposer a) f,
+  ) {
+    final $$PaperSpansTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paperSpans,
+      getReferencedColumn: (t) => t.paperId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaperSpansTableAnnotationComposer(
+            $db: $db,
+            $table: $db.paperSpans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+}
+
+class $$PapersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PapersTable,
+          PaperRow,
+          $$PapersTableFilterComposer,
+          $$PapersTableOrderingComposer,
+          $$PapersTableAnnotationComposer,
+          $$PapersTableCreateCompanionBuilder,
+          $$PapersTableUpdateCompanionBuilder,
+          (PaperRow, $$PapersTableReferences),
+          PaperRow,
+          PrefetchHooks Function({
+            bool paperParagraphsRefs,
+            bool paperSpansRefs,
+          })
+        > {
+  $$PapersTableTableManager(_$AppDatabase db, $PapersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PapersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PapersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PapersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<PaperStatus> status = const Value.absent(),
+                Value<bool> todoRequired = const Value.absent(),
+                Value<String> todoText = const Value.absent(),
+                Value<DateTime?> dateDay = const Value.absent(),
+                Value<int?> dateMinuteOfDay = const Value.absent(),
+                Value<String?> dateText = const Value.absent(),
+                Value<String?> cautionText = const Value.absent(),
+                Value<String?> contactName = const Value.absent(),
+                Value<String?> contactPhone = const Value.absent(),
+                Value<String?> placeText = const Value.absent(),
+                Value<DateTime> photographedAt = const Value.absent(),
+                Value<DateTime> savedAt = const Value.absent(),
+                Value<String?> encryptedImagePath = const Value.absent(),
+                Value<DateTime?> eventDay = const Value.absent(),
+                Value<int?> eventMinuteOfDay = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> explainSchemaVersion = const Value.absent(),
+                Value<String?> voiceEngine = const Value.absent(),
+                Value<bool> audioSaved = const Value.absent(),
+                Value<bool?> audioVerified = const Value.absent(),
+                Value<int?> audioDurationMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PapersCompanion(
+                id: id,
+                title: title,
+                status: status,
+                todoRequired: todoRequired,
+                todoText: todoText,
+                dateDay: dateDay,
+                dateMinuteOfDay: dateMinuteOfDay,
+                dateText: dateText,
+                cautionText: cautionText,
+                contactName: contactName,
+                contactPhone: contactPhone,
+                placeText: placeText,
+                photographedAt: photographedAt,
+                savedAt: savedAt,
+                encryptedImagePath: encryptedImagePath,
+                eventDay: eventDay,
+                eventMinuteOfDay: eventMinuteOfDay,
+                sessionId: sessionId,
+                explainSchemaVersion: explainSchemaVersion,
+                voiceEngine: voiceEngine,
+                audioSaved: audioSaved,
+                audioVerified: audioVerified,
+                audioDurationMs: audioDurationMs,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String title,
+                required PaperStatus status,
+                required bool todoRequired,
+                required String todoText,
+                Value<DateTime?> dateDay = const Value.absent(),
+                Value<int?> dateMinuteOfDay = const Value.absent(),
+                Value<String?> dateText = const Value.absent(),
+                Value<String?> cautionText = const Value.absent(),
+                Value<String?> contactName = const Value.absent(),
+                Value<String?> contactPhone = const Value.absent(),
+                Value<String?> placeText = const Value.absent(),
+                required DateTime photographedAt,
+                required DateTime savedAt,
+                Value<String?> encryptedImagePath = const Value.absent(),
+                Value<DateTime?> eventDay = const Value.absent(),
+                Value<int?> eventMinuteOfDay = const Value.absent(),
+                required String sessionId,
+                required String explainSchemaVersion,
+                Value<String?> voiceEngine = const Value.absent(),
+                Value<bool> audioSaved = const Value.absent(),
+                Value<bool?> audioVerified = const Value.absent(),
+                Value<int?> audioDurationMs = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PapersCompanion.insert(
+                id: id,
+                title: title,
+                status: status,
+                todoRequired: todoRequired,
+                todoText: todoText,
+                dateDay: dateDay,
+                dateMinuteOfDay: dateMinuteOfDay,
+                dateText: dateText,
+                cautionText: cautionText,
+                contactName: contactName,
+                contactPhone: contactPhone,
+                placeText: placeText,
+                photographedAt: photographedAt,
+                savedAt: savedAt,
+                encryptedImagePath: encryptedImagePath,
+                eventDay: eventDay,
+                eventMinuteOfDay: eventMinuteOfDay,
+                sessionId: sessionId,
+                explainSchemaVersion: explainSchemaVersion,
+                voiceEngine: voiceEngine,
+                audioSaved: audioSaved,
+                audioVerified: audioVerified,
+                audioDurationMs: audioDurationMs,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) =>
+                    (e.readTable(table), $$PapersTableReferences(db, table, e)),
+              )
+              .toList(),
+          prefetchHooksCallback:
+              ({paperParagraphsRefs = false, paperSpansRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (paperParagraphsRefs) db.paperParagraphs,
+                    if (paperSpansRefs) db.paperSpans,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (paperParagraphsRefs)
+                        await $_getPrefetchedData<
+                          PaperRow,
+                          $PapersTable,
+                          PaperParagraphRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PapersTableReferences
+                              ._paperParagraphsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PapersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).paperParagraphsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.paperId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (paperSpansRefs)
+                        await $_getPrefetchedData<
+                          PaperRow,
+                          $PapersTable,
+                          PaperSpanRow
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PapersTableReferences
+                              ._paperSpansRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PapersTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).paperSpansRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.paperId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$PapersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PapersTable,
+      PaperRow,
+      $$PapersTableFilterComposer,
+      $$PapersTableOrderingComposer,
+      $$PapersTableAnnotationComposer,
+      $$PapersTableCreateCompanionBuilder,
+      $$PapersTableUpdateCompanionBuilder,
+      (PaperRow, $$PapersTableReferences),
+      PaperRow,
+      PrefetchHooks Function({bool paperParagraphsRefs, bool paperSpansRefs})
+    >;
+typedef $$PaperParagraphsTableCreateCompanionBuilder =
+    PaperParagraphsCompanion Function({
+      required String paperId,
+      required int position,
+      required String value,
+      Value<int> rowid,
+    });
+typedef $$PaperParagraphsTableUpdateCompanionBuilder =
+    PaperParagraphsCompanion Function({
+      Value<String> paperId,
+      Value<int> position,
+      Value<String> value,
+      Value<int> rowid,
+    });
+
+final class $$PaperParagraphsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $PaperParagraphsTable,
+          PaperParagraphRow
+        > {
+  $$PaperParagraphsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $PapersTable _paperIdTable(_$AppDatabase db) =>
+      db.papers.createAlias('paper_paragraphs__paper_id__papers__id');
+
+  $$PapersTableProcessedTableManager get paperId {
+    final $_column = $_itemColumn<String>('paper_id')!;
+
+    final manager = $$PapersTableTableManager(
+      $_db,
+      $_db.papers,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_paperIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PaperParagraphsTableFilterComposer
+    extends Composer<_$AppDatabase, $PaperParagraphsTable> {
+  $$PaperParagraphsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PapersTableFilterComposer get paperId {
+    final $$PapersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paperId,
+      referencedTable: $db.papers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersTableFilterComposer(
+            $db: $db,
+            $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PaperParagraphsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PaperParagraphsTable> {
+  $$PaperParagraphsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PapersTableOrderingComposer get paperId {
+    final $$PapersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paperId,
+      referencedTable: $db.papers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersTableOrderingComposer(
+            $db: $db,
+            $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PaperParagraphsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PaperParagraphsTable> {
+  $$PaperParagraphsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  $$PapersTableAnnotationComposer get paperId {
+    final $$PapersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paperId,
+      referencedTable: $db.papers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PaperParagraphsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PaperParagraphsTable,
+          PaperParagraphRow,
+          $$PaperParagraphsTableFilterComposer,
+          $$PaperParagraphsTableOrderingComposer,
+          $$PaperParagraphsTableAnnotationComposer,
+          $$PaperParagraphsTableCreateCompanionBuilder,
+          $$PaperParagraphsTableUpdateCompanionBuilder,
+          (PaperParagraphRow, $$PaperParagraphsTableReferences),
+          PaperParagraphRow,
+          PrefetchHooks Function({bool paperId})
+        > {
+  $$PaperParagraphsTableTableManager(
+    _$AppDatabase db,
+    $PaperParagraphsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PaperParagraphsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PaperParagraphsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PaperParagraphsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> paperId = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PaperParagraphsCompanion(
+                paperId: paperId,
+                position: position,
+                value: value,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String paperId,
+                required int position,
+                required String value,
+                Value<int> rowid = const Value.absent(),
+              }) => PaperParagraphsCompanion.insert(
+                paperId: paperId,
+                position: position,
+                value: value,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PaperParagraphsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({paperId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (paperId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.paperId,
+                                referencedTable:
+                                    $$PaperParagraphsTableReferences
+                                        ._paperIdTable(db),
+                                referencedColumn:
+                                    $$PaperParagraphsTableReferences
+                                        ._paperIdTable(db)
+                                        .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PaperParagraphsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PaperParagraphsTable,
+      PaperParagraphRow,
+      $$PaperParagraphsTableFilterComposer,
+      $$PaperParagraphsTableOrderingComposer,
+      $$PaperParagraphsTableAnnotationComposer,
+      $$PaperParagraphsTableCreateCompanionBuilder,
+      $$PaperParagraphsTableUpdateCompanionBuilder,
+      (PaperParagraphRow, $$PaperParagraphsTableReferences),
+      PaperParagraphRow,
+      PrefetchHooks Function({bool paperId})
+    >;
+typedef $$PaperSpansTableCreateCompanionBuilder =
+    PaperSpansCompanion Function({
+      required String paperId,
+      required int position,
+      required String segmentId,
+      required int startMs,
+      required int endMs,
+      required bool exact,
+      Value<int> rowid,
+    });
+typedef $$PaperSpansTableUpdateCompanionBuilder =
+    PaperSpansCompanion Function({
+      Value<String> paperId,
+      Value<int> position,
+      Value<String> segmentId,
+      Value<int> startMs,
+      Value<int> endMs,
+      Value<bool> exact,
+      Value<int> rowid,
+    });
+
+final class $$PaperSpansTableReferences
+    extends BaseReferences<_$AppDatabase, $PaperSpansTable, PaperSpanRow> {
+  $$PaperSpansTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $PapersTable _paperIdTable(_$AppDatabase db) =>
+      db.papers.createAlias('paper_spans__paper_id__papers__id');
+
+  $$PapersTableProcessedTableManager get paperId {
+    final $_column = $_itemColumn<String>('paper_id')!;
+
+    final manager = $$PapersTableTableManager(
+      $_db,
+      $_db.papers,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_paperIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$PaperSpansTableFilterComposer
+    extends Composer<_$AppDatabase, $PaperSpansTable> {
+  $$PaperSpansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get segmentId => $composableBuilder(
+    column: $table.segmentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get startMs => $composableBuilder(
+    column: $table.startMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get endMs => $composableBuilder(
+    column: $table.endMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get exact => $composableBuilder(
+    column: $table.exact,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$PapersTableFilterComposer get paperId {
+    final $$PapersTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paperId,
+      referencedTable: $db.papers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersTableFilterComposer(
+            $db: $db,
+            $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PaperSpansTableOrderingComposer
+    extends Composer<_$AppDatabase, $PaperSpansTable> {
+  $$PaperSpansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get segmentId => $composableBuilder(
+    column: $table.segmentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get startMs => $composableBuilder(
+    column: $table.startMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get endMs => $composableBuilder(
+    column: $table.endMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get exact => $composableBuilder(
+    column: $table.exact,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$PapersTableOrderingComposer get paperId {
+    final $$PapersTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paperId,
+      referencedTable: $db.papers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersTableOrderingComposer(
+            $db: $db,
+            $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PaperSpansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PaperSpansTable> {
+  $$PaperSpansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<String> get segmentId =>
+      $composableBuilder(column: $table.segmentId, builder: (column) => column);
+
+  GeneratedColumn<int> get startMs =>
+      $composableBuilder(column: $table.startMs, builder: (column) => column);
+
+  GeneratedColumn<int> get endMs =>
+      $composableBuilder(column: $table.endMs, builder: (column) => column);
+
+  GeneratedColumn<bool> get exact =>
+      $composableBuilder(column: $table.exact, builder: (column) => column);
+
+  $$PapersTableAnnotationComposer get paperId {
+    final $$PapersTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.paperId,
+      referencedTable: $db.papers,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PapersTableAnnotationComposer(
+            $db: $db,
+            $table: $db.papers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$PaperSpansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PaperSpansTable,
+          PaperSpanRow,
+          $$PaperSpansTableFilterComposer,
+          $$PaperSpansTableOrderingComposer,
+          $$PaperSpansTableAnnotationComposer,
+          $$PaperSpansTableCreateCompanionBuilder,
+          $$PaperSpansTableUpdateCompanionBuilder,
+          (PaperSpanRow, $$PaperSpansTableReferences),
+          PaperSpanRow,
+          PrefetchHooks Function({bool paperId})
+        > {
+  $$PaperSpansTableTableManager(_$AppDatabase db, $PaperSpansTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PaperSpansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PaperSpansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PaperSpansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> paperId = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<String> segmentId = const Value.absent(),
+                Value<int> startMs = const Value.absent(),
+                Value<int> endMs = const Value.absent(),
+                Value<bool> exact = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PaperSpansCompanion(
+                paperId: paperId,
+                position: position,
+                segmentId: segmentId,
+                startMs: startMs,
+                endMs: endMs,
+                exact: exact,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String paperId,
+                required int position,
+                required String segmentId,
+                required int startMs,
+                required int endMs,
+                required bool exact,
+                Value<int> rowid = const Value.absent(),
+              }) => PaperSpansCompanion.insert(
+                paperId: paperId,
+                position: position,
+                segmentId: segmentId,
+                startMs: startMs,
+                endMs: endMs,
+                exact: exact,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable(table),
+                  $$PaperSpansTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({paperId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (paperId) {
+                      state =
+                          state.withJoin(
+                                currentTable: table,
+                                currentColumn: table.paperId,
+                                referencedTable: $$PaperSpansTableReferences
+                                    ._paperIdTable(db),
+                                referencedColumn: $$PaperSpansTableReferences
+                                    ._paperIdTable(db)
+                                    .id,
+                              )
+                              as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$PaperSpansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PaperSpansTable,
+      PaperSpanRow,
+      $$PaperSpansTableFilterComposer,
+      $$PaperSpansTableOrderingComposer,
+      $$PaperSpansTableAnnotationComposer,
+      $$PaperSpansTableCreateCompanionBuilder,
+      $$PaperSpansTableUpdateCompanionBuilder,
+      (PaperSpanRow, $$PaperSpansTableReferences),
+      PaperSpanRow,
+      PrefetchHooks Function({bool paperId})
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -9782,4 +12938,10 @@ class $AppDatabaseManager {
       $$RemindersTableTableManager(_db, _db.reminders);
   $$ReminderAlertsTableTableManager get reminderAlerts =>
       $$ReminderAlertsTableTableManager(_db, _db.reminderAlerts);
+  $$PapersTableTableManager get papers =>
+      $$PapersTableTableManager(_db, _db.papers);
+  $$PaperParagraphsTableTableManager get paperParagraphs =>
+      $$PaperParagraphsTableTableManager(_db, _db.paperParagraphs);
+  $$PaperSpansTableTableManager get paperSpans =>
+      $$PaperSpansTableTableManager(_db, _db.paperSpans);
 }

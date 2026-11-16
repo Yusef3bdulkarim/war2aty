@@ -37,6 +37,7 @@ import '../../core/crypto/document_encryption_key_store.dart';
 import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/documents_dao.dart';
+import '../../core/database/daos/papers_dao.dart';
 import '../../core/database/daos/reminders_dao.dart';
 import '../../core/documents/document_image_store.dart';
 import '../../core/documents/documents_repository.dart';
@@ -71,6 +72,18 @@ import '../../core/logging/error_report_remote_data_source.dart';
 import '../../core/logging/error_report_sink.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
+import '../../core/papers/build_paper_voice_segments.dart';
+import '../../core/papers/drift_papers_repository.dart';
+import '../../core/papers/file_paper_image_store.dart';
+import '../../core/papers/paper_image_store.dart';
+import '../../core/papers/papers_repository.dart';
+import '../../core/papers/usecases/delete_all_papers.dart';
+import '../../core/papers/usecases/delete_paper.dart';
+import '../../core/papers/usecases/load_paper_image.dart';
+import '../../core/papers/usecases/record_paper_reading.dart';
+import '../../core/papers/usecases/save_paper.dart';
+import '../../core/papers/usecases/watch_paper.dart';
+import '../../core/papers/usecases/watch_papers.dart';
 import '../../core/permissions/notification_permission_repository.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
@@ -93,7 +106,6 @@ import '../../core/reminders/stub_upcoming_reminder_repository.dart';
 import '../../core/reminders/upcoming_reminder_repository.dart';
 import '../../core/reminders/usecases/complete_reminder.dart';
 import '../../core/reminders/usecases/create_manual_reminder.dart';
-import '../../core/reminders/usecases/create_reminder_from_document_date.dart';
 import '../../core/reminders/usecases/delete_all_reminders.dart';
 import '../../core/reminders/usecases/delete_reminder.dart';
 import '../../core/reminders/usecases/get_hide_sensitive_notification_details.dart';
@@ -156,8 +168,10 @@ import '../../features/audio_reader/domain/usecases/warm_up_reader.dart';
 import '../../features/audio_reader/domain/usecases/watch_reading_events.dart';
 import '../../features/bootstrap/data/repositories/stub_auth_repository.dart';
 import '../../features/bootstrap/data/repositories/supabase_auth_repository.dart';
+import '../../features/bootstrap/data/services/file_legacy_document_files_purge.dart';
 import '../../features/bootstrap/domain/entities/bootstrap_stage.dart';
 import '../../features/bootstrap/domain/repositories/auth_repository.dart';
+import '../../features/bootstrap/domain/services/legacy_document_files_purge.dart';
 import '../../features/bootstrap/domain/usecases/ensure_active_session.dart';
 import '../../features/bootstrap/domain/usecases/finish_launch.dart';
 import '../../features/bootstrap/domain/usecases/initialize_app.dart';
@@ -192,6 +206,11 @@ import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
 import '../../features/capture/presentation/cubit/image_preview_cubit.dart';
+import '../../features/explain/data/datasources/edge_function_explain_remote_data_source.dart';
+import '../../features/explain/data/datasources/explain_remote_data_source.dart';
+import '../../features/explain/data/repositories/default_explain_repository.dart';
+import '../../features/explain/domain/repositories/explain_repository.dart';
+import '../../features/explain/domain/usecases/explain_paper.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
@@ -219,7 +238,6 @@ import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart'
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
 import '../../features/reminders/presentation/models/manual_reminder_seed.dart';
-import '../../features/reminders/presentation/models/reminder_from_document_args.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
@@ -270,6 +288,8 @@ Future<void> configureDependencies(
   _registerReminders();
   _registerAudioReader();
   _registerVoice();
+  _registerPapers();
+  _registerExplain(env);
   _registerLegal();
   _registerSettings();
   _registerRouting();
@@ -404,6 +424,9 @@ void _registerLaunch(AppEnvironment env) {
     ..registerLazySingleton<AnalysisSessionStorage>(
       FileAnalysisSessionStorage.new,
     )
+    ..registerLazySingleton<LegacyDocumentFilesPurge>(
+      FileLegacyDocumentFilesPurge.new,
+    )
     ..registerLazySingleton<UsageRemoteDataSource>(
       () => EdgeFunctionUsageRemoteDataSource(getIt()),
     )
@@ -524,6 +547,11 @@ List<BootstrapStep> _buildDeferredSteps() {
           .deleteStaleSessions();
       return result.map<void>((_) {});
     }, critical: false),
+    BootstrapStep(
+      BootstrapStage.cleanup,
+      () => getIt<LegacyDocumentFilesPurge>()(),
+      critical: false,
+    ),
     BootstrapStep(BootstrapStage.reminders, () async {
       final result = await getIt<ReminderScheduler>().reconcile();
       return result.map<void>((_) {});
@@ -868,9 +896,6 @@ void _registerReminders() {
         getIt(),
       ),
     )
-    ..registerFactory<CreateReminderFromDocumentDate>(
-      () => CreateReminderFromDocumentDate(getIt(), getIt()),
-    )
     ..registerFactory<CreateManualReminder>(
       () => CreateManualReminder(getIt(), getIt()),
     )
@@ -904,30 +929,13 @@ void _registerReminders() {
     ..registerFactory<OpenNotificationPermissionSettings>(
       () => OpenNotificationPermissionSettings(getIt()),
     )
-    // From a document's date (F09-T03): one cubit per opened form, seeded
-    // with what the router already knows (the chosen date, and the document
-    // it came from, if any).
-    ..registerFactoryParam<ReminderFormCubit, ReminderFromDocumentArgs, void>(
-      (args, _) => ReminderFormCubit.fromDocument(
-        createFromDocumentDate: getIt(),
-        createManual: getIt(),
-        getNotificationPermission: getIt(),
-        requestNotificationPermission: getIt(),
-        args: args,
-      ),
-    )
-    // Manual (F09-T04): a distinct registration under the same type, since
-    // it starts from nothing rather than from router args — `instanceName`
-    // is how get_it tells the two apart.
-    //
-    // Parameterised since F29, but on a **nullable** seed: «إضافة تذكير» in
-    // the list header still opens an empty form and passes nothing, while a
-    // quick row passes the date it offered. A nullable `P1` is why `null` is
-    // a legal `param1` here — get_it only type-checks a parameter it was
-    // given, or one whose type cannot be null.
+    // F09-T04. Parameterised since F29, but on a **nullable** seed: «إضافة
+    // تذكير» in the list header still opens an empty form and passes
+    // nothing, while a quick row passes the date it offered. A nullable
+    // `P1` is why `null` is a legal `param1` here — get_it only type-checks
+    // a parameter it was given, or one whose type cannot be null.
     ..registerFactoryParam<ReminderFormCubit, ManualReminderSeed?, void>(
       (seed, _) => ReminderFormCubit.manual(
-        createFromDocumentDate: getIt(),
         createManual: getIt(),
         getNotificationPermission: getIt(),
         requestNotificationPermission: getIt(),
@@ -945,7 +953,7 @@ void _registerReminders() {
     // One cubit per opened details screen, parameterised by the reminder's
     // id — the same shape `DocumentDetailsCubit` uses.
     ..registerFactory<ReminderDetailsCubit>(
-      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt(), getIt()),
+      () => ReminderDetailsCubit(getIt(), getIt(), getIt(), getIt()),
     );
 }
 
@@ -1156,6 +1164,40 @@ void _registerVoice() {
     ..registerFactory<VoicePlaybackCubit>(
       () => VoicePlaybackCubit(getIt(), getIt()),
     );
+}
+
+void _registerPapers() {
+  getIt
+    ..registerLazySingleton<PapersDao>(() => getIt<AppDatabase>().papersDao)
+    ..registerLazySingleton<PaperImageStore>(() => FilePaperImageStore(getIt()))
+    ..registerLazySingleton<PapersRepository>(
+      () => DriftPapersRepository(getIt(), getIt(), getIt()),
+    )
+    ..registerFactory<SavePaper>(() => SavePaper(getIt(), getIt()))
+    ..registerFactory<RecordPaperReading>(() => RecordPaperReading(getIt()))
+    ..registerFactory<WatchPapers>(() => WatchPapers(getIt()))
+    ..registerFactory<WatchPaper>(() => WatchPaper(getIt()))
+    ..registerFactory<DeletePaper>(() => DeletePaper(getIt()))
+    ..registerFactory<DeleteAllPapers>(() => DeleteAllPapers(getIt()))
+    ..registerFactory<LoadPaperImage>(() => LoadPaperImage(getIt()))
+    ..registerFactory<BuildPaperVoiceSegments>(BuildPaperVoiceSegments.new);
+}
+
+void _registerExplain(AppEnvironment env) {
+  getIt
+    ..registerLazySingleton<ExplainRemoteDataSource>(
+      () => EdgeFunctionExplainRemoteDataSource(getIt()),
+    )
+    ..registerLazySingleton<ExplainRepository>(
+      () => DefaultExplainRepository(
+        dataSource: getIt(),
+        installationId: getIt(),
+        logger: getIt(),
+        appVersion: env.appVersion,
+        config: getIt(),
+      ),
+    )
+    ..registerFactory<ExplainPaper>(() => ExplainPaper(getIt()));
 }
 
 /// F27-T20. The published privacy policy and terms, and the support mailbox.

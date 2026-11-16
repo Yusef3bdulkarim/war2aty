@@ -32,6 +32,13 @@ import 'package:war2aty/core/documents/saved_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/locale_store.dart';
 import 'package:war2aty/core/logging/log_sink.dart';
+import 'package:war2aty/core/papers/explain_outcome.dart';
+import 'package:war2aty/core/papers/paper_explanation.dart';
+import 'package:war2aty/core/papers/paper_image_store.dart';
+import 'package:war2aty/core/papers/paper_status.dart';
+import 'package:war2aty/core/papers/paper_todo.dart';
+import 'package:war2aty/core/papers/papers_repository.dart';
+import 'package:war2aty/core/papers/saved_paper.dart';
 import 'package:war2aty/core/permissions/notification_permission_repository.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/platform/external_link_service.dart';
@@ -60,6 +67,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/chunk_text_for_spe
 import 'package:war2aty/features/audio_reader/domain/usecases/segment_language_runs.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/transliterate_latin_to_arabic.dart';
+import 'package:war2aty/features/bootstrap/domain/services/legacy_document_files_purge.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_capabilities.dart';
 import 'package:war2aty/features/capture/domain/entities/camera_flash_mode.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
@@ -76,6 +84,7 @@ import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
 import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
 import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
+import 'package:war2aty/features/voice/domain/entities/voice_read_outcome.dart';
 import 'package:war2aty/features/voice/domain/services/saved_audio_player.dart';
 
 /// An [AppDatabase] backed by a fresh in-memory SQLite instance.
@@ -901,6 +910,18 @@ final class FakeAnalysisSessionStorage implements AnalysisSessionStorage {
   }
 }
 
+/// No-op [LegacyDocumentFilesPurge] — no filesystem, so it completes without
+/// ever leaving a real `dart:io` call pending inside a `FakeAsync` zone.
+final class FakeLegacyDocumentFilesPurge implements LegacyDocumentFilesPurge {
+  int callCount = 0;
+
+  @override
+  Future<Result<void, AppFailure>> call() async {
+    callCount++;
+    return const Ok(null);
+  }
+}
+
 /// Scriptable [DocumentImageStore] — no filesystem, records what it was asked
 /// to encrypt and delete.
 final class FakeDocumentImageStore implements DocumentImageStore {
@@ -1128,7 +1149,6 @@ final class FakeDocumentsRepository implements DocumentsRepository {
 /// values matter less than that every required one is present.
 Reminder fakeReminder({
   String id = 'r1',
-  String? documentId,
   String title = 'دفع فاتورة الكهرباء',
   String? description,
   ReminderStatus status = ReminderStatus.pending,
@@ -1136,7 +1156,6 @@ Reminder fakeReminder({
   List<DateTime> alertTimes = const [],
 }) => Reminder(
   id: id,
-  documentId: documentId,
   title: title,
   description: description,
   eventDate: DateTime(2026, 8, 25),
@@ -1222,7 +1241,6 @@ final class FakeRemindersRepository implements RemindersRepository {
   /// The arguments [createReminder] was last called with.
   String? lastCreatedTitle;
   String? lastCreatedDescription;
-  String? lastCreatedDocumentId;
   DateTime? lastCreatedEventDate;
   int? lastCreatedEventMinuteOfDay;
   bool? lastCreatedIsManual;
@@ -1230,7 +1248,6 @@ final class FakeRemindersRepository implements RemindersRepository {
 
   @override
   Future<Result<Reminder, AppFailure>> createReminder({
-    String? documentId,
     required String title,
     String? description,
     required DateTime eventDate,
@@ -1238,7 +1255,6 @@ final class FakeRemindersRepository implements RemindersRepository {
     required bool isManual,
     required List<DateTime> alertTimes,
   }) async {
-    lastCreatedDocumentId = documentId;
     lastCreatedTitle = title;
     lastCreatedDescription = description;
     lastCreatedEventDate = eventDate;
@@ -1309,13 +1325,6 @@ final class FakeRemindersRepository implements RemindersRepository {
   @override
   Future<Result<List<Reminder>, AppFailure>> pendingReminders() async =>
       pendingOutcome;
-
-  Result<List<Reminder>, AppFailure> forDocumentOutcome = const Ok([]);
-
-  @override
-  Future<Result<List<Reminder>, AppFailure>> remindersForDocument(
-    String documentId,
-  ) async => forDocumentOutcome;
 
   Result<void, AppFailure> setAlertStatusOutcome = const Ok(null);
   String? lastAlertStatusId;
@@ -1688,4 +1697,167 @@ final class FakeSavedAudioPlayer implements SavedAudioPlayer {
 /// What a platform player with nothing behind it throws.
 final class _NoAudioPlayer implements Exception {
   const _NoAudioPlayer();
+}
+
+final class FakePaperImageStore implements PaperImageStore {
+  FakePaperImageStore({this.fails = false});
+
+  bool fails;
+
+  final Map<String, String> stored = {};
+  final List<String> deletedIds = [];
+  bool deleteAllCalled = false;
+  Uint8List? loadResult;
+
+  @override
+  Future<Result<String, AppFailure>> encryptAndStore({
+    required String paperId,
+    required String sourcePath,
+  }) async {
+    if (fails) return const Err(FileEncryptionFailure());
+    stored[paperId] = sourcePath;
+    return Ok('/private/paper_images/$paperId/image.enc');
+  }
+
+  @override
+  Future<Result<Uint8List, AppFailure>> load(String paperId) async {
+    if (fails) return const Err(FileStorageFailure());
+    return Ok(loadResult ?? Uint8List(0));
+  }
+
+  @override
+  Future<void> delete(String paperId) async => deletedIds.add(paperId);
+
+  @override
+  Future<void> deleteAll() async => deleteAllCalled = true;
+}
+
+final class FakePapersRepository implements PapersRepository {
+  FakePapersRepository({List<SavedPaper>? seed}) {
+    if (seed != null) emit(seed);
+  }
+
+  final _controller =
+      StreamController<Result<List<SavedPaper>, AppFailure>>.broadcast();
+  Result<List<SavedPaper>, AppFailure> _latest = const Ok([]);
+
+  void emit(List<SavedPaper> papers) {
+    _latest = Ok(papers);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  void emitFailure([AppFailure failure = const LocalDatabaseFailure()]) {
+    _latest = Err(failure);
+    if (_controller.hasListener) _controller.add(_latest);
+  }
+
+  @override
+  Stream<Result<List<SavedPaper>, AppFailure>> watchPapers() async* {
+    yield _latest;
+    yield* _controller.stream;
+  }
+
+  final _paperController =
+      StreamController<Result<SavedPaper?, AppFailure>>.broadcast();
+  Result<SavedPaper?, AppFailure> _latestPaper = const Ok(null);
+  String? requestedPaperId;
+
+  void emitPaper(SavedPaper? paper) {
+    _latestPaper = Ok(paper);
+    if (_paperController.hasListener) _paperController.add(_latestPaper);
+  }
+
+  void emitPaperFailure([AppFailure failure = const LocalDatabaseFailure()]) {
+    _latestPaper = Err(failure);
+    if (_paperController.hasListener) _paperController.add(_latestPaper);
+  }
+
+  @override
+  Stream<Result<SavedPaper?, AppFailure>> watchPaper(String id) async* {
+    requestedPaperId = id;
+    yield _latestPaper;
+    yield* _paperController.stream;
+  }
+
+  Result<String, AppFailure> insertOutcome = const Ok('p1');
+  String? lastInsertedId;
+  ExplainOutcome? lastInsertedOutcome;
+  DateTime? lastPhotographedAt;
+  String? lastEncryptedImagePath;
+
+  @override
+  Future<Result<String, AppFailure>> insertPaper({
+    String? id,
+    required ExplainOutcome outcome,
+    required DateTime photographedAt,
+    String? encryptedImagePath,
+  }) async {
+    lastInsertedId = id;
+    lastInsertedOutcome = outcome;
+    lastPhotographedAt = photographedAt;
+    lastEncryptedImagePath = encryptedImagePath;
+    return insertOutcome;
+  }
+
+  Result<void, AppFailure> recordReadingOutcome = const Ok(null);
+  String? lastRecordedId;
+  VoiceReadOutcome? lastRecordedOutcome;
+
+  @override
+  Future<Result<void, AppFailure>> recordReading({
+    required String id,
+    required VoiceReadOutcome outcome,
+  }) async {
+    lastRecordedId = id;
+    lastRecordedOutcome = outcome;
+    return recordReadingOutcome;
+  }
+
+  Result<void, AppFailure> deleteOutcome = const Ok(null);
+  String? lastDeletedId;
+
+  @override
+  Future<Result<void, AppFailure>> deletePaper(String id) async {
+    lastDeletedId = id;
+    return deleteOutcome;
+  }
+
+  Result<void, AppFailure> deleteAllOutcome = const Ok(null);
+  bool deleteAllCalled = false;
+
+  @override
+  Future<Result<void, AppFailure>> deleteAllPapers() async {
+    deleteAllCalled = true;
+    return deleteAllOutcome;
+  }
+
+  Future<void> dispose() =>
+      Future.wait([_controller.close(), _paperController.close()]);
+}
+
+SavedPaper savedPaperWith({
+  String id = 'p1',
+  PaperExplanation? explanation,
+  String sessionId = 'session-1',
+  String explainSchemaVersion = '1.0',
+  DateTime? photographedAt,
+  DateTime? savedAt,
+  String? encryptedImagePath,
+}) {
+  return SavedPaper(
+    id: id,
+    explanation:
+        explanation ??
+        PaperExplanation(
+          title: 'فاتورة كهرباء',
+          status: PaperStatus.success,
+          paragraphs: const ['الفقرة الأولى.'],
+          todo: const PaperTodo(required: true, text: 'روح لأقرب فرع'),
+        ),
+    sessionId: sessionId,
+    explainSchemaVersion: explainSchemaVersion,
+    photographedAt: photographedAt ?? DateTime(2026, 11, 16, 9),
+    savedAt: savedAt ?? DateTime(2026, 11, 16, 9, 2),
+    encryptedImagePath: encryptedImagePath,
+  );
 }

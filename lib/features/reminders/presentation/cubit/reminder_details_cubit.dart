@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/documents/usecases/watch_document.dart';
 import '../../../../core/reminders/reminder.dart';
 import '../../../../core/reminders/usecases/complete_reminder.dart';
 import '../../../../core/reminders/usecases/delete_reminder.dart';
@@ -11,35 +10,25 @@ import '../../../../core/reminders/usecases/watch_reminder.dart';
 import '../../../../core/result/result.dart';
 import 'reminder_details_state.dart';
 
-/// Feeds «تفاصيل التذكير» (F09-T12): the reminder itself, its linked
-/// document's title if it has one, and the actions the screen offers —
-/// complete, snooze, delete.
+/// Feeds «تفاصيل التذكير» (F09-T12): the reminder itself, and the actions the
+/// screen offers — complete, snooze, delete.
 ///
-/// Depends on use cases only (architecture rule); it never sees either
-/// repository directly, even though it draws on both reminders and documents.
+/// Depends on use cases only (architecture rule); it never sees
+/// `RemindersRepository` directly.
 final class ReminderDetailsCubit extends Cubit<ReminderDetailsState> {
   ReminderDetailsCubit(
     this._watchReminder,
-    this._watchDocument,
     this._completeReminder,
     this._snoozeReminder,
     this._deleteReminder,
   ) : super(const ReminderDetailsLoading());
 
   final WatchReminder _watchReminder;
-  final WatchDocument _watchDocument;
   final CompleteReminder _completeReminder;
   final SnoozeReminder _snoozeReminder;
   final DeleteReminder _deleteReminder;
 
   StreamSubscription<void>? _reminderSubscription;
-  StreamSubscription<void>? _documentSubscription;
-
-  /// The linked document [_documentSubscription] is currently watching, so a
-  /// live update that does not change [Reminder.documentId] does not tear
-  /// the subscription down and rebuild it for nothing.
-  String? _watchedDocumentId;
-  String? _linkedDocumentTitle;
 
   /// Starts watching [id]. Safe to call more than once.
   void start(String id) {
@@ -52,37 +41,9 @@ final class ReminderDetailsCubit extends Cubit<ReminderDetailsState> {
             emit(const ReminderDetailsNotFound());
             return;
           }
-          _syncLinkedDocument(reminder.documentId);
-          emit(
-            ReminderDetailsAvailable(
-              reminder,
-              linkedDocumentTitle: _linkedDocumentTitle,
-            ),
-          );
+          emit(ReminderDetailsAvailable(reminder));
         case Err(:final failure):
           emit(ReminderDetailsUnavailable(failure));
-      }
-    });
-  }
-
-  void _syncLinkedDocument(String? documentId) {
-    if (documentId == _watchedDocumentId) return;
-    unawaited(_documentSubscription?.cancel());
-    _watchedDocumentId = documentId;
-    _linkedDocumentTitle = null;
-    if (documentId == null) return;
-
-    _documentSubscription = _watchDocument(documentId).listen((result) {
-      if (isClosed) return;
-      _linkedDocumentTitle = result.valueOrNull?.analysis.title;
-      final current = state;
-      if (current is ReminderDetailsAvailable) {
-        emit(
-          ReminderDetailsAvailable(
-            current.reminder,
-            linkedDocumentTitle: _linkedDocumentTitle,
-          ),
-        );
       }
     });
   }
@@ -121,7 +82,6 @@ final class ReminderDetailsCubit extends Cubit<ReminderDetailsState> {
   @override
   Future<void> close() async {
     await _reminderSubscription?.cancel();
-    await _documentSubscription?.cancel();
     return super.close();
   }
 }

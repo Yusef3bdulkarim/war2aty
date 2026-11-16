@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/documents/usecases/watch_document.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -25,17 +24,14 @@ void main() {
   const en = EnStrings();
 
   late FakeRemindersRepository remindersRepository;
-  late FakeDocumentsRepository documentsRepository;
   late FakeReminderScheduler scheduler;
   late ReminderDetailsCubit cubit;
 
   setUp(() {
     remindersRepository = FakeRemindersRepository();
-    documentsRepository = FakeDocumentsRepository();
     scheduler = FakeReminderScheduler();
     cubit = ReminderDetailsCubit(
       WatchReminder(remindersRepository),
-      WatchDocument(documentsRepository),
       CompleteReminder(remindersRepository, scheduler),
       SnoozeReminder(remindersRepository, scheduler),
       DeleteReminder(remindersRepository, scheduler),
@@ -44,13 +40,11 @@ void main() {
   tearDown(() {
     cubit.close();
     remindersRepository.dispose();
-    documentsRepository.dispose();
   });
 
   Future<void> pumpScreen(
     WidgetTester tester, {
     VoidCallback? onClose,
-    ValueChanged<String>? onOpenDocument,
     Locale locale = AppLocalizations.arabic,
     TextScaler? textScaler,
     bool settle = true,
@@ -58,10 +52,7 @@ void main() {
     tester,
     BlocProvider<ReminderDetailsCubit>.value(
       value: cubit,
-      child: ReminderDetailsScreen(
-        onClose: onClose,
-        onOpenDocument: onOpenDocument,
-      ),
+      child: ReminderDetailsScreen(onClose: onClose),
     ),
     locale: locale,
     textScaler: textScaler,
@@ -157,25 +148,6 @@ void main() {
       expect(find.text('ملاحظة تفصيلية'), findsOneWidget);
     });
 
-    testWidgets('shows a linked document button and fires onOpenDocument', (
-      tester,
-    ) async {
-      remindersRepository.emitReminder('r1', fakeReminder(documentId: 'doc-1'));
-      cubit.start('r1');
-      documentsRepository.emitDocument(
-        savedDocumentWith(title: 'فاتورة كهرباء'),
-      );
-      String? opened;
-
-      await pumpScreen(tester, onOpenDocument: (id) => opened = id);
-
-      expect(find.text('فاتورة كهرباء'), findsOneWidget);
-      await tester.tap(find.text('فاتورة كهرباء'));
-      await tester.pumpAndSettle();
-
-      expect(opened, 'doc-1');
-    });
-
     testWidgets('completing shows feedback', (tester) async {
       remindersRepository.emitReminder('r1', fakeReminder());
       cubit.start('r1');
@@ -247,13 +219,9 @@ void main() {
         'r1',
         fakeReminder(
           title: 'فاتورة الكهرباء لشهر أغسطس لشقة الدور الخامس والعشرين',
-          documentId: 'doc-1',
         ),
       );
       cubit.start('r1');
-      documentsRepository.emitDocument(
-        savedDocumentWith(title: 'فاتورة كهرباء'),
-      );
 
       await pumpScreen(tester, textScaler: const TextScaler.linear(2));
 

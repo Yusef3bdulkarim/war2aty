@@ -32,7 +32,6 @@ const double _rowLabelWidth = 96;
 const double _cardRadius = AppRadii.lg;
 const double _cardPadding = 16;
 const double _sectionGapAbove = 22;
-const double _linkedDocGapAbove = 10;
 const double _actionsGapAbove = 26;
 const double _actionGap = 10;
 const double _actionHeight = 52;
@@ -45,15 +44,11 @@ const double _actionRadius = AppRadii.md;
 /// body driven entirely by the cubit's state, and every write followed by a
 /// snackbar rather than a silent success.
 class ReminderDetailsScreen extends StatelessWidget {
-  const ReminderDetailsScreen({this.onClose, this.onOpenDocument, super.key});
+  const ReminderDetailsScreen({this.onClose, super.key});
 
   /// Leaves the details screen. The router supplies it; optional so the
   /// screen can be pumped on its own in a widget test.
   final VoidCallback? onClose;
-
-  /// Opens the linked document's own details screen, given its id. `null`
-  /// leaves the linked-document row un-tappable.
-  final ValueChanged<String>? onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -64,16 +59,10 @@ class ReminderDetailsScreen extends StatelessWidget {
       body: BlocBuilder<ReminderDetailsCubit, ReminderDetailsState>(
         builder: (context, state) => switch (state) {
           ReminderDetailsLoading() => const _Loading(),
-          ReminderDetailsAvailable(
-            :final reminder,
-            :final linkedDocumentTitle,
-          ) =>
-            _DetailsBody(
-              reminder: reminder,
-              linkedDocumentTitle: linkedDocumentTitle,
-              onClose: onClose,
-              onOpenDocument: onOpenDocument,
-            ),
+          ReminderDetailsAvailable(:final reminder) => _DetailsBody(
+            reminder: reminder,
+            onClose: onClose,
+          ),
           ReminderDetailsNotFound() => _StateBody(
             title: context.strings.reminderDetailsNotFoundTitle,
             message: context.strings.reminderDetailsNotFoundMessage,
@@ -130,17 +119,10 @@ class _StateBody extends StatelessWidget {
 }
 
 class _DetailsBody extends StatelessWidget {
-  const _DetailsBody({
-    required this.reminder,
-    required this.linkedDocumentTitle,
-    this.onClose,
-    this.onOpenDocument,
-  });
+  const _DetailsBody({required this.reminder, this.onClose});
 
   final Reminder reminder;
-  final String? linkedDocumentTitle;
   final VoidCallback? onClose;
-  final ValueChanged<String>? onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -167,14 +149,6 @@ class _DetailsBody extends StatelessWidget {
                 _InfoCard(reminder: reminder),
                 if (reminder.description case final note? when note.isNotEmpty)
                   _DescriptionCard(note: note),
-                if (reminder.documentId case final documentId?) ...[
-                  const SizedBox(height: _linkedDocGapAbove),
-                  _LinkedDocumentButton(
-                    documentId: documentId,
-                    title: linkedDocumentTitle,
-                    onTap: onOpenDocument,
-                  ),
-                ],
                 const SizedBox(height: _actionsGapAbove),
                 _Actions(reminder: reminder, onDeleted: onClose),
               ],
@@ -359,74 +333,6 @@ class _DescriptionCard extends StatelessWidget {
               Text(
                 note,
                 style: AppTypography.bodySmall.copyWith(color: colors.textBody),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LinkedDocumentButton extends StatelessWidget {
-  const _LinkedDocumentButton({
-    required this.documentId,
-    required this.title,
-    this.onTap,
-  });
-
-  final String documentId;
-
-  /// `null` while the document read is in flight, or once the linked
-  /// document has been deleted — the button still shows, but with no title
-  /// to name, and stays tappable so a stale link still resolves to whatever
-  /// the document screen itself decides to show for it.
-  final String? title;
-  final ValueChanged<String>? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final strings = context.strings;
-    // The design's arrow points towards the start of an Arabic line; in an
-    // English layout that is the other way round.
-    final mirror = Directionality.of(context) == TextDirection.ltr;
-
-    return Material(
-      color: colors.surfaceTeal,
-      borderRadius: BorderRadius.circular(_cardRadius),
-      child: InkWell(
-        onTap: onTap == null ? null : () => onTap!(documentId),
-        borderRadius: BorderRadius.circular(_cardRadius),
-        child: Padding(
-          padding: const EdgeInsets.all(_cardPadding),
-          child: Row(
-            children: [
-              StrokeIcon(
-                StrokeGlyph.documentCheck,
-                color: colors.brandPrimary,
-                size: _rowIconSize,
-              ),
-              const SizedBox(width: _rowGapInner),
-              Expanded(
-                child: Text(
-                  title ?? strings.reminderDetailsLinkedDocumentLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.caption.copyWith(
-                    fontSize: _rowFontSize,
-                    fontWeight: AppTypography.bold,
-                    color: colors.brandPrimary,
-                  ),
-                ),
-              ),
-              Transform.flip(
-                flipX: mirror,
-                child: StrokeIcon(
-                  StrokeGlyph.chevronForward,
-                  color: colors.brandPrimary,
-                  size: _rowIconSize,
-                ),
               ),
             ],
           ),

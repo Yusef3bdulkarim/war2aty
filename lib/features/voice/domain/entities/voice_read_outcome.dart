@@ -1,3 +1,4 @@
+import '../../../../core/utils/list_equality.dart';
 import 'spoken_card_span.dart';
 import 'voice_engine.dart';
 
@@ -39,6 +40,25 @@ final class VoiceReadOutcome {
   /// Empty is valid — a read can succeed with nothing aligned. Each span says
   /// whether it was measured or interpolated.
   final List<SpokenCardSpan> spans;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VoiceReadOutcome &&
+          other.engine == engine &&
+          other.duration == duration &&
+          other.verified == verified &&
+          other.audioSaved == audioSaved &&
+          listEquals(other.spans, spans);
+
+  @override
+  int get hashCode => Object.hash(
+    engine,
+    duration,
+    verified,
+    audioSaved,
+    Object.hashAll(spans),
+  );
 
   @override
   String toString() =>

@@ -13,6 +13,8 @@ final class RuntimeConfigDto {
     required this.schemaVersion,
     required this.minimumAppVersion,
     this.maintenanceMessage,
+    this.explainSchemaVersion = '1.0',
+    this.explainTimeoutSeconds = 40,
   });
 
   factory RuntimeConfigDto.fromJson(Map<String, dynamic> json) {
@@ -24,6 +26,8 @@ final class RuntimeConfigDto {
       schemaVersion: json['schema_version'] as String,
       minimumAppVersion: json['minimum_app_version'] as String,
       maintenanceMessage: json['maintenance_message'] as String?,
+      explainSchemaVersion: json['explain_schema_version'] as String? ?? '1.0',
+      explainTimeoutSeconds: json['explain_timeout_seconds'] as int? ?? 40,
     );
   }
 
@@ -36,6 +40,8 @@ final class RuntimeConfigDto {
       schemaVersion: config.schemaVersion,
       minimumAppVersion: config.minimumAppVersion,
       maintenanceMessage: config.maintenanceMessage,
+      explainSchemaVersion: config.explainSchemaVersion,
+      explainTimeoutSeconds: config.explainTimeout.inSeconds,
     );
   }
 
@@ -46,6 +52,8 @@ final class RuntimeConfigDto {
   final String schemaVersion;
   final String minimumAppVersion;
   final String? maintenanceMessage;
+  final String explainSchemaVersion;
+  final int explainTimeoutSeconds;
 
   Map<String, dynamic> toJson() => {
     'analysis_enabled': analysisEnabled,
@@ -55,6 +63,8 @@ final class RuntimeConfigDto {
     'schema_version': schemaVersion,
     'minimum_app_version': minimumAppVersion,
     'maintenance_message': maintenanceMessage,
+    'explain_schema_version': explainSchemaVersion,
+    'explain_timeout_seconds': explainTimeoutSeconds,
   };
 
   RuntimeConfig toEntity() => RuntimeConfig(
@@ -65,5 +75,7 @@ final class RuntimeConfigDto {
     schemaVersion: schemaVersion,
     minimumAppVersion: minimumAppVersion,
     maintenanceMessage: maintenanceMessage,
+    explainSchemaVersion: explainSchemaVersion,
+    explainTimeout: Duration(seconds: explainTimeoutSeconds),
   );
 }

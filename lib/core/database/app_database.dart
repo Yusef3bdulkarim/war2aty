@@ -5,11 +5,14 @@ import 'package:drift_flutter/drift_flutter.dart';
 // row and companion classes, and a part cannot import them itself.
 import '../documents/document_category.dart';
 import '../documents/recent_document.dart';
+import '../papers/paper_status.dart';
 import '../reminders/reminder_alert_status.dart';
 import '../reminders/reminder_status.dart';
 import 'daos/documents_dao.dart';
+import 'daos/papers_dao.dart';
 import 'daos/reminders_dao.dart';
 import 'tables/document_tables.dart';
+import 'tables/paper_tables.dart';
 import 'tables/reminder_tables.dart';
 
 part 'app_database.g.dart';
@@ -38,10 +41,12 @@ class UsageCache extends Table {
   Set<Column<Object>> get primaryKey => {usageDate};
 }
 
-/// The local SQLite database (schema v3).
+/// The local SQLite database (schema v4).
 ///
 /// v1 held the foundation tables; v2 added the saved-document tables (F08);
-/// v3 adds the reminder tables (F09).
+/// v3 added the reminder tables (F09); v4 adds the paper tables (F38) and
+/// wipes every legacy saved document along with the reminders that were
+/// still linked to one.
 @DriftDatabase(
   tables: [
     AppSettings,
@@ -55,8 +60,11 @@ class UsageCache extends Table {
     DocumentTextItems,
     Reminders,
     ReminderAlerts,
+    Papers,
+    PaperParagraphs,
+    PaperSpans,
   ],
-  daos: [DocumentsDao, RemindersDao],
+  daos: [DocumentsDao, RemindersDao, PapersDao],
 )
 class AppDatabase extends _$AppDatabase {
   /// Opens the on-device database. Pass an [executor] (e.g. an in-memory one)
@@ -65,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'war2aty'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -81,6 +89,22 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         for (final entity in _reminderSchema) {
           await m.create(entity);
+        }
+      }
+      if (from < 4) {
+        for (final entity in _paperSchema) {
+          await m.create(entity);
+        }
+        await _wipeLegacyDocuments();
+        // A device already past v3 has a physical `reminders` row that may
+        // carry a now-dangling `document_id` — the column [_reminderSchema]
+        // stopped creating for everyone else, because a v1/v2 device gets
+        // today's (already-linkless) shape straight away and has nothing to
+        // drop here.
+        if (from >= 3) {
+          await _dropDocumentLinkedReminders();
+          await customStatement('DROP INDEX IF EXISTS reminders_document');
+          await m.alterTable(TableMigration(reminders));
         }
       }
     },
@@ -113,9 +137,48 @@ class AppDatabase extends _$AppDatabase {
     reminderAlerts,
     remindersEventDate,
     remindersStatus,
-    remindersDocument,
     reminderAlertsReminder,
   ];
+
+  /// The entities v4 introduced (F38), same ordering rule as
+  /// [_documentSchema].
+  List<DatabaseSchemaEntity> get _paperSchema => [
+    papers,
+    paperParagraphs,
+    paperSpans,
+    papersEventDay,
+  ];
+
+  /// Deletes every row the legacy saved-document feature ever wrote, child
+  /// tables first — F38-D3. `PRAGMA foreign_keys` is off for the whole of
+  /// [onUpgrade] (it only turns on in [beforeOpen], which drift runs after),
+  /// so a `documents` row's cascade never fires here: every child table is
+  /// cleared by hand.
+  Future<void> _wipeLegacyDocuments() async {
+    await delete(documentKeyInformation).go();
+    await delete(documentDates).go();
+    await delete(documentAmounts).go();
+    await delete(documentActions).go();
+    await delete(documentWarnings).go();
+    await delete(documentTextItems).go();
+    await delete(documents).go();
+  }
+
+  /// Deletes every reminder still linked to one of the documents
+  /// [_wipeLegacyDocuments] just removed, and its own alerts — explicitly,
+  /// because the same foreign-keys-off trap means `reminders.document_id`
+  /// pointing at a now-missing row would otherwise survive the delete above
+  /// and then lose the evidence it was ever linked once the column is
+  /// dropped below (F38-D3/D4).
+  Future<void> _dropDocumentLinkedReminders() async {
+    await customStatement(
+      'DELETE FROM reminder_alerts WHERE reminder_id IN '
+      '(SELECT id FROM reminders WHERE document_id IS NOT NULL)',
+    );
+    await customStatement(
+      'DELETE FROM reminders WHERE document_id IS NOT NULL',
+    );
+  }
 
   /// Reads a single setting value, or `null` if unset.
   Future<String?> getSetting(String key) async {

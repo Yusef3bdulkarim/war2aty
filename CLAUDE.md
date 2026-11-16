@@ -110,3 +110,9 @@ flutter test
 ```
 - Tests for domain/data (extractors, mappers, validators, cubits). Every bug fix must include a test that reproduces it.
 - RTL and Large Text support for any new screen. Explicit Loading/Empty/Error/Partial states.
+
+## 11) Comments — none (YOU MUST FOLLOW)
+- **Write no comments in code.** No `//` comments, no `///` doc comments, no file headers, no section banners, no `TODO`/`FIXME` notes. This applies to Dart, Kotlin, TypeScript (Edge Functions), SQL migrations and tests alike.
+- The code explains itself through **names**: descriptive class, method, variable and test names, and small functions. If a block needs explaining, rename or split it — don't annotate it.
+- Reasoning, trade-offs, decisions, traps and privacy rules belong in the **feature task file** under `docs/features/` and in `docs/API_CONTRACT.md`, not in the source.
+- Do not add comments back while editing a file. Existing comments in untouched code are left alone — don't go on a cleanup pass unless asked.

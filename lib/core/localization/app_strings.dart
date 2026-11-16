@@ -861,9 +861,6 @@ abstract interface class AppStrings {
   String get reminderNoteLabel;
   String get reminderNoteHint;
 
-  String get reminderLinkedDocumentSectionLabel;
-  String get reminderLinkedDocumentValueLabel;
-
   String get reminderSaveAction;
 
   /// Quick offsets the alert picker offers when the event has a known time
@@ -890,20 +887,14 @@ abstract interface class AppStrings {
   /// formatted, read the same way anywhere else a clock time is shown.
   String reminderSuggestedAlertTime(String time);
 
-  // Reminder create-from-document (F09-T03) and manual (F09-T04) screen
-  // titles, and the success screen after either saves.
-  String get reminderCreateScreenTitle;
-
-  /// Also the manual screen's own title — the design gives the header
+  /// The manual reminder form's screen title — the design gives the header
   /// button and the screen it opens the exact same words.
   String get reminderAddAction;
 
   String get reminderSuccessTitle;
   String get reminderSuccessViewAction;
 
-  // Manual reminder form (F09-T04) — its own required date/time pickers,
-  // absent from the create-from-document form (F09-T03), which reads them
-  // off the paper instead.
+  // Manual reminder form (F09-T04) — its own required date/time pickers.
   String get reminderManualTitleHint;
   String get reminderDateLabel;
   String get reminderDatePickHint;
@@ -1009,9 +1000,6 @@ abstract interface class AppStrings {
   String get reminderDetailsTimeLabel;
   String get reminderDetailsAlertLabel;
   String get reminderDetailsDescriptionLabel;
-
-  /// The linked-document button — navigates to the document's details.
-  String get reminderDetailsLinkedDocumentLabel;
 
   /// The detail screen's own not-found / error states — mirrors the document
   /// details screen's pair.

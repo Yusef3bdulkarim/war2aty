@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/documents/usecases/watch_document.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/reminders/usecases/complete_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/delete_reminder.dart';
@@ -14,17 +13,14 @@ import '../../support/fakes.dart';
 // F09-T12: the details screen's own cubit.
 void main() {
   late FakeRemindersRepository remindersRepository;
-  late FakeDocumentsRepository documentsRepository;
   late FakeReminderScheduler scheduler;
   late ReminderDetailsCubit cubit;
 
   setUp(() {
     remindersRepository = FakeRemindersRepository();
-    documentsRepository = FakeDocumentsRepository();
     scheduler = FakeReminderScheduler();
     cubit = ReminderDetailsCubit(
       WatchReminder(remindersRepository),
-      WatchDocument(documentsRepository),
       CompleteReminder(remindersRepository, scheduler),
       SnoozeReminder(remindersRepository, scheduler),
       DeleteReminder(remindersRepository, scheduler),
@@ -33,7 +29,6 @@ void main() {
   tearDown(() async {
     await cubit.close();
     await remindersRepository.dispose();
-    await documentsRepository.dispose();
   });
 
   test('starts loading', () {
@@ -47,7 +42,6 @@ void main() {
 
     final state = cubit.state as ReminderDetailsAvailable;
     expect(state.reminder.id, 'r1');
-    expect(state.linkedDocumentTitle, isNull);
   });
 
   test('start is safe to call twice', () async {
@@ -74,25 +68,6 @@ void main() {
     await pumpEventQueue();
 
     expect(cubit.state, isA<ReminderDetailsUnavailable>());
-  });
-
-  test('picks up the linked document\'s title', () async {
-    cubit.start('r1');
-    remindersRepository.emitReminder('r1', fakeReminder(documentId: 'doc-1'));
-    await pumpEventQueue();
-    documentsRepository.emitDocument(savedDocumentWith(title: 'فاتورة كهرباء'));
-    await pumpEventQueue();
-
-    final state = cubit.state as ReminderDetailsAvailable;
-    expect(state.linkedDocumentTitle, 'فاتورة كهرباء');
-  });
-
-  test('a manual reminder never looks up a document', () async {
-    cubit.start('r1');
-    remindersRepository.emitReminder('r1', fakeReminder());
-    await pumpEventQueue();
-
-    expect(documentsRepository.documentListenCount, 0);
   });
 
   group('complete', () {
