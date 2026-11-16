@@ -1,11 +1,23 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/error/app_failure.dart';
+import '../../core/papers/build_paper_voice_segments.dart';
+import '../../core/papers/saved_paper.dart';
+import '../../core/papers/usecases/record_paper_reading.dart';
+import '../../core/papers/usecases/save_paper.dart';
+import '../../core/papers/usecases/watch_papers.dart';
+import '../../core/result/result.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/voice/usecases/speak_fixed_line.dart';
 import '../../core/voice/voice_line.dart';
 import '../../core/voice/voice_playback_cubit.dart';
 import '../../core/voice/voice_playback_state.dart';
+import '../../features/capture/domain/usecases/pick_image_from_gallery.dart';
+import '../../features/explain/domain/usecases/explain_paper.dart';
+import '../../features/voice/domain/entities/voice_read_outcome.dart';
 import '../../features/voice/domain/entities/voice_segment.dart';
 import '../di/service_locator.dart';
 
@@ -101,6 +113,8 @@ class _VoiceHarnessBody extends StatelessWidget {
             _ReadControls(),
             SizedBox(height: 16),
             _FixedLines(),
+            SizedBox(height: 16),
+            _PapersHarness(),
           ],
         ),
       ),
@@ -268,6 +282,187 @@ class _FixedLines extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _PapersHarness extends StatefulWidget {
+  const _PapersHarness();
+
+  @override
+  State<_PapersHarness> createState() => _PapersHarnessState();
+}
+
+class _PapersHarnessState extends State<_PapersHarness> {
+  String _status = 'idle';
+  String? _pendingReadingId;
+  StreamSubscription<VoicePlaybackState>? _playbackSubscription;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _playbackSubscription ??= context.read<VoicePlaybackCubit>().stream.listen(
+      _onPlaybackState,
+    );
+  }
+
+  @override
+  void dispose() {
+    _playbackSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _onPlaybackState(VoicePlaybackState state) {
+    final paperId = _pendingReadingId;
+    if (paperId == null) return;
+    if (state case VoicePlaybackReadFinished(:final outcome)) {
+      _pendingReadingId = null;
+      unawaited(_recordReading(paperId, outcome));
+    }
+  }
+
+  Future<void> _recordReading(String paperId, VoiceReadOutcome outcome) async {
+    final result = await getIt<RecordPaperReading>()(
+      id: paperId,
+      outcome: outcome,
+    );
+    if (!mounted) return;
+    setState(() {
+      _status = result.when(
+        ok: (_) => 'recorded reading for $paperId',
+        err: (failure) => 'recordPaperReading failed: ${failure.runtimeType}',
+      );
+    });
+  }
+
+  Future<void> _explainSaveAndRead() async {
+    setState(() => _status = 'picking photo…');
+    final picked = await getIt<PickImageFromGallery>()();
+    if (!mounted) return;
+    final photo = picked.valueOrNull;
+    if (photo == null) {
+      setState(() {
+        _status = picked.isErr
+            ? 'pick failed: ${picked.failureOrNull.runtimeType}'
+            : 'no photo picked';
+      });
+      return;
+    }
+
+    setState(() => _status = 'explaining…');
+    final explained = await getIt<ExplainPaper>()(photo);
+    if (!mounted) return;
+    final outcome = explained.valueOrNull;
+    if (outcome == null) {
+      setState(() => _status = 'explain failed: ${explained.failureOrNull}');
+      return;
+    }
+
+    setState(() => _status = 'saving…');
+    final saved = await getIt<SavePaper>()(
+      outcome: outcome,
+      photographedAt: DateTime.now(),
+      imagePath: photo.path,
+    );
+    if (!mounted) return;
+    final savedOutcome = saved.valueOrNull;
+    if (savedOutcome == null) {
+      setState(() => _status = 'save failed: ${saved.failureOrNull}');
+      return;
+    }
+
+    setState(() {
+      _status =
+          'saved ${savedOutcome.id} (image: ${savedOutcome.imageSaved}) '
+          '— reading…';
+      _pendingReadingId = savedOutcome.id;
+    });
+
+    final segments = getIt<BuildPaperVoiceSegments>()(outcome.explanation);
+    await context.read<VoicePlaybackCubit>().readAloud(
+      segments: segments,
+      audioId: savedOutcome.id,
+    );
+  }
+
+  Future<void> _replay(SavedPaper paper) async {
+    final cubit = context.read<VoicePlaybackCubit>();
+    if (paper.audioSaved) {
+      await cubit.replay(audioId: paper.id, spans: paper.spans);
+      return;
+    }
+    setState(() => _pendingReadingId = paper.id);
+    final segments = getIt<BuildPaperVoiceSegments>()(paper.explanation);
+    await cubit.readAloud(segments: segments, audioId: paper.id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Papers (F38)'),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _explainSaveAndRead,
+          child: const Text('Pick photo → explain → save → read'),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _status,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        StreamBuilder<Result<List<SavedPaper>, AppFailure>>(
+          stream: getIt<WatchPapers>()(),
+          builder: (context, snapshot) {
+            final result = snapshot.data;
+            if (result == null) return const SizedBox.shrink();
+            return switch (result) {
+              Ok(value: final papers) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final paper in papers)
+                    _PaperRow(paper, onReplay: _replay),
+                ],
+              ),
+              Err(failure: final failure) => Text(
+                'watchPapers failed: ${failure.runtimeType}',
+              ),
+            };
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _PaperRow extends StatelessWidget {
+  const _PaperRow(this.paper, {required this.onReplay});
+
+  final SavedPaper paper;
+  final void Function(SavedPaper paper) onReplay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '${paper.id} · ${paper.explanation.status.name} · '
+              'engine: ${paper.voiceEngine?.name ?? '—'} · '
+              'audioSaved: ${paper.audioSaved} · ${paper.spans.length} spans',
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            ),
+          ),
+          OutlinedButton(
+            onPressed: () => onReplay(paper),
+            child: const Text('Replay'),
+          ),
+        ],
+      ),
     );
   }
 }

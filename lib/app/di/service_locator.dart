@@ -37,6 +37,7 @@ import '../../core/crypto/document_encryption_key_store.dart';
 import '../../core/crypto/file_encryptor.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/daos/documents_dao.dart';
+import '../../core/database/daos/papers_dao.dart';
 import '../../core/database/daos/reminders_dao.dart';
 import '../../core/documents/document_image_store.dart';
 import '../../core/documents/documents_repository.dart';
@@ -71,6 +72,18 @@ import '../../core/logging/error_report_remote_data_source.dart';
 import '../../core/logging/error_report_sink.dart';
 import '../../core/logging/log_sink.dart';
 import '../../core/network/api_client.dart';
+import '../../core/papers/build_paper_voice_segments.dart';
+import '../../core/papers/drift_papers_repository.dart';
+import '../../core/papers/file_paper_image_store.dart';
+import '../../core/papers/paper_image_store.dart';
+import '../../core/papers/papers_repository.dart';
+import '../../core/papers/usecases/delete_all_papers.dart';
+import '../../core/papers/usecases/delete_paper.dart';
+import '../../core/papers/usecases/load_paper_image.dart';
+import '../../core/papers/usecases/record_paper_reading.dart';
+import '../../core/papers/usecases/save_paper.dart';
+import '../../core/papers/usecases/watch_paper.dart';
+import '../../core/papers/usecases/watch_papers.dart';
 import '../../core/permissions/notification_permission_repository.dart';
 import '../../core/permissions/permission_handler_service.dart';
 import '../../core/permissions/permission_service.dart';
@@ -193,6 +206,11 @@ import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
 import '../../features/capture/presentation/cubit/image_preview_cubit.dart';
+import '../../features/explain/data/datasources/edge_function_explain_remote_data_source.dart';
+import '../../features/explain/data/datasources/explain_remote_data_source.dart';
+import '../../features/explain/data/repositories/default_explain_repository.dart';
+import '../../features/explain/domain/repositories/explain_repository.dart';
+import '../../features/explain/domain/usecases/explain_paper.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
@@ -270,6 +288,8 @@ Future<void> configureDependencies(
   _registerReminders();
   _registerAudioReader();
   _registerVoice();
+  _registerPapers();
+  _registerExplain(env);
   _registerLegal();
   _registerSettings();
   _registerRouting();
@@ -1144,6 +1164,40 @@ void _registerVoice() {
     ..registerFactory<VoicePlaybackCubit>(
       () => VoicePlaybackCubit(getIt(), getIt()),
     );
+}
+
+void _registerPapers() {
+  getIt
+    ..registerLazySingleton<PapersDao>(() => getIt<AppDatabase>().papersDao)
+    ..registerLazySingleton<PaperImageStore>(() => FilePaperImageStore(getIt()))
+    ..registerLazySingleton<PapersRepository>(
+      () => DriftPapersRepository(getIt(), getIt(), getIt()),
+    )
+    ..registerFactory<SavePaper>(() => SavePaper(getIt(), getIt()))
+    ..registerFactory<RecordPaperReading>(() => RecordPaperReading(getIt()))
+    ..registerFactory<WatchPapers>(() => WatchPapers(getIt()))
+    ..registerFactory<WatchPaper>(() => WatchPaper(getIt()))
+    ..registerFactory<DeletePaper>(() => DeletePaper(getIt()))
+    ..registerFactory<DeleteAllPapers>(() => DeleteAllPapers(getIt()))
+    ..registerFactory<LoadPaperImage>(() => LoadPaperImage(getIt()))
+    ..registerFactory<BuildPaperVoiceSegments>(BuildPaperVoiceSegments.new);
+}
+
+void _registerExplain(AppEnvironment env) {
+  getIt
+    ..registerLazySingleton<ExplainRemoteDataSource>(
+      () => EdgeFunctionExplainRemoteDataSource(getIt()),
+    )
+    ..registerLazySingleton<ExplainRepository>(
+      () => DefaultExplainRepository(
+        dataSource: getIt(),
+        installationId: getIt(),
+        logger: getIt(),
+        appVersion: env.appVersion,
+        config: getIt(),
+      ),
+    )
+    ..registerFactory<ExplainPaper>(() => ExplainPaper(getIt()));
 }
 
 /// F27-T20. The published privacy policy and terms, and the support mailbox.
