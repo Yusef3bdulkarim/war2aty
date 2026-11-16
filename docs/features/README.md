@@ -50,13 +50,18 @@ The master specification is [`../.claude/doc/war2aty_product_engineering_master_
 | F35 | Groundwork and safe removals | [F35-groundwork-and-removals.md](F35-groundwork-and-removals.md) | `feature/non-reader` | post-F33 | 19 |
 | F36 | Server — `explain-document` | [F36-server-explain-document.md](F36-server-explain-document.md) | `feature/explain-document` | post-F35 | 21 |
 | F37 | Voice spine — Gemini Live | [F37-voice-spine.md](F37-voice-spine.md) | `feature/voice-spine` | post-F36 | 21 |
+| F39+F40 | Capture flow and result screen | [F39-F40-capture-and-result.md](F39-F40-capture-and-result.md) | `feature/capture-and-result` | post-F38 | 52 |
 
-**Total: 413 tasks across 34 features.**
+**Total: 504 tasks across 36 features.**
 
 F34 holds the pivot's decisions; its own T01–T39 are superseded by features
-F35–F44, listed in F34 § "Amendments (2026-11-08)". Only F35, F36 and F37 have
-task files so far — each later feature gets one when its turn comes, so the
-total above counts their tasks and not the seven features still to be planned.
+F35–F44, listed in F34 § "Amendments (2026-11-08)". F39 and F40 are built
+together and share one task file. F38's task file exists but has no row here
+yet, so its tasks are not in the total. The total is the sum of the Tasks
+column; the stated figure had drifted 39 short since F35-T03, which subtracted
+F34's 39 tasks that had never been counted. Each later feature gets a task file
+when its turn comes, so the total above does not count the four features still
+to be planned (F41–F44).
 F36 and F37 were planned to run in parallel, since neither touches the UI and
 they share no code; in the event F36 landed first, and `feature/voice-spine` is
 cut from `develop` after PR #41, so F37's tree carries both.

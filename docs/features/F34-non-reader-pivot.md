@@ -185,8 +185,8 @@ needlessly sequential.
 | F36 | Server: `explain-document` — [task file](F36-server-explain-document.md), **in progress** | F35 |
 | F37 | Voice spine: Gemini Live — [task file](F37-voice-spine.md), **closed 2026-11-15 with one open defect, see below** | F35 |
 | F38 | Paper model, auto-save and audio storage — [task file](F38-paper-model.md), **planned 2026-11-15** | F36 schema, F37 |
-| F39 | Capture flow | F38 |
-| F40 | Result screen | F38, F37 |
+| F39 | Capture flow — built together with F40, [task file](F39-F40-capture-and-result.md), **in progress** | F38 |
+| F40 | Result screen — built together with F39, [task file](F39-F40-capture-and-result.md), **in progress** | F38, F37 |
 | F41 | Home and مستنداتي | F38, F40 |
 | F42 | Share from WhatsApp | F39 |
 | F43 | Video, «؟» clips and splash | F39, F40 |
