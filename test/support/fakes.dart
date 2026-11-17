@@ -695,6 +695,9 @@ final class FakeUsageRepository implements UsageRepository {
       Err(:final failure) => Err(failure),
     };
   }
+
+  @override
+  bool? lastKnownExplainEnabled;
 }
 
 /// A quota with [remaining] of [limit] analyses left today.

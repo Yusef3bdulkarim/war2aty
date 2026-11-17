@@ -334,4 +334,7 @@ final class _GatedUsageRepository implements UsageRepository {
   @override
   Stream<Result<DailyUsage?, AppFailure>> watchUsage() =>
       throw UnimplementedError();
+
+  @override
+  bool? get lastKnownExplainEnabled => null;
 }

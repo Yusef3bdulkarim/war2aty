@@ -22,4 +22,6 @@ abstract interface class UsageRepository {
   /// stream errors, so callers handle them the same way they handle the
   /// one-shot reads above.
   Stream<Result<DailyUsage?, AppFailure>> watchUsage();
+
+  bool? get lastKnownExplainEnabled;
 }

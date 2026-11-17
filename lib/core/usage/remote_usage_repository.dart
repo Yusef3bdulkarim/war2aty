@@ -35,6 +35,11 @@ final class RemoteUsageRepository implements UsageRepository {
   final AppDatabase _db;
   final DateTime Function() _now;
 
+  bool? _lastKnownExplainEnabled;
+
+  @override
+  bool? get lastKnownExplainEnabled => _lastKnownExplainEnabled;
+
   @override
   Future<Result<DailyUsage, AppFailure>> syncUsage() async {
     final now = _now();
@@ -45,6 +50,7 @@ final class RemoteUsageRepository implements UsageRepository {
       // has the fresh numbers either way, and the row repairs itself on the
       // next successful sync.
       await _cache(value);
+      _lastKnownExplainEnabled = value.explainEnabled;
       return Ok(value);
     }
 

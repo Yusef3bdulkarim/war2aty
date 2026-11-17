@@ -29,6 +29,9 @@ final class StubUsageRepository implements UsageRepository {
   final DateTime Function() _now;
 
   @override
+  bool? get lastKnownExplainEnabled => null;
+
+  @override
   Future<Result<DailyUsage, AppFailure>> syncUsage() async {
     try {
       final now = _now();

@@ -35,7 +35,7 @@ final class _FakeRemote implements UsageRemoteDataSource {
     ),
   );
 
-  final Future<UsageApiResponse> Function() respond;
+  Future<UsageApiResponse> Function() respond;
   int calls = 0;
 
   @override
@@ -252,6 +252,84 @@ void main() {
       await repository(remote).cachedUsage();
 
       expect(remote.calls, 0);
+    });
+  });
+
+  group('lastKnownExplainEnabled', () {
+    test('starts at null on a fresh repository', () {
+      expect(repository(_FakeRemote.ok()).lastKnownExplainEnabled, isNull);
+    });
+
+    test('a fresh sync with a known value updates it', () async {
+      final repo = repository(
+        _FakeRemote.ok({..._body, 'explain_enabled': true}),
+      );
+
+      await repo.syncUsage();
+
+      expect(repo.lastKnownExplainEnabled, isTrue);
+    });
+
+    test('a later fresh sync overwrites an earlier known value', () async {
+      final remote = _FakeRemote.ok({..._body, 'explain_enabled': true});
+      final repo = repository(remote);
+      await repo.syncUsage();
+
+      remote.respond = () async => const UsageApiResponse(
+        statusCode: 200,
+        body: {..._body, 'explain_enabled': false},
+      );
+      await repo.syncUsage();
+
+      expect(repo.lastKnownExplainEnabled, isFalse);
+    });
+
+    test('a fresh sync with an unknown value resets it to unknown', () async {
+      final remote = _FakeRemote.ok({..._body, 'explain_enabled': true});
+      final repo = repository(remote);
+      await repo.syncUsage();
+
+      remote.respond = () async =>
+          const UsageApiResponse(statusCode: 200, body: _body);
+      await repo.syncUsage();
+
+      expect(repo.lastKnownExplainEnabled, isNull);
+    });
+
+    test(
+      'a failed sync falling back to the cache leaves a known value as it was',
+      () async {
+        final remote = _FakeRemote.ok({..._body, 'explain_enabled': true});
+        final repo = repository(remote);
+        await repo.syncUsage();
+
+        remote.respond = () async => throw DioException(
+          requestOptions: RequestOptions(path: '/get-usage'),
+          type: DioExceptionType.connectionError,
+        );
+        await repo.syncUsage();
+
+        expect(repo.lastKnownExplainEnabled, isTrue);
+      },
+    );
+
+    test('a failed sync with nothing cached for the day leaves a known value '
+        'as it was', () async {
+      var now = _now;
+      final remote = _FakeRemote.ok({..._body, 'explain_enabled': true});
+      final repo = RemoteUsageRepository(remote, db, clock: () => now);
+      await repo.syncUsage();
+      expect(repo.lastKnownExplainEnabled, isTrue);
+
+      now = _now.add(const Duration(days: 1));
+      remote.respond = () async => throw DioException(
+        requestOptions: RequestOptions(path: '/get-usage'),
+        type: DioExceptionType.connectionError,
+      );
+      final result = await repo.syncUsage();
+
+      expect(result, isA<Err<DailyUsage, AppFailure>>());
+      expect(repo.lastKnownExplainEnabled, isTrue);
     });
   });
 

@@ -112,6 +112,13 @@ void main() {
     });
   });
 
+  test('never carries a known explainEnabled', () async {
+    final repo = repoAt(day1);
+    await repo.syncUsage();
+
+    expect(repo.lastKnownExplainEnabled, isNull);
+  });
+
   test('round-trips dates through the database without drift', () async {
     // Guards the UTC normalisation: Dart's DateTime equality is UTC-sensitive,
     // and Drift returns local DateTimes.

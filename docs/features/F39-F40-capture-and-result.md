@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 2 / 52
+- **Progress:** 3 / 52
 
 ## Why this feature exists
 
@@ -196,11 +196,23 @@ finished and the next one does not start.
       write only non-null values. Gate: analyze 0 errors / 0 warnings / 21
       info (pre-existing); `test/core/usage` +33 all passed; home, settings
       and capture tests +472 all passed.
-- [ ] **T03** Keep the session's last fresh `explainEnabled` in memory
+- [x] **T03** Keep the session's last fresh `explainEnabled` in memory
       (`UsageRepository` exposes it, or a small `core/usage` holder the
       repository writes on every successful sync — bootstrap's included).
       *Done when:* a successful sync updates it, a failed sync leaves it as it
       was, and a fresh process starts at `null`.
+      *Found:* `UsageRepository.lastKnownExplainEnabled` (an interface getter,
+      the first option) is written only on the *fresh*-fetch branch of
+      `syncUsage()`, to whatever that fresh answer said — including unknown,
+      per D4's "the session's last fresh sync" — and never on the
+      cache-fallback branch, whose rows never carry the flag (T02) and would
+      otherwise wipe a known value every time the network drops. An early
+      draft wrote on every `Ok` and only skipped `null`, which happened to
+      also swallow a fresh "went back to unknown" answer into a stale `false`;
+      `@code-reviewer` (opus) caught it against D4's literal wording before
+      commit. `FakeUsageRepository` exposes a directly settable field instead
+      of mirroring the production rule, so T04's table test can put it in
+      `known-false` without going through a sync.
 - [ ] **T04** `CheckCaptureReadiness` use case (`features/capture/domain`):
       no connectivity → `offline`; known `false` → `serviceOff`; `null` → one
       fresh `syncUsage()`, then `serviceOff` if it says `false`, otherwise
