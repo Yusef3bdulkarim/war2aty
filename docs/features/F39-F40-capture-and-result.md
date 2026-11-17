@@ -134,14 +134,16 @@ purpose: each one is a single reviewable commit.
    pass — read the counter line and grep the severities
    (`flutter-exit-code-0-is-not-a-pass`).
 3. **Self-review** with the `/flutter-code-review` skill.
-4. **`code-reviewer` agent, model `opus` (Opus 5.5),** over the task's diff.
-   Fix every action item it raises, then re-run step 2. Nothing is committed
-   over an open finding.
-5. **`git-expert` agent, model `opus` (Opus 5.5),** commits — one commit per
-   task, `feat(f39-40): <what> [T##]` (or `refactor`/`test`/`docs`) — and
-   pushes.
+4. **Stop and ask the owner to switch the session to Opus 5.** Once he
+   confirms, the **main agent** (not a spawned subagent) reviews the task's
+   diff as `code-reviewer` would. Fix every action item it raises, then
+   re-run step 2. Nothing is committed over an open finding.
+5. Still on Opus 5, the **main agent** commits — one commit per task,
+   `feat(f39-40): <what> [T##]` (or `refactor`/`test`/`docs`) — and pushes.
 6. Tick the task here, with anything the task found written inline under it,
    in the same commit.
+7. **Stop and ask the owner to switch back to Sonnet 5** before starting the
+   next task's implementation.
 
 The branch is merged **only at the very end**, after the final test list
 (§"Final test list") has passed on the device and every problem it found is
@@ -331,12 +333,19 @@ finished and the next one does not start.
 
 ### Phase B — the failure screens (rehosted from F23)
 
-- [ ] **T08** Move the failure widgets the new screen keeps —
+- [x] **T08** Move the failure widgets the new screen keeps —
       `FailureTipsCard`, `FailureNoteChip`, `LimitResetCard`, and whichever of
       `AnalysisStepsCard`'s pieces survive — out of `features/analysis` into
       `features/explain/presentation/widgets/failure/` (copy now, the old
       copies die in Phase G). *Done when:* the moved widgets' tests move with
       them and pass; nothing in the old screen changed.
+      *Found:* all four widgets copied byte-identical; all four original files
+      untouched; `AnalysisStepsCard` survives whole (both enums and the card).
+      Test split: 16 moved tests (1 FailureNoteChip + 5 AnalysisStepsCard +
+      1 FailureTipsCard + 8 LimitResetCard + 1 small-phone) into the new file;
+      8 remaining (3 ExtractedTextEntryCard + 5 SupportedDocumentsSection) stay.
+      Gate: format 0 changed, analyze 0 errors / 0 warnings / 21 info, 24/24
+      tests passed.
 - [ ] **T09** `PaperFailureKind` (`offline | limitReached | serviceProblem`)
       and its mapping from `AppFailure`, per "Derived" above. *Done when:* a
       table test walks **every** `AppFailure` leaf — `hasLength`-guarded, so a
