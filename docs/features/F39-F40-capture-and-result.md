@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 3 / 52
+- **Progress:** 4 / 52
 
 ## Why this feature exists
 
@@ -213,13 +213,32 @@ finished and the next one does not start.
       commit. `FakeUsageRepository` exposes a directly settable field instead
       of mirroring the production rule, so T04's table test can put it in
       `known-false` without going through a sync.
-- [ ] **T04** `CheckCaptureReadiness` use case (`features/capture/domain`):
+- [x] **T04** `CheckCaptureReadiness` use case (`features/capture/domain`):
       no connectivity → `offline`; known `false` → `serviceOff`; `null` → one
       fresh `syncUsage()`, then `serviceOff` if it says `false`, otherwise
       `ready`; a failed fresh sync → `ready` (D4). Returns a sealed
       `CaptureReadiness`. A throwing connectivity plugin reads as `offline`.
       *Done when:* a table-driven test covers every branch and the use case
       never throws.
+      *Found:* connectivity is checked before the usage flag is ever read, so
+      a throwing plugin or no connectivity reads `offline` without touching
+      `syncUsage()` even when the flag is unknown or known `false` — the
+      `code-reviewer` (opus) pass flagged two tests that set
+      `lastKnownExplainEnabled = true` before an offline check, which could
+      never have caught a regression that synced before the connectivity
+      check; both were rewritten against `syncCallCount == 0`. The use case
+      decides straight from the fresh `syncUsage()` result
+      (`value.explainEnabled`) rather than re-reading
+      `UsageRepository.lastKnownExplainEnabled` afterwards, since
+      `RemoteUsageRepository`'s cache-fallback branch (a failed fetch with a
+      cached row) returns `Ok` with `explainEnabled` always `null` — never
+      `false` — so the two reads are equivalent today; the `usageWith(...)`
+      test helper gained an optional `explainEnabled` parameter, additive and
+      inert for its ~27 existing call sites. Gate: `dart format` 0 of 4
+      changed; `flutter analyze` 0 errors / 0 warnings / 21 info
+      (pre-existing); the new test file 10/10, plus the full
+      `test/core/usage`, `test/features/capture`, `test/features/home` and the
+      usage-hint/fallback app tests (430 total) all passed.
 - [ ] **T05** `ImageDownscaler` interface (`features/capture/domain/services`)
       and `ImagePackageDownscaler` (`data/services`): longest edge 2000 px,
       JPEG 85, in `Isolate.run`; returns the input path untouched when already

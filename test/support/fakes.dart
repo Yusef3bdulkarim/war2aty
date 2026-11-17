@@ -705,6 +705,7 @@ DailyUsage usageWith({
   required int limit,
   required int remaining,
   bool onlineOcrEnabled = false,
+  bool? explainEnabled,
 }) {
   final today = DateTime.utc(2026, 7, 22);
   return DailyUsage(
@@ -714,6 +715,7 @@ DailyUsage usageWith({
     remainingCount: remaining,
     resetsAt: today.add(const Duration(days: 1)),
     onlineOcrEnabled: onlineOcrEnabled,
+    explainEnabled: explainEnabled,
   );
 }
 
