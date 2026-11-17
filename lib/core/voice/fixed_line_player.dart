@@ -19,6 +19,8 @@ abstract interface class FixedLinePlayer {
   /// platform player refuses it.
   Future<Result<void, AppFailure>> play(String assetPath);
 
+  Future<Result<void, AppFailure>> playToEnd(String assetPath);
+
   /// Stops the line that is playing, if any. A no-op otherwise.
   Future<void> stop();
 

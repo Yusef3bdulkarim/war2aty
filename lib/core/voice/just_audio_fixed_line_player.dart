@@ -23,9 +23,14 @@ final class JustAudioFixedLinePlayer implements FixedLinePlayer {
     : _player = player ?? AudioPlayer();
 
   final AudioPlayer _player;
+  Completer<void>? _playToEndCompleter;
+  bool _stopRequested = false;
 
   @override
   Future<Result<void, AppFailure>> play(String assetPath) async {
+    final pending = _playToEndCompleter;
+    if (pending != null && !pending.isCompleted) pending.complete();
+    _playToEndCompleter = null;
     try {
       // Single-flight: whatever is still speaking is a message the user has
       // already been given, and two of them at once is neither.
@@ -46,7 +51,53 @@ final class JustAudioFixedLinePlayer implements FixedLinePlayer {
   }
 
   @override
-  Future<void> stop() => _player.stop();
+  Future<Result<void, AppFailure>> playToEnd(String assetPath) async {
+    final pending = _playToEndCompleter;
+    if (pending != null && !pending.isCompleted) pending.complete();
+    _playToEndCompleter = null;
+    _stopRequested = false;
+    try {
+      await _player.stop();
+      await _player.setAsset(assetPath);
+    } on Object {
+      if (_stopRequested) {
+        _stopRequested = false;
+        return const Ok(null);
+      }
+      return const Err(AudioPlaybackFailure());
+    }
+
+    final completer = Completer<void>();
+    _playToEndCompleter = completer;
+
+    final subscription = _player.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed && !completer.isCompleted) {
+        completer.complete();
+      }
+    });
+
+    unawaited(
+      _player.play().onError((_, _) {
+        if (!completer.isCompleted) completer.complete();
+      }),
+    );
+
+    await completer.future;
+    await subscription.cancel();
+    if (identical(_playToEndCompleter, completer)) {
+      _playToEndCompleter = null;
+    }
+    return const Ok(null);
+  }
+
+  @override
+  Future<void> stop() async {
+    _stopRequested = true;
+    final pending = _playToEndCompleter;
+    if (pending != null && !pending.isCompleted) pending.complete();
+    _playToEndCompleter = null;
+    await _player.stop();
+  }
 
   @override
   Future<void> dispose() => _player.dispose();

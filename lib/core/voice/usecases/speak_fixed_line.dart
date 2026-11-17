@@ -30,6 +30,9 @@ final class SpeakFixedLine {
   Future<Result<void, AppFailure>> call(VoiceLine line) =>
       _player.play(line.assetPath);
 
+  Future<Result<void, AppFailure>> playToEnd(VoiceLine line) =>
+      _player.playToEnd(line.assetPath);
+
   /// Stops the line that is playing, if any.
   ///
   /// A screen calls this when it is left before its line has finished: a

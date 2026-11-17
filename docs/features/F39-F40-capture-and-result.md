@@ -356,11 +356,14 @@ finished and the next one does not start.
       its compilation. No code-review findings. Gate: format 0 changed,
       analyze 0 errors / 0 warnings / 21 info (pre-existing), 5/5 tests
       passed.
-- [ ] **T10** `FixedLinePlayer` / `SpeakFixedLine` gain a completion signal
+- [x] **T10** `FixedLinePlayer` / `SpeakFixedLine` gain a completion signal
       (e.g. `Future<void> playToEnd(line)` or a `done` stream) so D11 can be
       enforced; `JustAudioFixedLinePlayer` implements it from the player's
       `processingState`. *Done when:* tests prove the future completes on the
       natural end, on `stop()`, and on a load failure (never hangs).
+      *Found:* review caught that `play()` and a re-entrant `playToEnd()` did
+      not complete the pending completer, orphaning the first caller — fixed by
+      cancelling any in-flight completer at the top of both methods.
 - [ ] **T11** `PaperFailureCubit` (use cases only): speaks the kind's line on
       open, stops it on close. *Done when:* tested with a fake player.
 - [ ] **T12** `PaperFailureScreen`: F23's three pages without the text-only

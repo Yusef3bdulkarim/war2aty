@@ -67,6 +67,22 @@ void main() {
 
     expect(player.stops, 1);
   });
+
+  test('playToEnd plays the asset path of the line it is given', () async {
+    final result = await speak.playToEnd(VoiceLine.waitingReading);
+
+    expect(result.isOk, isTrue);
+    expect(player.played, ['assets/voice_lines/waiting_reading.m4a']);
+  });
+
+  test('playToEnd returns the player failure rather than throwing', () async {
+    player.failure = const AudioPlaybackFailure();
+
+    final result = await speak.playToEnd(VoiceLine.noArabicVoice);
+
+    expect(result.isErr, isTrue);
+    expect(result.failureOrNull, isA<AudioPlaybackFailure>());
+  });
 }
 
 final class _FakeFixedLinePlayer implements FixedLinePlayer {
@@ -77,6 +93,13 @@ final class _FakeFixedLinePlayer implements FixedLinePlayer {
 
   @override
   Future<Result<void, AppFailure>> play(String assetPath) async {
+    if (failure != null) return Err(failure!);
+    played.add(assetPath);
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> playToEnd(String assetPath) async {
     if (failure != null) return Err(failure!);
     played.add(assetPath);
     return const Ok(null);
