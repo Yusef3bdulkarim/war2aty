@@ -81,6 +81,7 @@ import 'package:war2aty/features/capture/domain/services/image_downscaler.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
 import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
+import 'package:war2aty/features/explain/domain/repositories/explain_repository.dart';
 import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
 import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
 import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
@@ -593,6 +594,43 @@ final class FakeImageDownscaler implements ImageDownscaler {
     return Ok(output);
   }
 }
+
+final class FakeExplainRepository implements ExplainRepository {
+  FakeExplainRepository({this.output, this.fails = false, this.failure});
+
+  ExplainOutcome? output;
+  bool fails;
+
+  AppFailure? failure;
+
+  Completer<void>? gate;
+
+  int explainCount = 0;
+  CapturedPhoto? lastPhoto;
+
+  @override
+  Future<Result<ExplainOutcome, AppFailure>> explain(
+    CapturedPhoto photo,
+  ) async {
+    explainCount++;
+    lastPhoto = photo;
+    final gate = this.gate;
+    if (gate != null) await gate.future;
+    if (fails) return Err(failure ?? const AnalysisServiceFailure());
+    return Ok(output ?? _defaultExplainOutcome());
+  }
+}
+
+ExplainOutcome _defaultExplainOutcome() => (
+  explanation: PaperExplanation(
+    title: 'فاتورة كهرباء',
+    status: PaperStatus.success,
+    paragraphs: const ['الفقرة الأولى.'],
+    todo: const PaperTodo(required: true, text: 'روح لأقرب فرع'),
+  ),
+  sessionId: 'session-1',
+  explainSchemaVersion: '1.0',
+);
 
 /// Scriptable [ImageCropper] — no `image` package/isolate work.
 final class FakeImageCropper implements ImageCropper {

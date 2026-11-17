@@ -178,6 +178,7 @@ import '../../features/bootstrap/domain/usecases/initialize_app.dart';
 import '../../features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import '../../features/capture/data/repositories/system_camera_permission_repository.dart';
 import '../../features/capture/data/services/image_package_cropper.dart';
+import '../../features/capture/data/services/image_package_downscaler.dart';
 import '../../features/capture/data/services/image_package_rotator.dart';
 import '../../features/capture/data/services/io_capture_file_cleanup.dart';
 import '../../features/capture/data/services/platform_camera_service.dart';
@@ -186,6 +187,7 @@ import '../../features/capture/domain/entities/captured_photo.dart';
 import '../../features/capture/domain/repositories/camera_permission_repository.dart';
 import '../../features/capture/domain/services/capture_file_cleanup.dart';
 import '../../features/capture/domain/services/image_cropper.dart';
+import '../../features/capture/domain/services/image_downscaler.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
@@ -194,6 +196,7 @@ import '../../features/capture/domain/usecases/create_analysis_session.dart';
 import '../../features/capture/domain/usecases/crop_image.dart';
 import '../../features/capture/domain/usecases/decide_analysis_route.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
+import '../../features/capture/domain/usecases/downscale_photo.dart';
 import '../../features/capture/domain/usecases/focus_camera.dart';
 import '../../features/capture/domain/usecases/get_camera_permission.dart';
 import '../../features/capture/domain/usecases/initialize_camera.dart';
@@ -210,6 +213,8 @@ import '../../features/explain/data/datasources/edge_function_explain_remote_dat
 import '../../features/explain/data/datasources/explain_remote_data_source.dart';
 import '../../features/explain/data/repositories/default_explain_repository.dart';
 import '../../features/explain/domain/repositories/explain_repository.dart';
+import '../../features/explain/domain/services/paper_explain_runner.dart';
+import '../../features/explain/domain/usecases/explain_and_save_paper.dart';
 import '../../features/explain/domain/usecases/explain_paper.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
@@ -657,6 +662,8 @@ void _registerCapture() {
     )
     ..registerLazySingleton<ImageRotator>(ImagePackageRotator.new)
     ..registerFactory<RotateImage>(() => RotateImage(getIt()))
+    ..registerLazySingleton<ImageDownscaler>(ImagePackageDownscaler.new)
+    ..registerFactory<DownscalePhoto>(() => DownscalePhoto(getIt()))
     // The preview screen's manual drag-crop (F15).
     ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
     ..registerFactory<CropImage>(() => CropImage(getIt()))
@@ -1197,7 +1204,20 @@ void _registerExplain(AppEnvironment env) {
         config: getIt(),
       ),
     )
-    ..registerFactory<ExplainPaper>(() => ExplainPaper(getIt()));
+    ..registerFactory<ExplainPaper>(() => ExplainPaper(getIt()))
+    ..registerFactory<ExplainAndSavePaper>(
+      () => ExplainAndSavePaper(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+      ),
+    )
+    ..registerLazySingleton<PaperExplainRunner>(
+      () => PaperExplainRunner(getIt()),
+    );
 }
 
 /// F27-T20. The published privacy policy and terms, and the support mailbox.

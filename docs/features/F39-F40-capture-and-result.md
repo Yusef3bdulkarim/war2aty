@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 6 / 52
+- **Progress:** 7 / 52
 
 ## Why this feature exists
 
@@ -276,7 +276,7 @@ finished and the next one does not start.
       left for **T07**, when `ExplainAndSavePaper` wires them in, since no task
       explicitly owns it. Gate: `dart format` clean; `flutter analyze` clean;
       `flutter test test/features/capture` +240, all passed.
-- [ ] **T07** The explain-and-save runner (D2): `ExplainAndSavePaper` in
+- [x] **T07** The explain-and-save runner (D2): `ExplainAndSavePaper` in
       `features/explain/domain` — downscale → `ExplainPaper` → `SavePaper`
       (photographedAt = now) → `SyncDailyUsage` (best effort) → `Ok(paperId)`,
       and deletes every temp file it created once the save is done.
@@ -288,6 +288,46 @@ finished and the next one does not start.
       listener that leaves before the end does **not** stop the save, and the
       temp files are gone after success and kept after a failure (retry needs
       them). No log line carries content.
+      *Found:* `photographedAt` uses an injectable `clock` (`DateTime
+      Function()?`, defaulting to `DateTime.now`), matching
+      `DriftPapersRepository`'s own convention rather than a bare
+      `DateTime.now()` call, so the value is assertable in a test. Each failure
+      is logged once, at its origin, never twice: `DefaultExplainRepository`
+      already logs every explain failure itself, so `ExplainAndSavePaper` logs
+      only the two steps nothing else logs — a downscale failure
+      (`LogStage.capture`) and a `SavePaper` failure after a successful explain
+      (`LogStage.save`, the "spent a slot with nothing to show" case the Risks
+      section names) — both unconditionally, regardless of whether a screen is
+      still watching. `ExplainAndSavePaper` owns the **original** photo's temp
+      file too, not only the file it creates itself: it deletes both
+      `photo.path` and the downscaled path (deduped when downscaling was a
+      no-op) on success, and keeps both on any failure, since T21 hands
+      temp-file ownership to the runner at hand-off and row 2.11 of the final
+      test list requires the cache clear after a success. `code-reviewer`
+      (opus) caught a real bug before commit: `PaperExplainRunner._run` cleared
+      `_controller` *after* adding the result to the broadcast stream, so a
+      listener that reacted to the result by calling `start()` again (e.g. an
+      automatic retry) would hit the "already running" `StateError` even though
+      the job had, from its own point of view, already finished; fixed by
+      clearing `_controller` before `controller.add(result)`. If
+      `ExplainAndSavePaper` itself ever throws instead of returning a `Result`
+      — a contract violation, since every dependency it calls is supposed to
+      catch its own errors — `PaperExplainRunner` resets `_controller` but
+      never adds an error or closes the stream, so a listener on that run
+      would wait forever with no event; this is accepted as "a dependency
+      broke its contract" rather than invented as a modelled failure, but
+      **T20** should know a silently-hanging stream is possible if that
+      contract is ever violated. **For T20:** the
+      waiting cubit must check `runner.isRunning` before calling `start()` —
+      D2's back-and-rescan means a user can reach a second `start()` call for
+      real, not just as a programmer error, and the runner has no "join" API
+      yet for an already-running job, only `isRunning`; and T20 must not log
+      any failure itself, since every failure kind is already logged once at
+      its origin (downscale, explain or save) regardless of whether a screen is
+      left to show it. **For T13:** the runner does not retain the photo past
+      the end of its job, so "retry re-sends the runner's retained photo" needs
+      its own place to hold it (outside the runner) once that task wires up the
+      hand-off.
 
 ### Phase B — the failure screens (rehosted from F23)
 

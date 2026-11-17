@@ -12,8 +12,12 @@ import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/save_paper.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/papers/usecases/watch_papers.dart';
+import 'package:war2aty/features/capture/domain/services/image_downscaler.dart';
+import 'package:war2aty/features/capture/domain/usecases/downscale_photo.dart';
 import 'package:war2aty/features/explain/data/datasources/explain_remote_data_source.dart';
 import 'package:war2aty/features/explain/domain/repositories/explain_repository.dart';
+import 'package:war2aty/features/explain/domain/services/paper_explain_runner.dart';
+import 'package:war2aty/features/explain/domain/usecases/explain_and_save_paper.dart';
 import 'package:war2aty/features/explain/domain/usecases/explain_paper.dart';
 
 import '../support/fakes.dart';
@@ -65,6 +69,20 @@ void main() {
     test('the repository and the use case resolve', () {
       expect(getIt<ExplainRepository>(), isA<ExplainRepository>());
       expect(getIt<ExplainPaper>(), isA<ExplainPaper>());
+    });
+
+    test('the downscaler and the explain-and-save runner resolve', () {
+      expect(getIt<ImageDownscaler>(), isA<ImageDownscaler>());
+      expect(getIt<DownscalePhoto>(), isA<DownscalePhoto>());
+      expect(getIt<ExplainAndSavePaper>(), isA<ExplainAndSavePaper>());
+      expect(getIt<PaperExplainRunner>(), isA<PaperExplainRunner>());
+    });
+
+    test('the runner is a single, app-scoped instance', () {
+      expect(
+        identical(getIt<PaperExplainRunner>(), getIt<PaperExplainRunner>()),
+        isTrue,
+      );
     });
   });
 }
