@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 5 / 52
+- **Progress:** 6 / 52
 
 ## Why this feature exists
 
@@ -265,8 +265,17 @@ finished and the next one does not start.
       gallery picker actually hands back on the device. Gate: `dart format`
       0 of 4 changed; `flutter analyze` 0 errors / 0 warnings / 21 info
       (pre-existing); full `flutter test` +3468, all passed.
-- [ ] **T06** `DownscalePhoto` use case wrapping T05. *Done when:* tested
+- [x] **T06** `DownscalePhoto` use case wrapping T05. *Done when:* tested
       against a fake downscaler.
+      *Found:* `DownscalePhoto` is a thin wrapper (mirrors `RotateImage`), no
+      findings of substance; `FakeImageDownscaler` added to
+      `test/support/fakes.dart` next to `FakeImageRotator`. `code-reviewer`
+      (opus) flagged — not a T06 defect — that neither
+      `ImageDownscaler`/`ImagePackageDownscaler` nor `DownscalePhoto` are
+      registered in `app/di/service_locator.dart` yet; that registration is
+      left for **T07**, when `ExplainAndSavePaper` wires them in, since no task
+      explicitly owns it. Gate: `dart format` clean; `flutter analyze` clean;
+      `flutter test test/features/capture` +240, all passed.
 - [ ] **T07** The explain-and-save runner (D2): `ExplainAndSavePaper` in
       `features/explain/domain` — downscale → `ExplainPaper` → `SavePaper`
       (photographedAt = now) → `SyncDailyUsage` (best effort) → `Ok(paperId)`,

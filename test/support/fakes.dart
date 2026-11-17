@@ -77,6 +77,7 @@ import 'package:war2aty/features/capture/domain/repositories/camera_permission_r
 import 'package:war2aty/features/capture/domain/services/camera_service.dart';
 import 'package:war2aty/features/capture/domain/services/capture_file_cleanup.dart';
 import 'package:war2aty/features/capture/domain/services/image_cropper.dart';
+import 'package:war2aty/features/capture/domain/services/image_downscaler.dart';
 import 'package:war2aty/features/capture/domain/services/image_picker_service.dart';
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
 import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
@@ -567,6 +568,29 @@ final class FakeImageRotator implements ImageRotator {
     if (fails) return const Err(ImageProcessingFailure());
     // A no-op rotation returns the original, mirroring the real rotator.
     return Ok(quarterTurns % 4 == 0 ? photo : output);
+  }
+}
+
+final class FakeImageDownscaler implements ImageDownscaler {
+  FakeImageDownscaler({
+    this.output = const CapturedPhoto('/tmp/downscaled.jpg'),
+    this.fails = false,
+  });
+
+  final CapturedPhoto output;
+  bool fails;
+
+  int downscaleCount = 0;
+  CapturedPhoto? lastPhoto;
+
+  @override
+  Future<Result<CapturedPhoto, AppFailure>> downscale(
+    CapturedPhoto photo,
+  ) async {
+    downscaleCount++;
+    lastPhoto = photo;
+    if (fails) return const Err(ImageProcessingFailure());
+    return Ok(output);
   }
 }
 
