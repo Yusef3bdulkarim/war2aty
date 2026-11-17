@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 4 / 52
+- **Progress:** 5 / 52
 
 ## Why this feature exists
 
@@ -239,7 +239,7 @@ finished and the next one does not start.
       (pre-existing); the new test file 10/10, plus the full
       `test/core/usage`, `test/features/capture`, `test/features/home` and the
       usage-hint/fallback app tests (430 total) all passed.
-- [ ] **T05** `ImageDownscaler` interface (`features/capture/domain/services`)
+- [x] **T05** `ImageDownscaler` interface (`features/capture/domain/services`)
       and `ImagePackageDownscaler` (`data/services`): longest edge 2000 px,
       JPEG 85, in `Isolate.run`; returns the input path untouched when already
       within bounds; writes to the temp directory and reports the new path so
@@ -247,6 +247,24 @@ finished and the next one does not start.
       small one (same path back), a portrait and a landscape one (edge picked
       correctly), and an undecodable file → `ImageProcessingFailure`, never a
       throw.
+      *Found:* mirrors `ImageRotator`/`ImagePackageRotator` exactly (injectable
+      temp dir, decode/resize/encode inside `Isolate.run`, the whole method in
+      one `try`/`on Object`). The isolate returns a private record
+      `({Uint8List? encoded})?` — `null` means undecodable, `encoded: null`
+      means already within bounds (no file written, `Ok(photo)` returned
+      before the temp dir is even looked up) — `code-reviewer` (opus) checked
+      this crosses the isolate boundary safely and confirmed `image` 4.9.1's
+      `decodeImage` already applies EXIF orientation before the width/height
+      read, so the longest-edge choice is correct for a rotated JPEG too; no
+      action items. Added an extra assertion (not required, `code-reviewer`'s
+      one optional suggestion) that the two in-bounds tests also check
+      `tempDir.listSync()` stays at length 1. **For T07:** an HEIC gallery
+      photo that reaches this downscaler without being decodable by the
+      `image` package ends as `ImageProcessingFailure` — expected per this
+      task's spec, but the device pass (row 1.2) should confirm what the
+      gallery picker actually hands back on the device. Gate: `dart format`
+      0 of 4 changed; `flutter analyze` 0 errors / 0 warnings / 21 info
+      (pre-existing); full `flutter test` +3468, all passed.
 - [ ] **T06** `DownscalePhoto` use case wrapping T05. *Done when:* tested
       against a fake downscaler.
 - [ ] **T07** The explain-and-save runner (D2): `ExplainAndSavePaper` in
