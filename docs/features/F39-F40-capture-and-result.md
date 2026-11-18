@@ -389,7 +389,7 @@ finished and the next one does not start.
 
 ### Phase C — capture
 
-- [ ] **T14** `CaptureGateCubit` (presentation, `features/capture`): one
+- [x] **T14** `CaptureGateCubit` (presentation, `features/capture`): one
       `check(source)` → `CaptureGateOpen(source)` / `CaptureGateOffline` /
       `CaptureGateServiceOff`, busy-guarded so a double tap checks once.
       *Done when:* tested over a fake `CheckCaptureReadiness`.
