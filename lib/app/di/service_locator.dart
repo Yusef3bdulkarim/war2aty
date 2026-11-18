@@ -191,6 +191,7 @@ import '../../features/capture/domain/services/image_downscaler.dart';
 import '../../features/capture/domain/services/image_picker_service.dart';
 import '../../features/capture/domain/services/image_rotator.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
+import '../../features/capture/domain/usecases/check_capture_readiness.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/domain/usecases/create_analysis_session.dart';
 import '../../features/capture/domain/usecases/crop_image.dart';
@@ -207,6 +208,7 @@ import '../../features/capture/domain/usecases/rotate_image.dart';
 import '../../features/capture/domain/usecases/set_camera_flash.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
+import '../../features/capture/presentation/cubit/capture_gate_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
 import '../../features/capture/presentation/cubit/image_preview_cubit.dart';
 import '../../features/explain/data/datasources/edge_function_explain_remote_data_source.dart';
@@ -695,6 +697,12 @@ void _registerCapture() {
         ocrHandoff: getIt(),
         cleanupFiles: getIt(),
       ),
+    )
+    ..registerFactory<CheckCaptureReadiness>(
+      () => CheckCaptureReadiness(getIt(), getIt()),
+    )
+    ..registerFactory<CaptureGateCubit>(
+      () => CaptureGateCubit(checkCaptureReadiness: getIt()),
     );
 }
 

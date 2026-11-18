@@ -56,13 +56,13 @@ void main() {
     test('emits offline when connectivity is down', () async {
       final cubit = _cubitWith(connected: false);
       await cubit.check(CaptureSource.camera);
-      expect(cubit.state, isA<CaptureGateOffline>());
+      expect(cubit.state, const CaptureGateOffline(CaptureSource.camera));
     });
 
     test('emits serviceOff when explain_enabled is known false', () async {
       final cubit = _cubitWith(explainEnabled: false);
-      await cubit.check(CaptureSource.camera);
-      expect(cubit.state, isA<CaptureGateServiceOff>());
+      await cubit.check(CaptureSource.gallery);
+      expect(cubit.state, const CaptureGateServiceOff(CaptureSource.gallery));
     });
 
     test(

@@ -23,6 +23,8 @@ import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
+import '../../features/capture/presentation/cubit/capture_gate_cubit.dart';
+import '../../features/capture/presentation/cubit/capture_gate_state.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
 import '../../features/capture/presentation/cubit/image_preview_cubit.dart';
 import '../../features/capture/presentation/screens/camera_capture_screen.dart';
@@ -530,23 +532,54 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.home,
-                builder: (context, state) => BlocProvider<HomeCubit>(
-                  create: (_) => getIt<HomeCubit>()..start(),
-                  // Pushed, not switched to: the user comes back to Home when
-                  // the scan is done or cancelled, and Home keeps its scroll
-                  // position and its live streams while they are away.
-                  child: HomeScreen(
-                    onContentLoaded: launchStatus?.markFirstScreenReady,
-                    onScan: () => context.push(
-                      AppRoutes.captureWith(CaptureSource.camera),
+                builder: (context, state) => MultiBlocProvider(
+                  providers: [
+                    BlocProvider<HomeCubit>(
+                      create: (_) => getIt<HomeCubit>()..start(),
                     ),
-                    onPickImage: () => context.push(
-                      AppRoutes.captureWith(CaptureSource.gallery),
+                    BlocProvider<CaptureGateCubit>(
+                      create: (_) => getIt<CaptureGateCubit>(),
                     ),
-                    onOpenDocument: (document) => context.push(
-                      AppRoutes.documentDetailsWith(document.id),
+                  ],
+                  child: BlocListener<CaptureGateCubit, CaptureGateState>(
+                    listenWhen: (_, current) => current is! CaptureGateIdle,
+                    listener: (context, gateState) {
+                      switch (gateState) {
+                        case CaptureGateOpen(:final source):
+                          context.push(AppRoutes.captureWith(source));
+                        case CaptureGateOffline(:final source):
+                          context.push(
+                            AppRoutes.paperFailureWith(
+                              PaperFailureKind.offline,
+                              source: source,
+                            ),
+                          );
+                        case CaptureGateServiceOff(:final source):
+                          context.push(
+                            AppRoutes.paperFailureWith(
+                              PaperFailureKind.serviceProblem,
+                              source: source,
+                            ),
+                          );
+                        case CaptureGateIdle():
+                          break;
+                      }
+                    },
+                    child: Builder(
+                      builder: (context) => HomeScreen(
+                        onContentLoaded: launchStatus?.markFirstScreenReady,
+                        onScan: () => context.read<CaptureGateCubit>().check(
+                          CaptureSource.camera,
+                        ),
+                        onPickImage: () => context
+                            .read<CaptureGateCubit>()
+                            .check(CaptureSource.gallery),
+                        onOpenDocument: (document) => context.push(
+                          AppRoutes.documentDetailsWith(document.id),
+                        ),
+                        onSeeAllDocuments: () => context.go(AppRoutes.saved),
+                      ),
                     ),
-                    onSeeAllDocuments: () => context.go(AppRoutes.saved),
                   ),
                 ),
               ),

@@ -28,21 +28,27 @@ final class CaptureGateOpen extends CaptureGateState {
 }
 
 final class CaptureGateOffline extends CaptureGateState {
-  const CaptureGateOffline();
+  const CaptureGateOffline(this.source);
+
+  final CaptureSource source;
 
   @override
-  bool operator ==(Object other) => other.runtimeType == runtimeType;
+  bool operator ==(Object other) =>
+      other is CaptureGateOffline && other.source == source;
 
   @override
-  int get hashCode => runtimeType.hashCode;
+  int get hashCode => source.hashCode;
 }
 
 final class CaptureGateServiceOff extends CaptureGateState {
-  const CaptureGateServiceOff();
+  const CaptureGateServiceOff(this.source);
+
+  final CaptureSource source;
 
   @override
-  bool operator ==(Object other) => other.runtimeType == runtimeType;
+  bool operator ==(Object other) =>
+      other is CaptureGateServiceOff && other.source == source;
 
   @override
-  int get hashCode => runtimeType.hashCode;
+  int get hashCode => source.hashCode;
 }

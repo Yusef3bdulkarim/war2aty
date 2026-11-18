@@ -23,8 +23,8 @@ final class CaptureGateCubit extends Cubit<CaptureGateState> {
 
     emit(switch (readiness) {
       CaptureReadinessReady() => CaptureGateOpen(source),
-      CaptureReadinessOffline() => const CaptureGateOffline(),
-      CaptureReadinessServiceOff() => const CaptureGateServiceOff(),
+      CaptureReadinessOffline() => CaptureGateOffline(source),
+      CaptureReadinessServiceOff() => CaptureGateServiceOff(source),
     });
   }
 }
