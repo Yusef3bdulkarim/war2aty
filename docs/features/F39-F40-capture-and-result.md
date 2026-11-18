@@ -397,7 +397,7 @@ finished and the next one does not start.
       `serviceOff` open `/paper-failure` (offline / serviceProblem), `ready`
       opens the capture route as today. *Done when:* a routing test per
       outcome; Home's own layout is unchanged.
-- [ ] **T16** `ImagePreviewCubit` gains `confirm`, ending in
+- [x] **T16** `ImagePreviewCubit` gains `confirm`, ending in
       `ImagePreviewConfirmed(photo)`, **beside** the old `proceed()`; the
       screen keeps calling `proceed()` until T21, so the old flow still runs.
       `confirm` hands the photo's temp files to its caller.
