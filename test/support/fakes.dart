@@ -60,6 +60,7 @@ import 'package:war2aty/core/storage/analysis_session_storage.dart';
 import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/usage/daily_usage.dart';
 import 'package:war2aty/core/usage/usage_repository.dart';
+import 'package:war2aty/core/voice/fixed_line_player.dart';
 import 'package:war2aty/features/audio_reader/domain/entities/tts_event.dart';
 import 'package:war2aty/features/audio_reader/domain/services/reading_queue.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
@@ -1927,4 +1928,33 @@ SavedPaper savedPaperWith({
     savedAt: savedAt ?? DateTime(2026, 11, 16, 9, 2),
     encryptedImagePath: encryptedImagePath,
   );
+}
+
+final class FakeFixedLinePlayer implements FixedLinePlayer {
+  final List<String> played = [];
+  int stopCount = 0;
+  int disposeCount = 0;
+  AppFailure? failure;
+
+  @override
+  Future<Result<void, AppFailure>> play(String assetPath) async {
+    final failure = this.failure;
+    if (failure != null) return Err(failure);
+    played.add(assetPath);
+    return const Ok(null);
+  }
+
+  @override
+  Future<Result<void, AppFailure>> playToEnd(String assetPath) async {
+    final failure = this.failure;
+    if (failure != null) return Err(failure);
+    played.add(assetPath);
+    return const Ok(null);
+  }
+
+  @override
+  Future<void> stop() async => stopCount++;
+
+  @override
+  Future<void> dispose() async => disposeCount++;
 }

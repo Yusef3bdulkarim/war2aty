@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 8 / 52
+- **Progress:** 9 / 52
 
 ## Why this feature exists
 
@@ -364,8 +364,15 @@ finished and the next one does not start.
       *Found:* review caught that `play()` and a re-entrant `playToEnd()` did
       not complete the pending completer, orphaning the first caller — fixed by
       cancelling any in-flight completer at the top of both methods.
-- [ ] **T11** `PaperFailureCubit` (use cases only): speaks the kind's line on
+- [x] **T11** `PaperFailureCubit` (use cases only): speaks the kind's line on
       open, stops it on close. *Done when:* tested with a fake player.
+      *Found:* straightforward — depends on `SpeakFixedLine` only, `_lineFor`
+      switch is exhaustive with no wildcard so a new `PaperFailureKind` value
+      forces a compile error. `FakeFixedLinePlayer` promoted from the
+      test-local copy in `speak_fixed_line_test` to `fakes.dart` for reuse by
+      T12+. Gate: format 0 changed, analyze 0 errors / 0 warnings / 21 info
+      (pre-existing), 12/12 tests passed (5 new + 7 pre-existing
+      `speak_fixed_line_test`).
 - [ ] **T12** `PaperFailureScreen`: F23's three pages without the text-only
       parts. Actions per kind: `offline` → «جرّب تاني» + Home;
       `serviceProblem` → «جرّب تاني» + Home; `limitReached` → Home only. RTL,
