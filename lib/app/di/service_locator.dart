@@ -212,10 +212,13 @@ import '../../features/capture/presentation/cubit/image_preview_cubit.dart';
 import '../../features/explain/data/datasources/edge_function_explain_remote_data_source.dart';
 import '../../features/explain/data/datasources/explain_remote_data_source.dart';
 import '../../features/explain/data/repositories/default_explain_repository.dart';
+import '../../features/explain/domain/entities/paper_failure_kind.dart';
 import '../../features/explain/domain/repositories/explain_repository.dart';
 import '../../features/explain/domain/services/paper_explain_runner.dart';
 import '../../features/explain/domain/usecases/explain_and_save_paper.dart';
 import '../../features/explain/domain/usecases/explain_paper.dart';
+import '../../features/explain/presentation/cubit/paper_failure_cubit.dart';
+import '../../features/explain/presentation/paper_retry_holder.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
@@ -1217,6 +1220,10 @@ void _registerExplain(AppEnvironment env) {
     )
     ..registerLazySingleton<PaperExplainRunner>(
       () => PaperExplainRunner(getIt()),
+    )
+    ..registerLazySingleton<PaperRetryHolder>(PaperRetryHolder.new)
+    ..registerFactoryParam<PaperFailureCubit, PaperFailureKind, void>(
+      (kind, _) => PaperFailureCubit(kind: kind, speakFixedLine: getIt()),
     );
 }
 

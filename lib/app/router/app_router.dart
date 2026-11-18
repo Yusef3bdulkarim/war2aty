@@ -20,6 +20,7 @@ import '../../features/analysis/presentation/image_analysis_session_holder.dart'
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
 import '../../features/analysis/presentation/screens/ocr_review_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
+import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
 import '../../features/capture/presentation/cubit/gallery_picker_cubit.dart';
@@ -28,6 +29,11 @@ import '../../features/capture/presentation/screens/camera_capture_screen.dart';
 import '../../features/capture/presentation/screens/camera_permission_gate.dart';
 import '../../features/capture/presentation/screens/gallery_picker_screen.dart';
 import '../../features/capture/presentation/screens/image_preview_screen.dart';
+import '../../features/explain/domain/entities/paper_failure_kind.dart';
+import '../../features/explain/domain/services/paper_explain_runner.dart';
+import '../../features/explain/presentation/cubit/paper_failure_cubit.dart';
+import '../../features/explain/presentation/paper_retry_holder.dart';
+import '../../features/explain/presentation/screens/paper_failure_screen.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/ocr/presentation/cubit/ocr_processing_cubit.dart';
@@ -72,6 +78,8 @@ abstract final class AppRoutes {
   static const String ocrReview = '/ocr-review';
   static const String result = '/result';
   static const String documentDetails = '/documents';
+  static const String paperFailure = '/paper-failure';
+  static const String paperWaiting = '/paper-waiting';
   static const String reminderManual = '/reminders/manual';
   static const String reminderSuccess = '/reminders/success';
 
@@ -98,6 +106,17 @@ abstract final class AppRoutes {
   /// kills and restores the app mid-scan.
   static String captureWith(CaptureSource source) =>
       '$capture?source=${source.name}';
+
+  static String paperFailureWith(
+    PaperFailureKind kind, {
+    CaptureSource? source,
+  }) => Uri(
+    path: paperFailure,
+    queryParameters: {
+      'kind': kind.name,
+      if (source != null) 'source': source.name,
+    },
+  ).toString();
 
   /// The crop/rotate preview for the acquired image at [imagePath].
   ///
@@ -168,6 +187,26 @@ GoRouter createAppRouter({
           context,
           CaptureSource.parse(state.uri.queryParameters['source']),
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.paperFailure,
+        builder: (context, state) {
+          final kindName = state.uri.queryParameters['kind'];
+          final kind = PaperFailureKind.values.asNameMap()[kindName];
+          if (kind == null) return const _BackToHome();
+
+          final sourceName = state.uri.queryParameters['source'];
+          final source = CaptureSource.values.asNameMap()[sourceName];
+
+          return BlocProvider<PaperFailureCubit>(
+            create: (_) => getIt<PaperFailureCubit>(param1: kind),
+            child: PaperFailureScreen(
+              kind: kind,
+              onRetry: () => _handleFailureRetry(context, source),
+              onHome: () => _handleFailureHome(context),
+            ),
+          );
+        },
       ),
       // Pushed on top of the capture route: retake pops back to the camera or
       // picker; confirm leaves the flow. Full-screen, outside the shell.
@@ -598,6 +637,31 @@ String? _firstRunRedirect(
     OnboardingRequired() => inFirstRun ? null : AppRoutes.onboarding,
     OnboardingCompleted() => inFirstRun ? AppRoutes.home : null,
   };
+}
+
+void _handleFailureRetry(BuildContext context, CaptureSource? source) {
+  final holder = getIt<PaperRetryHolder>();
+  final photo = holder.photo;
+  holder.clear();
+  if (photo != null) {
+    getIt<PaperExplainRunner>().start(photo);
+    context.go(AppRoutes.paperWaiting);
+  } else if (source != null) {
+    context.go(AppRoutes.home);
+    context.push(AppRoutes.captureWith(source));
+  } else {
+    context.go(AppRoutes.home);
+  }
+}
+
+void _handleFailureHome(BuildContext context) {
+  final holder = getIt<PaperRetryHolder>();
+  final photo = holder.photo;
+  holder.clear();
+  if (photo != null) {
+    unawaited(getIt<CleanupCaptureFiles>()([photo.path]));
+  }
+  context.go(AppRoutes.home);
 }
 
 /// The entry point of the capture flow, for the source the user chose.

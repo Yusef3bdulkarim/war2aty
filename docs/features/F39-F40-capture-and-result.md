@@ -373,13 +373,13 @@ finished and the next one does not start.
       T12+. Gate: format 0 changed, analyze 0 errors / 0 warnings / 21 info
       (pre-existing), 12/12 tests passed (5 new + 7 pre-existing
       `speak_fixed_line_test`).
-- [ ] **T12** `PaperFailureScreen`: F23's three pages without the text-only
+- [x] **T12** `PaperFailureScreen`: F23's three pages without the text-only
       parts. Actions per kind: `offline` → «جرّب تاني» + Home;
       `serviceProblem` → «جرّب تاني» + Home; `limitReached` → Home only. RTL,
       Large Text, icon + text on every state.
       *Done when:* widget tests per kind, at the large text scale, in both
-      locales.
-- [ ] **T13** Route `/paper-failure?kind=…` plus the retry hand-off. After a
+      locales. ✔ 72cea61 — 20 tests, no code-review findings.
+- [x] **T13** Route `/paper-failure?kind=…` plus the retry hand-off. After a
       photo (from waiting), retry re-sends the runner's retained photo, and
       leaving without retrying deletes the temp files. Before a photo (from
       the Home gate, T15), there is nothing to re-send: retry re-runs the gate
