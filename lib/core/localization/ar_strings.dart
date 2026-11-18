@@ -883,6 +883,19 @@ final class ArStrings implements AppStrings {
   @override
   String get analysisBackToHome => 'العودة للرئيسية';
   @override
+  String get paperOfflineMessage => 'علشان نشرح الورقة محتاجين إنترنت.';
+  @override
+  String get paperServiceFailedMessage => 'مقدرناش نكمّل شرح الورقة دلوقتي.';
+  @override
+  String get paperLimitReachedMessage => 'استخدمت كل تحليلات النهارده.';
+  @override
+  String paperLimitReachedMessageWithLimit(int limit) => switch (limit) {
+    <= 1 => 'عندك تحليل ذكي واحد كل يوم، واستخدمته.',
+    2 => 'عندك تحليلين ذكيين كل يوم، واستخدمتهم الاتنين.',
+    <= 10 => 'عندك $limit تحليلات ذكية كل يوم، واستخدمتهم كلهم.',
+    _ => 'عندك $limit تحليل ذكي كل يوم، واستخدمتهم كلهم.',
+  };
+  @override
   String get resultListen => 'استمع';
   @override
   String get resultSavePaper => 'حفظ الورقة';

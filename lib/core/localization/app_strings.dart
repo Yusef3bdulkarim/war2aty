@@ -694,6 +694,11 @@ abstract interface class AppStrings {
   /// Leaves a state page for the home screen.
   String get analysisBackToHome;
 
+  String get paperOfflineMessage;
+  String get paperServiceFailedMessage;
+  String get paperLimitReachedMessage;
+  String paperLimitReachedMessageWithLimit(int limit);
+
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.
   String get resultListen;

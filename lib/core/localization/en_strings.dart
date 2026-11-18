@@ -874,6 +874,19 @@ final class EnStrings implements AppStrings {
   @override
   String get analysisBackToHome => 'Back to home';
   @override
+  String get paperOfflineMessage =>
+      'We need the internet to explain this paper.';
+  @override
+  String get paperServiceFailedMessage =>
+      'We could not finish explaining this paper right now.';
+  @override
+  String get paperLimitReachedMessage =>
+      "You have used all of today's analyses.";
+  @override
+  String paperLimitReachedMessageWithLimit(int limit) => limit == 1
+      ? 'You get 1 smart analysis a day, and you have used it.'
+      : 'You get $limit smart analyses a day, and you have used them all.';
+  @override
   String get resultListen => 'Listen';
   @override
   String get resultSavePaper => 'Save paper';
