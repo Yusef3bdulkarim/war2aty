@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,20 +17,11 @@ import '../cubit/image_preview_cubit.dart';
 import '../cubit/image_preview_state.dart';
 import '../widgets/draggable_crop_overlay.dart';
 
-// From `Waraqti.dc.html` → `preview`.
 const double _controlBox = 42;
 const double _imageMaxWidth = 320;
-const double _primaryHeight = 54;
-const double _secondaryHeight = 50;
+const double _continueHeight = 68;
 const double _buttonRadius = 15;
 
-/// The crop / rotate / confirm screen the user lands on after acquiring an
-/// image.
-///
-/// The design merges those three steps into this one «قص الصورة» screen: a
-/// fixed framing guide (not a draggable crop), a working 90° rotate, and a
-/// confirm / retake footer. Rotation is shown live with a cheap widget turn and
-/// only baked into a file when the user confirms.
 class ImagePreviewScreen extends StatelessWidget {
   const ImagePreviewScreen({
     required this.imagePath,
@@ -39,25 +31,13 @@ class ImagePreviewScreen extends StatelessWidget {
     super.key,
   });
 
-  /// The acquired image to preview, before any rotation.
   final String imagePath;
-
-  /// Offline route: hands the created analysis session to the next stage
-  /// (F04's OCR screen).
   final void Function(AnalysisSession session) onSessionCreated;
-
-  /// Online route (F13): the confirmed image is ready and
-  /// handed off via `ImageAnalysisSessionHolder` — the on-device OCR screen
-  /// is skipped; the OCR review reads the page online instead (F14).
   final void Function(AnalysisSession session) onOnlineReady;
-
-  /// Backs out to re-acquire the image (camera or gallery).
   final VoidCallback onRetake;
 
   @override
   Widget build(BuildContext context) {
-    // Light status-bar icons on the dark backdrop; the app's default is
-    // dark ones for its light screens (F21).
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -70,9 +50,6 @@ class ImagePreviewScreen extends StatelessWidget {
               s is ImagePreviewOnlineReady,
           listener: (context, state) {
             switch (state) {
-              // Straight on: confirming is the decision. The quality check
-              // that used to stand here — and could send the user back to
-              // retake — is gone (F35-T15).
               case ImagePreviewConfirmed():
                 unawaited(context.read<ImagePreviewCubit>().proceed());
               case ImagePreviewSessionCreated(:final session):
@@ -101,7 +78,6 @@ class ImagePreviewScreen extends StatelessWidget {
               child: Column(
                 children: [
                   _TopBar(
-                    onBack: onRetake,
                     onRotate: isProcessing
                         ? null
                         : context.read<ImagePreviewCubit>().rotateClockwise,
@@ -118,10 +94,9 @@ class ImagePreviewScreen extends StatelessWidget {
                     ),
                   ),
                   _ActionBar(
-                    onUse: isProcessing
+                    onContinue: isProcessing
                         ? null
                         : context.read<ImagePreviewCubit>().confirm,
-                    onRetake: isProcessing ? null : onRetake,
                   ),
                 ],
               ),
@@ -133,17 +108,14 @@ class ImagePreviewScreen extends StatelessWidget {
   }
 }
 
-/// Back, title, and the rotate control.
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.onBack, required this.onRotate});
+  const _TopBar({required this.onRotate});
 
-  final VoidCallback onBack;
   final VoidCallback? onRotate;
 
   @override
   Widget build(BuildContext context) {
     final s = context.strings;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
@@ -152,20 +124,12 @@ class _TopBar extends StatelessWidget {
         AppSpacing.md,
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           _CircleButton(
-            icon: Icons.close_rounded,
-            label: s.actionBack,
-            onTap: onBack,
-          ),
-          Expanded(
-            child: Text(
-              s.previewTitle,
-              textAlign: TextAlign.center,
-              style: AppTypography.titleMedium.copyWith(
-                color: AppColors.of(context).onBrand,
-              ),
-            ),
+            icon: Icons.help_outline_rounded,
+            label: s.cropHelpLabel,
+            onTap: null,
           ),
           _CircleButton(
             icon: Icons.rotate_right_rounded,
@@ -178,8 +142,6 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-/// The framed, rotatable image with the draggable crop overlay (F15), and a
-/// processing veil while it exports.
 class _ImageArea extends StatelessWidget {
   const _ImageArea({
     required this.imagePath,
@@ -217,8 +179,6 @@ class _ImageArea extends StatelessWidget {
                     child: Image.file(
                       File(imagePath),
                       fit: BoxFit.contain,
-                      // A missing/undecodable file must not crash the preview —
-                      // show a neutral placeholder and let the user retake.
                       errorBuilder: (context, _, _) =>
                           const _ImageUnavailable(),
                     ),
@@ -234,7 +194,6 @@ class _ImageArea extends StatelessWidget {
   }
 }
 
-/// Fallback when the image file cannot be shown.
 class _ImageUnavailable extends StatelessWidget {
   const _ImageUnavailable();
 
@@ -257,7 +216,6 @@ class _ImageUnavailable extends StatelessWidget {
   }
 }
 
-/// The dim veil + spinner shown while the confirmed image is prepared.
 class _ProcessingVeil extends StatelessWidget {
   const _ProcessingVeil();
 
@@ -289,12 +247,10 @@ class _ProcessingVeil extends StatelessWidget {
   }
 }
 
-/// The hint and the confirm / retake buttons.
 class _ActionBar extends StatelessWidget {
-  const _ActionBar({required this.onUse, required this.onRetake});
+  const _ActionBar({required this.onContinue});
 
-  final VoidCallback? onUse;
-  final VoidCallback? onRetake;
+  final VoidCallback? onContinue;
 
   @override
   Widget build(BuildContext context) {
@@ -306,51 +262,20 @@ class _ActionBar extends StatelessWidget {
       color: previewActionBar,
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
-        AppSpacing.lg,
+        AppSpacing.md,
         AppSpacing.xl,
         AppSpacing.xxxl,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.info_outline_rounded,
-                color: previewHintInk,
-                size: 16,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  s.previewHint,
-                  style: AppTypography.caption.copyWith(
-                    color: previewHintInk,
-                    fontWeight: AppTypography.semiBold,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _PreviewButton(
-            label: s.previewUseImage,
-            onPressed: onUse,
+          _VoiceHintRow(onDark: onDark, label: s.cropVoiceHint),
+          const SizedBox(height: AppSpacing.sm),
+          _ContinueButton(
+            label: s.cropContinue,
+            onPressed: onContinue,
             background: AppColors.of(context).brandPrimary,
             foreground: onDark,
-            height: _primaryHeight,
-            fontSize: 17,
-          ),
-          const SizedBox(height: 9),
-          _PreviewButton(
-            label: s.previewRetake,
-            onPressed: onRetake,
-            background: Colors.white.withValues(alpha: 0.1),
-            foreground: onDark,
-            height: _secondaryHeight,
-            fontSize: 16,
           ),
         ],
       ),
@@ -358,7 +283,105 @@ class _ActionBar extends StatelessWidget {
   }
 }
 
-/// A translucent circular control in the top bar. A `null` [onTap] disables it.
+class _VoiceHintRow extends StatelessWidget {
+  const _VoiceHintRow({required this.onDark, required this.label});
+
+  final Color onDark;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const _AnimatedBars(),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: onDark.withValues(alpha: 0.7),
+            fontWeight: AppTypography.semiBold,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AnimatedBars extends StatefulWidget {
+  const _AnimatedBars();
+
+  @override
+  State<_AnimatedBars> createState() => _AnimatedBarsState();
+}
+
+class _AnimatedBarsState extends State<_AnimatedBars>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const color = previewHintInk;
+    return Semantics(
+      excludeSemantics: true,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final t = _controller.value;
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _bar(t, 0.0, 14, color),
+              const SizedBox(width: 3),
+              _bar(t, 0.3, 10, color),
+              const SizedBox(width: 3),
+              _bar(t, 0.15, 12, color),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  static Widget _bar(double t, double phase, double maxH, Color color) {
+    final h = 4.0 + (maxH - 4) * (math.sin((t + phase) * math.pi).abs());
+    return Container(
+      width: 4,
+      height: h.clamp(4.0, maxH),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(2),
+      ),
+    );
+  }
+}
+
 class _CircleButton extends StatelessWidget {
   const _CircleButton({
     required this.icon,
@@ -393,23 +416,18 @@ class _CircleButton extends StatelessWidget {
   }
 }
 
-/// One full-width footer button. A `null` [onPressed] disables it.
-class _PreviewButton extends StatelessWidget {
-  const _PreviewButton({
+class _ContinueButton extends StatelessWidget {
+  const _ContinueButton({
     required this.label,
     required this.onPressed,
     required this.background,
     required this.foreground,
-    required this.height,
-    required this.fontSize,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final Color background;
   final Color foreground;
-  final double height;
-  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -422,7 +440,7 @@ class _PreviewButton extends StatelessWidget {
           foregroundColor: foreground,
           disabledBackgroundColor: background.withValues(alpha: 0.5),
           disabledForegroundColor: foreground.withValues(alpha: 0.7),
-          minimumSize: Size.fromHeight(height),
+          minimumSize: const Size.fromHeight(_continueHeight),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(_buttonRadius),
@@ -432,7 +450,7 @@ class _PreviewButton extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: AppTypography.labelLarge.copyWith(
-            fontSize: fontSize,
+            fontSize: 17,
             fontWeight: AppTypography.bold,
           ),
         ),

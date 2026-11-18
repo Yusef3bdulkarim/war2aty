@@ -233,6 +233,15 @@ final class EnStrings implements AppStrings {
   String get previewRotateLabel => 'Rotate the photo';
 
   @override
+  String get cropContinue => 'Confirm';
+
+  @override
+  String get cropVoiceHint => 'Tap to confirm';
+
+  @override
+  String get cropHelpLabel => 'Help';
+
+  @override
   String get previewCropHandleTop => 'Crop handle, top';
 
   @override

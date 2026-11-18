@@ -82,6 +82,9 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'previewCropHandleRight': (s) => s.previewCropHandleRight,
   'previewProcessing': (s) => s.previewProcessing,
   'previewErrorMessage': (s) => s.previewErrorMessage,
+  'cropContinue': (s) => s.cropContinue,
+  'cropVoiceHint': (s) => s.cropVoiceHint,
+  'cropHelpLabel': (s) => s.cropHelpLabel,
   'homeEmptyTitle': (s) => s.homeEmptyTitle,
   'homeUpcomingReminderTitle': (s) => s.homeUpcomingReminderTitle,
   'homeRecentDocumentsTitle': (s) => s.homeRecentDocumentsTitle,
@@ -496,6 +499,11 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'audioReaderNoArabicVoiceDismiss': (s) => s.audioReaderNoArabicVoiceDismiss,
   'audioReaderEngineUnavailableFeedback': (s) =>
       s.audioReaderEngineUnavailableFeedback,
+  'paperOfflineMessage': (s) => s.paperOfflineMessage,
+  'paperServiceFailedMessage': (s) => s.paperServiceFailedMessage,
+  'paperLimitReachedMessage': (s) => s.paperLimitReachedMessage,
+  'paperLimitReachedMessageWithLimit': (s) =>
+      s.paperLimitReachedMessageWithLimit(3),
 };
 
 void main() {

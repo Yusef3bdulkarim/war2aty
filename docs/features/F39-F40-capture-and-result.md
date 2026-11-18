@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 9 / 52
+- **Progress:** 10 / 52
 
 ## Why this feature exists
 
@@ -404,10 +404,11 @@ finished and the next one does not start.
       *Done when:* `confirm` is tested, the existing tests still pass, and the
       "file produced after close is cleaned up" guarantees hold for both
       paths.
-- [ ] **T17** Crop screen restyled to the `Crop` artboard (D5): dark
+- [x] **T17** Crop screen restyled to the `Crop` artboard (D5): dark
       background, «؟» (inert, D6) and a small rotate control in the top bar,
       the photo with the four handles, the voice hint row «اضغط كمّل» with its
       animated bars, one 68 px «كمّل». ✕, title, hint, «صوّر تاني» removed.
+      *Review:* 0 findings. dart format fix (line-wrap in test). 40 tests pass.
       *Done when:* widget tests for the layout, disabled-while-processing,
       rotate still working, RTL and Large Text.
 - [ ] **T18** `crop_continue` on open, stopped on leave and on «كمّل».

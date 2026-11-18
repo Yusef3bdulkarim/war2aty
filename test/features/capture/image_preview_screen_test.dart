@@ -46,8 +46,6 @@ Future<_Result> _pumpPreview(
     cropImage: CropImage(FakeImageCropper()),
     decideRoute: DecideAnalysisRoute(
       connectivity ?? FakeConnectivityService(connected: false),
-      // Live by default so a test that opts into `connected: true` exercises
-      // the online route without also having to know this flag exists.
       usage ??
           FakeUsageRepository(
             seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
@@ -93,19 +91,32 @@ void main() {
   );
 
   group('ImagePreviewScreen', () {
-    testWidgets('shows the title, hint and both actions', (tester) async {
+    testWidgets('shows the continue button, voice hint and help button', (
+      tester,
+    ) async {
       await _pumpPreview(tester);
 
-      expect(find.text(_strings.previewTitle), findsOneWidget);
-      expect(find.text(_strings.previewHint), findsOneWidget);
-      expect(find.text(_strings.previewUseImage), findsOneWidget);
-      expect(find.text(_strings.previewRetake), findsOneWidget);
+      expect(find.text(_strings.cropContinue), findsOneWidget);
+      expect(find.text(_strings.cropVoiceHint), findsOneWidget);
+      expect(find.bySemanticsLabel(_strings.cropHelpLabel), findsOneWidget);
+      expect(find.text(_strings.previewTitle), findsNothing);
+      expect(find.text(_strings.previewHint), findsNothing);
+      expect(find.text(_strings.previewRetake), findsNothing);
+    });
+
+    testWidgets('the help button is present but inert', (tester) async {
+      final result = await _pumpPreview(tester);
+
+      await tester.tap(find.bySemanticsLabel(_strings.cropHelpLabel));
+      await tester.pump();
+
+      expect(result.session, isNull);
+      expect(result.retook, isFalse);
     });
 
     testWidgets('asks for light status-bar icons', (tester) async {
       await _pumpPreview(tester);
 
-      // Light status-bar icons over the dark backdrop (F21).
       final regions = tester.widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
         find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
       );
@@ -134,13 +145,11 @@ void main() {
       );
     });
 
-    testWidgets('use-image creates a session and hands it back', (
-      tester,
-    ) async {
+    testWidgets('continue creates a session and hands it back', (tester) async {
       final storage = FakeAnalysisSessionStorage(sessionId: 'sess-1');
       final result = await _pumpPreview(tester, storage: storage);
 
-      await tester.tap(find.text(_strings.previewUseImage));
+      await tester.tap(find.text(_strings.cropContinue));
       await tester.pump();
       await tester.pump();
 
@@ -155,15 +164,14 @@ void main() {
     });
 
     testWidgets(
-      'use-image on the online route skips straight to onOnlineReady, '
-      'never onSessionCreated',
+      'continue on the online route skips straight to onOnlineReady',
       (tester) async {
         final result = await _pumpPreview(
           tester,
           connectivity: FakeConnectivityService(),
         );
 
-        await tester.tap(find.text(_strings.previewUseImage));
+        await tester.tap(find.text(_strings.cropContinue));
         await tester.pump();
         await tester.pump();
 
@@ -172,13 +180,34 @@ void main() {
       },
     );
 
-    testWidgets('retake backs out of the flow', (tester) async {
-      final result = await _pumpPreview(tester);
+    testWidgets('controls disabled while processing', (tester) async {
+      final rotator = FakeImageRotator()..gate = Completer<void>();
+      await _pumpPreview(tester, rotator: rotator);
 
-      await tester.tap(find.text(_strings.previewRetake));
+      await tester.tap(find.text(_strings.cropContinue));
+      await tester.pump();
       await tester.pump();
 
-      expect(result.retook, isTrue);
+      final continueButton = tester.widget<TextButton>(
+        find.ancestor(
+          of: find.text(_strings.cropContinue),
+          matching: find.byType(TextButton),
+        ),
+      );
+      expect(continueButton.onPressed, isNull);
+
+      final turnsBefore = tester
+          .widget<RotatedBox>(find.byType(RotatedBox))
+          .quarterTurns;
+      await tester.tap(find.bySemanticsLabel(_strings.previewRotateLabel));
+      await tester.pump();
+      expect(
+        tester.widget<RotatedBox>(find.byType(RotatedBox)).quarterTurns,
+        turnsBefore,
+      );
+
+      rotator.gate!.complete();
+      await tester.pump();
     });
 
     testWidgets('a failed export shows a message and stays put', (
@@ -189,27 +218,22 @@ void main() {
         rotator: FakeImageRotator(fails: true),
       );
 
-      await tester.tap(find.text(_strings.previewUseImage));
+      await tester.tap(find.text(_strings.cropContinue));
       await tester.pump();
       await tester.pump();
 
       expect(result.session, isNull);
       expect(find.text(_strings.previewErrorMessage), findsOneWidget);
-      // Still on the preview, able to try again.
-      expect(find.text(_strings.previewUseImage), findsOneWidget);
+      expect(find.text(_strings.cropContinue), findsOneWidget);
     });
 
-    testWidgets('the crop stays on screen while the export runs (F15-T13)', (
+    testWidgets('the crop stays on screen while the export runs', (
       tester,
     ) async {
       const chosen = UnitRect(left: 0.1, top: 0.2, right: 0.9, bottom: 0.8);
-      // Hold the rotate step so the screen sits in the processing state.
       final rotator = FakeImageRotator()..gate = Completer<void>();
       await _pumpPreview(tester, rotator: rotator);
 
-      // Set the crop through the cubit rather than by dragging: `_imagePath`
-      // does not exist, and the placeholder only appears after real file I/O
-      // that a widget test's fake clock never lets complete.
       BlocProvider.of<ImagePreviewCubit>(
         tester.element(find.byType(ImagePreviewScreen)),
       ).updateCrop(chosen);
@@ -217,11 +241,10 @@ void main() {
       await tester.pump();
       expect(_overlayCrop(tester), chosen);
 
-      await tester.tap(find.text(_strings.previewUseImage));
+      await tester.tap(find.text(_strings.cropContinue));
       await tester.pump();
       await tester.pump();
 
-      // Mid-export: the overlay used to spring back open behind the veil.
       expect(_overlayCrop(tester), chosen);
 
       rotator.gate!.complete();
@@ -232,7 +255,7 @@ void main() {
       await _pumpPreview(tester);
 
       expect(
-        Directionality.of(tester.element(find.text(_strings.previewTitle))),
+        Directionality.of(tester.element(find.text(_strings.cropContinue))),
         TextDirection.rtl,
       );
     });
@@ -245,8 +268,6 @@ void main() {
   });
 }
 
-/// What the screen handed back to its host.
-/// The crop rect the on-screen overlay is currently showing.
 UnitRect _overlayCrop(WidgetTester tester) => tester
     .widget<DraggableCropOverlay>(find.byType(DraggableCropOverlay))
     .cropRect;

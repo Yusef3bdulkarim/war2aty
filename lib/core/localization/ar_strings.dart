@@ -229,6 +229,15 @@ final class ArStrings implements AppStrings {
   String get previewRotateLabel => 'تدوير الصورة';
 
   @override
+  String get cropContinue => 'كمّل';
+
+  @override
+  String get cropVoiceHint => 'اضغط كمّل';
+
+  @override
+  String get cropHelpLabel => 'مساعدة';
+
+  @override
   String get previewCropHandleTop => 'مقبض القص أعلى';
 
   @override
