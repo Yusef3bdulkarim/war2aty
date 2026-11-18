@@ -87,9 +87,11 @@ final class ImagePreviewConfirmed extends ImagePreviewState {
     this.photo, {
     this.quarterTurns = 0,
     this.cropRect = UnitRect.full,
+    this.tempPaths = const [],
   });
 
   final CapturedPhoto photo;
+  final List<String> tempPaths;
 
   /// The rotation and crop the user settled on.
   ///

@@ -63,13 +63,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   /// document must not survive past this screen (CLAUDE.md §7).
   String? _croppedPath;
 
-  /// Set to `true` once [proceed] successfully hands off to the online
-  /// analysis pipeline. When set, [close] skips file cleanup entirely —
-  /// ownership of every temp file transfers to [_onlineHandoff], which
-  /// deletes them after the analysis repository has read the image bytes.
-  /// This prevents a race where `pushReplacement` disposes this cubit (and
-  /// its cleanup fires) in the same frame the result route reads the file.
-  bool _handedOffToOnline = false;
+  bool _filesTransferred = false;
 
   /// Turns the image 90° clockwise. Ignored while a confirm is in flight so the
   /// rotation cannot change under the export. Resets the crop rect to full
@@ -157,8 +151,17 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
 
     if (cropped.path != rotated.path) _croppedPath = cropped.path;
 
+    final tempPaths = [_source.path];
+    if (_rotatedPath != null) tempPaths.add(_rotatedPath!);
+    if (_croppedPath != null) tempPaths.add(_croppedPath!);
+
     emit(
-      ImagePreviewConfirmed(cropped, quarterTurns: turns, cropRect: cropRect),
+      ImagePreviewConfirmed(
+        cropped,
+        quarterTurns: turns,
+        cropRect: cropRect,
+        tempPaths: tempPaths,
+      ),
     );
   }
 
@@ -214,7 +217,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     // Online: OCR never runs on this route (F13 locked decision #2 — a
     // failure here fails outright rather than dropping back to offline).
     // Collect every temp file this capture flow produced. Ownership transfers
-    // to the holder — close() will skip its own cleanup (see _handedOffToOnline).
+    // to the holder — close() will skip its own cleanup (see _filesTransferred).
     final cleanupPaths = <String>{_source.path};
     final rotated = _rotatedPath;
     if (rotated != null) cleanupPaths.add(rotated);
@@ -222,10 +225,14 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     if (manuallyCropped != null) cleanupPaths.add(manuallyCropped);
 
     _onlineHandoff.set(session, photo, cleanupPaths: cleanupPaths.toList());
-    _handedOffToOnline = true;
+    _filesTransferred = true;
     emit(
       ImagePreviewOnlineReady(session, quarterTurns: turns, cropRect: cropRect),
     );
+  }
+
+  void transferFileOwnership() {
+    _filesTransferred = true;
   }
 
   @override
@@ -235,7 +242,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     // reading has read the image bytes. Deleting here would race against that
     // read (pushReplacement disposes this cubit in the same frame the OCR
     // review route reads the file).
-    if (!_handedOffToOnline) {
+    if (!_filesTransferred) {
       final paths = <String>{_source.path};
       final rotated = _rotatedPath;
       if (rotated != null) paths.add(rotated);

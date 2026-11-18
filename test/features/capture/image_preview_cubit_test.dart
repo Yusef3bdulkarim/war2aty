@@ -690,6 +690,96 @@ void main() {
     });
   });
 
+  group('ImagePreviewCubit.confirm — tempPaths', () {
+    test('no rotation or crop: tempPaths has only the source', () async {
+      final cubit = cubitFor(FakeImageRotator());
+      addTearDown(cubit.close);
+
+      await cubit.confirm();
+
+      final confirmed = cubit.state as ImagePreviewConfirmed;
+      expect(confirmed.tempPaths, [_source.path]);
+    });
+
+    test('rotation: tempPaths has source and rotated', () async {
+      const rotated = CapturedPhoto('/tmp/spun.jpg');
+      final cubit = cubitFor(FakeImageRotator(output: rotated));
+      addTearDown(cubit.close);
+
+      cubit.rotateClockwise();
+      await cubit.confirm();
+
+      final confirmed = cubit.state as ImagePreviewConfirmed;
+      expect(confirmed.tempPaths, [_source.path, rotated.path]);
+    });
+
+    test('crop only: tempPaths has source and cropped', () async {
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cropper: FakeImageCropper(output: cropped),
+      );
+      addTearDown(cubit.close);
+
+      cubit.updateCrop(
+        const UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85),
+      );
+      await cubit.confirm();
+
+      final confirmed = cubit.state as ImagePreviewConfirmed;
+      expect(confirmed.tempPaths, [_source.path, cropped.path]);
+    });
+
+    test('rotation and crop: tempPaths has all three', () async {
+      const rotated = CapturedPhoto('/tmp/spun.jpg');
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final cubit = cubitFor(
+        FakeImageRotator(output: rotated),
+        cropper: FakeImageCropper(output: cropped),
+      );
+      addTearDown(cubit.close);
+
+      cubit.rotateClockwise();
+      cubit.updateCrop(
+        const UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85),
+      );
+      await cubit.confirm();
+
+      final confirmed = cubit.state as ImagePreviewConfirmed;
+      expect(confirmed.tempPaths, [_source.path, rotated.path, cropped.path]);
+    });
+  });
+
+  group('ImagePreviewCubit.transferFileOwnership', () {
+    test('prevents close from cleaning up temp files', () async {
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
+
+      await cubit.confirm();
+      cubit.transferFileOwnership();
+      await cubit.close();
+
+      expect(cleanup.deleteCalls, isEmpty);
+    });
+
+    test('works alongside proceed — online path still skips cleanup', () async {
+      final cleanup = FakeCaptureFileCleanup();
+      final handoff = ImageAnalysisSessionHolder();
+      final cubit = cubitFor(
+        FakeImageRotator(),
+        cleanup: cleanup,
+        connectivity: FakeConnectivityService(),
+        onlineHandoff: handoff,
+      );
+
+      await cubit.confirm();
+      await cubit.proceed();
+      await cubit.close();
+
+      expect(cleanup.deleteCalls, isEmpty);
+    });
+  });
+
   group(
     'ImagePreviewCubit orphaned temp-file cleanup on close race (F15-T09)',
     () {
