@@ -411,8 +411,9 @@ finished and the next one does not start.
       *Review:* 0 findings. dart format fix (line-wrap in test). 40 tests pass.
       *Done when:* widget tests for the layout, disabled-while-processing,
       rotate still working, RTL and Large Text.
-- [ ] **T18** `crop_continue` on open, stopped on leave and on «كمّل».
+- [x] **T18** `crop_continue` on open, stopped on leave and on «كمّل».
       *Done when:* tested.
+      *Findings:* none — follows PaperFailureCubit pattern exactly; 5 cubit tests added.
 - [ ] **T19** Waiting screen to the `Waiting` artboard (D8): the drawn paper,
       the scan line, the voice capsule, the sentence, the dots; respects reduced
       motion. *Done when:* widget tests, including reduced motion and Large

@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
@@ -57,6 +58,7 @@ Future<_Result> _pumpPreview(
     onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
     ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
     cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
+    speakFixedLine: SpeakFixedLine(FakeFixedLinePlayer()),
   );
   addTearDown(cubit.close);
 

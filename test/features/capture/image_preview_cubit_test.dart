@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/storage/analysis_session.dart';
+import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
+import 'package:war2aty/core/voice/voice_line.dart';
 import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
@@ -29,6 +31,7 @@ ImagePreviewCubit cubitFor(
   FakeUsageRepository? usage,
   ImageAnalysisSessionHolder? onlineHandoff,
   OcrSessionHolder? ocrHandoff,
+  FakeFixedLinePlayer? linePlayer,
 }) {
   final s = storage ?? FakeAnalysisSessionStorage();
   final c = cleanup ?? FakeCaptureFileCleanup();
@@ -52,6 +55,7 @@ ImagePreviewCubit cubitFor(
     onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
     ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
     cleanupFiles: CleanupCaptureFiles(c),
+    speakFixedLine: SpeakFixedLine(linePlayer ?? FakeFixedLinePlayer()),
   );
 }
 
@@ -844,4 +848,57 @@ void main() {
       );
     },
   );
+
+  group('ImagePreviewCubit crop_continue (F39-T18)', () {
+    test('speaks crop_continue on open', () async {
+      final player = FakeFixedLinePlayer();
+      final cubit = cubitFor(FakeImageRotator(), linePlayer: player);
+      addTearDown(cubit.close);
+      await pumpEventQueue();
+
+      expect(player.played, [VoiceLine.cropContinue.assetPath]);
+    });
+
+    test('stops the line when the user taps «كمّل»', () async {
+      final player = FakeFixedLinePlayer();
+      final cubit = cubitFor(FakeImageRotator(), linePlayer: player);
+      addTearDown(cubit.close);
+      await pumpEventQueue();
+
+      await cubit.confirm();
+
+      expect(player.stopCount, 1);
+    });
+
+    test('confirming again does not stop the line a second time', () async {
+      final player = FakeFixedLinePlayer();
+      final cubit = cubitFor(FakeImageRotator(), linePlayer: player);
+      addTearDown(cubit.close);
+      await pumpEventQueue();
+
+      await cubit.confirm();
+      await cubit.confirm();
+
+      expect(player.stopCount, 1);
+    });
+
+    test('stops the line on close', () async {
+      final player = FakeFixedLinePlayer();
+      final cubit = cubitFor(FakeImageRotator(), linePlayer: player);
+      await pumpEventQueue();
+
+      await cubit.close();
+
+      expect(player.stopCount, 1);
+    });
+
+    test('close stops even when the line never finished starting', () async {
+      final player = FakeFixedLinePlayer();
+      final cubit = cubitFor(FakeImageRotator(), linePlayer: player);
+
+      await cubit.close();
+
+      expect(player.stopCount, 1);
+    });
+  });
 }

@@ -696,6 +696,7 @@ void _registerCapture() {
         onlineHandoff: getIt(),
         ocrHandoff: getIt(),
         cleanupFiles: getIt(),
+        speakFixedLine: getIt(),
       ),
     )
     ..registerFactory<CheckCaptureReadiness>(

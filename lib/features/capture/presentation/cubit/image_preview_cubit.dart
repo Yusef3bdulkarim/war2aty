@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/connectivity/analysis_route.dart';
+import '../../../../core/voice/usecases/speak_fixed_line.dart';
+import '../../../../core/voice/voice_line.dart';
 import '../../../analysis/presentation/image_analysis_session_holder.dart';
 import '../../../ocr/presentation/ocr_session_holder.dart';
 import '../../domain/entities/captured_photo.dart';
@@ -33,6 +35,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     required ImageAnalysisSessionHolder onlineHandoff,
     required OcrSessionHolder ocrHandoff,
     required CleanupCaptureFiles cleanupFiles,
+    required SpeakFixedLine speakFixedLine,
   }) : _source = source,
        _rotate = rotate,
        _cropImage = cropImage,
@@ -41,7 +44,10 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
        _onlineHandoff = onlineHandoff,
        _ocrHandoff = ocrHandoff,
        _cleanupFiles = cleanupFiles,
-       super(const ImagePreviewReady(0));
+       _speakFixedLine = speakFixedLine,
+       super(const ImagePreviewReady(0)) {
+    unawaited(_speakFixedLine(VoiceLine.cropContinue));
+  }
 
   /// The image the user acquired (camera or gallery) before any rotation.
   final CapturedPhoto _source;
@@ -52,6 +58,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   final ImageAnalysisSessionHolder _onlineHandoff;
   final OcrSessionHolder _ocrHandoff;
   final CleanupCaptureFiles _cleanupFiles;
+  final SpeakFixedLine _speakFixedLine;
 
   /// Path of the rotated file produced by [confirm], when the rotation differs
   /// from the source. Tracked so [close] can delete it alongside the source.
@@ -109,6 +116,7 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
         state is ImagePreviewConfirmed) {
       return;
     }
+    unawaited(_speakFixedLine.stop());
     final turns = state.quarterTurns;
     final cropRect = state.cropRect;
     emit(ImagePreviewProcessing(turns, cropRect: cropRect));
@@ -236,7 +244,8 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   }
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
+    await _speakFixedLine.stop();
     // When the online handoff succeeded, every temp file is now owned by the
     // ImageAnalysisSessionHolder — it deletes them in clear() once the online
     // reading has read the image bytes. Deleting here would race against that
