@@ -896,6 +896,8 @@ final class EnStrings implements AppStrings {
       ? 'You get 1 smart analysis a day, and you have used it.'
       : 'You get $limit smart analyses a day, and you have used them all.';
   @override
+  String get paperWaitingSentence => "Hold on, I'm reading your paper.";
+  @override
   String get resultListen => 'Listen';
   @override
   String get resultSavePaper => 'Save paper';

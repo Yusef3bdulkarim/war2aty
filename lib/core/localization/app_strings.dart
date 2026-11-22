@@ -703,6 +703,8 @@ abstract interface class AppStrings {
   String get paperLimitReachedMessage;
   String paperLimitReachedMessageWithLimit(int limit);
 
+  String get paperWaitingSentence;
+
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.
   String get resultListen;

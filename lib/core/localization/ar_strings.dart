@@ -905,6 +905,8 @@ final class ArStrings implements AppStrings {
     _ => 'عندك $limit تحليل ذكي كل يوم، واستخدمتهم كلهم.',
   };
   @override
+  String get paperWaitingSentence => 'استنى شوية، أنا بقرا الورقة.';
+  @override
   String get resultListen => 'استمع';
   @override
   String get resultSavePaper => 'حفظ الورقة';

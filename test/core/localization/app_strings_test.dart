@@ -504,6 +504,7 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'paperLimitReachedMessage': (s) => s.paperLimitReachedMessage,
   'paperLimitReachedMessageWithLimit': (s) =>
       s.paperLimitReachedMessageWithLimit(3),
+  'paperWaitingSentence': (s) => s.paperWaitingSentence,
 };
 
 void main() {

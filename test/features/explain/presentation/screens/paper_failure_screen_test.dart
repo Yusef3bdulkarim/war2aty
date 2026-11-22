@@ -7,6 +7,7 @@ import 'package:war2aty/features/explain/domain/entities/paper_failure_kind.dart
 import 'package:war2aty/features/explain/presentation/screens/paper_failure_screen.dart';
 
 import '../../../../support/pump_app.dart';
+import '../../../../support/ui_audit.dart';
 
 const _ar = ArStrings();
 const _en = EnStrings();
@@ -47,6 +48,16 @@ void main() {
     retryCalls = 0;
     homeCalls = 0;
   });
+
+  auditScreenLayout(
+    'PaperFailureScreen',
+    (tester, locale, scaler) => _pump(
+      tester,
+      buildScreen(PaperFailureKind.offline),
+      locale: locale,
+      textScaler: scaler,
+    ),
+  );
 
   group('offline kind', () {
     testWidgets('shows no-internet title and message', (tester) async {
