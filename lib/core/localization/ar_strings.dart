@@ -944,6 +944,15 @@ final class ArStrings implements AppStrings {
       'حصلت مشكلة وإحنا بنجيب بيانات الورقة. جرّب تاني.';
 
   @override
+  String get paperExplainCardTitle => 'شرح الورقة';
+  @override
+  String get paperTodoCardTitle => 'أعمل إيه؟';
+  @override
+  String get paperCautionCardTitle => 'خلي بالك';
+  @override
+  String get paperCardSpeakingLabel => 'بيتقال دلوقتي';
+
+  @override
   String get resultListen => 'استمع';
   @override
   String get resultSavePaper => 'حفظ الورقة';

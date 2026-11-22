@@ -174,6 +174,10 @@ enum StrokeGlyph {
   /// المستندات».
   trash,
 
+  paperExplanationSheet,
+
+  paperChecklist,
+
   navHome,
   navDocuments,
   navReminders,
@@ -321,6 +325,13 @@ final Map<StrokeGlyph, String> _glyphPaths = {
       'M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z '
       'M18 13l.8 2.5L21 16l-2.2.5L18 19l-.8-2.5L15 16l2.2-.5z',
   StrokeGlyph.star: 'M9.5 3 11 8l5 1.5-5 1.5L9.5 16 8 11l-5-1.5L8 8z',
+  StrokeGlyph.paperExplanationSheet:
+      'M14 3v4a1 1 0 0 0 1 1h4 '
+      'M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z '
+      'M9 9h1 M9 13h6 M9 17h6',
+  StrokeGlyph.paperChecklist:
+      'M9 11l3 3 8-8 '
+      'M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9',
   StrokeGlyph.navHome: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5',
   StrokeGlyph.navDocuments:
       'M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1'

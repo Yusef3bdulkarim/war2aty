@@ -717,6 +717,11 @@ abstract interface class AppStrings {
   String get paperScreenErrorTitle;
   String get paperScreenErrorMessage;
 
+  String get paperExplainCardTitle;
+  String get paperTodoCardTitle;
+  String get paperCautionCardTitle;
+  String get paperCardSpeakingLabel;
+
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.
   String get resultListen;

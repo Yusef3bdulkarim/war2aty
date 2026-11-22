@@ -514,6 +514,10 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'paperScreenNotFoundMessage': (s) => s.paperScreenNotFoundMessage,
   'paperScreenErrorTitle': (s) => s.paperScreenErrorTitle,
   'paperScreenErrorMessage': (s) => s.paperScreenErrorMessage,
+  'paperExplainCardTitle': (s) => s.paperExplainCardTitle,
+  'paperTodoCardTitle': (s) => s.paperTodoCardTitle,
+  'paperCautionCardTitle': (s) => s.paperCautionCardTitle,
+  'paperCardSpeakingLabel': (s) => s.paperCardSpeakingLabel,
 };
 
 void main() {

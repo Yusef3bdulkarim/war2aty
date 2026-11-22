@@ -7,6 +7,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
+import 'package:war2aty/core/papers/paper_caution.dart';
+import 'package:war2aty/core/papers/paper_explanation.dart';
+import 'package:war2aty/core/papers/paper_status.dart';
+import 'package:war2aty/core/papers/paper_todo.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
@@ -198,6 +202,44 @@ void main() {
       await tester.tap(find.byTooltip(ar.analysisResultBackLabel));
 
       expect(backCount, 1);
+    });
+
+    testWidgets('shows the explain and todo cards in order', (tester) async {
+      papers.emitPaper(savedPaperWith());
+      cubit.start();
+
+      await pumpScreen(tester);
+
+      final explainCenter = tester.getCenter(
+        find.text(ar.paperExplainCardTitle),
+      );
+      final todoCenter = tester.getCenter(find.text(ar.paperTodoCardTitle));
+      expect(explainCenter.dy, lessThan(todoCenter.dy));
+      expect(find.text(ar.paperCautionCardTitle), findsNothing);
+    });
+
+    testWidgets('shows the caution card when the paper has one', (
+      tester,
+    ) async {
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: PaperExplanation(
+            title: 'جواب من مدرسة النور',
+            status: PaperStatus.success,
+            paragraphs: const ['دي ورقة من مدرسة النور.'],
+            todo: const PaperTodo(required: true, text: 'روح الاجتماع بنفسك.'),
+            caution: const PaperCaution(
+              text: 'لازم تبلّغ المدرسة قبل الميعاد.',
+            ),
+          ),
+        ),
+      );
+      cubit.start();
+
+      await pumpScreen(tester);
+
+      expect(find.text(ar.paperCautionCardTitle), findsOneWidget);
+      expect(find.text('لازم تبلّغ المدرسة قبل الميعاد.'), findsOneWidget);
     });
 
     testWidgets('shows a not-found state for a missing paper', (tester) async {

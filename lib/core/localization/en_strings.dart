@@ -935,6 +935,15 @@ final class EnStrings implements AppStrings {
       'Something went wrong loading it. Try again.';
 
   @override
+  String get paperExplainCardTitle => 'What the paper says';
+  @override
+  String get paperTodoCardTitle => 'What to do';
+  @override
+  String get paperCautionCardTitle => 'Keep in mind';
+  @override
+  String get paperCardSpeakingLabel => 'Being read now';
+
+  @override
   String get resultListen => 'Listen';
   @override
   String get resultSavePaper => 'Save paper';

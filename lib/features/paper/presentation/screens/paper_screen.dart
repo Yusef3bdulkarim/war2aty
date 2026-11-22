@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/papers/paper_explanation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/service_state_view.dart';
@@ -13,6 +14,9 @@ import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/paper_screen_cubit.dart';
 import '../cubit/paper_screen_state.dart';
 import '../models/paper_view.dart';
+import '../widgets/caution_card.dart';
+import '../widgets/explain_card.dart';
+import '../widgets/todo_card.dart';
 
 const double _headerPaddingH = 16;
 const double _headerPaddingV = 16;
@@ -44,6 +48,7 @@ class PaperScreen extends StatelessWidget {
             PaperScreenLoading() => const _Loading(),
             PaperScreenReady(:final paper, :final imageBytes) => _ReadyBody(
               view: PaperView.from(paper, strings),
+              explanation: paper.explanation,
               imageBytes: imageBytes,
               onBack: onBack,
             ),
@@ -107,11 +112,13 @@ class _StateBody extends StatelessWidget {
 class _ReadyBody extends StatelessWidget {
   const _ReadyBody({
     required this.view,
+    required this.explanation,
     required this.imageBytes,
     required this.onBack,
   });
 
   final PaperView view;
+  final PaperExplanation explanation;
   final Uint8List? imageBytes;
   final VoidCallback onBack;
 
@@ -121,13 +128,16 @@ class _ReadyBody extends StatelessWidget {
       child: Column(
         children: [
           _PaperHeader(view: view, imageBytes: imageBytes, onBack: onBack),
-          const Expanded(
+          Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: _bodyPaddingH,
                 vertical: _bodyPaddingV,
               ),
-              child: SizedBox.shrink(),
+              child: _CardsSection(
+                cardIds: view.cardIds,
+                explanation: explanation,
+              ),
             ),
           ),
         ],
@@ -135,6 +145,39 @@ class _ReadyBody extends StatelessWidget {
     );
   }
 }
+
+const double _cardGap = 12;
+
+class _CardsSection extends StatelessWidget {
+  const _CardsSection({required this.cardIds, required this.explanation});
+
+  final List<String> cardIds;
+  final PaperExplanation explanation;
+
+  @override
+  Widget build(BuildContext context) {
+    final cards = <Widget>[
+      for (final id in cardIds) ?_cardFor(id, explanation),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final (index, card) in cards.indexed) ...[
+          if (index > 0) const SizedBox(height: _cardGap),
+          card,
+        ],
+      ],
+    );
+  }
+}
+
+Widget? _cardFor(String id, PaperExplanation explanation) => switch (id) {
+  'explain' => ExplainCard(paragraphs: explanation.paragraphs),
+  'todo' => TodoCard(text: explanation.todo.text),
+  'caution' => CautionCard(text: explanation.caution!.text),
+  _ => null,
+};
 
 class _PaperHeader extends StatelessWidget {
   const _PaperHeader({
