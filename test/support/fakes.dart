@@ -1935,6 +1935,7 @@ final class FakeFixedLinePlayer implements FixedLinePlayer {
   int stopCount = 0;
   int disposeCount = 0;
   AppFailure? failure;
+  Completer<void>? playToEndGate;
 
   @override
   Future<Result<void, AppFailure>> play(String assetPath) async {
@@ -1946,6 +1947,12 @@ final class FakeFixedLinePlayer implements FixedLinePlayer {
 
   @override
   Future<Result<void, AppFailure>> playToEnd(String assetPath) async {
+    final gate = playToEndGate;
+    if (gate != null) {
+      played.add(assetPath);
+      await gate.future;
+      return const Ok(null);
+    }
     final failure = this.failure;
     if (failure != null) return Err(failure);
     played.add(assetPath);
@@ -1953,7 +1960,11 @@ final class FakeFixedLinePlayer implements FixedLinePlayer {
   }
 
   @override
-  Future<void> stop() async => stopCount++;
+  Future<void> stop() async {
+    stopCount++;
+    final gate = playToEndGate;
+    if (gate != null && !gate.isCompleted) gate.complete();
+  }
 
   @override
   Future<void> dispose() async => disposeCount++;

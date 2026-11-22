@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 19 / 52
+- **Progress:** 20 / 52
 
 ## Why this feature exists
 
@@ -422,12 +422,16 @@ finished and the next one does not start.
       Text.
       *Review:* Opus 4.6, 2026-11-22. *Findings:* none. Side-fixes: T15
       checkbox+progress bookkeeping; PaperFailureScreen audit-sweep gap.
-- [ ] **T20** `PaperWaitingCubit`: plays `waiting_reading` on open; starts (or
+- [x] **T20** `PaperWaitingCubit`: plays `waiting_reading` on open; starts (or
       joins) the runner; on success waits for the line to finish (D11), then
       emits `navigateToPaper(id)`; on failure emits the failure kind; closing
       the cubit stops the line and leaves the runner running (D2). *Done when:*
       tests cover fast success (line still playing → waits), slow success,
       each failure, and leave-mid-flight (job still saves).
+      *Review:* Opus 4.6, 2026-11-22. *Findings:* none. Added `join()` to
+      `PaperExplainRunner` so the cubit can subscribe to an already-running job
+      (D2 back-and-rescan). `_left` flag guards post-close emits; 13 cubit
+      tests + 2 runner tests.
 - [ ] **T21** Routes: crop → `/paper-waiting` → `/paper/:id?fresh=1` or
       `/paper-failure`; system back on waiting → Home. This is the
       switch-over: the crop screen calls `confirm`, and `proceed()`,

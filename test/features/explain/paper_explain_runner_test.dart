@@ -124,6 +124,28 @@ void main() {
     });
   });
 
+  test('join returns null when no job is running', () {
+    expect(runner.join(), isNull);
+  });
+
+  test('join shares the running job\'s result without a second job', () {
+    fakeAsync((async) {
+      explainRepository.gate = Completer<void>();
+      final started = <Result<String, AppFailure>>[];
+      final joined = <Result<String, AppFailure>>[];
+      runner.start(photo).listen(started.add);
+      runner.join()!.listen(joined.add);
+
+      explainRepository.gate!.complete();
+      async.flushMicrotasks();
+
+      expect(started, [const Ok<String, AppFailure>('p1')]);
+      expect(joined, [const Ok<String, AppFailure>('p1')]);
+      expect(explainRepository.explainCount, 1);
+      expect(runner.join(), isNull);
+    });
+  });
+
   test('cancelling a listener never cancels the job', () {
     fakeAsync((async) {
       explainRepository.gate = Completer<void>();

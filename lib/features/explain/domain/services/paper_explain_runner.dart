@@ -14,6 +14,8 @@ final class PaperExplainRunner {
 
   bool get isRunning => _controller != null;
 
+  Stream<Result<String, AppFailure>>? join() => _controller?.stream;
+
   Stream<Result<String, AppFailure>> start(CapturedPhoto photo) {
     if (_controller != null) {
       throw StateError(
