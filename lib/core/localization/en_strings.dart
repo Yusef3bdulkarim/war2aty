@@ -15,6 +15,16 @@ const List<String> _monthNames = [
   'December',
 ];
 
+const List<String> _weekdayNames = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
 /// English strings. Drafted by the agent for review (CLAUDE.md locked decision).
 final class EnStrings implements AppStrings {
   const EnStrings();
@@ -897,6 +907,21 @@ final class EnStrings implements AppStrings {
       : 'You get $limit smart analyses a day, and you have used them all.';
   @override
   String get paperWaitingSentence => "Hold on, I'm reading your paper.";
+  @override
+  String get paperDateToday => 'Today';
+  @override
+  String get paperDateYesterday => 'Yesterday';
+  @override
+  String weekdayName(int weekday) => _weekdayNames[weekday - 1];
+  @override
+  String paperAppointmentTime(int hour, int minute) {
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    final period = hour < 12 ? timeAm : timePm;
+    return minute == 0
+        ? '$displayHour $period'
+        : '$displayHour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
   @override
   String get resultListen => 'Listen';
   @override

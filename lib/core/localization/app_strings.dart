@@ -705,6 +705,11 @@ abstract interface class AppStrings {
 
   String get paperWaitingSentence;
 
+  String get paperDateToday;
+  String get paperDateYesterday;
+  String weekdayName(int weekday);
+  String paperAppointmentTime(int hour, int minute);
+
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.
   String get resultListen;

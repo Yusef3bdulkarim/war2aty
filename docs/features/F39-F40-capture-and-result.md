@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 21 / 52
+- **Progress:** 22 / 52
 
 ## Why this feature exists
 
@@ -469,13 +469,19 @@ finished and the next one does not start.
 
 ### Phase D — the result screen
 
-- [ ] **T22** `PaperView` UI model (`features/paper/presentation/models`):
+- [x] **T22** `PaperView` UI model (`features/paper/presentation/models`):
       title, the header date («النهارده»/«امبارح»/«3 نوفمبر»), the present
       cards in segment order with their segment ids, the date card's month /
       day / weekday / «الساعة 10 الصبح» formatting, the phone grouped LTR.
       Pure. *Done when:* tests cover every card combination that matters, the
       date edge cases (no time, midnight, today/yesterday boundaries in Cairo
       time) and the ids asserted as literals.
+      *Review:* Opus 5, 2026-11-22. *Findings:* none. Needed four new
+      `AppStrings` members (`paperDateToday`, `paperDateYesterday`,
+      `weekdayName`, `paperAppointmentTime`) — the morning/night split for
+      the appointment time («الصبح»/«بالليل») matches the existing
+      `analysisLimitResetTime` precedent («الساعة 12 بالليل»), not a fresh
+      guess. 18 model tests + 4 `app_strings_test` entries.
 - [ ] **T23** `PaperScreenCubit` (use cases only): `WatchPaper(id)` →
       loading / ready / notFound / error; `LoadPaperImage` for the thumbnail
       (failure → placeholder, not an error). *Done when:* tested.

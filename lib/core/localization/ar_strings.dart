@@ -17,6 +17,16 @@ const List<String> _monthNames = [
   'ديسمبر',
 ];
 
+const List<String> _weekdayNames = [
+  'الإتنين',
+  'التلات',
+  'الأربع',
+  'الخميس',
+  'الجمعة',
+  'السبت',
+  'الحد',
+];
+
 /// Arabic (Egyptian) strings. Simple, everyday dialect (CLAUDE.md).
 final class ArStrings implements AppStrings {
   const ArStrings();
@@ -906,6 +916,21 @@ final class ArStrings implements AppStrings {
   };
   @override
   String get paperWaitingSentence => 'استنى شوية، أنا بقرا الورقة.';
+  @override
+  String get paperDateToday => 'النهارده';
+  @override
+  String get paperDateYesterday => 'امبارح';
+  @override
+  String weekdayName(int weekday) => 'يوم ${_weekdayNames[weekday - 1]}';
+  @override
+  String paperAppointmentTime(int hour, int minute) {
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    final period = hour < 12 ? 'الصبح' : 'بالليل';
+    return minute == 0
+        ? 'الساعة $displayHour $period'
+        : 'الساعة $displayHour:${minute.toString().padLeft(2, '0')} $period';
+  }
+
   @override
   String get resultListen => 'استمع';
   @override

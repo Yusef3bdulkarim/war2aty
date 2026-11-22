@@ -505,6 +505,10 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'paperLimitReachedMessageWithLimit': (s) =>
       s.paperLimitReachedMessageWithLimit(3),
   'paperWaitingSentence': (s) => s.paperWaitingSentence,
+  'paperDateToday': (s) => s.paperDateToday,
+  'paperDateYesterday': (s) => s.paperDateYesterday,
+  'weekdayName': (s) => s.weekdayName(4),
+  'paperAppointmentTime': (s) => s.paperAppointmentTime(10, 0),
 };
 
 void main() {
