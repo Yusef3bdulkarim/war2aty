@@ -482,9 +482,10 @@ finished and the next one does not start.
       the appointment time («الصبح»/«بالليل») matches the existing
       `analysisLimitResetTime` precedent («الساعة 12 بالليل»), not a fresh
       guess. 18 model tests + 4 `app_strings_test` entries.
-- [ ] **T23** `PaperScreenCubit` (use cases only): `WatchPaper(id)` →
+- [x] **T23** `PaperScreenCubit` (use cases only): `WatchPaper(id)` →
       loading / ready / notFound / error; `LoadPaperImage` for the thumbnail
       (failure → placeholder, not an error). *Done when:* tested.
+      DONE d352a90 — 11 cubit tests; race guard + no-double-decrypt.
 - [ ] **T24** The screen's frame: header (back, round thumbnail, title, date,
       inert «؟»), scroll body, fixed bottom slot for the player; loading,
       not-found and error states. *Done when:* widget tests per state, RTL,
