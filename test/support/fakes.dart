@@ -1774,8 +1774,12 @@ final class FakePaperImageStore implements PaperImageStore {
 
   final Map<String, String> stored = {};
   final List<String> deletedIds = [];
+  final List<String> loadedIds = [];
   bool deleteAllCalled = false;
   Uint8List? loadResult;
+  Completer<void>? loadGate;
+
+  int get loadCallCount => loadedIds.length;
 
   @override
   Future<Result<String, AppFailure>> encryptAndStore({
@@ -1789,6 +1793,8 @@ final class FakePaperImageStore implements PaperImageStore {
 
   @override
   Future<Result<Uint8List, AppFailure>> load(String paperId) async {
+    loadedIds.add(paperId);
+    if (loadGate != null) await loadGate!.future;
     if (fails) return const Err(FileStorageFailure());
     return Ok(loadResult ?? Uint8List(0));
   }
