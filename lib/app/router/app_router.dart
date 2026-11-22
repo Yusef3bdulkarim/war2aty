@@ -48,6 +48,8 @@ import '../../features/ocr/presentation/screens/ocr_processing_screen.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
+import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
+import '../../features/paper/presentation/screens/paper_screen.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
@@ -289,14 +291,15 @@ GoRouter createAppRouter({
           );
         },
       ),
-      // The result screen (T22–T24 build it) — a placeholder until then, so a
-      // real explain run has somewhere to land.
       GoRoute(
         path: '${AppRoutes.paper}/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'];
           if (id == null) return const _BackToHome();
-          return _PaperPlaceholder(paperId: id);
+          return BlocProvider<PaperScreenCubit>(
+            create: (_) => getIt<PaperScreenCubit>(param1: id)..start(),
+            child: PaperScreen(onBack: () => context.go(AppRoutes.home)),
+          );
         },
       ),
       GoRoute(
@@ -834,19 +837,6 @@ class _BackToHome extends StatelessWidget {
       if (context.mounted) context.go(AppRoutes.home);
     });
     return const SizedBox.shrink();
-  }
-}
-
-/// `/paper/:id`'s stand-in until T24 builds the real result screen
-/// (F39/F40 Phase D) — every explain run lands here in the meantime.
-class _PaperPlaceholder extends StatelessWidget {
-  const _PaperPlaceholder({required this.paperId});
-
-  final String paperId;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(body: Center(child: Text(paperId)));
   }
 }
 

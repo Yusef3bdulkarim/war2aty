@@ -932,6 +932,18 @@ final class ArStrings implements AppStrings {
   }
 
   @override
+  String get paperHelpLabel => 'اتفرج إزاي تستخدم الشاشة دي';
+  @override
+  String get paperScreenNotFoundTitle => 'الورقة دي مش موجودة';
+  @override
+  String get paperScreenNotFoundMessage => 'يمكن تكون اتمسحت أو مبقتش موجودة.';
+  @override
+  String get paperScreenErrorTitle => 'مقدرناش نفتح الورقة';
+  @override
+  String get paperScreenErrorMessage =>
+      'حصلت مشكلة وإحنا بنجيب بيانات الورقة. جرّب تاني.';
+
+  @override
   String get resultListen => 'استمع';
   @override
   String get resultSavePaper => 'حفظ الورقة';

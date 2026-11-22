@@ -710,6 +710,13 @@ abstract interface class AppStrings {
   String weekdayName(int weekday);
   String paperAppointmentTime(int hour, int minute);
 
+  String get paperHelpLabel;
+
+  String get paperScreenNotFoundTitle;
+  String get paperScreenNotFoundMessage;
+  String get paperScreenErrorTitle;
+  String get paperScreenErrorMessage;
+
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.
   String get resultListen;

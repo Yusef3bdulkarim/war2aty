@@ -923,6 +923,18 @@ final class EnStrings implements AppStrings {
   }
 
   @override
+  String get paperHelpLabel => 'See how to use this screen';
+  @override
+  String get paperScreenNotFoundTitle => "This paper isn't there";
+  @override
+  String get paperScreenNotFoundMessage => 'It may have been deleted.';
+  @override
+  String get paperScreenErrorTitle => "Couldn't open the paper";
+  @override
+  String get paperScreenErrorMessage =>
+      'Something went wrong loading it. Try again.';
+
+  @override
   String get resultListen => 'Listen';
   @override
   String get resultSavePaper => 'Save paper';

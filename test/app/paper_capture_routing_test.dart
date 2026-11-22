@@ -11,7 +11,9 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/logging/app_logger.dart';
 import 'package:war2aty/core/logging/log_event.dart';
+import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/save_paper.dart';
+import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
@@ -42,6 +44,7 @@ import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
 
 import '../support/fakes.dart';
 
@@ -131,6 +134,13 @@ void main() {
             FakeConnectivityService(),
             usage,
           ),
+        ),
+      )
+      ..registerFactoryParam<PaperScreenCubit, String, void>(
+        (paperId, _) => PaperScreenCubit(
+          WatchPaper(FakePapersRepository()),
+          LoadPaperImage(FakePaperImageStore()),
+          paperId: paperId,
         ),
       );
 

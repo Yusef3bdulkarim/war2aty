@@ -509,6 +509,11 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'paperDateYesterday': (s) => s.paperDateYesterday,
   'weekdayName': (s) => s.weekdayName(4),
   'paperAppointmentTime': (s) => s.paperAppointmentTime(10, 0),
+  'paperHelpLabel': (s) => s.paperHelpLabel,
+  'paperScreenNotFoundTitle': (s) => s.paperScreenNotFoundTitle,
+  'paperScreenNotFoundMessage': (s) => s.paperScreenNotFoundMessage,
+  'paperScreenErrorTitle': (s) => s.paperScreenErrorTitle,
+  'paperScreenErrorMessage': (s) => s.paperScreenErrorMessage,
 };
 
 void main() {

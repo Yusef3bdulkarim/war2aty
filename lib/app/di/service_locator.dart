@@ -245,6 +245,7 @@ import '../../features/onboarding/domain/repositories/onboarding_repository.dart
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
@@ -1196,7 +1197,10 @@ void _registerPapers() {
     ..registerFactory<DeletePaper>(() => DeletePaper(getIt()))
     ..registerFactory<DeleteAllPapers>(() => DeleteAllPapers(getIt()))
     ..registerFactory<LoadPaperImage>(() => LoadPaperImage(getIt()))
-    ..registerFactory<BuildPaperVoiceSegments>(BuildPaperVoiceSegments.new);
+    ..registerFactory<BuildPaperVoiceSegments>(BuildPaperVoiceSegments.new)
+    ..registerFactoryParam<PaperScreenCubit, String, void>(
+      (paperId, _) => PaperScreenCubit(getIt(), getIt(), paperId: paperId),
+    );
 }
 
 void _registerExplain(AppEnvironment env) {

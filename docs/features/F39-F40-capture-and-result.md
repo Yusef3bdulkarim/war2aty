@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 22 / 52
+- **Progress:** 24 / 52
 
 ## Why this feature exists
 
@@ -486,10 +486,21 @@ finished and the next one does not start.
       loading / ready / notFound / error; `LoadPaperImage` for the thumbnail
       (failure → placeholder, not an error). *Done when:* tested.
       DONE d352a90 — 11 cubit tests; race guard + no-double-decrypt.
-- [ ] **T24** The screen's frame: header (back, round thumbnail, title, date,
+- [x] **T24** The screen's frame: header (back, round thumbnail, title, date,
       inert «؟»), scroll body, fixed bottom slot for the player; loading,
       not-found and error states. *Done when:* widget tests per state, RTL,
       Large Text.
+      *Review:* Opus 5, 2026-11-22. *Findings:* one — a keyed empty player-slot
+      placeholder was speculative/untested, removed (the player bar lands in
+      T34 as the Column's next child). `PaperScreen` reuses `ServiceStateView`
+      for not-found/error and `TopBarIconButton`/`StrokeGlyph.arrowBack` for the
+      back control; the thumbnail shows the decrypted photo or a drawn
+      folded-paper mark; the «؟» is drawn `enabled: false` (D6). Wired into
+      `/paper/:id` over `PaperScreenCubit` (new `registerFactoryParam`),
+      replacing the T21 placeholder; the routing test's own DI gained the same
+      registration. 5 new `AppStrings` members (`paperHelpLabel`, the two
+      not-found + two error lines) in both locales + the parity map. 17 widget
+      tests (states, RTL, Large Text, the F27-T15 audit sweep).
 - [ ] **T25** Cards «شرح الورقة», «أعمل إيه؟», «خلي بالك» to the artboard
       (icons, colours, the spoken card's highlight style). *Done when:* widget
       tests including the highlighted variant.
