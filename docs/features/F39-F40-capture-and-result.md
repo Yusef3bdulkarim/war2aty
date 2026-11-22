@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 20 / 52
+- **Progress:** 21 / 52
 
 ## Why this feature exists
 
@@ -432,7 +432,7 @@ finished and the next one does not start.
       `PaperExplainRunner` so the cubit can subscribe to an already-running job
       (D2 back-and-rescan). `_left` flag guards post-close emits; 13 cubit
       tests + 2 runner tests.
-- [ ] **T21** Routes: crop → `/paper-waiting` → `/paper/:id?fresh=1` or
+- [x] **T21** Routes: crop → `/paper-waiting` → `/paper/:id?fresh=1` or
       `/paper-failure`; system back on waiting → Home. This is the
       switch-over: the crop screen calls `confirm`, and `proceed()`,
       `DecideAnalysisRoute`, `CreateAnalysisSession` and both holders leave
@@ -445,6 +445,27 @@ finished and the next one does not start.
       rewrites them fully. *Done when:* routing
       tests for the whole chain with fakes, the cubit's tests rewritten, and
       the full suite green.
+      *Review:* pending. *Findings:* —.
+      **Owner decision (2026-11-22):** `test/integration/invoice_journey_test.dart`
+      and `analysis_failure_paths_test.dart` are left **failing** rather than
+      adapted now — both drive the old pipeline end to end against
+      `ocr-document`/`analyze-document`, and `test/support/app_harness.dart`
+      has no wiring at all for the explain pipeline (no `PaperExplainRunner`,
+      no fake `explain-document` endpoint). Rewiring them properly is T49's
+      job, not a T21 addendum; adapting them now to a placeholder `/paper/:id`
+      would mean asserting against a screen T22–T24 haven't built yet. New
+      coverage of the switch-over itself lives in
+      `test/app/paper_capture_routing_test.dart` instead (confirm → explain
+      run → `/paper/:id` or `/paper-failure`; system back on waiting → Home).
+      Unrelated pre-existing failures found by the same full-suite run and
+      **not** touched here: `shell_test.dart`, `usage_hint_routing_test.dart`,
+      `manual_reminder_seed_routing_test.dart`, `reminders_scan_routing_test.dart`
+      (Home has required a `CaptureGateCubit` since T15; these fixtures were
+      never updated — ~26 tests) and `paper_failure_screen_test.dart`'s
+      `LimitResetCard` test (hardcodes `resetAt = DateTime(2026, 11, 19)`,
+      now in the past). Fixed in passing because this task's own changes
+      forced those files open anyway: `explicit_ocr_fallback_test.dart` and
+      `paper_failure_routing_test.dart`.
 
 ### Phase D — the result screen
 

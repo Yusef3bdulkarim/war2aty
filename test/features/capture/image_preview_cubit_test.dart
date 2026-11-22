@@ -1,22 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
 import 'package:war2aty/core/voice/voice_line.dart';
-import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
-import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_state.dart';
-import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
-import 'package:war2aty/features/ocr/domain/entities/normalized_ocr_text.dart';
-import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 
 import '../../support/fakes.dart';
 
@@ -25,35 +18,14 @@ const _source = CapturedPhoto('/tmp/original.jpg');
 ImagePreviewCubit cubitFor(
   FakeImageRotator rotator, {
   FakeImageCropper? cropper,
-  FakeAnalysisSessionStorage? storage,
   FakeCaptureFileCleanup? cleanup,
-  FakeConnectivityService? connectivity,
-  FakeUsageRepository? usage,
-  ImageAnalysisSessionHolder? onlineHandoff,
-  OcrSessionHolder? ocrHandoff,
   FakeFixedLinePlayer? linePlayer,
 }) {
-  final s = storage ?? FakeAnalysisSessionStorage();
   final c = cleanup ?? FakeCaptureFileCleanup();
-  // Offline by default: every existing (pre-F13) test exercises that route
-  // without knowing connectivity exists.
-  final conn = connectivity ?? FakeConnectivityService(connected: false);
-  // Live by default so a test that opts into `connected: true` exercises the
-  // online route without also having to know this flag exists — a test that
-  // cares about the gate itself passes its own `usage`.
-  final u =
-      usage ??
-      FakeUsageRepository(
-        seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
-      );
   return ImagePreviewCubit(
     source: _source,
     rotate: RotateImage(rotator),
     cropImage: CropImage(cropper ?? FakeImageCropper()),
-    decideRoute: DecideAnalysisRoute(conn, u),
-    createSession: CreateAnalysisSession(s),
-    onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
-    ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
     cleanupFiles: CleanupCaptureFiles(c),
     speakFixedLine: SpeakFixedLine(linePlayer ?? FakeFixedLinePlayer()),
   );
@@ -155,321 +127,6 @@ void main() {
       await cubit.confirm();
 
       expect(rotator.rotateCount, 0);
-    });
-  });
-
-  group('ImagePreviewCubit.proceed', () {
-    test('creates a session from the confirmed photo', () async {
-      final storage = FakeAnalysisSessionStorage();
-      final cubit = cubitFor(FakeImageRotator(), storage: storage);
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(cubit.state, isA<ImagePreviewSessionCreated>());
-      final created = cubit.state as ImagePreviewSessionCreated;
-      expect(created.session.id, storage.sessionId);
-      expect(storage.createCount, 1);
-      expect(storage.lastPhoto, _source);
-    });
-
-    test('carries the rotated photo into the session', () async {
-      const rotated = CapturedPhoto('/tmp/spun.jpg');
-      final storage = FakeAnalysisSessionStorage();
-      final cubit = cubitFor(
-        FakeImageRotator(output: rotated),
-        storage: storage,
-      );
-      addTearDown(cubit.close);
-
-      cubit.rotateClockwise();
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(storage.lastPhoto, rotated);
-    });
-
-    test('a failed session creation surfaces the error', () async {
-      final storage = FakeAnalysisSessionStorage(fails: true);
-      final cubit = cubitFor(FakeImageRotator(), storage: storage);
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(cubit.state, const ImagePreviewFailed(0));
-    });
-
-    test('is a no-op before confirm', () async {
-      final storage = FakeAnalysisSessionStorage();
-      final cubit = cubitFor(FakeImageRotator(), storage: storage);
-      addTearDown(cubit.close);
-
-      await cubit.proceed();
-
-      expect(cubit.state, const ImagePreviewReady(0));
-      expect(storage.createCount, 0);
-    });
-
-    test('is a no-op after already created', () async {
-      final storage = FakeAnalysisSessionStorage();
-      final cubit = cubitFor(FakeImageRotator(), storage: storage);
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-      await cubit.proceed();
-      await cubit.proceed();
-
-      expect(storage.createCount, 1);
-    });
-
-    test('session carries expected id and path', () async {
-      final storage = FakeAnalysisSessionStorage(sessionId: 'abc-123');
-      final cubit = cubitFor(FakeImageRotator(), storage: storage);
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(
-        cubit.state,
-        const ImagePreviewSessionCreated(
-          AnalysisSession(
-            id: 'abc-123',
-            imagePath: '/cache/analysis_sessions/abc-123/processed.jpg',
-          ),
-        ),
-      );
-    });
-  });
-
-  group('ImagePreviewCubit.proceed — online route (F13)', () {
-    test('hands the confirmed photo off, skipping OCR entirely', () async {
-      final storage = FakeAnalysisSessionStorage(sessionId: 'sess-online');
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        storage: storage,
-        connectivity: FakeConnectivityService(),
-        onlineHandoff: handoff,
-      );
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(
-        cubit.state,
-        const ImagePreviewOnlineReady(
-          AnalysisSession(
-            id: 'sess-online',
-            imagePath: '/cache/analysis_sessions/sess-online/processed.jpg',
-          ),
-        ),
-      );
-      expect(
-        handoff.session,
-        const AnalysisSession(
-          id: 'sess-online',
-          imagePath: '/cache/analysis_sessions/sess-online/processed.jpg',
-        ),
-      );
-      expect(handoff.photo, _source);
-    });
-  });
-
-  // Regression: an automatic document crop used to run in proceed() and, on
-  // blurry or sparse pages, latched onto one text block — the rest of the
-  // page was never read. The user's own framing is now final on both routes.
-  group('ImagePreviewCubit.proceed — reads the page as the user framed it', () {
-    const cropRect = UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85);
-    const cropped = CapturedPhoto('/tmp/cropped.jpg');
-
-    test('online: hands off exactly the confirmed photo', () async {
-      final storage = FakeAnalysisSessionStorage();
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        cropper: FakeImageCropper(output: cropped),
-        storage: storage,
-        connectivity: FakeConnectivityService(),
-        onlineHandoff: handoff,
-      );
-      addTearDown(cubit.close);
-
-      cubit.updateCrop(cropRect);
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(cubit.state, isA<ImagePreviewOnlineReady>());
-      expect(handoff.photo, cropped);
-      expect(storage.lastPhoto, cropped);
-    });
-
-    test(
-      'offline: makes the OCR session from exactly the confirmed photo',
-      () async {
-        final storage = FakeAnalysisSessionStorage();
-        final cubit = cubitFor(
-          FakeImageRotator(),
-          cropper: FakeImageCropper(output: cropped),
-          storage: storage,
-        );
-        addTearDown(cubit.close);
-
-        cubit.updateCrop(cropRect);
-        await cubit.confirm();
-        await cubit.proceed();
-
-        expect(cubit.state, isA<ImagePreviewSessionCreated>());
-        expect(storage.lastPhoto, cropped);
-      },
-    );
-
-    test('an uncropped photo goes through whole', () async {
-      final storage = FakeAnalysisSessionStorage();
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        storage: storage,
-        connectivity: FakeConnectivityService(),
-        onlineHandoff: handoff,
-      );
-      addTearDown(cubit.close);
-
-      await cubit.confirm();
-      await cubit.proceed();
-
-      expect(handoff.photo, _source);
-      expect(storage.lastPhoto, _source);
-    });
-  });
-
-  group('ImagePreviewCubit.proceed — stale hand-off clearing', () {
-    const staleExtraction = ExtractionResult(
-      text: NormalizedOcrText(originalText: 'قديم', cleanedText: 'قديم'),
-    );
-
-    test(
-      'routing online clears a stale offline hand-off from a previous run',
-      () async {
-        final ocrHandoff = OcrSessionHolder()
-          ..set(
-            const AnalysisSession(id: 'old', imagePath: '/tmp/old.jpg'),
-            staleExtraction,
-          );
-        final cubit = cubitFor(
-          FakeImageRotator(),
-          connectivity: FakeConnectivityService(),
-          ocrHandoff: ocrHandoff,
-        );
-        addTearDown(cubit.close);
-
-        await cubit.confirm();
-        await cubit.proceed();
-
-        expect(ocrHandoff.session, isNull);
-        expect(ocrHandoff.result, isNull);
-      },
-    );
-
-    test(
-      'routing offline clears a stale online hand-off from a previous run',
-      () async {
-        final onlineHandoff = ImageAnalysisSessionHolder()
-          ..set(
-            const AnalysisSession(id: 'old', imagePath: '/tmp/old.jpg'),
-            const CapturedPhoto('/tmp/old-corrected.jpg'),
-          );
-        final cubit = cubitFor(
-          FakeImageRotator(),
-          onlineHandoff: onlineHandoff,
-        );
-        addTearDown(cubit.close);
-
-        await cubit.confirm();
-        await cubit.proceed();
-
-        expect(onlineHandoff.session, isNull);
-        expect(onlineHandoff.photo, isNull);
-      },
-    );
-  });
-
-  group('ImagePreviewCubit temp-file cleanup', () {
-    test('close without confirm deletes the source file', () async {
-      final cleanup = FakeCaptureFileCleanup();
-      final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
-
-      await cubit.close();
-
-      expect(cleanup.deleteCalls, hasLength(1));
-      expect(cleanup.deleteCalls.first, [_source.path]);
-    });
-
-    test('close after no-op rotation deletes only the source', () async {
-      final cleanup = FakeCaptureFileCleanup();
-      final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
-
-      await cubit.confirm();
-      await cubit.close();
-
-      expect(cleanup.deleteCalls, hasLength(1));
-      expect(cleanup.deleteCalls.first, [_source.path]);
-    });
-
-    test('close after rotation deletes source and rotated file', () async {
-      const rotated = CapturedPhoto('/tmp/spun.jpg');
-      final cleanup = FakeCaptureFileCleanup();
-      final cubit = cubitFor(
-        FakeImageRotator(output: rotated),
-        cleanup: cleanup,
-      );
-
-      cubit.rotateClockwise();
-      await cubit.confirm();
-      await cubit.close();
-
-      expect(cleanup.deleteCalls, hasLength(1));
-      expect(
-        cleanup.deleteCalls.first,
-        unorderedEquals([_source.path, rotated.path]),
-      );
-    });
-
-    test('close after session created still cleans temp files', () async {
-      final cleanup = FakeCaptureFileCleanup();
-      final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
-
-      await cubit.confirm();
-      await cubit.proceed();
-      await cubit.close();
-
-      expect(cleanup.deleteCalls, hasLength(1));
-      expect(cleanup.deleteCalls.first, [_source.path]);
-    });
-
-    test('close after online route skips cleanup entirely — '
-        'the holder owns every temp file', () async {
-      final cleanup = FakeCaptureFileCleanup();
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        cleanup: cleanup,
-        connectivity: FakeConnectivityService(),
-        onlineHandoff: handoff,
-      );
-
-      await cubit.confirm();
-      await cubit.proceed();
-      expect(handoff.photo, _source);
-
-      await cubit.close();
-
-      // close() does NOT delete anything — the holder deletes all files
-      // in clear() after the analysis has read the image bytes.
-      expect(cleanup.deleteCalls, isEmpty);
     });
   });
 
@@ -612,7 +269,7 @@ void main() {
         // The screen never swaps to the exported file — it keeps rendering
         // the source with the rotation and crop applied. Losing either here
         // flips the preview back to the raw photo for the frame between
-        // confirming and the session being created.
+        // confirming and the hand-off to the explain pipeline.
         final cubit = cubitFor(FakeImageRotator());
         addTearDown(cubit.close);
 
@@ -625,29 +282,6 @@ void main() {
         expect(confirmed.cropRect, cropRect);
       },
     );
-
-    test('the framing survives all the way through proceed', () async {
-      final cubit = cubitFor(FakeImageRotator());
-      addTearDown(cubit.close);
-
-      cubit.rotateClockwise();
-      cubit.updateCrop(cropRect);
-      await cubit.confirm();
-
-      final states = <ImagePreviewState>[];
-      final sub = cubit.stream.listen(states.add);
-      addTearDown(sub.cancel);
-
-      await cubit.proceed();
-
-      // The veil state and the terminal state both render before the router
-      // swaps the screen out.
-      expect(states, isNotEmpty);
-      for (final s in states) {
-        expect(s.quarterTurns, 1, reason: '$s dropped the rotation');
-        expect(s.cropRect, cropRect, reason: '$s dropped the crop');
-      }
-    });
 
     test('close after crop deletes source + rotated + cropped files', () async {
       const rotated = CapturedPhoto('/tmp/spun.jpg');
@@ -669,28 +303,6 @@ void main() {
         cleanup.deleteCalls.first,
         unorderedEquals([_source.path, rotated.path, cropped.path]),
       );
-    });
-
-    test('online handoff includes the cropped file in cleanup paths', () async {
-      const cropped = CapturedPhoto('/tmp/cropped.jpg');
-      final cleanup = FakeCaptureFileCleanup();
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        cropper: FakeImageCropper(output: cropped),
-        cleanup: cleanup,
-        connectivity: FakeConnectivityService(),
-        onlineHandoff: handoff,
-      );
-
-      cubit.updateCrop(cropRect);
-      await cubit.confirm();
-      await cubit.proceed();
-      await cubit.close();
-
-      // close() skips cleanup — holder owns all temp files.
-      expect(cleanup.deleteCalls, isEmpty);
-      expect(handoff.photo, cropped);
     });
   });
 
@@ -754,33 +366,94 @@ void main() {
     });
   });
 
-  group('ImagePreviewCubit.transferFileOwnership', () {
-    test('prevents close from cleaning up temp files', () async {
+  group('ImagePreviewCubit.handOffToExplain (F39/F40-T21)', () {
+    test(
+      'no rotation or crop: cleans up nothing (the pipeline owns the source)',
+      () async {
+        final cleanup = FakeCaptureFileCleanup();
+        final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
+
+        await cubit.confirm();
+        cubit.handOffToExplain();
+
+        expect(cleanup.deleteCalls, isEmpty);
+      },
+    );
+
+    test(
+      'rotation and crop: cleans up only the source and the intermediate '
+      'rotated file, leaving the final cropped file to the pipeline',
+      () async {
+        const rotated = CapturedPhoto('/tmp/spun.jpg');
+        const cropped = CapturedPhoto('/tmp/cropped.jpg');
+        final cleanup = FakeCaptureFileCleanup();
+        final cubit = cubitFor(
+          FakeImageRotator(output: rotated),
+          cropper: FakeImageCropper(output: cropped),
+          cleanup: cleanup,
+        );
+
+        cubit.rotateClockwise();
+        cubit.updateCrop(
+          const UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85),
+        );
+        await cubit.confirm();
+        cubit.handOffToExplain();
+
+        expect(cleanup.deleteCalls, [
+          [_source.path, rotated.path],
+        ]);
+      },
+    );
+
+    test('is a no-op before confirm', () async {
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
+      addTearDown(cubit.close);
+
+      cubit.handOffToExplain();
+
+      expect(cleanup.deleteCalls, isEmpty);
+    });
+
+    test('close after hand-off does not clean up anything again', () async {
       final cleanup = FakeCaptureFileCleanup();
       final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
 
       await cubit.confirm();
-      cubit.transferFileOwnership();
+      cubit.handOffToExplain();
+      cleanup.deleteCalls.clear();
       await cubit.close();
 
       expect(cleanup.deleteCalls, isEmpty);
     });
 
-    test('works alongside proceed — online path still skips cleanup', () async {
+    test('close without a hand-off still cleans up the source', () async {
       final cleanup = FakeCaptureFileCleanup();
-      final handoff = ImageAnalysisSessionHolder();
-      final cubit = cubitFor(
-        FakeImageRotator(),
-        cleanup: cleanup,
-        connectivity: FakeConnectivityService(),
-        onlineHandoff: handoff,
-      );
+      final cubit = cubitFor(FakeImageRotator(), cleanup: cleanup);
 
       await cubit.confirm();
-      await cubit.proceed();
       await cubit.close();
 
-      expect(cleanup.deleteCalls, isEmpty);
+      expect(cleanup.deleteCalls, [
+        [_source.path],
+      ]);
+    });
+
+    test('calling it twice cleans up only once', () async {
+      const rotated = CapturedPhoto('/tmp/spun.jpg');
+      final cleanup = FakeCaptureFileCleanup();
+      final cubit = cubitFor(
+        FakeImageRotator(output: rotated),
+        cleanup: cleanup,
+      );
+
+      cubit.rotateClockwise();
+      await cubit.confirm();
+      cubit.handOffToExplain();
+      cubit.handOffToExplain();
+
+      expect(cleanup.deleteCalls, hasLength(1));
     });
   });
 

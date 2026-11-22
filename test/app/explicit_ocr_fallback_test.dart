@@ -33,7 +33,6 @@ import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
-import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_image_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_request.dart';
 import 'package:war2aty/features/analysis/domain/entities/analysis_source.dart';
@@ -56,16 +55,12 @@ import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_even
 import 'package:war2aty/features/bootstrap/domain/usecases/initialize_app.dart';
 import 'package:war2aty/features/bootstrap/presentation/cubit/bootstrap_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
-import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
-import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
-import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
+import 'package:war2aty/features/capture/domain/usecases/check_capture_readiness.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
 import 'package:war2aty/features/capture/domain/usecases/request_camera_permission.dart';
-import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cubit.dart';
-import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
+import 'package:war2aty/features/capture/presentation/cubit/capture_gate_cubit.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/ocr/domain/entities/extraction_result.dart';
 import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
@@ -140,10 +135,11 @@ void main() {
   late _CountingDeviceOcr deviceOcr;
   late bool ocrProcessingCubitConstructed;
 
-  /// Boots the real app — real DI wiring, real router — up to the point where
-  /// a photo is ready to preview, with connectivity forced online (F13's
-  /// [FakeConnectivityService] default) so [ImagePreviewCubit.proceed] takes
-  /// the online branch, and the online reading failing with [onlineFailure].
+  /// Boots the real app — real DI wiring, real router — with the online
+  /// reading failing with [onlineFailure]. [useImage] below drives straight
+  /// to `/ocr-review` with the online hand-off already populated — the
+  /// crop screen no longer leads there after F39/F40-T21's switch-over, so
+  /// this test exercises `OcrReviewCubit`'s own fallback behavior directly.
   ///
   /// The on-device reader is counted ([deviceOcr]) and `OcrProcessingCubit`
   /// is poisoned: those are the only ways Tesseract can run, so a fallback
@@ -194,6 +190,17 @@ void main() {
           watchUpcomingReminder: WatchUpcomingReminder(reminders),
         ),
       )
+      // Home's scan/pick controls build a `CaptureGateCubit` unconditionally
+      // (F39/F40-T15) — not this suite's concern, but it must resolve for
+      // Home to render at all.
+      ..registerFactory<CaptureGateCubit>(
+        () => CaptureGateCubit(
+          checkCaptureReadiness: CheckCaptureReadiness(
+            FakeConnectivityService(),
+            usage,
+          ),
+        ),
+      )
       // WaraqtiApp mounts these unconditionally (F11) — not this suite's
       // concern, but they must resolve for the app to build at all.
       ..registerFactory<TextSizeCubit>(() {
@@ -210,22 +217,6 @@ void main() {
           setHighContrast: SetHighContrast(store),
         );
       })
-      // Online by default (`FakeConnectivityService`'s default is connected),
-      // a corrector that hands the photo back untouched, and fakes for
-      // rotate/crop that hand it on unchanged.
-      ..registerFactoryParam<ImagePreviewCubit, String, void>(
-        (path, _) => ImagePreviewCubit(
-          source: CapturedPhoto(path),
-          rotate: RotateImage(FakeImageRotator()),
-          cropImage: CropImage(FakeImageCropper()),
-          decideRoute: DecideAnalysisRoute(FakeConnectivityService(), usage),
-          createSession: CreateAnalysisSession(FakeAnalysisSessionStorage()),
-          onlineHandoff: getIt(),
-          ocrHandoff: getIt(),
-          cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
-          speakFixedLine: SpeakFixedLine(FakeFixedLinePlayer()),
-        ),
-      )
       ..registerLazySingleton<ImageAnalysisSessionHolder>(
         ImageAnalysisSessionHolder.new,
       )
@@ -335,12 +326,14 @@ void main() {
     return repository;
   }
 
-  /// Opens the preview and taps «استخدم الصورة», which takes the online route.
+  /// Populates the online hand-off exactly as the (now-removed) crop-screen
+  /// online route used to, and goes straight to `/ocr-review`.
   Future<void> useImage(WidgetTester tester) async {
-    getIt<GoRouter>().go(AppRoutes.previewWith(_imagePath));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text(_strings.previewUseImage));
+    getIt<ImageAnalysisSessionHolder>().set(
+      const AnalysisSession(id: 'sess-online', imagePath: _imagePath),
+      const CapturedPhoto(_imagePath),
+    );
+    getIt<GoRouter>().go(AppRoutes.ocrReview);
     await tester.pumpAndSettle();
   }
 

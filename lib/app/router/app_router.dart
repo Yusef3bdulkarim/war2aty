@@ -20,6 +20,7 @@ import '../../features/analysis/presentation/image_analysis_session_holder.dart'
 import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
 import '../../features/analysis/presentation/screens/ocr_review_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
+import '../../features/capture/domain/entities/captured_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
 import '../../features/capture/presentation/cubit/camera_capture_cubit.dart';
 import '../../features/capture/presentation/cubit/camera_permission_cubit.dart';
@@ -34,8 +35,11 @@ import '../../features/capture/presentation/screens/image_preview_screen.dart';
 import '../../features/explain/domain/entities/paper_failure_kind.dart';
 import '../../features/explain/domain/services/paper_explain_runner.dart';
 import '../../features/explain/presentation/cubit/paper_failure_cubit.dart';
+import '../../features/explain/presentation/cubit/paper_waiting_cubit.dart';
+import '../../features/explain/presentation/cubit/paper_waiting_state.dart';
 import '../../features/explain/presentation/paper_retry_holder.dart';
 import '../../features/explain/presentation/screens/paper_failure_screen.dart';
+import '../../features/explain/presentation/screens/paper_waiting_screen.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/ocr/presentation/cubit/ocr_processing_cubit.dart';
@@ -82,6 +86,7 @@ abstract final class AppRoutes {
   static const String documentDetails = '/documents';
   static const String paperFailure = '/paper-failure';
   static const String paperWaiting = '/paper-waiting';
+  static const String paper = '/paper';
   static const String reminderManual = '/reminders/manual';
   static const String reminderSuccess = '/reminders/success';
 
@@ -118,6 +123,15 @@ abstract final class AppRoutes {
       'kind': kind.name,
       if (source != null) 'source': source.name,
     },
+  ).toString();
+
+  /// One explained paper's result screen, by its id.
+  ///
+  /// [fresh] marks a run that just finished — the screen still built by T24
+  /// reads it to decide whether to start reading the paper aloud on open.
+  static String paperWith(String id, {bool fresh = false}) => Uri(
+    path: '$paper/$id',
+    queryParameters: {if (fresh) 'fresh': '1'},
   ).toString();
 
   /// The crop/rotate preview for the acquired image at [imagePath].
@@ -220,18 +234,69 @@ GoRouter createAppRouter({
             create: (_) => getIt<ImagePreviewCubit>(param1: path),
             child: ImagePreviewScreen(
               imagePath: path,
-              onSessionCreated: (session) =>
-                  context.pushReplacement(AppRoutes.ocr, extra: session),
-              // The on-device OCR screen is skipped on this route (F13
-              // locked decision #1) — but unlike before F14, the online
-              // route still stops at an OCR review before analysis: the
-              // review screen reads the corrected photo back out of
-              // `ImageAnalysisSessionHolder` and runs the online reading itself.
-              onOnlineReady: (_) =>
-                  context.pushReplacement(AppRoutes.ocrReview),
+              // F39/F40-T21's switch-over: the confirmed photo goes straight
+              // to the explain pipeline, carried as `extra` so the waiting
+              // screen's cubit starts it — never through OCR or the old
+              // analysis result screen.
+              onConfirmed: (photo) {
+                getIt<PaperRetryHolder>().photo = photo;
+                context.pushReplacement(AppRoutes.paperWaiting, extra: photo);
+              },
               onRetake: context.pop,
             ),
           );
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.paperWaiting,
+        builder: (context, state) {
+          final photo = state.extra as CapturedPhoto?;
+          // System back must never resurface the crop screen it replaced —
+          // it leaves for Home like every other scan-flow failure exit.
+          // Deferred a frame: a pop can land mid-build, and navigating
+          // straight out of that callback trips the framework's "setState
+          // during build" guard.
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (_, _) =>
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) context.go(AppRoutes.home);
+                }),
+            child: BlocProvider<PaperWaitingCubit>(
+              create: (_) => getIt<PaperWaitingCubit>(param1: photo),
+              child: Builder(
+                builder: (context) =>
+                    BlocListener<PaperWaitingCubit, PaperWaitingState>(
+                      listener: (context, waitingState) {
+                        switch (waitingState) {
+                          case PaperWaitingNavigateToPaper(:final paperId):
+                            getIt<PaperRetryHolder>().clear();
+                            context.pushReplacement(
+                              AppRoutes.paperWith(paperId, fresh: true),
+                            );
+                          case PaperWaitingFailed(:final kind):
+                            context.pushReplacement(
+                              AppRoutes.paperFailureWith(kind),
+                            );
+                          case PaperWaitingInProgress():
+                            break;
+                        }
+                      },
+                      child: const PaperWaitingScreen(),
+                    ),
+              ),
+            ),
+          );
+        },
+      ),
+      // The result screen (T22–T24 build it) — a placeholder until then, so a
+      // real explain run has somewhere to land.
+      GoRoute(
+        path: '${AppRoutes.paper}/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'];
+          if (id == null) return const _BackToHome();
+          return _PaperPlaceholder(paperId: id);
         },
       ),
       GoRoute(
@@ -769,6 +834,19 @@ class _BackToHome extends StatelessWidget {
       if (context.mounted) context.go(AppRoutes.home);
     });
     return const SizedBox.shrink();
+  }
+}
+
+/// `/paper/:id`'s stand-in until T24 builds the real result screen
+/// (F39/F40 Phase D) — every explain run lands here in the meantime.
+class _PaperPlaceholder extends StatelessWidget {
+  const _PaperPlaceholder({required this.paperId});
+
+  final String paperId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(body: Center(child: Text(paperId)));
   }
 }
 

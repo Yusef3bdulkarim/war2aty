@@ -6,20 +6,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
-import 'package:war2aty/core/storage/analysis_session.dart';
 import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
-import 'package:war2aty/features/analysis/presentation/image_analysis_session_holder.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/entities/unit_rect.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
-import 'package:war2aty/features/capture/domain/usecases/create_analysis_session.dart';
 import 'package:war2aty/features/capture/domain/usecases/crop_image.dart';
-import 'package:war2aty/features/capture/domain/usecases/decide_analysis_route.dart';
 import 'package:war2aty/features/capture/domain/usecases/rotate_image.dart';
 import 'package:war2aty/features/capture/presentation/cubit/image_preview_cubit.dart';
 import 'package:war2aty/features/capture/presentation/screens/image_preview_screen.dart';
 import 'package:war2aty/features/capture/presentation/widgets/draggable_crop_overlay.dart';
-import 'package:war2aty/features/ocr/presentation/ocr_session_holder.dart';
 
 import '../../support/fakes.dart';
 import '../../support/pump_app.dart';
@@ -32,11 +27,7 @@ const _imagePath = '/tmp/paper.jpg';
 Future<_Result> _pumpPreview(
   WidgetTester tester, {
   FakeImageRotator? rotator,
-  FakeAnalysisSessionStorage? storage,
-  FakeConnectivityService? connectivity,
-  FakeUsageRepository? usage,
-  ImageAnalysisSessionHolder? onlineHandoff,
-  OcrSessionHolder? ocrHandoff,
+  FakeImageCropper? cropper,
   Locale locale = AppLocalizations.arabic,
   TextScaler? textScaler,
 }) async {
@@ -44,19 +35,7 @@ Future<_Result> _pumpPreview(
   final cubit = ImagePreviewCubit(
     source: const CapturedPhoto(_imagePath),
     rotate: RotateImage(rotator ?? FakeImageRotator()),
-    cropImage: CropImage(FakeImageCropper()),
-    decideRoute: DecideAnalysisRoute(
-      connectivity ?? FakeConnectivityService(connected: false),
-      usage ??
-          FakeUsageRepository(
-            seed: usageWith(limit: 3, remaining: 3, onlineOcrEnabled: true),
-          ),
-    ),
-    createSession: CreateAnalysisSession(
-      storage ?? FakeAnalysisSessionStorage(),
-    ),
-    onlineHandoff: onlineHandoff ?? ImageAnalysisSessionHolder(),
-    ocrHandoff: ocrHandoff ?? OcrSessionHolder(),
+    cropImage: CropImage(cropper ?? FakeImageCropper()),
     cleanupFiles: CleanupCaptureFiles(FakeCaptureFileCleanup()),
     speakFixedLine: SpeakFixedLine(FakeFixedLinePlayer()),
   );
@@ -68,12 +47,7 @@ Future<_Result> _pumpPreview(
       value: cubit,
       child: ImagePreviewScreen(
         imagePath: _imagePath,
-        onSessionCreated: (session) {
-          result.session = session;
-        },
-        onOnlineReady: (session) {
-          result.onlineSession = session;
-        },
+        onConfirmed: (photo) => result.confirmed = photo,
         onRetake: () => result.retook = true,
       ),
     ),
@@ -112,7 +86,7 @@ void main() {
       await tester.tap(find.bySemanticsLabel(_strings.cropHelpLabel));
       await tester.pump();
 
-      expect(result.session, isNull);
+      expect(result.confirmed, isNull);
       expect(result.retook, isFalse);
     });
 
@@ -147,40 +121,40 @@ void main() {
       );
     });
 
-    testWidgets('continue creates a session and hands it back', (tester) async {
-      final storage = FakeAnalysisSessionStorage(sessionId: 'sess-1');
-      final result = await _pumpPreview(tester, storage: storage);
+    testWidgets('continue bakes the framing and hands the photo back', (
+      tester,
+    ) async {
+      final result = await _pumpPreview(tester);
 
       await tester.tap(find.text(_strings.cropContinue));
       await tester.pump();
       await tester.pump();
 
-      expect(
-        result.session,
-        const AnalysisSession(
-          id: 'sess-1',
-          imagePath: '/cache/analysis_sessions/sess-1/processed.jpg',
-        ),
-      );
-      expect(storage.createCount, 1);
+      expect(result.confirmed, const CapturedPhoto(_imagePath));
     });
 
-    testWidgets(
-      'continue on the online route skips straight to onOnlineReady',
-      (tester) async {
-        final result = await _pumpPreview(
-          tester,
-          connectivity: FakeConnectivityService(),
-        );
+    testWidgets('continue on a cropped photo hands back the cropped file', (
+      tester,
+    ) async {
+      const cropped = CapturedPhoto('/tmp/cropped.jpg');
+      final result = await _pumpPreview(
+        tester,
+        cropper: FakeImageCropper(output: cropped),
+      );
 
-        await tester.tap(find.text(_strings.cropContinue));
-        await tester.pump();
-        await tester.pump();
+      BlocProvider.of<ImagePreviewCubit>(
+        tester.element(find.byType(ImagePreviewScreen)),
+      ).updateCrop(
+        const UnitRect(left: 0.1, top: 0.15, right: 0.9, bottom: 0.85),
+      );
+      await tester.pump();
 
-        expect(result.onlineSession, isNotNull);
-        expect(result.session, isNull);
-      },
-    );
+      await tester.tap(find.text(_strings.cropContinue));
+      await tester.pump();
+      await tester.pump();
+
+      expect(result.confirmed, cropped);
+    });
 
     testWidgets('controls disabled while processing', (tester) async {
       final rotator = FakeImageRotator()..gate = Completer<void>();
@@ -224,7 +198,7 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(result.session, isNull);
+      expect(result.confirmed, isNull);
       expect(find.text(_strings.previewErrorMessage), findsOneWidget);
       expect(find.text(_strings.cropContinue), findsOneWidget);
     });
@@ -275,7 +249,6 @@ UnitRect _overlayCrop(WidgetTester tester) => tester
     .cropRect;
 
 final class _Result {
-  AnalysisSession? session;
-  AnalysisSession? onlineSession;
+  CapturedPhoto? confirmed;
   bool retook = false;
 }

@@ -1,4 +1,3 @@
-import '../../../../core/storage/analysis_session.dart';
 import '../../domain/entities/captured_photo.dart';
 import '../../domain/entities/unit_rect.dart';
 
@@ -127,78 +126,4 @@ final class ImagePreviewFailed extends ImagePreviewState {
 
   @override
   final UnitRect cropRect;
-}
-
-/// Creating the session directory and copying the processed image into it.
-/// The processing veil stays up until this completes.
-///
-/// Carries the rotation and crop for the same reason [ImagePreviewConfirmed]
-/// does — the preview is still on screen underneath the veil.
-final class ImagePreviewCreatingSession extends ImagePreviewState {
-  const ImagePreviewCreatingSession({
-    this.quarterTurns = 0,
-    this.cropRect = UnitRect.full,
-  });
-
-  @override
-  final int quarterTurns;
-
-  @override
-  final UnitRect cropRect;
-}
-
-/// Terminal, offline route: the session is ready for F04 (OCR + analysis).
-final class ImagePreviewSessionCreated extends ImagePreviewState {
-  const ImagePreviewSessionCreated(
-    this.session, {
-    this.quarterTurns = 0,
-    this.cropRect = UnitRect.full,
-  });
-
-  final AnalysisSession session;
-
-  /// Still carried: the router replaces this screen in response to this
-  /// state, but the builder runs for it first — without these the preview
-  /// flashes back to the raw photo for that frame.
-  @override
-  final int quarterTurns;
-
-  @override
-  final UnitRect cropRect;
-
-  @override
-  bool operator ==(Object other) =>
-      other is ImagePreviewSessionCreated && other.session == session;
-
-  @override
-  int get hashCode => session.hashCode;
-}
-
-/// Terminal, online route (F13): the confirmed image is handed to the
-/// analysis feature, where the OCR review reads it online (F14). The photo
-/// itself does not travel in this state; it is
-/// already in the `ImageAnalysisSessionHolder` the OCR review route reads
-/// from.
-final class ImagePreviewOnlineReady extends ImagePreviewState {
-  const ImagePreviewOnlineReady(
-    this.session, {
-    this.quarterTurns = 0,
-    this.cropRect = UnitRect.full,
-  });
-
-  final AnalysisSession session;
-
-  /// Carried for the same one-frame reason as [ImagePreviewSessionCreated].
-  @override
-  final int quarterTurns;
-
-  @override
-  final UnitRect cropRect;
-
-  @override
-  bool operator ==(Object other) =>
-      other is ImagePreviewOnlineReady && other.session == session;
-
-  @override
-  int get hashCode => session.hashCode;
 }

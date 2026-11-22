@@ -21,17 +21,20 @@ import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
 import 'package:war2aty/features/capture/domain/entities/capture_source.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
+import 'package:war2aty/features/capture/domain/usecases/check_capture_readiness.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
 import 'package:war2aty/features/capture/domain/usecases/downscale_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
 import 'package:war2aty/features/capture/domain/usecases/open_permission_settings.dart';
 import 'package:war2aty/features/capture/domain/usecases/request_camera_permission.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_permission_cubit.dart';
+import 'package:war2aty/features/capture/presentation/cubit/capture_gate_cubit.dart';
 import 'package:war2aty/features/explain/domain/entities/paper_failure_kind.dart';
 import 'package:war2aty/features/explain/domain/services/paper_explain_runner.dart';
 import 'package:war2aty/features/explain/domain/usecases/explain_and_save_paper.dart';
 import 'package:war2aty/features/explain/domain/usecases/explain_paper.dart';
 import 'package:war2aty/features/explain/presentation/cubit/paper_failure_cubit.dart';
+import 'package:war2aty/features/explain/presentation/cubit/paper_waiting_cubit.dart';
 import 'package:war2aty/features/explain/presentation/paper_retry_holder.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -99,11 +102,31 @@ void main() {
           speakFixedLine: SpeakFixedLine(FakeFixedLinePlayer()),
         ),
       )
+      // F39/F40-T21: `/paper-waiting` is now a real route, reached both from
+      // the crop screen and from this suite's retry flow.
+      ..registerFactoryParam<PaperWaitingCubit, CapturedPhoto?, void>(
+        (photo, _) => PaperWaitingCubit(
+          speakFixedLine: SpeakFixedLine(FakeFixedLinePlayer()),
+          runner: getIt(),
+          photo: photo,
+        ),
+      )
       ..registerFactory<CameraPermissionCubit>(
         () => CameraPermissionCubit(
           getCameraPermission: GetCameraPermission(perms),
           requestCameraPermission: RequestCameraPermission(perms),
           openPermissionSettings: OpenPermissionSettings(perms),
+        ),
+      )
+      // Home's scan/pick controls build a `CaptureGateCubit` unconditionally
+      // (F39/F40-T15) — not this suite's concern, but it must resolve for
+      // Home to render at all (every test here lands on Home first).
+      ..registerFactory<CaptureGateCubit>(
+        () => CaptureGateCubit(
+          checkCaptureReadiness: CheckCaptureReadiness(
+            FakeConnectivityService(),
+            usage,
+          ),
         ),
       );
 

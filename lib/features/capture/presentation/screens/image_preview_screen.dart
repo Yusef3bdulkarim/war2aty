@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -7,10 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/localization/app_localizations.dart';
-import '../../../../core/storage/analysis_session.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../domain/entities/captured_photo.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../capture_palette.dart';
 import '../cubit/image_preview_cubit.dart';
@@ -25,15 +24,17 @@ const double _buttonRadius = 15;
 class ImagePreviewScreen extends StatelessWidget {
   const ImagePreviewScreen({
     required this.imagePath,
-    required this.onSessionCreated,
-    required this.onOnlineReady,
+    required this.onConfirmed,
     required this.onRetake,
     super.key,
   });
 
   final String imagePath;
-  final void Function(AnalysisSession session) onSessionCreated;
-  final void Function(AnalysisSession session) onOnlineReady;
+
+  /// The crop/rotate is baked in and every other temp file this screen made
+  /// is already gone (F39/F40-T21) — this is the explain pipeline's cue to
+  /// start.
+  final void Function(CapturedPhoto photo) onConfirmed;
   final VoidCallback onRetake;
 
   @override
@@ -44,18 +45,12 @@ class ImagePreviewScreen extends StatelessWidget {
         backgroundColor: previewBackground,
         body: BlocConsumer<ImagePreviewCubit, ImagePreviewState>(
           listenWhen: (_, s) =>
-              s is ImagePreviewConfirmed ||
-              s is ImagePreviewFailed ||
-              s is ImagePreviewSessionCreated ||
-              s is ImagePreviewOnlineReady,
+              s is ImagePreviewConfirmed || s is ImagePreviewFailed,
           listener: (context, state) {
             switch (state) {
-              case ImagePreviewConfirmed():
-                unawaited(context.read<ImagePreviewCubit>().proceed());
-              case ImagePreviewSessionCreated(:final session):
-                onSessionCreated(session);
-              case ImagePreviewOnlineReady(:final session):
-                onOnlineReady(session);
+              case ImagePreviewConfirmed(:final photo):
+                context.read<ImagePreviewCubit>().handOffToExplain();
+                onConfirmed(photo);
               case ImagePreviewFailed():
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
@@ -66,14 +61,11 @@ class ImagePreviewScreen extends StatelessWidget {
                   );
               case ImagePreviewReady():
               case ImagePreviewProcessing():
-              case ImagePreviewCreatingSession():
                 break;
             }
           },
           builder: (context, state) {
-            final isProcessing =
-                state is ImagePreviewProcessing ||
-                state is ImagePreviewCreatingSession;
+            final isProcessing = state is ImagePreviewProcessing;
             return SafeArea(
               child: Column(
                 children: [

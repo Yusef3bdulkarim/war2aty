@@ -2,47 +2,33 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/connectivity/analysis_route.dart';
 import '../../../../core/voice/usecases/speak_fixed_line.dart';
 import '../../../../core/voice/voice_line.dart';
-import '../../../analysis/presentation/image_analysis_session_holder.dart';
-import '../../../ocr/presentation/ocr_session_holder.dart';
 import '../../domain/entities/captured_photo.dart';
 import '../../domain/entities/unit_rect.dart';
 import '../../domain/usecases/cleanup_capture_files.dart';
-import '../../domain/usecases/create_analysis_session.dart';
 import '../../domain/usecases/crop_image.dart';
-import '../../domain/usecases/decide_analysis_route.dart';
 import '../../domain/usecases/rotate_image.dart';
 import 'image_preview_state.dart';
 
 /// Drives the crop/rotate preview: track the chosen rotation, then on confirm
 /// bake it into an upright file and hand it on.
 ///
-/// [proceed] is also where the F13/F15 pipeline split happens: [decideRoute]
-/// picks offline (hands the confirmed image's session off to F04's OCR
-/// screen) or online (hands the confirmed image straight to the analysis
-/// result screen, skipping OCR entirely). The confirmed image is read exactly
-/// as the user framed it — there is no automatic document crop (F15 locked
-/// decision #4, amended).
+/// The confirmed image is read exactly as the user framed it — there is no
+/// automatic document crop (F15 locked decision #4, amended). From F39/F40-T21
+/// the confirmed photo goes straight to the explain pipeline
+/// (`PaperExplainRunner`, wired by the router) — the F13/F15 offline/online
+/// split this cubit used to decide is gone from here.
 final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   ImagePreviewCubit({
     required CapturedPhoto source,
     required RotateImage rotate,
     required CropImage cropImage,
-    required DecideAnalysisRoute decideRoute,
-    required CreateAnalysisSession createSession,
-    required ImageAnalysisSessionHolder onlineHandoff,
-    required OcrSessionHolder ocrHandoff,
     required CleanupCaptureFiles cleanupFiles,
     required SpeakFixedLine speakFixedLine,
   }) : _source = source,
        _rotate = rotate,
        _cropImage = cropImage,
-       _decideRoute = decideRoute,
-       _createSession = createSession,
-       _onlineHandoff = onlineHandoff,
-       _ocrHandoff = ocrHandoff,
        _cleanupFiles = cleanupFiles,
        _speakFixedLine = speakFixedLine,
        super(const ImagePreviewReady(0)) {
@@ -53,10 +39,6 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
   final CapturedPhoto _source;
   final RotateImage _rotate;
   final CropImage _cropImage;
-  final DecideAnalysisRoute _decideRoute;
-  final CreateAnalysisSession _createSession;
-  final ImageAnalysisSessionHolder _onlineHandoff;
-  final OcrSessionHolder _ocrHandoff;
   final CleanupCaptureFiles _cleanupFiles;
   final SpeakFixedLine _speakFixedLine;
 
@@ -173,84 +155,35 @@ final class ImagePreviewCubit extends Cubit<ImagePreviewState> {
     );
   }
 
-  /// Creates the analysis session from the confirmed image, then routes to
-  /// the offline or online pipeline.
+  /// Hands the confirmed photo's path on to the router, which starts the
+  /// explain pipeline (`PaperExplainRunner`) with it.
   ///
-  /// Both routes read the confirmed image as is: an automatic document crop
-  /// used to run here and, on blurry or sparse pages, latched onto one text
-  /// block so the rest of the page was never read. The user's own crop on
-  /// this screen is the only crop (F15 locked decision #4, amended).
+  /// `ExplainAndSavePaper` owns the confirmed photo's file from here —
+  /// it deletes it (and its own downscaled copy) once the explanation is
+  /// done (CLAUDE.md §7). Any *other* temp file this screen produced (the
+  /// original source, an intermediate rotated copy) is never touched by
+  /// that pipeline, so it is cleaned up here, once, at the same hand-off.
   ///
-  /// Only valid from [ImagePreviewConfirmed]; a no-op in any other state.
-  Future<void> proceed() async {
+  /// Only valid from [ImagePreviewConfirmed]; a no-op in any other state,
+  /// including a repeat call — file ownership transfers exactly once.
+  void handOffToExplain() {
     final current = state;
-    if (isClosed || current is! ImagePreviewConfirmed) return;
-
-    // The preview stays on screen under the veil, so it keeps the framing
-    // the user confirmed instead of springing back to the raw photo.
-    final turns = current.quarterTurns;
-    final cropRect = current.cropRect;
-    emit(ImagePreviewCreatingSession(quarterTurns: turns, cropRect: cropRect));
-
-    // A previous run's hand-off may still be sitting in either holder if it
-    // was never consumed — clear both so the result route can't pick up
-    // stale data from an earlier session once this run populates its own.
-    _ocrHandoff.clear();
-    _onlineHandoff.clear();
-
-    final photo = current.photo;
-    final sessionResult = await _createSession(photo);
-    if (isClosed) return;
-
-    final session = sessionResult.valueOrNull;
-    if (session == null) {
-      emit(const ImagePreviewFailed(0));
+    if (isClosed || current is! ImagePreviewConfirmed || _filesTransferred) {
       return;
     }
-
-    final route = await _decideRoute();
-    if (isClosed) return;
-
-    if (route == AnalysisRoute.offline) {
-      emit(
-        ImagePreviewSessionCreated(
-          session,
-          quarterTurns: turns,
-          cropRect: cropRect,
-        ),
-      );
-      return;
-    }
-
-    // Online: OCR never runs on this route (F13 locked decision #2 — a
-    // failure here fails outright rather than dropping back to offline).
-    // Collect every temp file this capture flow produced. Ownership transfers
-    // to the holder — close() will skip its own cleanup (see _filesTransferred).
-    final cleanupPaths = <String>{_source.path};
-    final rotated = _rotatedPath;
-    if (rotated != null) cleanupPaths.add(rotated);
-    final manuallyCropped = _croppedPath;
-    if (manuallyCropped != null) cleanupPaths.add(manuallyCropped);
-
-    _onlineHandoff.set(session, photo, cleanupPaths: cleanupPaths.toList());
     _filesTransferred = true;
-    emit(
-      ImagePreviewOnlineReady(session, quarterTurns: turns, cropRect: cropRect),
-    );
-  }
 
-  void transferFileOwnership() {
-    _filesTransferred = true;
+    final finalPath = current.photo.path;
+    final leftover = current.tempPaths.where((path) => path != finalPath);
+    if (leftover.isNotEmpty) unawaited(_cleanupFiles(leftover.toList()));
   }
 
   @override
   Future<void> close() async {
     await _speakFixedLine.stop();
-    // When the online handoff succeeded, every temp file is now owned by the
-    // ImageAnalysisSessionHolder — it deletes them in clear() once the online
-    // reading has read the image bytes. Deleting here would race against that
-    // read (pushReplacement disposes this cubit in the same frame the OCR
-    // review route reads the file).
+    // When the confirmed photo was handed off to the explain pipeline, its
+    // own cleanup already ran in handOffToExplain() — repeating it here would
+    // just be a no-op delete, but the flag also means ownership transferred.
     if (!_filesTransferred) {
       final paths = <String>{_source.path};
       final rotated = _rotatedPath;

@@ -220,6 +220,7 @@ import '../../features/explain/domain/services/paper_explain_runner.dart';
 import '../../features/explain/domain/usecases/explain_and_save_paper.dart';
 import '../../features/explain/domain/usecases/explain_paper.dart';
 import '../../features/explain/presentation/cubit/paper_failure_cubit.dart';
+import '../../features/explain/presentation/cubit/paper_waiting_cubit.dart';
 import '../../features/explain/presentation/paper_retry_holder.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
@@ -691,10 +692,6 @@ void _registerCapture() {
         source: CapturedPhoto(path),
         rotate: getIt(),
         cropImage: getIt(),
-        decideRoute: getIt(),
-        createSession: getIt(),
-        onlineHandoff: getIt(),
-        ocrHandoff: getIt(),
         cleanupFiles: getIt(),
         speakFixedLine: getIt(),
       ),
@@ -1233,6 +1230,16 @@ void _registerExplain(AppEnvironment env) {
     ..registerLazySingleton<PaperRetryHolder>(PaperRetryHolder.new)
     ..registerFactoryParam<PaperFailureCubit, PaperFailureKind, void>(
       (kind, _) => PaperFailureCubit(kind: kind, speakFixedLine: getIt()),
+    )
+    // `photo` is only needed to start a fresh job — it's null when the
+    // screen is reached while the runner is already running (F39/F40-T21:
+    // `_handleFailureRetry` starts the runner itself, then navigates here).
+    ..registerFactoryParam<PaperWaitingCubit, CapturedPhoto?, void>(
+      (photo, _) => PaperWaitingCubit(
+        speakFixedLine: getIt(),
+        runner: getIt(),
+        photo: photo,
+      ),
     );
 }
 
