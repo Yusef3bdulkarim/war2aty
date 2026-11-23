@@ -12,6 +12,7 @@ import '../../core/reminders/reminder.dart';
 import '../../core/storage/analysis_session.dart';
 import '../../core/usage/usage_hint_holder.dart';
 import '../../core/usage/usecases/get_daily_usage.dart';
+import '../../core/voice/voice_playback_cubit.dart';
 import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
 import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
@@ -51,6 +52,7 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
 import '../../features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import '../../features/paper/presentation/screens/paper_screen.dart';
+import '../../features/paper/presentation/widgets/paper_voice_starter.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
@@ -305,14 +307,20 @@ GoRouter createAppRouter({
               BlocProvider<PhoneDialerCubit>(
                 create: (_) => getIt<PhoneDialerCubit>(),
               ),
+              BlocProvider<VoicePlaybackCubit>(
+                create: (_) => getIt<VoicePlaybackCubit>(),
+              ),
             ],
-            child: PaperScreen(
-              onBack: () => context.go(AppRoutes.home),
-              onRemind: (eventDate, eventMinuteOfDay) => context.push(
-                AppRoutes.reminderManual,
-                extra: ManualReminderSeed(
-                  eventDate: eventDate,
-                  eventMinuteOfDay: eventMinuteOfDay,
+            child: PaperVoiceStarter(
+              fresh: state.uri.queryParameters['fresh'] == '1',
+              child: PaperScreen(
+                onBack: () => context.go(AppRoutes.home),
+                onRemind: (eventDate, eventMinuteOfDay) => context.push(
+                  AppRoutes.reminderManual,
+                  extra: ManualReminderSeed(
+                    eventDate: eventDate,
+                    eventMinuteOfDay: eventMinuteOfDay,
+                  ),
                 ),
               ),
             ),

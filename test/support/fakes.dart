@@ -87,6 +87,7 @@ import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
 import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
 import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
+import 'package:war2aty/features/voice/domain/entities/spoken_card_span.dart';
 import 'package:war2aty/features/voice/domain/entities/voice_read_outcome.dart';
 import 'package:war2aty/features/voice/domain/services/saved_audio_player.dart';
 
@@ -1917,6 +1918,8 @@ SavedPaper savedPaperWith({
   DateTime? photographedAt,
   DateTime? savedAt,
   String? encryptedImagePath,
+  bool audioSaved = false,
+  List<SpokenCardSpan> spans = const [],
 }) {
   return SavedPaper(
     id: id,
@@ -1933,6 +1936,8 @@ SavedPaper savedPaperWith({
     photographedAt: photographedAt ?? DateTime(2026, 11, 16, 9),
     savedAt: savedAt ?? DateTime(2026, 11, 16, 9, 2),
     encryptedImagePath: encryptedImagePath,
+    audioSaved: audioSaved,
+    spans: spans,
   );
 }
 

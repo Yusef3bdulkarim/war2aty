@@ -22,6 +22,7 @@ import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
+import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/features/capture/domain/entities/captured_photo.dart';
 import 'package:war2aty/features/capture/domain/usecases/check_capture_readiness.dart';
 import 'package:war2aty/features/capture/domain/usecases/cleanup_capture_files.dart';
@@ -49,6 +50,7 @@ import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dar
 import 'package:war2aty/features/paper/presentation/cubit/phone_dialer_cubit.dart';
 
 import '../support/fakes.dart';
+import '../support/voice_playback_rig.dart';
 
 const _ar = ArStrings();
 const _imagePath = '/tmp/paper.jpg';
@@ -147,7 +149,12 @@ void main() {
       )
       ..registerFactory<PhoneDialerCubit>(
         () => PhoneDialerCubit(OpenPhoneDialer(FakeExternalLinkService())),
-      );
+      )
+      ..registerFactory<VoicePlaybackCubit>(() {
+        final rig = VoicePlaybackRig();
+        addTearDown(rig.dispose);
+        return rig.cubit;
+      });
 
     final onboarding = OnboardingCubit(
       hasSeenOnboarding: HasSeenOnboarding(

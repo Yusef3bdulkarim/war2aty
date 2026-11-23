@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 27 / 52
+- **Progress:** 30 / 52
 
 ## Why this feature exists
 
@@ -549,12 +549,12 @@ finished and the next one does not start.
       stash`, none touched here. Review: removed the manifest comment (§11),
       fixed the date-rollover flake (`savedAt: DateTime.now()` instead of a
       hardcoded date).
-- [ ] **T28** Card «تروح فين» and the full-screen enlarged address view.
+- [x] **T28** Card «تروح فين» and the full-screen enlarged address view.
       *Done when:* widget tests, including the enlarged view at Large Text.
-- [ ] **T29** Status segments: one per present card, equal width; the spoken
+- [x] **T29** Status segments: one per present card, equal width; the spoken
       card's segment fills with the voice, the ones before it are full.
       *Done when:* tested for 1 to 6 cards (one = the `unsupported` paper).
-- [ ] **T30** Voice start (D1): a fresh paper → `readAloud(segments,
+- [x] **T30** Voice start (D1): a fresh paper → `readAloud(segments,
       audioId: id)`; an opened paper with `audioSaved` → `replay(audioId,
       spans)`; an opened paper without audio → `readAloud` again (F38 D11). All
       of it after any fixed line has finished (D11). *Done when:* tested for
