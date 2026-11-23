@@ -13,8 +13,11 @@ import '../../../../core/widgets/service_state_view.dart';
 import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/paper_screen_cubit.dart';
 import '../cubit/paper_screen_state.dart';
+import '../cubit/phone_dialer_cubit.dart';
+import '../cubit/phone_dialer_state.dart';
 import '../models/paper_view.dart';
 import '../widgets/caution_card.dart';
+import '../widgets/contact_card.dart';
 import '../widgets/date_card.dart';
 import '../widgets/explain_card.dart';
 import '../widgets/todo_card.dart';
@@ -41,32 +44,44 @@ class PaperScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.of(context).surface,
-      body: BlocBuilder<PaperScreenCubit, PaperScreenState>(
-        builder: (context, state) {
-          final strings = context.strings;
-          return switch (state) {
-            PaperScreenLoading() => const _Loading(),
-            PaperScreenReady(:final paper, :final imageBytes) => _ReadyBody(
-              view: PaperView.from(paper, strings),
-              explanation: paper.explanation,
-              imageBytes: imageBytes,
-              onBack: onBack,
-              onRemind: onRemind,
-            ),
-            PaperScreenNotFound() => _StateBody(
-              title: strings.paperScreenNotFoundTitle,
-              message: strings.paperScreenNotFoundMessage,
-              onBack: onBack,
-            ),
-            PaperScreenError() => _StateBody(
-              title: strings.paperScreenErrorTitle,
-              message: strings.paperScreenErrorMessage,
-              onBack: onBack,
-            ),
-          };
-        },
+    final strings = context.strings;
+
+    return BlocListener<PhoneDialerCubit, PhoneDialerState>(
+      listener: (context, state) {
+        if (state is! PhoneDialerCallFailed) return;
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(content: Text(strings.paperContactCardCallFailedMessage)),
+          );
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.of(context).surface,
+        body: BlocBuilder<PaperScreenCubit, PaperScreenState>(
+          builder: (context, state) {
+            final strings = context.strings;
+            return switch (state) {
+              PaperScreenLoading() => const _Loading(),
+              PaperScreenReady(:final paper, :final imageBytes) => _ReadyBody(
+                view: PaperView.from(paper, strings),
+                explanation: paper.explanation,
+                imageBytes: imageBytes,
+                onBack: onBack,
+                onRemind: onRemind,
+              ),
+              PaperScreenNotFound() => _StateBody(
+                title: strings.paperScreenNotFoundTitle,
+                message: strings.paperScreenNotFoundMessage,
+                onBack: onBack,
+              ),
+              PaperScreenError() => _StateBody(
+                title: strings.paperScreenErrorTitle,
+                message: strings.paperScreenErrorMessage,
+                onBack: onBack,
+              ),
+            };
+          },
+        ),
       ),
     );
   }
@@ -143,6 +158,7 @@ class _ReadyBody extends StatelessWidget {
                 cardIds: view.cardIds,
                 explanation: explanation,
                 dateCard: view.dateCard,
+                groupedPhone: view.groupedPhone,
                 onRemind: onRemind,
               ),
             ),
@@ -160,18 +176,21 @@ class _CardsSection extends StatelessWidget {
     required this.cardIds,
     required this.explanation,
     required this.dateCard,
+    required this.groupedPhone,
     required this.onRemind,
   });
 
   final List<String> cardIds;
   final PaperExplanation explanation;
   final PaperDateCardView? dateCard;
+  final String? groupedPhone;
   final void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind;
 
   @override
   Widget build(BuildContext context) {
     final cards = <Widget>[
-      for (final id in cardIds) ?_cardFor(id, explanation, dateCard, onRemind),
+      for (final id in cardIds)
+        ?_cardFor(context, id, explanation, dateCard, groupedPhone, onRemind),
     ];
 
     return Column(
@@ -187,9 +206,11 @@ class _CardsSection extends StatelessWidget {
 }
 
 Widget? _cardFor(
+  BuildContext context,
   String id,
   PaperExplanation explanation,
   PaperDateCardView? dateCard,
+  String? groupedPhone,
   void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind,
 ) => switch (id) {
   'explain' => ExplainCard(paragraphs: explanation.paragraphs),
@@ -200,6 +221,12 @@ Widget? _cardFor(
         onRemind(explanation.date!.day, explanation.date!.time?.minuteOfDay),
   ),
   'caution' => CautionCard(text: explanation.caution!.text),
+  'contact' => ContactCard(
+    name: explanation.contact!.name,
+    groupedPhone: groupedPhone!,
+    onCall: () =>
+        context.read<PhoneDialerCubit>().dial(explanation.contact!.phone),
+  ),
   _ => null,
 };
 

@@ -95,6 +95,7 @@ import '../../core/platform/external_link_service.dart';
 import '../../core/platform/method_channel_system_tts_settings.dart';
 import '../../core/platform/system_tts_settings.dart';
 import '../../core/platform/url_launcher_external_link_service.dart';
+import '../../core/platform/usecases/open_phone_dialer.dart';
 import '../../core/reminders/drift_reminders_repository.dart';
 import '../../core/reminders/flutter_local_notifications_port.dart';
 import '../../core/reminders/flutter_local_notifications_reminder_scheduler.dart';
@@ -246,6 +247,7 @@ import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
+import '../../features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminders_cubit.dart';
@@ -1200,7 +1202,9 @@ void _registerPapers() {
     ..registerFactory<BuildPaperVoiceSegments>(BuildPaperVoiceSegments.new)
     ..registerFactoryParam<PaperScreenCubit, String, void>(
       (paperId, _) => PaperScreenCubit(getIt(), getIt(), paperId: paperId),
-    );
+    )
+    ..registerFactory<OpenPhoneDialer>(() => OpenPhoneDialer(getIt()))
+    ..registerFactory<PhoneDialerCubit>(() => PhoneDialerCubit(getIt()));
 }
 
 void _registerExplain(AppEnvironment env) {

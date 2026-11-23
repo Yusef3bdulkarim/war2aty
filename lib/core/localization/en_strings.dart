@@ -946,6 +946,13 @@ final class EnStrings implements AppStrings {
   String get paperDateCardTitle => 'Date';
   @override
   String get paperDateCardBellLabel => 'Remind me about this';
+  @override
+  String get paperContactCardTitle => 'Who to call';
+  @override
+  String paperContactCardCallLabel(String name) => 'Call $name';
+  @override
+  String get paperContactCardCallFailedMessage =>
+      "Couldn't open the phone dialer.";
 
   @override
   String get resultListen => 'Listen';

@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 25 / 52
+- **Progress:** 27 / 52
 
 ## Why this feature exists
 
@@ -510,16 +510,45 @@ finished and the next one does not start.
       `cardIds` ordering; two new `StrokeGlyph` icons added from the design
       reference. Landed at 241d1e2; this checkbox was never ticked in that
       commit (a bookkeeping gap), fixed here with no code change.
-- [ ] **T26** Card «ميعاد» with the `date.text` line and the bell (D13);
+- [x] **T26** Card «ميعاد» with the `date.text` line and the bell (D13);
       `ManualReminderSeed.eventMinuteOfDay` becomes optional and the form opens
       with the time empty when the paper has none. *Done when:* card tests,
       the seed change's tests, and the reminder form's own tests unchanged
       apart from the new optional case.
-- [ ] **T27** Card «تكلم مين» with the call button through a new
+      *Found:* landed at b6cc2ad; this checkbox was never ticked in that
+      commit (the same bookkeeping gap T15/T25 had), fixed here with no code
+      change.
+- [x] **T27** Card «تكلم مين» with the call button through a new
       `OpenPhoneDialer` use case (`core/platform/usecases/`) over the existing
       `ExternalLinkService`; a failed launch shows a short message, never a
       crash. *Done when:* the use case and the card are tested with a fake
       service.
+      *Found:* `tel:` needs its own `<queries>` entry in the manifest — at
+      targetSdk 30+ `url_launcher` finds nothing to dial without it, same as
+      F27-T20's https/mailto entries; added, with a manifest-presence test
+      (`open_phone_dialer_test.dart`) mirroring `legal_pages_test.dart`'s. The
+      call button's failure path needed a `PhoneDialerCubit`
+      (`features/paper/presentation/cubit/`, idle/callFailed, same shape as
+      `LegalLinksCubit`) rather than a bare callback, since "no BuildContext in
+      a Cubit" plus "Cubits depend on use cases only" rules out a widget
+      calling `OpenPhoneDialer` straight from `_cardFor`; `PaperScreen` wraps
+      itself in a `BlocListener` for the SnackBar, which meant adding a second
+      `BlocProvider` next to `PaperScreenCubit` at the `/paper/:id` route and
+      in every test that builds that route — `paper_capture_routing_test.dart`
+      (T21's) and `paper_screen_test.dart` both needed the new provider wired
+      in before they would build. The phone icon is the Tabler-style handset
+      path copied verbatim from the Result artboard's own «تكلم مين» card
+      (`StrokeGlyph.phone`), used for both the card's header icon and the call
+      button. Full `flutter test`: 29 pre-existing failures in
+      `shell_test.dart` / `usage_hint_routing_test.dart` /
+      `manual_reminder_seed_routing_test.dart` / `reminders_scan_routing_test.dart`
+      (T21's known gap — Home has needed `CaptureGateCubit` since T15) plus one
+      date-rollover flake in `paper_screen_test.dart` (`savedAt:
+      DateTime(2026, 11, 22)` reads as "yesterday" now that today is
+      2026-11-23) — all confirmed identical on the pre-T27 tree via `git
+      stash`, none touched here. Review: removed the manifest comment (§11),
+      fixed the date-rollover flake (`savedAt: DateTime.now()` instead of a
+      hardcoded date).
 - [ ] **T28** Card «تروح فين» and the full-screen enlarged address view.
       *Done when:* widget tests, including the enlarged view at Large Text.
 - [ ] **T29** Status segments: one per present card, equal width; the spoken

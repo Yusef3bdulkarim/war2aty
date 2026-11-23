@@ -49,6 +49,7 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
+import '../../features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import '../../features/paper/presentation/screens/paper_screen.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
@@ -296,8 +297,15 @@ GoRouter createAppRouter({
         builder: (context, state) {
           final id = state.pathParameters['id'];
           if (id == null) return const _BackToHome();
-          return BlocProvider<PaperScreenCubit>(
-            create: (_) => getIt<PaperScreenCubit>(param1: id)..start(),
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<PaperScreenCubit>(
+                create: (_) => getIt<PaperScreenCubit>(param1: id)..start(),
+              ),
+              BlocProvider<PhoneDialerCubit>(
+                create: (_) => getIt<PhoneDialerCubit>(),
+              ),
+            ],
             child: PaperScreen(
               onBack: () => context.go(AppRoutes.home),
               onRemind: (eventDate, eventMinuteOfDay) => context.push(

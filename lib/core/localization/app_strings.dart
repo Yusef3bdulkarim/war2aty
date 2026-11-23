@@ -723,6 +723,9 @@ abstract interface class AppStrings {
   String get paperCardSpeakingLabel;
   String get paperDateCardTitle;
   String get paperDateCardBellLabel;
+  String get paperContactCardTitle;
+  String paperContactCardCallLabel(String name);
+  String get paperContactCardCallFailedMessage;
 
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.

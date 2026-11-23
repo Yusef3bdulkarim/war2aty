@@ -8,13 +8,16 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/papers/paper_caution.dart';
+import 'package:war2aty/core/papers/paper_contact.dart';
 import 'package:war2aty/core/papers/paper_date.dart';
 import 'package:war2aty/core/papers/paper_explanation.dart';
 import 'package:war2aty/core/papers/paper_status.dart';
 import 'package:war2aty/core/papers/paper_todo.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
+import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
+import 'package:war2aty/features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import 'package:war2aty/features/paper/presentation/screens/paper_screen.dart';
 
 import '../../../../support/fakes.dart';
@@ -97,6 +100,8 @@ void main() {
   late FakePapersRepository papers;
   late FakePaperImageStore images;
   late PaperScreenCubit cubit;
+  late FakeExternalLinkService dialerService;
+  late PhoneDialerCubit dialerCubit;
   late int backCount;
   late DateTime? remindedDate;
   late int? remindedMinuteOfDay;
@@ -112,10 +117,13 @@ void main() {
       LoadPaperImage(images),
       paperId: 'p1',
     );
+    dialerService = FakeExternalLinkService();
+    dialerCubit = PhoneDialerCubit(OpenPhoneDialer(dialerService));
   });
 
   tearDown(() async {
     unawaited(cubit.close());
+    unawaited(dialerCubit.close());
   });
 
   Future<void> pumpScreen(
@@ -125,8 +133,11 @@ void main() {
     bool settle = true,
   }) => pumpApp(
     tester,
-    BlocProvider<PaperScreenCubit>.value(
-      value: cubit,
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<PaperScreenCubit>.value(value: cubit),
+        BlocProvider<PhoneDialerCubit>.value(value: dialerCubit),
+      ],
       child: PaperScreen(
         onBack: () => backCount++,
         onRemind: (eventDate, eventMinuteOfDay) {
@@ -141,7 +152,7 @@ void main() {
   );
 
   auditScreenLayout('PaperScreen', (tester, locale, scaler) {
-    papers.emitPaper(savedPaperWith(savedAt: DateTime(2026, 11, 22)));
+    papers.emitPaper(savedPaperWith(savedAt: DateTime.now()));
     cubit.start();
     return pumpScreen(tester, locale: locale, textScaler: scaler);
   });
@@ -156,7 +167,7 @@ void main() {
     testWidgets('shows the title and header date once it is ready', (
       tester,
     ) async {
-      papers.emitPaper(savedPaperWith(savedAt: DateTime(2026, 11, 22)));
+      papers.emitPaper(savedPaperWith(savedAt: DateTime.now()));
       cubit.start();
 
       await pumpScreen(tester);
@@ -251,6 +262,68 @@ void main() {
 
       expect(find.text(ar.paperCautionCardTitle), findsOneWidget);
       expect(find.text('لازم تبلّغ المدرسة قبل الميعاد.'), findsOneWidget);
+    });
+
+    testWidgets('shows the contact card and dials through the call button', (
+      tester,
+    ) async {
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: PaperExplanation(
+            title: 'جواب من مدرسة النور',
+            status: PaperStatus.success,
+            paragraphs: const ['دي ورقة من مدرسة النور.'],
+            todo: const PaperTodo(required: true, text: 'روح الاجتماع بنفسك.'),
+            contact: const PaperContact(
+              name: 'مدرسة النور',
+              phone: '0453312244',
+            ),
+          ),
+        ),
+      );
+      cubit.start();
+
+      await pumpScreen(tester);
+
+      expect(find.text(ar.paperContactCardTitle), findsOneWidget);
+      expect(find.text('مدرسة النور'), findsOneWidget);
+
+      await tester.tap(
+        find.bySemanticsLabel(ar.paperContactCardCallLabel('مدرسة النور')),
+      );
+      await tester.pump();
+
+      expect(dialerService.opened, [Uri(scheme: 'tel', path: '0453312244')]);
+      expect(find.text(ar.paperContactCardCallFailedMessage), findsNothing);
+    });
+
+    testWidgets('shows a short message when the call fails to open', (
+      tester,
+    ) async {
+      dialerService.result = false;
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: PaperExplanation(
+            title: 'جواب من مدرسة النور',
+            status: PaperStatus.success,
+            paragraphs: const ['دي ورقة من مدرسة النور.'],
+            todo: const PaperTodo(required: true, text: 'روح الاجتماع بنفسك.'),
+            contact: const PaperContact(
+              name: 'مدرسة النور',
+              phone: '0453312244',
+            ),
+          ),
+        ),
+      );
+      cubit.start();
+
+      await pumpScreen(tester);
+      await tester.tap(
+        find.bySemanticsLabel(ar.paperContactCardCallLabel('مدرسة النور')),
+      );
+      await tester.pump();
+
+      expect(find.text(ar.paperContactCardCallFailedMessage), findsOneWidget);
     });
 
     testWidgets('shows no date card when the paper has none', (tester) async {

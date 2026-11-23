@@ -520,6 +520,11 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'paperCardSpeakingLabel': (s) => s.paperCardSpeakingLabel,
   'paperDateCardTitle': (s) => s.paperDateCardTitle,
   'paperDateCardBellLabel': (s) => s.paperDateCardBellLabel,
+  'paperContactCardTitle': (s) => s.paperContactCardTitle,
+  'paperContactCardCallLabel': (s) =>
+      s.paperContactCardCallLabel('مدرسة النور'),
+  'paperContactCardCallFailedMessage': (s) =>
+      s.paperContactCardCallFailedMessage,
 };
 
 void main() {
