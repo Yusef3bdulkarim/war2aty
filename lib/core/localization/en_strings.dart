@@ -953,6 +953,10 @@ final class EnStrings implements AppStrings {
   @override
   String get paperContactCardCallFailedMessage =>
       "Couldn't open the phone dialer.";
+  @override
+  String get paperPlaceCardTitle => 'Where to go';
+  @override
+  String get paperPlaceCardEnlargeLabel => 'Enlarge the address for the driver';
 
   @override
   String get resultListen => 'Listen';

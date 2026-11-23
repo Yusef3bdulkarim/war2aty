@@ -11,6 +11,7 @@ import 'package:war2aty/core/papers/paper_caution.dart';
 import 'package:war2aty/core/papers/paper_contact.dart';
 import 'package:war2aty/core/papers/paper_date.dart';
 import 'package:war2aty/core/papers/paper_explanation.dart';
+import 'package:war2aty/core/papers/paper_place.dart';
 import 'package:war2aty/core/papers/paper_status.dart';
 import 'package:war2aty/core/papers/paper_todo.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
@@ -364,6 +365,36 @@ void main() {
 
       expect(remindedDate, DateTime.utc(2026, 11, 20));
       expect(remindedMinuteOfDay, 10 * 60);
+    });
+
+    testWidgets('shows the place card and opens the enlarged address on tap', (
+      tester,
+    ) async {
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: PaperExplanation(
+            title: 'جواب من مدرسة النور',
+            status: PaperStatus.success,
+            paragraphs: const ['دي ورقة من مدرسة النور.'],
+            todo: const PaperTodo(required: true, text: 'روح الاجتماع بنفسك.'),
+            place: const PaperPlace(
+              text: 'مدرسة النور، شارع الجمهورية، دمنهور',
+            ),
+          ),
+        ),
+      );
+      cubit.start();
+
+      await pumpScreen(tester);
+
+      expect(find.text(ar.paperPlaceCardTitle), findsOneWidget);
+      expect(find.text('مدرسة النور، شارع الجمهورية، دمنهور'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel(ar.paperPlaceCardEnlargeLabel));
+      await tester.pumpAndSettle();
+
+      expect(find.text('مدرسة النور، شارع الجمهورية، دمنهور'), findsOneWidget);
+      expect(find.text(ar.paperPlaceCardTitle), findsNothing);
     });
 
     testWidgets('shows a not-found state for a missing paper', (tester) async {

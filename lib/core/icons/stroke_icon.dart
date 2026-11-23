@@ -182,6 +182,10 @@ enum StrokeGlyph {
 
   phone,
 
+  locationPin,
+
+  expand,
+
   navHome,
   navDocuments,
   navReminders,
@@ -342,6 +346,13 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   StrokeGlyph.phone:
       'M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5-2.5l5 2v4a2 2 0 0 1-2 2A16 16 0 '
       '0 1 3 6a2 2 0 0 1 2-2',
+  StrokeGlyph.locationPin:
+      '${_circle(12, 11, 3)} '
+      'M17.657 16.657 13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 '
+      '11.314 0z',
+  StrokeGlyph.expand:
+      'M4 8V6a2 2 0 0 1 2-2h2 M4 16v2a2 2 0 0 0 2 2h2 M16 4h2a2 2 0 0 1 2 2v2 '
+      'M16 20h2a2 2 0 0 0 2-2v-2',
   StrokeGlyph.navHome: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5',
   StrokeGlyph.navDocuments:
       'M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1'

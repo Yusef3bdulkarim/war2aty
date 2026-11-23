@@ -525,6 +525,8 @@ final Map<String, String Function(AppStrings)> _accessors = {
       s.paperContactCardCallLabel('مدرسة النور'),
   'paperContactCardCallFailedMessage': (s) =>
       s.paperContactCardCallFailedMessage,
+  'paperPlaceCardTitle': (s) => s.paperPlaceCardTitle,
+  'paperPlaceCardEnlargeLabel': (s) => s.paperPlaceCardEnlargeLabel,
 };
 
 void main() {

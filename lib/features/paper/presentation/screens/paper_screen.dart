@@ -20,7 +20,9 @@ import '../widgets/caution_card.dart';
 import '../widgets/contact_card.dart';
 import '../widgets/date_card.dart';
 import '../widgets/explain_card.dart';
+import '../widgets/place_card.dart';
 import '../widgets/todo_card.dart';
+import 'enlarged_address_screen.dart';
 
 const double _headerPaddingH = 16;
 const double _headerPaddingV = 16;
@@ -226,6 +228,14 @@ Widget? _cardFor(
     groupedPhone: groupedPhone!,
     onCall: () =>
         context.read<PhoneDialerCubit>().dial(explanation.contact!.phone),
+  ),
+  'place' => PlaceCard(
+    address: explanation.place!.text,
+    onEnlarge: () => Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EnlargedAddressScreen(address: explanation.place!.text),
+      ),
+    ),
   ),
   _ => null,
 };

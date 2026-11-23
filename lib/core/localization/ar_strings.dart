@@ -961,6 +961,10 @@ final class ArStrings implements AppStrings {
   String paperContactCardCallLabel(String name) => 'اتصل بـ$name';
   @override
   String get paperContactCardCallFailedMessage => 'معرفنا نفتح برنامج الاتصال.';
+  @override
+  String get paperPlaceCardTitle => 'تروح فين';
+  @override
+  String get paperPlaceCardEnlargeLabel => 'كبّر العنوان للسواق';
 
   @override
   String get resultListen => 'استمع';
