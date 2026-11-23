@@ -965,6 +965,14 @@ final class ArStrings implements AppStrings {
   String get paperPlaceCardTitle => 'تروح فين';
   @override
   String get paperPlaceCardEnlargeLabel => 'كبّر العنوان للسواق';
+  @override
+  String get paperPlayerPreparingLabel => 'بجهّز القراءة';
+  @override
+  String get paperPlayerReplayLabel => 'اسمعها تاني';
+  @override
+  String get paperPlayerWaveformLabel => 'مكان الصوت';
+  @override
+  String get paperPlayerSpeedLabel => 'سرعة الصوت';
 
   @override
   String get resultListen => 'استمع';

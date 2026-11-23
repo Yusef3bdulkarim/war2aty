@@ -527,6 +527,10 @@ final Map<String, String Function(AppStrings)> _accessors = {
       s.paperContactCardCallFailedMessage,
   'paperPlaceCardTitle': (s) => s.paperPlaceCardTitle,
   'paperPlaceCardEnlargeLabel': (s) => s.paperPlaceCardEnlargeLabel,
+  'paperPlayerPreparingLabel': (s) => s.paperPlayerPreparingLabel,
+  'paperPlayerReplayLabel': (s) => s.paperPlayerReplayLabel,
+  'paperPlayerWaveformLabel': (s) => s.paperPlayerWaveformLabel,
+  'paperPlayerSpeedLabel': (s) => s.paperPlayerSpeedLabel,
 };
 
 void main() {

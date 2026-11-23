@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/papers/build_paper_voice_segments.dart';
 import 'package:war2aty/core/papers/paper_caution.dart';
@@ -268,6 +269,109 @@ void main() {
 
       expect(find.bySemanticsLabel(_ar.paperCardSpeakingLabel), findsOneWidget);
       expect(isOnScreen(tester, find.text(_placeText)), isTrue);
+    });
+  });
+
+  group('PaperScreen player bar', () {
+    testWidgets('is there before anything plays, with nothing to press', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      expect(find.byKey(const ValueKey('paper-player-button')), findsOneWidget);
+      expect(find.text('1x'), findsOneWidget);
+      expect(find.text('0:00'), findsOneWidget);
+    });
+
+    testWidgets('the first reading on the device tier shows an unpressable '
+        'pause and a clock', (tester) async {
+      await pumpScreen(tester);
+      await startFirstReading(tester);
+      rig.emitDeviceEvent(
+        const VoiceReadPositionChanged(
+          position: Duration(seconds: 7),
+          segmentId: 'explain',
+        ),
+      );
+      await advance(tester);
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-button')));
+      await advance(tester);
+
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(find.text('0:07'), findsOneWidget);
+      expect(rig.cubit.state, isA<VoicePlaybackStreaming>());
+      expect((rig.cubit.state as VoicePlaybackStreaming).isPaused, isFalse);
+    });
+
+    testWidgets('tapping the waveform of a first reading does not seek', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await startFirstReading(tester);
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-waveform')));
+      await advance(tester);
+
+      expect(rig.player.seeks, isEmpty);
+    });
+
+    testWidgets('the saved reading pauses and resumes from the button', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await startReplay(tester);
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-button')));
+      await advance(tester);
+
+      expect(rig.player.pauses, 1);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-button')));
+      await advance(tester);
+
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    });
+
+    testWidgets('the saved reading fills the waveform and seeks on a tap', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      await startReplay(tester);
+
+      rig.player.tick(const Duration(seconds: 15));
+      await advance(tester);
+      expect(find.text('0:15'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-waveform')));
+      await advance(tester);
+
+      expect(rig.player.seeks, [const Duration(seconds: 15)]);
+    });
+
+    testWidgets('a failed reading leaves the button unpressable', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      rig.failReadWith(const AudioPlaybackFailure());
+      unawaited(
+        rig.cubit.readAloud(
+          segments: const BuildPaperVoiceSegments()(
+            _paperWithEveryCard().explanation,
+          ),
+          audioId: 'p1',
+        ),
+      );
+      await advance(tester);
+      expect(rig.cubit.state, isA<VoicePlaybackFailed>());
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-button')));
+      await advance(tester);
+
+      expect(rig.cubit.state, isA<VoicePlaybackFailed>());
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
     });
   });
 }

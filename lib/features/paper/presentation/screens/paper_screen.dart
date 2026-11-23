@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/icons/stroke_icon.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/papers/paper_explanation.dart';
@@ -18,12 +19,14 @@ import '../cubit/paper_screen_cubit.dart';
 import '../cubit/paper_screen_state.dart';
 import '../cubit/phone_dialer_cubit.dart';
 import '../cubit/phone_dialer_state.dart';
+import '../models/paper_player_view.dart';
 import '../models/paper_view.dart';
 import '../models/paper_voice_progress.dart';
 import '../widgets/caution_card.dart';
 import '../widgets/contact_card.dart';
 import '../widgets/date_card.dart';
 import '../widgets/explain_card.dart';
+import '../widgets/paper_player_bar.dart';
 import '../widgets/paper_status_segments.dart';
 import '../widgets/place_card.dart';
 import '../widgets/todo_card.dart';
@@ -246,7 +249,37 @@ class _ReadyBodyState extends State<_ReadyBody> {
               ),
             ),
           ),
+          const _Player(),
         ],
+      ),
+    );
+  }
+}
+
+class _Player extends StatelessWidget {
+  const _Player();
+
+  @override
+  Widget build(BuildContext context) {
+    final voice = context.read<VoicePlaybackCubit>();
+
+    return BlocSelector<
+      VoicePlaybackCubit,
+      VoicePlaybackState,
+      PaperPlayerView
+    >(
+      selector: PaperPlayerView.of,
+      builder: (context, view) => PaperPlayerBar(
+        view: view,
+        speed: ReadingSpeed.normal,
+        onPressed: () => unawaited(switch (view.action) {
+          PaperPlayerAction.pause => voice.pause(),
+          PaperPlayerAction.resume => voice.resume(),
+          PaperPlayerAction.replay => voice.replay(),
+        }),
+        onSeek: view.canSeek
+            ? (fraction) => unawaited(voice.seek(view.duration * fraction))
+            : null,
       ),
     );
   }

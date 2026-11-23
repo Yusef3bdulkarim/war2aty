@@ -957,6 +957,14 @@ final class EnStrings implements AppStrings {
   String get paperPlaceCardTitle => 'Where to go';
   @override
   String get paperPlaceCardEnlargeLabel => 'Enlarge the address for the driver';
+  @override
+  String get paperPlayerPreparingLabel => 'Getting the reading ready';
+  @override
+  String get paperPlayerReplayLabel => 'Listen again';
+  @override
+  String get paperPlayerWaveformLabel => 'Audio position';
+  @override
+  String get paperPlayerSpeedLabel => 'Audio speed';
 
   @override
   String get resultListen => 'Listen';

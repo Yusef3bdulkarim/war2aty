@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 30 / 52
+- **Progress:** 31 / 52
 
 ## Why this feature exists
 
@@ -570,11 +570,40 @@ finished and the next one does not start.
       stops the auto-scroll; a segment tap scrolls (streaming) or
       `seekToSegment`s (file) and turns auto-scroll back on (D16). *Done when:*
       widget tests drive both phases.
-- [ ] **T34** Player bar to the artboard: play/pause, 30-bar waveform
+- [x] **T34** Player bar to the artboard: play/pause, 30-bar waveform
       (animated in the streaming phase, filling by position/duration in the
       file phase, tap-to-seek only in the file phase), the clock, the speed
       pill (wired in T39). *Done when:* widget tests for preparing, streaming,
       paused, file, finished and failed.
+      *Review:* Opus 5, 2026-11-23. *Findings:* three, all fixed — a `///`
+      comment on `PaperPlayerView.fill` (§11); the `preparing` button was
+      dimmed to `alpha: 0.4` like a disabled one, which left its white spinner
+      at ~1.9:1 on the pale teal, in the one state the user meets on *every*
+      read (preparing is busy, not disabled, so it now keeps the full brand
+      colour and only truly-disabled states dim); and a paused first reading
+      rendered pixel-identical to a finished one — same 30 teal bars, static,
+      same `play_arrow` — so `replay` took `Icons.replay_rounded`.
+      `PaperPlayerView` (`presentation/models`) is the whole decision: which
+      of three actions the button offers, whether it is pressable, the
+      waveform's fill, whether it animates, and the clock. `fill: null` is the
+      streaming phase's "no length to measure against" (D16) and paints every
+      bar in the brand colour — progress in that phase is the segment bar's
+      job (T29), not the waveform's. Seek is a `fraction`, mirrored for RTL
+      from the bar's own box, so the start of the audio is the right-hand edge.
+      The artboard's own footer draws a *partly filled* waveform during what is
+      clearly a first reading; D16 overrides that, as the owner's decision
+      beats a static mock. Equality deliberately compares `elapsed.inSeconds`,
+      not the raw `Duration`, so a Live read's ~5 position events a second
+      collapse to one rebuild. Every colour matches the artboard's hexes
+      exactly through existing tokens (no new ones). 4 new `AppStrings` members
+      + the parity map. 16 model tests + 41 widget tests + 6 on the screen
+      itself (device-tier pause unpressable, replay pause/resume, fill + seek,
+      failed). **Two device-pass (T52) watch items**, neither fixed here:
+      TalkBack cannot scrub the waveform — it is `excludeSemantics` with a
+      label and value, the same shape `PaperStatusSegments` shipped with in
+      T29/T33, and exposing arbitrary seek properly means slider semantics,
+      which is its own task; and the streaming phase rebuilds 30 `Container`s
+      at 60 fps, which only the RMX2001 can price.
 - [ ] **T35** Leaving the screen stops the voice and any fixed line; back from
       a fresh paper goes Home. *Done when:* tested.
 

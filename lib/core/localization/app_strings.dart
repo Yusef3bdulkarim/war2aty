@@ -728,6 +728,10 @@ abstract interface class AppStrings {
   String get paperContactCardCallFailedMessage;
   String get paperPlaceCardTitle;
   String get paperPlaceCardEnlargeLabel;
+  String get paperPlayerPreparingLabel;
+  String get paperPlayerReplayLabel;
+  String get paperPlayerWaveformLabel;
+  String get paperPlayerSpeedLabel;
 
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.
