@@ -563,10 +563,10 @@ finished and the next one does not start.
       *Done when:* tests prove it is recorded on the finish of a fresh read
       and of a re-speak. (The `explain_partial` playback that follows a read
       lands in T40, once the line exists.)
-- [ ] **T32** Voice failures on the result screen: `voice_failed`; for
+- [x] **T32** Voice failures on the result screen: `voice_failed`; for
       `NoArabicVoiceFailure`, `no_arabic_voice` plus the open-TTS-settings
       action. *Done when:* tested.
-- [ ] **T33** Highlight + auto-scroll to the spoken card; a manual scroll
+- [x] **T33** Highlight + auto-scroll to the spoken card; a manual scroll
       stops the auto-scroll; a segment tap scrolls (streaming) or
       `seekToSegment`s (file) and turns auto-scroll back on (D16). *Done when:*
       widget tests drive both phases.

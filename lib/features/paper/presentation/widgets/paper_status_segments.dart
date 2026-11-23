@@ -5,18 +5,21 @@ import '../../../../core/theme/app_colors.dart';
 const double _segmentHeight = 4;
 const double _segmentGap = 4;
 const double _segmentRadius = 2;
+const double _tapTargetHeight = 24;
 
 class PaperStatusSegments extends StatelessWidget {
   const PaperStatusSegments({
     required this.cardIds,
     this.activeId,
     this.fillFraction = 0,
+    this.onSegmentTap,
     super.key,
   });
 
   final List<String> cardIds;
   final String? activeId;
   final double fillFraction;
+  final ValueChanged<String>? onSegmentTap;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +43,7 @@ class PaperStatusSegments extends StatelessWidget {
                 },
                 trackColor: colors.borderSoft,
                 fillColor: colors.brandPrimary,
+                onTap: onSegmentTap,
               ),
             ),
           ],
@@ -55,31 +59,44 @@ class _Segment extends StatelessWidget {
     required this.fill,
     required this.trackColor,
     required this.fillColor,
+    required this.onTap,
   });
 
   final String id;
   final double fill;
   final Color trackColor;
   final Color fillColor;
+  final ValueChanged<String>? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: ValueKey('paper-status-segment-$id'),
-      height: _segmentHeight,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: trackColor,
-        borderRadius: BorderRadius.circular(_segmentRadius),
-      ),
-      child: FractionallySizedBox(
-        alignment: AlignmentDirectional.centerStart,
-        widthFactor: fill,
-        heightFactor: 1,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: fillColor,
-            borderRadius: BorderRadius.circular(_segmentRadius),
+    final onTap = this.onTap;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap == null ? null : () => onTap(id),
+      child: SizedBox(
+        height: _tapTargetHeight,
+        child: Center(
+          child: Container(
+            key: ValueKey('paper-status-segment-$id'),
+            height: _segmentHeight,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: trackColor,
+              borderRadius: BorderRadius.circular(_segmentRadius),
+            ),
+            child: FractionallySizedBox(
+              alignment: AlignmentDirectional.centerStart,
+              widthFactor: fill,
+              heightFactor: 1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: fillColor,
+                  borderRadius: BorderRadius.circular(_segmentRadius),
+                ),
+              ),
+            ),
           ),
         ),
       ),

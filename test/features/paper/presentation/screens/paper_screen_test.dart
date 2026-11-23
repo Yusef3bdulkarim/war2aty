@@ -18,6 +18,7 @@ import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
+import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import 'package:war2aty/features/paper/presentation/screens/paper_screen.dart';
@@ -25,6 +26,7 @@ import 'package:war2aty/features/paper/presentation/screens/paper_screen.dart';
 import '../../../../support/fakes.dart';
 import '../../../../support/pump_app.dart';
 import '../../../../support/ui_audit.dart';
+import '../../../../support/voice_playback_rig.dart';
 
 final Uint8List _onePxPng = Uint8List.fromList(const [
   0x89,
@@ -104,6 +106,7 @@ void main() {
   late PaperScreenCubit cubit;
   late FakeExternalLinkService dialerService;
   late PhoneDialerCubit dialerCubit;
+  late VoicePlaybackRig rig;
   late int backCount;
   late DateTime? remindedDate;
   late int? remindedMinuteOfDay;
@@ -122,11 +125,13 @@ void main() {
     );
     dialerService = FakeExternalLinkService();
     dialerCubit = PhoneDialerCubit(OpenPhoneDialer(dialerService));
+    rig = VoicePlaybackRig();
   });
 
   tearDown(() async {
     unawaited(cubit.close());
     unawaited(dialerCubit.close());
+    unawaited(rig.dispose());
   });
 
   Future<void> pumpScreen(
@@ -140,6 +145,7 @@ void main() {
       providers: [
         BlocProvider<PaperScreenCubit>.value(value: cubit),
         BlocProvider<PhoneDialerCubit>.value(value: dialerCubit),
+        BlocProvider<VoicePlaybackCubit>.value(value: rig.cubit),
       ],
       child: PaperScreen(
         onBack: () => backCount++,

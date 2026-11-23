@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -9,6 +10,8 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/papers/paper_explanation.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/voice/voice_playback_cubit.dart';
+import '../../../../core/voice/voice_playback_state.dart';
 import '../../../../core/widgets/service_state_view.dart';
 import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/paper_screen_cubit.dart';
@@ -16,10 +19,12 @@ import '../cubit/paper_screen_state.dart';
 import '../cubit/phone_dialer_cubit.dart';
 import '../cubit/phone_dialer_state.dart';
 import '../models/paper_view.dart';
+import '../models/paper_voice_progress.dart';
 import '../widgets/caution_card.dart';
 import '../widgets/contact_card.dart';
 import '../widgets/date_card.dart';
 import '../widgets/explain_card.dart';
+import '../widgets/paper_status_segments.dart';
 import '../widgets/place_card.dart';
 import '../widgets/todo_card.dart';
 import 'enlarged_address_screen.dart';
@@ -129,7 +134,7 @@ class _StateBody extends StatelessWidget {
   }
 }
 
-class _ReadyBody extends StatelessWidget {
+class _ReadyBody extends StatefulWidget {
   const _ReadyBody({
     required this.view,
     required this.explanation,
@@ -145,23 +150,99 @@ class _ReadyBody extends StatelessWidget {
   final void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind;
 
   @override
+  State<_ReadyBody> createState() => _ReadyBodyState();
+}
+
+class _ReadyBodyState extends State<_ReadyBody> {
+  final _scrollController = ScrollController();
+  final _cardKeys = <String, GlobalKey>{};
+  var _followsVoice = true;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  GlobalKey _keyFor(String id) => _cardKeys.putIfAbsent(id, GlobalKey.new);
+
+  void _scrollToCard(String id) {
+    final cardContext = _cardKeys[id]?.currentContext;
+    if (cardContext == null) return;
+    final animate = !MediaQuery.disableAnimationsOf(context);
+    unawaited(
+      Scrollable.ensureVisible(
+        cardContext,
+        alignment: _cardAlignment,
+        duration: animate ? _scrollDuration : Duration.zero,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  void _followVoiceTo(VoicePlaybackState state) {
+    final activeId = PaperVoiceProgress.of(state).activeId;
+    if (!_followsVoice || activeId == null) return;
+    _scrollToCard(activeId);
+  }
+
+  bool _stopFollowingOnDrag(ScrollStartNotification notification) {
+    if (notification.dragDetails != null) _followsVoice = false;
+    return false;
+  }
+
+  void _onSegmentTap(String id) {
+    _followsVoice = true;
+    _scrollToCard(id);
+    unawaited(context.read<VoicePlaybackCubit>().seekToSegment(id));
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final view = widget.view;
+
     return SafeArea(
       child: Column(
         children: [
-          _PaperHeader(view: view, imageBytes: imageBytes, onBack: onBack),
+          _SegmentsBar(cardIds: view.cardIds, onSegmentTap: _onSegmentTap),
+          _PaperHeader(
+            view: view,
+            imageBytes: widget.imageBytes,
+            onBack: widget.onBack,
+          ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: _bodyPaddingH,
-                vertical: _bodyPaddingV,
-              ),
-              child: _CardsSection(
-                cardIds: view.cardIds,
-                explanation: explanation,
-                dateCard: view.dateCard,
-                groupedPhone: view.groupedPhone,
-                onRemind: onRemind,
+            child: BlocListener<VoicePlaybackCubit, VoicePlaybackState>(
+              listenWhen: (previous, current) =>
+                  PaperVoiceProgress.of(previous).activeId !=
+                  PaperVoiceProgress.of(current).activeId,
+              listener: (_, state) => _followVoiceTo(state),
+              child: NotificationListener<ScrollStartNotification>(
+                onNotification: _stopFollowingOnDrag,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _bodyPaddingH,
+                    vertical: _bodyPaddingV,
+                  ),
+                  child:
+                      BlocSelector<
+                        VoicePlaybackCubit,
+                        VoicePlaybackState,
+                        String?
+                      >(
+                        selector: (state) =>
+                            PaperVoiceProgress.of(state).activeId,
+                        builder: (context, activeId) => _CardsSection(
+                          cardIds: view.cardIds,
+                          activeId: activeId,
+                          keyFor: _keyFor,
+                          explanation: widget.explanation,
+                          dateCard: view.dateCard,
+                          groupedPhone: view.groupedPhone,
+                          onRemind: widget.onRemind,
+                        ),
+                      ),
+                ),
               ),
             ),
           ),
@@ -171,11 +252,46 @@ class _ReadyBody extends StatelessWidget {
   }
 }
 
+class _SegmentsBar extends StatelessWidget {
+  const _SegmentsBar({required this.cardIds, required this.onSegmentTap});
+
+  final List<String> cardIds;
+  final ValueChanged<String> onSegmentTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.of(context).card,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: _headerPaddingH),
+        child:
+            BlocSelector<
+              VoicePlaybackCubit,
+              VoicePlaybackState,
+              PaperVoiceProgress
+            >(
+              selector: PaperVoiceProgress.of,
+              builder: (context, progress) => PaperStatusSegments(
+                cardIds: cardIds,
+                activeId: progress.activeId,
+                fillFraction: progress.fillFraction,
+                onSegmentTap: onSegmentTap,
+              ),
+            ),
+      ),
+    );
+  }
+}
+
 const double _cardGap = 12;
+const double _cardAlignment = 0.05;
+const Duration _scrollDuration = Duration(milliseconds: 350);
 
 class _CardsSection extends StatelessWidget {
   const _CardsSection({
     required this.cardIds,
+    required this.activeId,
+    required this.keyFor,
     required this.explanation,
     required this.dateCard,
     required this.groupedPhone,
@@ -183,6 +299,8 @@ class _CardsSection extends StatelessWidget {
   });
 
   final List<String> cardIds;
+  final String? activeId;
+  final GlobalKey Function(String id) keyFor;
   final PaperExplanation explanation;
   final PaperDateCardView? dateCard;
   final String? groupedPhone;
@@ -192,7 +310,17 @@ class _CardsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cards = <Widget>[
       for (final id in cardIds)
-        ?_cardFor(context, id, explanation, dateCard, groupedPhone, onRemind),
+        if (_cardFor(
+              context,
+              id,
+              isHighlighted: id == activeId,
+              explanation: explanation,
+              dateCard: dateCard,
+              groupedPhone: groupedPhone,
+              onRemind: onRemind,
+            )
+            case final card?)
+          KeyedSubtree(key: keyFor(id), child: card),
     ];
 
     return Column(
@@ -209,28 +337,38 @@ class _CardsSection extends StatelessWidget {
 
 Widget? _cardFor(
   BuildContext context,
-  String id,
-  PaperExplanation explanation,
-  PaperDateCardView? dateCard,
-  String? groupedPhone,
-  void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind,
-) => switch (id) {
-  'explain' => ExplainCard(paragraphs: explanation.paragraphs),
-  'todo' => TodoCard(text: explanation.todo.text),
+  String id, {
+  required bool isHighlighted,
+  required PaperExplanation explanation,
+  required PaperDateCardView? dateCard,
+  required String? groupedPhone,
+  required void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind,
+}) => switch (id) {
+  'explain' => ExplainCard(
+    paragraphs: explanation.paragraphs,
+    isHighlighted: isHighlighted,
+  ),
+  'todo' => TodoCard(text: explanation.todo.text, isHighlighted: isHighlighted),
   'date' => DateCard(
     view: dateCard!,
+    isHighlighted: isHighlighted,
     onRemindMe: () =>
         onRemind(explanation.date!.day, explanation.date!.time?.minuteOfDay),
   ),
-  'caution' => CautionCard(text: explanation.caution!.text),
+  'caution' => CautionCard(
+    text: explanation.caution!.text,
+    isHighlighted: isHighlighted,
+  ),
   'contact' => ContactCard(
     name: explanation.contact!.name,
     groupedPhone: groupedPhone!,
+    isHighlighted: isHighlighted,
     onCall: () =>
         context.read<PhoneDialerCubit>().dial(explanation.contact!.phone),
   ),
   'place' => PlaceCard(
     address: explanation.place!.text,
+    isHighlighted: isHighlighted,
     onEnlarge: () => Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EnlargedAddressScreen(address: explanation.place!.text),

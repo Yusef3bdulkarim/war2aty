@@ -54,6 +54,12 @@ final class VoicePlaybackRig {
     }
   }
 
+  void readOnDeviceTier() {
+    _sink.openResult = const Err<void, AppFailure>(AudioPlaybackFailure());
+  }
+
+  void emitDeviceEvent(VoiceReadEvent event) => _deviceReader.emit(event);
+
   void failReadWith(AppFailure failure) {
     _sink.openResult = Err<void, AppFailure>(failure);
     _deviceReader.finish(Err<Duration, AppFailure>(failure));
@@ -78,6 +84,7 @@ final class VoicePlaybackRig {
     session.dispose();
     await player.dispose();
     _sink.dispose();
+    await _deviceReader.dispose();
   }
 }
 
@@ -185,9 +192,14 @@ final class _EmptyAudioStore implements EncryptedAudioStore {
 
 final class _MuteDeviceReader implements DeviceVoiceReader {
   final _completer = Completer<Result<Duration, AppFailure>>();
+  final _events = StreamController<VoiceReadEvent>.broadcast(sync: true);
 
   @override
-  Stream<VoiceReadEvent> get events => const Stream.empty();
+  Stream<VoiceReadEvent> get events => _events.stream;
+
+  void emit(VoiceReadEvent event) {
+    if (!_events.isClosed) _events.add(event);
+  }
 
   @override
   Future<Result<Duration, AppFailure>> read(VoiceTurnText turn) =>
@@ -195,6 +207,8 @@ final class _MuteDeviceReader implements DeviceVoiceReader {
 
   @override
   Future<void> stop() async {}
+
+  Future<void> dispose() => _events.close();
 
   void finish(Result<Duration, AppFailure> outcome) {
     if (!_completer.isCompleted) _completer.complete(outcome);

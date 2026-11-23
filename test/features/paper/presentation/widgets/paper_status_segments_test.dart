@@ -202,5 +202,44 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('a tap anywhere in a segment reports its card', (tester) async {
+      final tapped = <String>[];
+      await pumpApp(
+        tester,
+        Scaffold(
+          body: PaperStatusSegments(
+            cardIds: const ['explain', 'todo'],
+            onSegmentTap: tapped.add,
+          ),
+        ),
+      );
+
+      await tester.tapAt(
+        tester.getCenter(
+          find.byKey(const ValueKey('paper-status-segment-todo')),
+        ),
+      );
+      await tester.tapAt(
+        tester.getTopLeft(
+              find.byKey(const ValueKey('paper-status-segment-explain')),
+            ) +
+            const Offset(4, -8),
+      );
+
+      expect(tapped, ['todo', 'explain']);
+    });
+
+    testWidgets('has no tap handling without a callback', (tester) async {
+      await _pumpSegments(tester, cardIds: const ['explain', 'todo']);
+
+      await tester.tapAt(
+        tester.getCenter(
+          find.byKey(const ValueKey('paper-status-segment-todo')),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+    });
   });
 }
