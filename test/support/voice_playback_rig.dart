@@ -31,7 +31,7 @@ final class VoicePlaybackRig {
         sink: _sink,
         encoder: _SilentEncoder(),
         audioStore: _EmptyAudioStore(),
-        deviceReader: _MuteDeviceReader(),
+        deviceReader: _deviceReader,
         verify: const VerifyVerbatimRead(normalise),
         align: const AlignSegmentsToAudio(normalise),
       ),
@@ -42,6 +42,7 @@ final class VoicePlaybackRig {
   final session = RecordingLiveSession();
   final player = FakeSavedAudioPlayer();
   final _sink = _ClockedSink();
+  final _deviceReader = _MuteDeviceReader();
   late final VoicePlaybackCubit cubit;
 
   int get liveReadsStarted => session.starts;
@@ -51,6 +52,11 @@ final class VoicePlaybackRig {
     for (var i = 0; i < 8; i++) {
       await Future<void>.delayed(Duration.zero);
     }
+  }
+
+  void failReadWith(AppFailure failure) {
+    _sink.openResult = Err<void, AppFailure>(failure);
+    _deviceReader.finish(Err<Duration, AppFailure>(failure));
   }
 
   void emitWholeLiveRead({
@@ -111,10 +117,10 @@ final class _ClockedSink implements PcmAudioSink {
 
   var _written = 0;
   var _played = Duration.zero;
+  Result<void, AppFailure> openResult = const Ok(null);
 
   @override
-  Future<Result<void, AppFailure>> open(PcmFormat format) async =>
-      const Ok(null);
+  Future<Result<void, AppFailure>> open(PcmFormat format) async => openResult;
 
   @override
   Future<void> write(Uint8List chunk) async {
@@ -178,13 +184,19 @@ final class _EmptyAudioStore implements EncryptedAudioStore {
 }
 
 final class _MuteDeviceReader implements DeviceVoiceReader {
+  final _completer = Completer<Result<Duration, AppFailure>>();
+
   @override
   Stream<VoiceReadEvent> get events => const Stream.empty();
 
   @override
   Future<Result<Duration, AppFailure>> read(VoiceTurnText turn) =>
-      Completer<Result<Duration, AppFailure>>().future;
+      _completer.future;
 
   @override
   Future<void> stop() async {}
+
+  void finish(Result<Duration, AppFailure> outcome) {
+    if (!_completer.isCompleted) _completer.complete(outcome);
+  }
 }

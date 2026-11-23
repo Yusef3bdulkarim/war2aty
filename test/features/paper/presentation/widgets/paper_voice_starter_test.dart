@@ -1,22 +1,31 @@
 import 'dart:async';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
+import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/papers/build_paper_voice_segments.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
+import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
+import 'package:war2aty/core/voice/voice_line.dart';
 import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/core/voice/voice_playback_state.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_state.dart';
+import 'package:war2aty/features/paper/presentation/cubit/paper_voice_failure_cubit.dart';
 import 'package:war2aty/features/paper/presentation/widgets/paper_voice_starter.dart';
 import 'package:war2aty/features/voice/domain/entities/spoken_card_span.dart';
 import 'package:war2aty/features/voice/domain/entities/voice_segment.dart';
 
 import '../../../../support/fakes.dart';
+import '../../../../support/pump_app.dart';
 import '../../../../support/voice_playback_rig.dart';
+
+const _ar = ArStrings();
 
 void main() {
   const spans = [
@@ -226,5 +235,88 @@ void main() {
 
     expect(rig.liveReadsStarted, 1);
     expect(rig.replaysLoaded, isEmpty);
+  });
+
+  group('voice failures', () {
+    late FakeFixedLinePlayer linePlayer;
+    late FakeSystemTtsSettings ttsSettings;
+    late FakeTextToSpeechService tts;
+    late PaperVoiceFailureCubit failureCubit;
+
+    setUp(() {
+      linePlayer = FakeFixedLinePlayer();
+      ttsSettings = FakeSystemTtsSettings();
+      tts = FakeTextToSpeechService();
+      failureCubit = PaperVoiceFailureCubit(
+        SpeakFixedLine(linePlayer),
+        OpenSystemTtsSettings(ttsSettings, tts),
+      );
+    });
+
+    tearDown(() async {
+      await failureCubit.close();
+    });
+
+    Future<void> pumpFailureStarter(WidgetTester tester) async {
+      await pumpApp(
+        tester,
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<PaperScreenCubit>.value(value: screenCubit),
+            BlocProvider<VoicePlaybackCubit>.value(value: rig.cubit),
+            BlocProvider<PaperVoiceFailureCubit>.value(value: failureCubit),
+          ],
+          child: const PaperVoiceStarter(fresh: true, child: SizedBox()),
+        ),
+      );
+    }
+
+    testWidgets('speaks voice_failed for an ordinary failure', (tester) async {
+      rig.failReadWith(const TtsFailure());
+      await pumpFailureStarter(tester);
+      screenCubit.start();
+      papers.emitPaper(savedPaperWith());
+      await settle(tester);
+
+      expect(linePlayer.played, [VoiceLine.voiceFailed.assetPath]);
+    });
+
+    testWidgets(
+      'speaks no_arabic_voice and offers the way to the system settings',
+      (tester) async {
+        ttsSettings.available = true;
+        rig.failReadWith(const NoArabicVoiceFailure());
+        await pumpFailureStarter(tester);
+        screenCubit.start();
+        papers.emitPaper(savedPaperWith());
+        await settle(tester);
+        await tester.pumpAndSettle();
+
+        expect(linePlayer.played, [VoiceLine.noArabicVoice.assetPath]);
+        expect(find.text(_ar.audioReaderNoArabicVoiceTitle), findsOneWidget);
+        expect(find.text(_ar.audioReaderNoArabicVoiceAction), findsOneWidget);
+
+        await tester.tap(find.text(_ar.audioReaderNoArabicVoiceAction));
+        await tester.pumpAndSettle();
+
+        expect(ttsSettings.openCount, 1);
+        expect(tts.forgetVoicesCount, 1);
+      },
+    );
+
+    testWidgets('offers no action when there is no settings screen to open', (
+      tester,
+    ) async {
+      ttsSettings.available = false;
+      rig.failReadWith(const NoArabicVoiceFailure());
+      await pumpFailureStarter(tester);
+      screenCubit.start();
+      papers.emitPaper(savedPaperWith());
+      await settle(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(_ar.audioReaderNoArabicVoiceTitle), findsOneWidget);
+      expect(find.text(_ar.audioReaderNoArabicVoiceAction), findsNothing);
+    });
   });
 }

@@ -247,6 +247,7 @@ import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
+import '../../features/paper/presentation/cubit/paper_voice_failure_cubit.dart';
 import '../../features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_form_cubit.dart';
@@ -1205,7 +1206,10 @@ void _registerPapers() {
           PaperScreenCubit(getIt(), getIt(), getIt(), paperId: paperId),
     )
     ..registerFactory<OpenPhoneDialer>(() => OpenPhoneDialer(getIt()))
-    ..registerFactory<PhoneDialerCubit>(() => PhoneDialerCubit(getIt()));
+    ..registerFactory<PhoneDialerCubit>(() => PhoneDialerCubit(getIt()))
+    ..registerFactory<PaperVoiceFailureCubit>(
+      () => PaperVoiceFailureCubit(getIt(), getIt()),
+    );
 }
 
 void _registerExplain(AppEnvironment env) {
