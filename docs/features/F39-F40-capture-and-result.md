@@ -559,7 +559,7 @@ finished and the next one does not start.
       spans)`; an opened paper without audio → `readAloud` again (F38 D11). All
       of it after any fixed line has finished (D11). *Done when:* tested for
       the three cases.
-- [ ] **T31** `RecordPaperReading` on every `VoicePlaybackReadFinished`.
+- [x] **T31** `RecordPaperReading` on every `VoicePlaybackReadFinished`.
       *Done when:* tests prove it is recorded on the finish of a fresh read
       and of a re-speak. (The `explain_partial` playback that follows a read
       lands in T40, once the line exists.)

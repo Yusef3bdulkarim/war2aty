@@ -4,9 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
+import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
+import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_state.dart';
+import 'package:war2aty/features/voice/domain/entities/voice_engine.dart';
+import 'package:war2aty/features/voice/domain/entities/voice_read_outcome.dart';
 
 import '../../../../support/fakes.dart';
 
@@ -25,6 +29,7 @@ void main() {
     final cubit = PaperScreenCubit(
       WatchPaper(papers),
       LoadPaperImage(images),
+      RecordPaperReading(papers),
       paperId: paperId,
     );
     cubit.stream.listen(states.add);
@@ -81,6 +86,49 @@ void main() {
       await cubit.close();
     },
   );
+
+  test('records a reading against the paper it was opened for', () async {
+    final cubit = buildCubit(paperId: 'p42');
+    final outcome = VoiceReadOutcome(
+      engine: VoiceEngine.geminiLive,
+      duration: const Duration(seconds: 75),
+      verified: true,
+      audioSaved: true,
+      spans: const [],
+    );
+
+    await cubit.recordReading(outcome);
+
+    expect(papers.lastRecordedId, 'p42');
+    expect(papers.lastRecordedOutcome, same(outcome));
+
+    await cubit.close();
+  });
+
+  test('a reading that fails to record leaves the screen as it was', () async {
+    papers.recordReadingOutcome = const Err(LocalDatabaseFailure());
+    final cubit = buildCubit();
+    cubit.start();
+    papers.emitPaper(savedPaperWith());
+    await pumpEventQueue();
+    states.clear();
+
+    await cubit.recordReading(
+      VoiceReadOutcome(
+        engine: VoiceEngine.deviceTts,
+        duration: const Duration(seconds: 10),
+        verified: true,
+        audioSaved: false,
+        spans: const [],
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(states, isEmpty);
+    expect(cubit.state, isA<PaperScreenReady>());
+
+    await cubit.close();
+  });
 
   test('a failed image decrypt keeps the paper ready with no image', () async {
     images.fails = true;

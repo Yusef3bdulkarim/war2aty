@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/voice/voice_playback_cubit.dart';
+import '../../../../core/voice/voice_playback_state.dart';
 import '../cubit/paper_screen_cubit.dart';
 import '../cubit/paper_screen_state.dart';
 import '../models/paper_voice_start.dart';
@@ -46,8 +47,21 @@ class _PaperVoiceStarterState extends State<PaperVoiceStarter> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<PaperScreenCubit, PaperScreenState>(
-      listener: (_, state) => _startFrom(state),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<PaperScreenCubit, PaperScreenState>(
+          listener: (_, state) => _startFrom(state),
+        ),
+        BlocListener<VoicePlaybackCubit, VoicePlaybackState>(
+          listenWhen: (_, current) => current is VoicePlaybackReadFinished,
+          listener: (context, state) {
+            if (state is! VoicePlaybackReadFinished) return;
+            unawaited(
+              context.read<PaperScreenCubit>().recordReading(state.outcome),
+            );
+          },
+        ),
+      ],
       child: widget.child,
     );
   }

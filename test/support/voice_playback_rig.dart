@@ -8,6 +8,7 @@ import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/features/voice/domain/entities/live_voice_event.dart';
 import 'package:war2aty/features/voice/domain/entities/pcm_format.dart';
 import 'package:war2aty/features/voice/domain/entities/voice_read_event.dart';
+import 'package:war2aty/features/voice/domain/entities/voice_segment.dart';
 import 'package:war2aty/features/voice/domain/services/audio_encoder.dart';
 import 'package:war2aty/features/voice/domain/services/device_voice_reader.dart';
 import 'package:war2aty/features/voice/domain/services/live_voice_session.dart';
@@ -27,7 +28,7 @@ final class VoicePlaybackRig {
     cubit = VoicePlaybackCubit(
       ReadPaperAloud(
         openSession: () => session,
-        sink: _SilentSink(),
+        sink: _sink,
         encoder: _SilentEncoder(),
         audioStore: _EmptyAudioStore(),
         deviceReader: _MuteDeviceReader(),
@@ -40,6 +41,7 @@ final class VoicePlaybackRig {
 
   final session = RecordingLiveSession();
   final player = FakeSavedAudioPlayer();
+  final _sink = _ClockedSink();
   late final VoicePlaybackCubit cubit;
 
   int get liveReadsStarted => session.starts;
@@ -51,10 +53,25 @@ final class VoicePlaybackRig {
     }
   }
 
+  void emitWholeLiveRead({
+    required List<VoiceSegment> segments,
+    int audioSeconds = 3,
+  }) {
+    session
+      ..emit(
+        LivePcmChunk(
+          Uint8List(PcmFormat.geminiLive.bytesPerSecond * audioSeconds),
+        ),
+      )
+      ..emit(LiveTranscriptDelta(const BuildVoiceTurnText()(segments).text))
+      ..emit(const LiveTurnComplete());
+  }
+
   Future<void> dispose() async {
     await cubit.close();
     session.dispose();
     await player.dispose();
+    _sink.dispose();
   }
 }
 
@@ -80,18 +97,31 @@ final class RecordingLiveSession implements LiveVoiceSession {
     if (!_events.isClosed) unawaited(_events.close());
   }
 
+  void emit(LiveVoiceEvent event) {
+    if (!_events.isClosed) _events.add(event);
+  }
+
   void dispose() {
     if (!_events.isClosed) unawaited(_events.close());
   }
 }
 
-final class _SilentSink implements PcmAudioSink {
+final class _ClockedSink implements PcmAudioSink {
+  final _positions = StreamController<Duration>.broadcast(sync: true);
+
+  var _written = 0;
+  var _played = Duration.zero;
+
   @override
   Future<Result<void, AppFailure>> open(PcmFormat format) async =>
       const Ok(null);
 
   @override
-  Future<void> write(Uint8List chunk) async {}
+  Future<void> write(Uint8List chunk) async {
+    _written += chunk.length;
+    _played = PcmFormat.geminiLive.durationOfBytes(_written);
+    _positions.add(_played);
+  }
 
   @override
   Future<void> pause() async {}
@@ -100,10 +130,14 @@ final class _SilentSink implements PcmAudioSink {
   Future<void> resume() async {}
 
   @override
-  Future<Duration> stop() async => Duration.zero;
+  Future<Duration> stop() async => _played;
 
   @override
-  Stream<Duration> get position => const Stream.empty();
+  Stream<Duration> get position => _positions.stream;
+
+  void dispose() {
+    if (!_positions.isClosed) unawaited(_positions.close());
+  }
 }
 
 final class _SilentEncoder implements AudioEncoder {

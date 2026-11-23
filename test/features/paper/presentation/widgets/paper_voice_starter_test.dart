@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/papers/build_paper_voice_segments.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
+import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/core/voice/voice_playback_state.dart';
@@ -11,6 +13,7 @@ import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dar
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_state.dart';
 import 'package:war2aty/features/paper/presentation/widgets/paper_voice_starter.dart';
 import 'package:war2aty/features/voice/domain/entities/spoken_card_span.dart';
+import 'package:war2aty/features/voice/domain/entities/voice_segment.dart';
 
 import '../../../../support/fakes.dart';
 import '../../../../support/voice_playback_rig.dart';
@@ -34,6 +37,7 @@ void main() {
     screenCubit = PaperScreenCubit(
       WatchPaper(papers),
       LoadPaperImage(FakePaperImageStore()),
+      RecordPaperReading(papers),
       paperId: 'p1',
     );
     rig = VoicePlaybackRig();
@@ -62,6 +66,17 @@ void main() {
   Future<void> settle(WidgetTester tester) async {
     await tester.runAsync(rig.settle);
     await tester.pump();
+  }
+
+  Future<void> finishRead(
+    WidgetTester tester,
+    List<VoiceSegment> segments,
+  ) async {
+    rig.emitWholeLiveRead(segments: segments);
+    for (var i = 0; i < 12; i++) {
+      await tester.pump();
+      await tester.runAsync(rig.settle);
+    }
   }
 
   testWidgets('says nothing while the paper is still loading', (tester) async {
@@ -139,6 +154,63 @@ void main() {
 
     expect(rig.liveReadsStarted, 1);
     expect(rig.replaysLoaded, isEmpty);
+  });
+
+  group('recording the reading', () {
+    final paper = savedPaperWith();
+    final segments = const BuildPaperVoiceSegments()(paper.explanation);
+
+    testWidgets('nothing is recorded while the paper is still being read', (
+      tester,
+    ) async {
+      await pumpStarter(tester, fresh: true);
+      screenCubit.start();
+      papers.emitPaper(paper);
+      await settle(tester);
+
+      expect(rig.cubit.state, isA<VoicePlaybackStreaming>());
+      expect(papers.lastRecordedId, isNull);
+    });
+
+    testWidgets('a fresh read that finishes is recorded against the paper', (
+      tester,
+    ) async {
+      await pumpStarter(tester, fresh: true);
+      screenCubit.start();
+      papers.emitPaper(paper);
+      await settle(tester);
+
+      await finishRead(tester, segments);
+
+      final finished = rig.cubit.state as VoicePlaybackReadFinished;
+      expect(papers.lastRecordedId, 'p1');
+      expect(papers.lastRecordedOutcome, finished.outcome);
+    });
+
+    testWidgets('a re-speak of an opened paper that finishes is recorded', (
+      tester,
+    ) async {
+      await pumpStarter(tester, fresh: false);
+      screenCubit.start();
+      papers.emitPaper(paper);
+      await settle(tester);
+
+      await finishRead(tester, segments);
+
+      final finished = rig.cubit.state as VoicePlaybackReadFinished;
+      expect(papers.lastRecordedId, 'p1');
+      expect(papers.lastRecordedOutcome, finished.outcome);
+    });
+
+    testWidgets('replaying a saved reading records nothing', (tester) async {
+      await pumpStarter(tester, fresh: false);
+      screenCubit.start();
+      papers.emitPaper(savedPaperWith(audioSaved: true, spans: spans));
+      await settle(tester);
+
+      expect(rig.cubit.state, isA<VoicePlaybackFile>());
+      expect(papers.lastRecordedId, isNull);
+    });
   });
 
   testWidgets('a later emission of the same paper does not start it again', (

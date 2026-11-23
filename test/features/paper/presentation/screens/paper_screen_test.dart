@@ -15,6 +15,7 @@ import 'package:war2aty/core/papers/paper_place.dart';
 import 'package:war2aty/core/papers/paper_status.dart';
 import 'package:war2aty/core/papers/paper_todo.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
+import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
@@ -116,6 +117,7 @@ void main() {
     cubit = PaperScreenCubit(
       WatchPaper(papers),
       LoadPaperImage(images),
+      RecordPaperReading(papers),
       paperId: 'p1',
     );
     dialerService = FakeExternalLinkService();

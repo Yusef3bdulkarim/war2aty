@@ -6,20 +6,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/papers/saved_paper.dart';
 import '../../../../core/papers/usecases/load_paper_image.dart';
+import '../../../../core/papers/usecases/record_paper_reading.dart';
 import '../../../../core/papers/usecases/watch_paper.dart';
 import '../../../../core/result/result.dart';
+import '../../../voice/domain/entities/voice_read_outcome.dart';
 import 'paper_screen_state.dart';
 
 final class PaperScreenCubit extends Cubit<PaperScreenState> {
   PaperScreenCubit(
     this._watchPaper,
-    this._loadPaperImage, {
+    this._loadPaperImage,
+    this._recordPaperReading, {
     required String paperId,
   }) : _paperId = paperId,
        super(const PaperScreenLoading());
 
   final WatchPaper _watchPaper;
   final LoadPaperImage _loadPaperImage;
+  final RecordPaperReading _recordPaperReading;
   final String _paperId;
 
   StreamSubscription<void>? _subscription;
@@ -30,6 +34,10 @@ final class PaperScreenCubit extends Cubit<PaperScreenState> {
   void start() {
     if (_subscription != null) return;
     _subscription = _watchPaper(_paperId).listen(_onResult);
+  }
+
+  Future<void> recordReading(VoiceReadOutcome outcome) async {
+    await _recordPaperReading(id: _paperId, outcome: outcome);
   }
 
   void _onResult(Result<SavedPaper?, AppFailure> result) {

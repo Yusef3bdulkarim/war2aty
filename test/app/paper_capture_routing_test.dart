@@ -12,6 +12,7 @@ import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/logging/app_logger.dart';
 import 'package:war2aty/core/logging/log_event.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
+import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/save_paper.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/permissions/permission_service.dart';
@@ -144,6 +145,7 @@ void main() {
         (paperId, _) => PaperScreenCubit(
           WatchPaper(FakePapersRepository()),
           LoadPaperImage(FakePaperImageStore()),
+          RecordPaperReading(FakePapersRepository()),
           paperId: paperId,
         ),
       )
@@ -152,7 +154,7 @@ void main() {
       )
       ..registerFactory<VoicePlaybackCubit>(() {
         final rig = VoicePlaybackRig();
-        addTearDown(rig.dispose);
+        addTearDown(() => unawaited(rig.dispose()));
         return rig.cubit;
       });
 
