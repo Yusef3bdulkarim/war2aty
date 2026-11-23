@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 24 / 52
+- **Progress:** 25 / 52
 
 ## Why this feature exists
 
@@ -501,9 +501,15 @@ finished and the next one does not start.
       registration. 5 new `AppStrings` members (`paperHelpLabel`, the two
       not-found + two error lines) in both locales + the parity map. 17 widget
       tests (states, RTL, Large Text, the F27-T15 audit sweep).
-- [ ] **T25** Cards «شرح الورقة», «أعمل إيه؟», «خلي بالك» to the artboard
+- [x] **T25** Cards «شرح الورقة», «أعمل إيه؟», «خلي بالك» to the artboard
       (icons, colours, the spoken card's highlight style). *Done when:* widget
       tests including the highlighted variant.
+      *Found:* `PaperCardShell` (shared shell: teal border/background +
+      speaking-indicator animation when highlighted) with three concrete cards
+      — `ExplainCard`, `TodoCard`, `CautionCard` — wired into `PaperScreen` by
+      `cardIds` ordering; two new `StrokeGlyph` icons added from the design
+      reference. Landed at 241d1e2; this checkbox was never ticked in that
+      commit (a bookkeeping gap), fixed here with no code change.
 - [ ] **T26** Card «ميعاد» with the `date.text` line and the bell (D13);
       `ManualReminderSeed.eventMinuteOfDay` becomes optional and the form opens
       with the time empty when the paper has none. *Done when:* card tests,

@@ -13,19 +13,16 @@
 /// `QuickReminderSlot` in `core/`: the form does not need to know that a
 /// seed came from a quick row rather than from anywhere else.
 final class ManualReminderSeed {
-  const ManualReminderSeed({
-    required this.eventDate,
-    required this.eventMinuteOfDay,
-  });
+  const ManualReminderSeed({required this.eventDate, this.eventMinuteOfDay});
 
   /// The calendar day, as the date pickers themselves produce one — only
   /// `year`/`month`/`day` are read downstream.
   final DateTime eventDate;
 
-  /// Minutes since midnight on [eventDate]. Required: a manual reminder's
-  /// time is mandatory, so a seed that omitted it would open a form that
-  /// still could not be saved.
-  final int eventMinuteOfDay;
+  /// Minutes since midnight on [eventDate]. `null` when the source had no
+  /// time to seed — the manual form still marks time required to save, so
+  /// the user fills it in themselves (F40 D13: a paper's date with no hour).
+  final int? eventMinuteOfDay;
 
   @override
   bool operator ==(Object other) =>

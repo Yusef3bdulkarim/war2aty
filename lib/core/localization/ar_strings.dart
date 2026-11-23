@@ -951,6 +951,10 @@ final class ArStrings implements AppStrings {
   String get paperCautionCardTitle => 'خلي بالك';
   @override
   String get paperCardSpeakingLabel => 'بيتقال دلوقتي';
+  @override
+  String get paperDateCardTitle => 'ميعاد';
+  @override
+  String get paperDateCardBellLabel => 'فكّرني بالميعاد';
 
   @override
   String get resultListen => 'استمع';

@@ -942,6 +942,10 @@ final class EnStrings implements AppStrings {
   String get paperCautionCardTitle => 'Keep in mind';
   @override
   String get paperCardSpeakingLabel => 'Being read now';
+  @override
+  String get paperDateCardTitle => 'Date';
+  @override
+  String get paperDateCardBellLabel => 'Remind me about this';
 
   @override
   String get resultListen => 'Listen';

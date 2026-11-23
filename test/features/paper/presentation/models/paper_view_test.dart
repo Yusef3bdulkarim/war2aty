@@ -209,6 +209,7 @@ void main() {
       expect(view.dateCard!.day, '19');
       expect(view.dateCard!.weekday, 'يوم الخميس');
       expect(view.dateCard!.time, 'الساعة 10 الصبح');
+      expect(view.dateCard!.text, 'اجتماع أولياء الأمور');
     });
 
     test('has no time slot when the paper carries no time', () {

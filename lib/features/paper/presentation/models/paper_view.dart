@@ -11,12 +11,14 @@ final class PaperDateCardView {
     required this.month,
     required this.day,
     required this.weekday,
+    required this.text,
     this.time,
   });
 
   final String month;
   final String day;
   final String weekday;
+  final String text;
   final String? time;
 
   @override
@@ -26,10 +28,11 @@ final class PaperDateCardView {
           other.month == month &&
           other.day == day &&
           other.weekday == weekday &&
+          other.text == text &&
           other.time == time;
 
   @override
-  int get hashCode => Object.hash(month, day, weekday, time);
+  int get hashCode => Object.hash(month, day, weekday, text, time);
 
   @override
   String toString() =>
@@ -105,6 +108,7 @@ PaperDateCardView? _dateCard(AppStrings s, PaperDate? date) {
     month: s.monthName(date.day.month),
     day: '${date.day.day}',
     weekday: s.weekdayName(date.day.weekday),
+    text: date.text,
     time: time == null ? null : s.paperAppointmentTime(time.hour, time.minute),
   );
 }

@@ -298,7 +298,16 @@ GoRouter createAppRouter({
           if (id == null) return const _BackToHome();
           return BlocProvider<PaperScreenCubit>(
             create: (_) => getIt<PaperScreenCubit>(param1: id)..start(),
-            child: PaperScreen(onBack: () => context.go(AppRoutes.home)),
+            child: PaperScreen(
+              onBack: () => context.go(AppRoutes.home),
+              onRemind: (eventDate, eventMinuteOfDay) => context.push(
+                AppRoutes.reminderManual,
+                extra: ManualReminderSeed(
+                  eventDate: eventDate,
+                  eventMinuteOfDay: eventMinuteOfDay,
+                ),
+              ),
+            ),
           );
         },
       ),

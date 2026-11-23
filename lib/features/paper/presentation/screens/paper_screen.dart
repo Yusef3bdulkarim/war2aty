@@ -15,6 +15,7 @@ import '../cubit/paper_screen_cubit.dart';
 import '../cubit/paper_screen_state.dart';
 import '../models/paper_view.dart';
 import '../widgets/caution_card.dart';
+import '../widgets/date_card.dart';
 import '../widgets/explain_card.dart';
 import '../widgets/todo_card.dart';
 
@@ -33,9 +34,10 @@ const double _bodyPaddingH = 16;
 const double _bodyPaddingV = 16;
 
 class PaperScreen extends StatelessWidget {
-  const PaperScreen({required this.onBack, super.key});
+  const PaperScreen({required this.onBack, required this.onRemind, super.key});
 
   final VoidCallback onBack;
+  final void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +53,7 @@ class PaperScreen extends StatelessWidget {
               explanation: paper.explanation,
               imageBytes: imageBytes,
               onBack: onBack,
+              onRemind: onRemind,
             ),
             PaperScreenNotFound() => _StateBody(
               title: strings.paperScreenNotFoundTitle,
@@ -115,12 +118,14 @@ class _ReadyBody extends StatelessWidget {
     required this.explanation,
     required this.imageBytes,
     required this.onBack,
+    required this.onRemind,
   });
 
   final PaperView view;
   final PaperExplanation explanation;
   final Uint8List? imageBytes;
   final VoidCallback onBack;
+  final void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind;
 
   @override
   Widget build(BuildContext context) {
@@ -137,6 +142,8 @@ class _ReadyBody extends StatelessWidget {
               child: _CardsSection(
                 cardIds: view.cardIds,
                 explanation: explanation,
+                dateCard: view.dateCard,
+                onRemind: onRemind,
               ),
             ),
           ),
@@ -149,15 +156,22 @@ class _ReadyBody extends StatelessWidget {
 const double _cardGap = 12;
 
 class _CardsSection extends StatelessWidget {
-  const _CardsSection({required this.cardIds, required this.explanation});
+  const _CardsSection({
+    required this.cardIds,
+    required this.explanation,
+    required this.dateCard,
+    required this.onRemind,
+  });
 
   final List<String> cardIds;
   final PaperExplanation explanation;
+  final PaperDateCardView? dateCard;
+  final void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind;
 
   @override
   Widget build(BuildContext context) {
     final cards = <Widget>[
-      for (final id in cardIds) ?_cardFor(id, explanation),
+      for (final id in cardIds) ?_cardFor(id, explanation, dateCard, onRemind),
     ];
 
     return Column(
@@ -172,9 +186,19 @@ class _CardsSection extends StatelessWidget {
   }
 }
 
-Widget? _cardFor(String id, PaperExplanation explanation) => switch (id) {
+Widget? _cardFor(
+  String id,
+  PaperExplanation explanation,
+  PaperDateCardView? dateCard,
+  void Function(DateTime eventDate, int? eventMinuteOfDay) onRemind,
+) => switch (id) {
   'explain' => ExplainCard(paragraphs: explanation.paragraphs),
   'todo' => TodoCard(text: explanation.todo.text),
+  'date' => DateCard(
+    view: dateCard!,
+    onRemindMe: () =>
+        onRemind(explanation.date!.day, explanation.date!.time?.minuteOfDay),
+  ),
   'caution' => CautionCard(text: explanation.caution!.text),
   _ => null,
 };

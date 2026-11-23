@@ -366,6 +366,40 @@ void main() {
         expect(state.alerts, isEmpty);
       });
     });
+
+    // F40 D13: the ميعاد card's bell seeds from a paper's date, which may
+    // have no hour at all.
+    group('seeded with no time (D13)', () {
+      final seed = ManualReminderSeed(eventDate: DateTime(2026, 11, 20));
+
+      test('opens holding the date with the time left empty', () {
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.eventDate, DateTime(2026, 11, 20));
+        expect(state.eventMinuteOfDay, isNull);
+      });
+
+      test('adds no default alert, since there is no time to anchor one', () {
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+
+        final state = cubit.state as ReminderFormEditing;
+        expect(state.alerts, isEmpty);
+      });
+
+      test('is not saveable until the user picks a title and a time', () {
+        final cubit = build(seed: seed);
+        addTearDown(cubit.close);
+        cubit.setTitle('اجتماع أولياء الأمور');
+
+        expect((cubit.state as ReminderFormEditing).canSave, isFalse);
+
+        cubit.setEventMinuteOfDay(10 * 60);
+        expect((cubit.state as ReminderFormEditing).canSave, isTrue);
+      });
+    });
   });
 
   test('a note left blank is saved as null, not an empty string', () async {

@@ -8,6 +8,7 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
 import 'package:war2aty/core/papers/paper_caution.dart';
+import 'package:war2aty/core/papers/paper_date.dart';
 import 'package:war2aty/core/papers/paper_explanation.dart';
 import 'package:war2aty/core/papers/paper_status.dart';
 import 'package:war2aty/core/papers/paper_todo.dart';
@@ -97,11 +98,15 @@ void main() {
   late FakePaperImageStore images;
   late PaperScreenCubit cubit;
   late int backCount;
+  late DateTime? remindedDate;
+  late int? remindedMinuteOfDay;
 
   setUp(() {
     papers = FakePapersRepository();
     images = FakePaperImageStore();
     backCount = 0;
+    remindedDate = null;
+    remindedMinuteOfDay = null;
     cubit = PaperScreenCubit(
       WatchPaper(papers),
       LoadPaperImage(images),
@@ -122,7 +127,13 @@ void main() {
     tester,
     BlocProvider<PaperScreenCubit>.value(
       value: cubit,
-      child: PaperScreen(onBack: () => backCount++),
+      child: PaperScreen(
+        onBack: () => backCount++,
+        onRemind: (eventDate, eventMinuteOfDay) {
+          remindedDate = eventDate;
+          remindedMinuteOfDay = eventMinuteOfDay;
+        },
+      ),
     ),
     locale: locale,
     textScaler: textScaler,
@@ -240,6 +251,46 @@ void main() {
 
       expect(find.text(ar.paperCautionCardTitle), findsOneWidget);
       expect(find.text('لازم تبلّغ المدرسة قبل الميعاد.'), findsOneWidget);
+    });
+
+    testWidgets('shows no date card when the paper has none', (tester) async {
+      papers.emitPaper(savedPaperWith());
+      cubit.start();
+
+      await pumpScreen(tester);
+
+      expect(find.text(ar.paperDateCardTitle), findsNothing);
+    });
+
+    testWidgets('shows the date card and seeds onRemind through the bell', (
+      tester,
+    ) async {
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: PaperExplanation(
+            title: 'جواب من مدرسة النور',
+            status: PaperStatus.success,
+            paragraphs: const ['دي ورقة من مدرسة النور.'],
+            todo: const PaperTodo(required: true, text: 'روح الاجتماع بنفسك.'),
+            date: PaperDate(
+              day: DateTime.utc(2026, 11, 20),
+              time: const PaperTime(hour: 10, minute: 0),
+              text: 'اجتماع أولياء الأمور',
+            ),
+          ),
+        ),
+      );
+      cubit.start();
+
+      await pumpScreen(tester);
+
+      expect(find.text(ar.paperDateCardTitle), findsOneWidget);
+      expect(find.text('اجتماع أولياء الأمور'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel(ar.paperDateCardBellLabel));
+
+      expect(remindedDate, DateTime.utc(2026, 11, 20));
+      expect(remindedMinuteOfDay, 10 * 60);
     });
 
     testWidgets('shows a not-found state for a missing paper', (tester) async {

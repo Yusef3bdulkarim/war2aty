@@ -721,6 +721,8 @@ abstract interface class AppStrings {
   String get paperTodoCardTitle;
   String get paperCautionCardTitle;
   String get paperCardSpeakingLabel;
+  String get paperDateCardTitle;
+  String get paperDateCardBellLabel;
 
   /// The result page's three standing actions — read it aloud, remind me,
   /// keep it.

@@ -178,6 +178,8 @@ enum StrokeGlyph {
 
   paperChecklist,
 
+  bell,
+
   navHome,
   navDocuments,
   navReminders,
@@ -332,6 +334,9 @@ final Map<StrokeGlyph, String> _glyphPaths = {
   StrokeGlyph.paperChecklist:
       'M9 11l3 3 8-8 '
       'M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9',
+  StrokeGlyph.bell:
+      'M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 '
+      '7 0 0 1 4-6 M9 17v1a3 3 0 0 0 6 0v-1',
   StrokeGlyph.navHome: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5',
   StrokeGlyph.navDocuments:
       'M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1'

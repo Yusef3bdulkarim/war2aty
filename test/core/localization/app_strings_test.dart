@@ -518,6 +518,8 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'paperTodoCardTitle': (s) => s.paperTodoCardTitle,
   'paperCautionCardTitle': (s) => s.paperCautionCardTitle,
   'paperCardSpeakingLabel': (s) => s.paperCardSpeakingLabel,
+  'paperDateCardTitle': (s) => s.paperDateCardTitle,
+  'paperDateCardBellLabel': (s) => s.paperDateCardBellLabel,
 };
 
 void main() {
