@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 32 / 52
+- **Progress:** 36 / 52
 
 ## Why this feature exists
 
@@ -611,10 +611,20 @@ finished and the next one does not start.
 
 ### Phase E — speed (D14, D15)
 
-- [ ] **T36** `ReadingSpeed.multiplier` (0.75 / 1 / 1.25 / 1.5) beside its
+- [x] **T36** `ReadingSpeed.multiplier` (0.75 / 1 / 1.25 / 1.5) beside its
       existing TTS `rate`, and `NextReadingSpeed` with the cycle 1x → 1.25x →
       1.5x → 0.75x → 1x. *Done when:* tested; the settings screen still shows
       the same four labels.
+      *Review:* Opus 5, 2026-11-24. *Findings:* none. `NextReadingSpeed`
+      (`core/audio/usecases/`) is a dependency-free exhaustive `switch`, so a
+      fifth `ReadingSpeed` fails compilation until it is placed in the cycle;
+      not registered in DI yet — T39 wires it with the pill. The Progress
+      line read 32 while T01–T35 were all ticked (the T15/T25/T26 bookkeeping
+      gaps); it now counts the ticks. Gate: `dart format` 1 of 941 changed
+      (the new file); `flutter analyze` 0 errors / 0 warnings / 21 info
+      (pre-existing); `test/core/audio`, `test/features/settings`,
+      `audio_options_sheet_test` and `set_reading_speed_test` +231, all
+      passed.
 - [ ] **T37** Kotlin: `PcmPlayer.setSpeed(multiplier)` via
       `PlaybackParams` (speed, pitch 1.0), callable mid-stream; channel method
       in `VoiceAudioPlugin`; `PcmAudioSink.setSpeed`. *Done when:* the Dart

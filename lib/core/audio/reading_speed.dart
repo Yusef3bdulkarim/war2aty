@@ -10,18 +10,22 @@
 /// rather than at either extreme of the raw scale.
 enum ReadingSpeed {
   /// «0.75x».
-  slower(rate: 0.375, label: '0.75x'),
+  slower(rate: 0.375, label: '0.75x', multiplier: 0.75),
 
   /// «1x» — the default, both here and for a fresh reading.
-  normal(rate: 0.5, label: '1x'),
+  normal(rate: 0.5, label: '1x', multiplier: 1.0),
 
   /// «1.25x».
-  faster(rate: 0.625, label: '1.25x'),
+  faster(rate: 0.625, label: '1.25x', multiplier: 1.25),
 
   /// «1.5x».
-  fastest(rate: 0.75, label: '1.5x');
+  fastest(rate: 0.75, label: '1.5x', multiplier: 1.5);
 
-  const ReadingSpeed({required this.rate, required this.label});
+  const ReadingSpeed({
+    required this.rate,
+    required this.label,
+    required this.multiplier,
+  });
 
   /// What to hand `TextToSpeechService.setSpeechRate`.
   final double rate;
@@ -31,4 +35,6 @@ enum ReadingSpeed {
   /// and English, the same reason `TtsVoice`'s device-reported fields skip
   /// it too.
   final String label;
+
+  final double multiplier;
 }
