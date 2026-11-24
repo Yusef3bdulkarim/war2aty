@@ -113,6 +113,8 @@ final class ReplaySavedAudio {
     return true;
   }
 
+  Future<void> setSpeed(double multiplier) => _player.setSpeed(multiplier);
+
   Future<void> _start(
     _Replay replay,
     String audioId,

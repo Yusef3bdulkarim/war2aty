@@ -17,6 +17,7 @@ import '../../../../core/widgets/service_state_view.dart';
 import '../../../../core/widgets/top_bar_icon_button.dart';
 import '../cubit/paper_screen_cubit.dart';
 import '../cubit/paper_screen_state.dart';
+import '../cubit/paper_speed_cubit.dart';
 import '../cubit/phone_dialer_cubit.dart';
 import '../cubit/phone_dialer_state.dart';
 import '../models/paper_player_view.dart';
@@ -56,15 +57,25 @@ class PaperScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = context.strings;
 
-    return BlocListener<PhoneDialerCubit, PhoneDialerState>(
-      listener: (context, state) {
-        if (state is! PhoneDialerCallFailed) return;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(content: Text(strings.paperContactCardCallFailedMessage)),
-          );
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<PhoneDialerCubit, PhoneDialerState>(
+          listener: (context, state) {
+            if (state is! PhoneDialerCallFailed) return;
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                SnackBar(
+                  content: Text(strings.paperContactCardCallFailedMessage),
+                ),
+              );
+          },
+        ),
+        BlocListener<PaperSpeedCubit, ReadingSpeed>(
+          listener: (context, speed) =>
+              unawaited(context.read<VoicePlaybackCubit>().setSpeed(speed)),
+        ),
+      ],
       child: Scaffold(
         backgroundColor: AppColors.of(context).surface,
         body: BlocBuilder<PaperScreenCubit, PaperScreenState>(
@@ -262,25 +273,27 @@ class _Player extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final voice = context.read<VoicePlaybackCubit>();
+    final speedCubit = context.read<PaperSpeedCubit>();
 
-    return BlocSelector<
-      VoicePlaybackCubit,
-      VoicePlaybackState,
-      PaperPlayerView
-    >(
-      selector: PaperPlayerView.of,
-      builder: (context, view) => PaperPlayerBar(
-        view: view,
-        speed: ReadingSpeed.normal,
-        onPressed: () => unawaited(switch (view.action) {
-          PaperPlayerAction.pause => voice.pause(),
-          PaperPlayerAction.resume => voice.resume(),
-          PaperPlayerAction.replay => voice.replay(),
-        }),
-        onSeek: view.canSeek
-            ? (fraction) => unawaited(voice.seek(view.duration * fraction))
-            : null,
-      ),
+    return BlocBuilder<PaperSpeedCubit, ReadingSpeed>(
+      builder: (context, speed) =>
+          BlocSelector<VoicePlaybackCubit, VoicePlaybackState, PaperPlayerView>(
+            selector: PaperPlayerView.of,
+            builder: (context, view) => PaperPlayerBar(
+              view: view,
+              speed: speed,
+              onPressed: () => unawaited(switch (view.action) {
+                PaperPlayerAction.pause => voice.pause(),
+                PaperPlayerAction.resume => voice.resume(),
+                PaperPlayerAction.replay => voice.replay(),
+              }),
+              onSeek: view.canSeek
+                  ? (fraction) =>
+                        unawaited(voice.seek(view.duration * fraction))
+                  : null,
+              onSpeedTap: () => unawaited(speedCubit.cycle()),
+            ),
+          ),
     );
   }
 }

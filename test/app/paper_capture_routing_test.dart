@@ -5,7 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:war2aty/app/di/service_locator.dart';
 import 'package:war2aty/app/router/app_router.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/next_reading_speed.dart';
 import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/documents/usecases/watch_recent_documents.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
@@ -49,6 +52,7 @@ import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.
 import 'package:war2aty/features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import 'package:war2aty/features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
+import 'package:war2aty/features/paper/presentation/cubit/paper_speed_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_voice_failure_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/phone_dialer_cubit.dart';
 
@@ -167,7 +171,15 @@ void main() {
             FakeTextToSpeechService(),
           ),
         ),
-      );
+      )
+      ..registerFactory<PaperSpeedCubit>(() {
+        final store = FakeDefaultReadingSpeedStore();
+        return PaperSpeedCubit(
+          GetDefaultReadingSpeed(store),
+          SetDefaultReadingSpeed(store),
+          const NextReadingSpeed(),
+        );
+      });
 
     final onboarding = OnboardingCubit(
       hasSeenOnboarding: HasSeenOnboarding(

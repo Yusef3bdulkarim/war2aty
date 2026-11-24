@@ -50,6 +50,7 @@ import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
+import '../../features/paper/presentation/cubit/paper_speed_cubit.dart';
 import '../../features/paper/presentation/cubit/paper_voice_failure_cubit.dart';
 import '../../features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import '../../features/paper/presentation/screens/paper_screen.dart';
@@ -314,6 +315,9 @@ GoRouter createAppRouter({
               ),
               BlocProvider<PaperVoiceFailureCubit>(
                 create: (_) => getIt<PaperVoiceFailureCubit>(),
+              ),
+              BlocProvider<PaperSpeedCubit>(
+                create: (_) => getIt<PaperSpeedCubit>()..load(),
               ),
             ],
             child: PopScope(

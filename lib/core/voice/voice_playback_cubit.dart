@@ -9,6 +9,7 @@ import '../../features/voice/domain/entities/voice_segment.dart';
 import '../../features/voice/domain/usecases/read_paper_aloud.dart';
 import '../../features/voice/domain/usecases/replay_saved_audio.dart';
 import '../../features/voice/domain/usecases/spoken_span_timeline.dart';
+import '../audio/reading_speed.dart';
 import 'voice_playback_state.dart';
 
 /// Drives the voice: reading a paper aloud, and replaying a saved one
@@ -58,6 +59,8 @@ final class VoicePlaybackCubit extends Cubit<VoicePlaybackState> {
   /// cannot measure them, and the read that produced them already did.
   List<SpokenCardSpan> _spans = const [];
 
+  ReadingSpeed _speed = ReadingSpeed.normal;
+
   /// Reads [segments] aloud, in page order, and saves the audio under
   /// [audioId].
   ///
@@ -78,6 +81,8 @@ final class VoicePlaybackCubit extends Cubit<VoicePlaybackState> {
     _audioId = audioId;
     _spans = const [];
     emit(const VoicePlaybackPreparing());
+    await _readPaperAloud.setSpeed(_speed);
+    if (isClosed) return;
     _readSubscription = _readPaperAloud(
       segments: segments,
       audioId: audioId,
@@ -102,6 +107,8 @@ final class VoicePlaybackCubit extends Cubit<VoicePlaybackState> {
     _audioId = id;
     if (spans != null) _spans = spans;
     emit(const VoicePlaybackPreparing());
+    await _replaySavedAudio.setSpeed(_speed.multiplier);
+    if (isClosed) return;
     _replaySubscription = _replaySavedAudio(
       audioId: id,
       spans: _spans,
@@ -150,6 +157,14 @@ final class VoicePlaybackCubit extends Cubit<VoicePlaybackState> {
       case _:
         return;
     }
+  }
+
+  Future<void> setSpeed(ReadingSpeed speed) async {
+    if (isClosed) return;
+    _speed = speed;
+    await _readPaperAloud.setSpeed(speed);
+    if (isClosed) return;
+    await _replaySavedAudio.setSpeed(speed.multiplier);
   }
 
   /// Jumps to [position].

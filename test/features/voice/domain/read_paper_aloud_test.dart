@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/voice/encrypted_audio_store.dart';
@@ -679,6 +680,62 @@ void main() {
     });
   });
 
+  group('speed (T39)', () {
+    test('normal is what the Live tier opens at, unasked', () async {
+      await start();
+
+      expect(sink.speedCalls, [ReadingSpeed.normal.multiplier]);
+    });
+
+    test('a speed set before any read opens the Live tier with it', () async {
+      await readPaperAloud.setSpeed(ReadingSpeed.faster);
+      await start();
+
+      expect(sink.speedCalls, [ReadingSpeed.faster.multiplier]);
+    });
+
+    test('setSpeed mid-read reaches the Live tier right away', () async {
+      await start();
+
+      await readPaperAloud.setSpeed(ReadingSpeed.slower);
+
+      expect(sink.speedCalls.last, ReadingSpeed.slower.multiplier);
+    });
+
+    test('a speed set before any read opens the device tier with it', () async {
+      startResults = [const Err(VoiceServiceFailure())];
+      await readPaperAloud.setSpeed(ReadingSpeed.fastest);
+
+      await start();
+
+      expect(device.speedCalls, [ReadingSpeed.fastest.rate]);
+    });
+
+    test('nothing is touched while no tier is reading', () async {
+      await readPaperAloud.setSpeed(ReadingSpeed.faster);
+
+      expect(sink.speedCalls, isEmpty);
+      expect(device.speedCalls, isEmpty);
+    });
+
+    test('a Live retry opens its second attempt at the chosen speed', () async {
+      await readPaperAloud.setSpeed(ReadingSpeed.fastest);
+      await start();
+      sessions.single.audio(oneSecond);
+      await settle();
+      sessions.single.lose(
+        const VoiceStreamInterruptedFailure(Duration(milliseconds: 900)),
+      );
+      await settle();
+
+      expect(sessions, hasLength(2));
+      expect(sink.speedCalls, [
+        ReadingSpeed.fastest.multiplier,
+        ReadingSpeed.fastest.multiplier,
+      ]);
+    });
+  });
+
   group('privacy', () {
     test('no event describes the page in words, on any path', () async {
       await start();
@@ -781,6 +838,7 @@ final class _FakeSink implements PcmAudioSink {
   var stops = 0;
   var written = 0;
   var played = Duration.zero;
+  final speedCalls = <double>[];
 
   @override
   Future<Result<void, AppFailure>> open(PcmFormat format) async {
@@ -802,7 +860,7 @@ final class _FakeSink implements PcmAudioSink {
   Future<void> resume() async => resumes++;
 
   @override
-  Future<void> setSpeed(double multiplier) async {}
+  Future<void> setSpeed(double multiplier) async => speedCalls.add(multiplier);
 
   @override
   Future<Duration> stop() async {
@@ -893,6 +951,7 @@ final class _FakeDeviceReader implements DeviceVoiceReader {
   var reads = 0;
   var stops = 0;
   VoiceTurnText? turn;
+  final speedCalls = <double>[];
 
   @override
   Stream<VoiceReadEvent> get events => _events.stream;
@@ -906,7 +965,7 @@ final class _FakeDeviceReader implements DeviceVoiceReader {
   }
 
   @override
-  Future<void> setSpeed(double rate) async {}
+  Future<void> setSpeed(double rate) async => speedCalls.add(rate);
 
   @override
   Future<void> stop() async {

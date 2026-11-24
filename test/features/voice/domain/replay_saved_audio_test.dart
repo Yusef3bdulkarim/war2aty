@@ -394,6 +394,23 @@ void main() {
     });
   });
 
+  group('speed (T39)', () {
+    test('setSpeed forwards to the player', () async {
+      await start();
+
+      await replay.setSpeed(1.25);
+
+      expect(player.speedCalls, [1.25]);
+    });
+
+    test('setSpeed works with nothing playing yet', () async {
+      await replay.setSpeed(0.75);
+
+      expect(player.speedCalls, [0.75]);
+      await start();
+    });
+  });
+
   group('privacy', () {
     test('no event carries a word of the paper', () async {
       await start();

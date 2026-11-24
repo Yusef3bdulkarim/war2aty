@@ -4,6 +4,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/next_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/localization/en_strings.dart';
@@ -20,6 +24,7 @@ import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
 import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
+import 'package:war2aty/features/paper/presentation/cubit/paper_speed_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import 'package:war2aty/features/paper/presentation/screens/paper_screen.dart';
 
@@ -106,6 +111,8 @@ void main() {
   late PaperScreenCubit cubit;
   late FakeExternalLinkService dialerService;
   late PhoneDialerCubit dialerCubit;
+  late FakeDefaultReadingSpeedStore speedStore;
+  late PaperSpeedCubit speedCubit;
   late VoicePlaybackRig rig;
   late int backCount;
   late DateTime? remindedDate;
@@ -125,12 +132,19 @@ void main() {
     );
     dialerService = FakeExternalLinkService();
     dialerCubit = PhoneDialerCubit(OpenPhoneDialer(dialerService));
+    speedStore = FakeDefaultReadingSpeedStore();
+    speedCubit = PaperSpeedCubit(
+      GetDefaultReadingSpeed(speedStore),
+      SetDefaultReadingSpeed(speedStore),
+      const NextReadingSpeed(),
+    );
     rig = VoicePlaybackRig();
   });
 
   tearDown(() async {
     unawaited(cubit.close());
     unawaited(dialerCubit.close());
+    unawaited(speedCubit.close());
     unawaited(rig.dispose());
   });
 
@@ -146,6 +160,7 @@ void main() {
         BlocProvider<PaperScreenCubit>.value(value: cubit),
         BlocProvider<PhoneDialerCubit>.value(value: dialerCubit),
         BlocProvider<VoicePlaybackCubit>.value(value: rig.cubit),
+        BlocProvider<PaperSpeedCubit>.value(value: speedCubit),
       ],
       child: PaperScreen(
         onBack: () => backCount++,
@@ -458,6 +473,39 @@ void main() {
       await pumpScreen(tester, textScaler: const TextScaler.linear(2));
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the speed pill cycles the speed and tells the voice (T39)', (
+      tester,
+    ) async {
+      papers.emitPaper(savedPaperWith());
+      cubit.start();
+      await speedCubit.load();
+
+      await pumpScreen(tester);
+
+      expect(find.text(ReadingSpeed.normal.label), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('paper-player-speed')));
+      await tester.pump();
+
+      expect(find.text(ReadingSpeed.faster.label), findsOneWidget);
+      expect(rig.player.speedCalls.last, ReadingSpeed.faster.multiplier);
+    });
+
+    testWidgets('the stored speed reaches the voice, not just the pill', (
+      tester,
+    ) async {
+      await speedStore.writeSpeed(ReadingSpeed.fastest);
+      papers.emitPaper(savedPaperWith());
+      cubit.start();
+      await pumpScreen(tester);
+
+      await speedCubit.load();
+      await tester.pumpAndSettle();
+
+      expect(find.text(ReadingSpeed.fastest.label), findsOneWidget);
+      expect(rig.player.speedCalls.last, ReadingSpeed.fastest.multiplier);
     });
   });
 }

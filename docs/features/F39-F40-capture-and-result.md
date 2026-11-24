@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 38 / 52
+- **Progress:** 39 / 52
 
 ## Why this feature exists
 
@@ -678,11 +678,51 @@ finished and the next one does not start.
       stubs. Gate: `dart format` 0 of 941 changed; `flutter analyze` 0 errors
       / 0 warnings / 21 info (pre-existing); full `flutter test` −39, all the
       known T21/T27 baseline (same list as T37) — nothing new.
-- [ ] **T39** `VoicePlaybackCubit.setSpeed` → the current tier, mid-read or
+- [x] **T39** `VoicePlaybackCubit.setSpeed` → the current tier, mid-read or
       mid-replay; every new read or replay starts at the stored speed; the
       player's pill reads and writes `DefaultReadingSpeedStore`. *Done when:*
       tests prove the speed survives a phase change and a new paper, and spans
       still land on the right card at 1.5x (positions are content time).
+      *Built:* `ReadPaperAloud.setSpeed(ReadingSpeed)` keeps the speed and
+      applies it to the tier speaking now (`multiplier` to the sink, `rate`
+      to the device reader). Every tier also re-applies it as it opens: Live
+      after `sink.open`, on each retry, and the device tier before every
+      read, which T38's global-`flutter_tts`-rate warning required.
+      `ReplaySavedAudio.setSpeed` is a bare forward: `just_audio` holds a
+      speed set before a source is loaded (T38). `VoicePlaybackCubit` keeps
+      `_speed`, sends it to both use cases on every `setSpeed`, and sends it
+      again at the start of every `readAloud`/`replay`. That is why it
+      survives the phase change and a second paper on the same cubit. The
+      pill is a new `PaperSpeedCubit` (`Cubit<ReadingSpeed>`, the
+      `HighContrastCubit` shape) over `GetDefaultReadingSpeed`,
+      `SetDefaultReadingSpeed` and `NextReadingSpeed` (now registered in DI).
+      No cubit holds another, so the screen's root listener forwards every
+      `PaperSpeedCubit` state to `VoicePlaybackCubit.setSpeed`.
+      *Review:* Opus 5.5, 2026-11-24. Four findings, all fixed:
+      (1) **bug:** the stored speed reached the pill but never the voice. A
+      user at 1.5x saw «1.5x» and heard 1x, because only a tap forwarded to
+      the voice. Fixed by moving the forward to one root
+      `BlocListener<PaperSpeedCubit>`, which carries the loaded default and
+      every tap alike. It sits at the root, not in `_Player`, because `load()`
+      can answer while the screen is still loading, before `_Player` exists.
+      A regression test seeds the store with 1.5x and was confirmed failing
+      with the listener removed. (2) the new doc comment in
+      `replay_saved_audio.dart` landed between `seek`'s doc and `seek`, so
+      `seek`'s doc ended up on `setSpeed`. (3) §11: every comment this task
+      added was removed (T27 and T34 removed new comments the same way).
+      (4) the "spans at 1.5x" test only checked span ids, after the speed
+      change had happened. It now ticks a position mid-`amount` while
+      streaming at 1.5x and asserts the highlight is `amount`.
+      *Found:* the root listener resolves `PaperSpeedCubit` at mount, so
+      `paper_capture_routing_test.dart`'s own DI needed it registered. That
+      test never reached the ready state where `_Player` used to read it, so
+      the gap had been hidden. `paper_screen_test` and
+      `paper_screen_voice_test` build `PaperScreen` directly and got a
+      provider. `ReadPaperAloud`'s device-tier fake resolves its read at once,
+      so "mid-device-read" is tested at the cubit level, whose fake holds the
+      read open. Gate: `dart format` 0 of 943 changed; `flutter analyze`
+      0 errors / 0 warnings / 21 info (pre-existing); full `flutter test`
+      +3793 −39, all 39 the known T21/T27 baseline (same list as T37/T38).
 
 ### Phase F — the fixed lines
 

@@ -21,6 +21,7 @@ import '../../core/audio/usecases/get_available_voices.dart';
 import '../../core/audio/usecases/get_default_reading_speed.dart';
 import '../../core/audio/usecases/get_default_reading_voice.dart';
 import '../../core/audio/usecases/get_resume_reading_enabled.dart';
+import '../../core/audio/usecases/next_reading_speed.dart';
 import '../../core/audio/usecases/open_system_tts_settings.dart';
 import '../../core/audio/usecases/preview_default_voice.dart';
 import '../../core/audio/usecases/set_default_reading_speed.dart';
@@ -247,6 +248,7 @@ import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
 import '../../features/onboarding/domain/usecases/has_seen_onboarding.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/paper/presentation/cubit/paper_screen_cubit.dart';
+import '../../features/paper/presentation/cubit/paper_speed_cubit.dart';
 import '../../features/paper/presentation/cubit/paper_voice_failure_cubit.dart';
 import '../../features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import '../../features/reminders/presentation/cubit/reminder_details_cubit.dart';
@@ -1033,6 +1035,7 @@ void _registerAudioReader() {
     ..registerFactory<SetDefaultReadingSpeed>(
       () => SetDefaultReadingSpeed(getIt()),
     )
+    ..registerFactory<NextReadingSpeed>(() => const NextReadingSpeed())
     ..registerLazySingleton<DefaultReadingVoiceStore>(
       () => DriftDefaultReadingVoiceStore(getIt()),
     )
@@ -1209,6 +1212,9 @@ void _registerPapers() {
     ..registerFactory<PhoneDialerCubit>(() => PhoneDialerCubit(getIt()))
     ..registerFactory<PaperVoiceFailureCubit>(
       () => PaperVoiceFailureCubit(getIt(), getIt()),
+    )
+    ..registerFactory<PaperSpeedCubit>(
+      () => PaperSpeedCubit(getIt(), getIt(), getIt()),
     );
 }
 

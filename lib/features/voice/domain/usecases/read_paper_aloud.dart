@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../core/audio/reading_speed.dart';
 import '../../../../core/error/app_failure.dart';
 import '../../../../core/result/result.dart';
 import '../../../../core/voice/encrypted_audio_store.dart';
@@ -114,6 +115,8 @@ final class ReadPaperAloud {
   /// cubit above does to the first read's subscription.
   _Read? _current;
 
+  ReadingSpeed _speed = ReadingSpeed.normal;
+
   /// Below this, restarting Live is better than falling to the device.
   ///
   /// The Live API cannot replay a partial turn — reconnecting restarts from
@@ -172,6 +175,18 @@ final class ReadPaperAloud {
     read.paused = true;
     await _sink.pause();
     return true;
+  }
+
+  Future<void> setSpeed(ReadingSpeed speed) async {
+    _speed = speed;
+    switch (_current?.engine) {
+      case VoiceEngine.geminiLive:
+        await _sink.setSpeed(speed.multiplier);
+      case VoiceEngine.deviceTts:
+        await _deviceReader.setSpeed(speed.rate);
+      case null:
+        break;
+    }
   }
 
   /// Resumes a reading [pause] paused, and answers whether it is now playing
@@ -244,6 +259,7 @@ final class ReadPaperAloud {
       await session.cancel();
       return _LiveOutcome.fallBack;
     }
+    await _sink.setSpeed(_speed.multiplier);
 
     // A read that cannot be *saved* is still a read. The user hears their
     // paper; all that is lost is the offline replay.
@@ -492,6 +508,7 @@ final class ReadPaperAloud {
   ) async {
     read.beginTier(VoiceEngine.deviceTts);
     out.add(const VoiceReadStarted(VoiceEngine.deviceTts));
+    await _deviceReader.setSpeed(_speed.rate);
 
     var spans = const <SpokenCardSpan>[];
     final sub = _deviceReader.events.listen((event) {

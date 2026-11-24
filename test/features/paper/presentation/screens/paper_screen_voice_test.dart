@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/usecases/get_default_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/next_reading_speed.dart';
+import 'package:war2aty/core/audio/usecases/set_default_reading_speed.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/papers/build_paper_voice_segments.dart';
@@ -21,6 +24,7 @@ import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
 import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/core/voice/voice_playback_state.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
+import 'package:war2aty/features/paper/presentation/cubit/paper_speed_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/phone_dialer_cubit.dart';
 import 'package:war2aty/features/paper/presentation/screens/paper_screen.dart';
 import 'package:war2aty/features/voice/domain/entities/spoken_card_span.dart';
@@ -70,6 +74,7 @@ void main() {
   late FakePapersRepository papers;
   late PaperScreenCubit screenCubit;
   late PhoneDialerCubit dialerCubit;
+  late PaperSpeedCubit speedCubit;
   late VoicePlaybackRig rig;
 
   setUp(() {
@@ -81,12 +86,19 @@ void main() {
       paperId: 'p1',
     );
     dialerCubit = PhoneDialerCubit(OpenPhoneDialer(FakeExternalLinkService()));
+    final speedStore = FakeDefaultReadingSpeedStore();
+    speedCubit = PaperSpeedCubit(
+      GetDefaultReadingSpeed(speedStore),
+      SetDefaultReadingSpeed(speedStore),
+      const NextReadingSpeed(),
+    );
     rig = VoicePlaybackRig();
   });
 
   tearDown(() {
     unawaited(screenCubit.close());
     unawaited(dialerCubit.close());
+    unawaited(speedCubit.close());
     unawaited(rig.dispose());
   });
 
@@ -106,6 +118,7 @@ void main() {
           BlocProvider<PaperScreenCubit>.value(value: screenCubit),
           BlocProvider<PhoneDialerCubit>.value(value: dialerCubit),
           BlocProvider<VoicePlaybackCubit>.value(value: rig.cubit),
+          BlocProvider<PaperSpeedCubit>.value(value: speedCubit),
         ],
         child: PaperScreen(onBack: () {}, onRemind: (_, _) {}),
       ),

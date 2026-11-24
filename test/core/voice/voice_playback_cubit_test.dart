@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:war2aty/core/audio/reading_speed.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/voice/encrypted_audio_store.dart';
@@ -540,6 +541,83 @@ void main() {
 
       expect(session.cancels, greaterThanOrEqualTo(1));
       expect(cubit.state, isA<VoicePlaybackFile>());
+    });
+  });
+
+  group('speed (T39)', () {
+    test('a read starts the Live tier at the stored speed', () async {
+      await cubit.setSpeed(ReadingSpeed.faster);
+
+      await read();
+
+      expect(sink.speedCalls, [ReadingSpeed.faster.multiplier]);
+    });
+
+    test('a mid-read change reaches the Live tier right away', () async {
+      await read();
+
+      await cubit.setSpeed(ReadingSpeed.slower);
+
+      expect(sink.speedCalls.last, ReadingSpeed.slower.multiplier);
+    });
+
+    test('a mid-read change reaches the device tier right away', () async {
+      sink.openResult = const Err(AudioPlaybackFailure());
+      await read();
+
+      await cubit.setSpeed(ReadingSpeed.faster);
+
+      expect(device.speedCalls.last, ReadingSpeed.faster.rate);
+    });
+
+    test('a replay starts at the stored speed', () async {
+      await cubit.setSpeed(ReadingSpeed.fastest);
+
+      await cubit.replay(audioId: 'old-paper');
+      await settle();
+
+      expect(player.speedCalls.last, ReadingSpeed.fastest.multiplier);
+    });
+
+    test('the speed survives the phase change from a read to its replay '
+        '(D14)', () async {
+      await read();
+      await finishLiveRead();
+
+      await cubit.setSpeed(ReadingSpeed.faster);
+      await cubit.replay();
+      await settle();
+
+      expect(player.speedCalls.last, ReadingSpeed.faster.multiplier);
+    });
+
+    test('the speed survives a second paper read by the same cubit', () async {
+      await cubit.setSpeed(ReadingSpeed.slower);
+      await read();
+      await finishLiveRead();
+      sink.speedCalls.clear();
+
+      await read(audioId: 'paper-2');
+
+      expect(sink.speedCalls, [ReadingSpeed.slower.multiplier]);
+    });
+
+    test('at 1.5x a played position still lands on its own card', () async {
+      await read();
+      await cubit.setSpeed(ReadingSpeed.fastest);
+      sink.emitClock = false;
+      session.emit(LivePcmChunk(Uint8List(oneSecond * 4)));
+      session.emit(LiveTranscriptDelta(turn.text));
+      session.emit(const LiveTurnComplete());
+      await settle();
+
+      final amount = (cubit.state as VoicePlaybackStreaming).spans.firstWhere(
+        (span) => span.segmentId == 'amount',
+      );
+      sink.tick(amount.start + (amount.end - amount.start) ~/ 2);
+      await settle();
+
+      expect((cubit.state as VoicePlaybackStreaming).segmentId, 'amount');
     });
   });
 
