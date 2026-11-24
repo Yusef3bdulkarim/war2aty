@@ -37,6 +37,11 @@ abstract interface class SavedAudioPlayer {
   /// Jumps to [position] — the thing this phase exists for.
   Future<void> seek(Duration position);
 
+  /// Changes the playback rate, with the pitch held steady — on `just_audio`'s
+  /// own scale, where `1.0` is normal, the same scale `PcmAudioSink.setSpeed`
+  /// takes.
+  Future<void> setSpeed(double multiplier);
+
   /// Stops the playback and releases what it holds, leaving the player able to
   /// [load] again.
   Future<void> stop();

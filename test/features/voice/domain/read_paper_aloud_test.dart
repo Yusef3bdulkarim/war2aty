@@ -906,6 +906,9 @@ final class _FakeDeviceReader implements DeviceVoiceReader {
   }
 
   @override
+  Future<void> setSpeed(double rate) async {}
+
+  @override
   Future<void> stop() async {
     stops++;
   }

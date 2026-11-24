@@ -534,6 +534,14 @@ void main() {
     });
   });
 
+  group('ReadingQueueVoiceReader · speed', () {
+    test('setSpeed reaches the engine through the queue', () async {
+      await reader.setSpeed(0.75);
+
+      expect(tts.speechRates, [0.75]);
+    });
+  });
+
   group('ReadingQueueVoiceReader · privacy', () {
     test(
       'no event it emits carries a word of the page (CLAUDE.md §7)',

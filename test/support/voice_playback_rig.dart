@@ -209,6 +209,9 @@ final class _MuteDeviceReader implements DeviceVoiceReader {
       _completer.future;
 
   @override
+  Future<void> setSpeed(double rate) async {}
+
+  @override
   Future<void> stop() async {}
 
   Future<void> dispose() => _events.close();

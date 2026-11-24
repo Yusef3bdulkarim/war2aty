@@ -299,6 +299,13 @@ final class ReadingQueue {
     return const Ok(null);
   }
 
+  /// Changes the engine's rate, best-effort — the same stance [_handOver]
+  /// already takes on a voice switch the engine refuses: not worth losing a
+  /// reading over.
+  Future<void> setSpeed(double rate) async {
+    await _tts.setSpeechRate(rate);
+  }
+
   /// Stops the reading and drops the runs it had not reached yet.
   ///
   /// Clearing before the engine is asked to stop, and not after, is the

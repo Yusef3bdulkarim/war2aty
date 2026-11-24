@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 37 / 52
+- **Progress:** 38 / 52
 
 ## Why this feature exists
 
@@ -646,8 +646,38 @@ finished and the next one does not start.
       routing gaps, the `paper_failure_screen_test.dart` hardcoded-date
       `LimitResetCard` flake, and the two integration journeys left failing
       until T49) — nothing new.
-- [ ] **T38** `SavedAudioPlayer.setSpeed` (`just_audio`) and the device tier's
+- [x] **T38** `SavedAudioPlayer.setSpeed` (`just_audio`) and the device tier's
       rate through `ReadingSpeed.rate`. *Done when:* tested with fakes.
+      *Built:* `SavedAudioPlayer.setSpeed(multiplier)` →
+      `AudioPlayer.setSpeed` (pitch untouched, so held). The device tier gets
+      `DeviceVoiceReader.setSpeed(rate)` → `ReadingQueue.setSpeed` →
+      `TextToSpeechService.setSpeechRate`, routed through the queue because
+      the queue owns the engine. Two scales on purpose: the players take
+      `ReadingSpeed.multiplier`, the device tier takes `ReadingSpeed.rate`.
+      Best-effort on the device side (the engine's `Result` is dropped, the
+      same stance as a refused `setVoice`).
+      *For T39:* (1) `flutter_tts`'s rate is a **global engine setting** — the
+      Settings voice preview (`PreviewDefaultVoice`) and the old reader's
+      `SetReadingSpeed` write the same value, so T39 must re-apply the stored
+      speed before every device read, not just once. (2) On Android a rate
+      change does not touch the utterance already speaking; it lands at the
+      next `ReadingQueue` run, so mid-read on the device tier is "from the
+      next run", not instant — a device-pass (T52) watch item. (3)
+      `ReadingQueueVoiceReader.setSpeed` is not gated on a reading of its own
+      being in flight (unlike `stop`), so calling it is always a write to the
+      shared engine.
+      *Review:* Opus 5.5, 2026-11-24. 2 nits fixed: the
+      `DeviceVoiceReader.setSpeed` doc gave a wrong reason for the scale
+      difference; the `just_audio` test only checked "completes" and now
+      asserts `AudioPlayer.speed == 1.25`. *Found:* before a source is
+      loaded `just_audio` runs on an idle stand-in platform, so no `setSpeed`
+      reaches the channel — the speed is held and applied when the real
+      player is created, which means a speed set before a replay sticks.
+      Fakes: `FakeSavedAudioPlayer` and the cubit test's `_FakeDeviceReader`
+      record `speedCalls`; the other two `DeviceVoiceReader` fakes got no-op
+      stubs. Gate: `dart format` 0 of 941 changed; `flutter analyze` 0 errors
+      / 0 warnings / 21 info (pre-existing); full `flutter test` −39, all the
+      known T21/T27 baseline (same list as T37) — nothing new.
 - [ ] **T39** `VoicePlaybackCubit.setSpeed` → the current tier, mid-read or
       mid-replay; every new read or replay starts at the stored speed; the
       player's pill reads and writes `DefaultReadingSpeedStore`. *Done when:*

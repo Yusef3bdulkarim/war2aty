@@ -44,6 +44,14 @@ abstract interface class DeviceVoiceReader {
   /// tier the same auto-scroll the Live tier has.
   Stream<VoiceReadEvent> get events;
 
+  /// Changes the rate the engine speaks at, on `TextToSpeechService`'s own
+  /// 0.0–1.0 scale (`ReadingSpeed.rate`), not the 1.0-is-normal multiplier
+  /// `PcmAudioSink` and `SavedAudioPlayer` take.
+  ///
+  /// Best-effort: an engine that refuses it is not worth losing a reading
+  /// over.
+  Future<void> setSpeed(double rate);
+
   /// Stops a reading in progress, whether or not it finished.
   Future<void> stop();
 }

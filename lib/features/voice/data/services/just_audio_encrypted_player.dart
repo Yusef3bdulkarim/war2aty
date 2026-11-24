@@ -65,6 +65,9 @@ final class JustAudioEncryptedPlayer implements SavedAudioPlayer {
   @override
   Future<void> seek(Duration position) => _player.seek(position);
 
+  @override
+  Future<void> setSpeed(double multiplier) => _player.setSpeed(multiplier);
+
   /// Stops the playback and releases the decoder.
   ///
   /// The source goes with it — `just_audio` requires a fresh

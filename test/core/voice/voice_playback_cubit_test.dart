@@ -758,6 +758,7 @@ final class _FakeDeviceReader implements DeviceVoiceReader {
   Completer<Result<Duration, AppFailure>>? _reading;
 
   var stops = 0;
+  final speedCalls = <double>[];
 
   @override
   Stream<VoiceReadEvent> get events => _events.stream;
@@ -767,6 +768,9 @@ final class _FakeDeviceReader implements DeviceVoiceReader {
     final reading = _reading = Completer<Result<Duration, AppFailure>>();
     return reading.future;
   }
+
+  @override
+  Future<void> setSpeed(double rate) async => speedCalls.add(rate);
 
   @override
   Future<void> stop() async {

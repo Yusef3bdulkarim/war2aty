@@ -1145,4 +1145,18 @@ void main() {
       expect(tts.spoken, [_mixedRuns.first, 'فاتورة تانية']);
     });
   });
+
+  group('ReadingQueue · speed', () {
+    test('setSpeed forwards the rate to the engine', () async {
+      await queue.setSpeed(0.625);
+
+      expect(tts.speechRates, [0.625]);
+    });
+
+    test('setSpeed the engine refuses does not throw', () async {
+      tts.setSpeechRateFails = true;
+
+      await expectLater(queue.setSpeed(0.375), completes);
+    });
+  });
 }

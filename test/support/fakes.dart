@@ -1720,6 +1720,7 @@ final class FakeSavedAudioPlayer implements SavedAudioPlayer {
   var pauses = 0;
   var stops = 0;
   final List<Duration> seeks = [];
+  final List<double> speedCalls = [];
 
   @override
   Future<Result<Duration, AppFailure>> load(String id) async {
@@ -1741,6 +1742,9 @@ final class FakeSavedAudioPlayer implements SavedAudioPlayer {
 
   @override
   Future<void> seek(Duration position) async => seeks.add(position);
+
+  @override
+  Future<void> setSpeed(double multiplier) async => speedCalls.add(multiplier);
 
   @override
   Future<void> stop() async => stops++;

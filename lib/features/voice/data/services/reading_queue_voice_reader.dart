@@ -100,6 +100,9 @@ final class ReadingQueueVoiceReader implements DeviceVoiceReader {
   }
 
   @override
+  Future<void> setSpeed(double rate) => _queue.setSpeed(rate);
+
+  @override
   Future<void> stop() async {
     final reading = _reading;
     // Nothing of ours is speaking, so there is nothing of ours to silence —

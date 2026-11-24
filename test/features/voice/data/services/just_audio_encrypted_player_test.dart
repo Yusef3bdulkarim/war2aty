@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/voice/encrypted_audio_store.dart';
@@ -102,6 +103,19 @@ void main() {
       await player.load('any');
       await player.dispose();
       expect(player.isLoaded, isFalse);
+    });
+
+    test('setSpeed hands the multiplier to just_audio', () async {
+      final audioPlayer = AudioPlayer();
+      final player = JustAudioEncryptedPlayer(
+        store: _FakeStore(const Err(FileStorageFailure())),
+        player: audioPlayer,
+      );
+
+      await player.setSpeed(1.25);
+
+      expect(audioPlayer.speed, 1.25);
+      await player.dispose();
     });
 
     test('load passes the requested id to the store', () async {
