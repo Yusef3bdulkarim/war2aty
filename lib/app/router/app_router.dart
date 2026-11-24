@@ -300,6 +300,7 @@ GoRouter createAppRouter({
         builder: (context, state) {
           final id = state.pathParameters['id'];
           if (id == null) return const _BackToHome();
+          final fresh = state.uri.queryParameters['fresh'] == '1';
           return MultiBlocProvider(
             providers: [
               BlocProvider<PaperScreenCubit>(
@@ -315,15 +316,24 @@ GoRouter createAppRouter({
                 create: (_) => getIt<PaperVoiceFailureCubit>(),
               ),
             ],
-            child: PaperVoiceStarter(
-              fresh: state.uri.queryParameters['fresh'] == '1',
-              child: PaperScreen(
-                onBack: () => context.go(AppRoutes.home),
-                onRemind: (eventDate, eventMinuteOfDay) => context.push(
-                  AppRoutes.reminderManual,
-                  extra: ManualReminderSeed(
-                    eventDate: eventDate,
-                    eventMinuteOfDay: eventMinuteOfDay,
+            child: PopScope(
+              canPop: !fresh,
+              onPopInvokedWithResult: (didPop, _) {
+                if (didPop) return;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) context.go(AppRoutes.home);
+                });
+              },
+              child: PaperVoiceStarter(
+                fresh: fresh,
+                child: PaperScreen(
+                  onBack: () => context.go(AppRoutes.home),
+                  onRemind: (eventDate, eventMinuteOfDay) => context.push(
+                    AppRoutes.reminderManual,
+                    extra: ManualReminderSeed(
+                      eventDate: eventDate,
+                      eventMinuteOfDay: eventMinuteOfDay,
+                    ),
                   ),
                 ),
               ),

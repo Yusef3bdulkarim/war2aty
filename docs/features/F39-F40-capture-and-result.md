@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 31 / 52
+- **Progress:** 32 / 52
 
 ## Why this feature exists
 
@@ -604,8 +604,10 @@ finished and the next one does not start.
       T29/T33, and exposing arbitrary seek properly means slider semantics,
       which is its own task; and the streaming phase rebuilds 30 `Container`s
       at 60 fps, which only the RMX2001 can price.
-- [ ] **T35** Leaving the screen stops the voice and any fixed line; back from
+- [x] **T35** Leaving the screen stops the voice and any fixed line; back from
       a fresh paper goes Home. *Done when:* tested.
+      *Review:* 1 nit fixed (guard `didPop` instead of `!fresh`);
+      1 pre-existing skipped (`PaperFailureScreen` missing `addPostFrameCallback`).
 
 ### Phase E — speed (D14, D15)
 

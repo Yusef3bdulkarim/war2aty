@@ -253,6 +253,44 @@ void main() {
     explainRepo.gate!.complete();
     await tester.pump();
   });
+
+  testWidgets('the back button on the paper screen goes to Home', (
+    tester,
+  ) async {
+    final router = await pump(tester);
+
+    router.go(AppRoutes.paperWith('p1', fresh: true));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(_ar.analysisBackToHome));
+    await tester.pumpAndSettle();
+
+    expect(router.state.uri.toString(), AppRoutes.home);
+  });
+
+  testWidgets(
+    'system back on a fresh paper screen goes to Home, not to the previous '
+    'capture route',
+    (tester) async {
+      final router = await pump(tester);
+
+      unawaited(router.push(AppRoutes.previewWith(_imagePath)));
+      await _pumpMany(tester);
+
+      await tester.tap(find.text(_ar.cropContinue));
+      await _pumpMany(tester, 20);
+
+      expect(
+        router.state.uri.toString(),
+        AppRoutes.paperWith('p1', fresh: true),
+      );
+
+      await tester.binding.handlePopRoute();
+      await _pumpMany(tester);
+
+      expect(router.state.uri.toString(), AppRoutes.home);
+    },
+  );
 }
 
 /// Neither the crop screen nor the waiting screen ever settle — both run
