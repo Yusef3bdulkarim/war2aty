@@ -11,7 +11,8 @@ import java.nio.ByteBuffer
  * Bridges [PcmPlayer] and [AacEncoder] to Dart over two channels (F37-T13).
  *
  * A control [MethodChannel] (`com.war2aty.app/voice_audio`) carries open /
- * pause / resume / stop / beginEncode / finishEncode / abortEncode / getPosition.
+ * pause / resume / setSpeed / stop / beginEncode / finishEncode / abortEncode /
+ * getPosition.
  * A binary channel (`com.war2aty.app/voice_audio_pcm`) carries the raw PCM at
  * ~96 KB/s on a background task queue so that [PcmPlayer.write]'s blocking call
  * does not stall the UI thread. Every chunk is fanned to both the player and the
@@ -83,6 +84,11 @@ class VoiceAudioPlugin(engine: FlutterEngine, context: Context) {
 
             "resume" -> {
                 player.resume()
+                result.success(null)
+            }
+
+            "setSpeed" -> {
+                player.setSpeed(call.argument<Double>("speed")!!.toFloat())
                 result.success(null)
             }
 

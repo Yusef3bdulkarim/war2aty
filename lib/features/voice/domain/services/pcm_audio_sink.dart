@@ -39,6 +39,9 @@ abstract interface class PcmAudioSink {
 
   Future<void> resume();
 
+  /// Changes the playback rate mid-stream, with the pitch held steady.
+  Future<void> setSpeed(double multiplier);
+
   /// Releases the speaker and reports how much was actually played.
   ///
   /// The duration is what the device played, never what was written: the two

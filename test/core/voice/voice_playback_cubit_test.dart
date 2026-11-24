@@ -667,6 +667,7 @@ final class _FakeSink implements PcmAudioSink {
   var stops = 0;
   var written = 0;
   var played = Duration.zero;
+  final speedCalls = <double>[];
 
   @override
   Future<Result<void, AppFailure>> open(PcmFormat format) async => openResult;
@@ -686,6 +687,9 @@ final class _FakeSink implements PcmAudioSink {
 
   @override
   Future<void> resume() async => resumes++;
+
+  @override
+  Future<void> setSpeed(double multiplier) async => speedCalls.add(multiplier);
 
   @override
   Future<Duration> stop() async {

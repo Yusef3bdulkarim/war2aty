@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 36 / 52
+- **Progress:** 37 / 52
 
 ## Why this feature exists
 
@@ -625,11 +625,27 @@ finished and the next one does not start.
       (pre-existing); `test/core/audio`, `test/features/settings`,
       `audio_options_sheet_test` and `set_reading_speed_test` +231, all
       passed.
-- [ ] **T37** Kotlin: `PcmPlayer.setSpeed(multiplier)` via
+- [x] **T37** Kotlin: `PcmPlayer.setSpeed(multiplier)` via
       `PlaybackParams` (speed, pitch 1.0), callable mid-stream; channel method
       in `VoiceAudioPlugin`; `PcmAudioSink.setSpeed`. *Done when:* the Dart
       side is tested over a fake channel; the Kotlin half is a device-pass row
       (F37's rule: Kotlin holds no decisions and is not unit-tested).
+      *Found:* `setSpeed` is a no-op when no track is open or on API < 23
+      (`PlaybackParams` needs M+), mirroring the file's existing
+      `Build.VERSION.SDK_INT` branching, wrapped in try/catch against an
+      invalid speed; it only affects the currently-open track, not a future
+      `open()` — re-applying the stored speed on every new read/replay is
+      **T39**'s job. The three existing fake `PcmAudioSink`s
+      (`voice_playback_cubit_test.dart`, `read_paper_aloud_test.dart`,
+      `voice_playback_rig.dart`) needed a `setSpeed` stub each to keep
+      compiling. **Owner skipped the `code-reviewer` (Opus) pass for this
+      task** — committed straight from the Sonnet self-review. Gate: `dart
+      format` 0 of 8 changed; `flutter analyze` 0 errors / 0 warnings / 21
+      info (pre-existing); full `flutter test` +3767 −39, all 39 failures the
+      known T21/T27 baseline (shell/usage-hint/manual-reminder/reminders-scan
+      routing gaps, the `paper_failure_screen_test.dart` hardcoded-date
+      `LimitResetCard` flake, and the two integration journeys left failing
+      until T49) — nothing new.
 - [ ] **T38** `SavedAudioPlayer.setSpeed` (`just_audio`) and the device tier's
       rate through `ReadingSpeed.rate`. *Done when:* tested with fakes.
 - [ ] **T39** `VoicePlaybackCubit.setSpeed` → the current tier, mid-read or

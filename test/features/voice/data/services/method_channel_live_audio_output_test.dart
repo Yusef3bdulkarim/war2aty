@@ -24,6 +24,7 @@ void main() {
       'beginEncode': () => true,
       'pause': () => null,
       'resume': () => null,
+      'setSpeed': () => null,
       'stop': () => 5000000,
       'getPosition': () => 1000000,
       'finishEncode': () => Uint8List.fromList([0xFF, 0xF1, 0x50, 0x80]),
@@ -179,6 +180,40 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(control, null);
       await expectLater(output.resume(), completes);
+    });
+  });
+
+  // ── PcmAudioSink.setSpeed ──────────────────────────────────────────
+
+  group('setSpeed', () {
+    test('invokes the host method with the multiplier', () async {
+      Map<String, dynamic>? args;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(control, (call) async {
+            if (call.method == 'setSpeed') {
+              args = Map.from(call.arguments as Map);
+            }
+            return null;
+          });
+      await output.setSpeed(1.25);
+      expect(args, {'speed': 1.25});
+    });
+
+    test('does not throw on MissingPluginException', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(control, null);
+      await expectLater(output.setSpeed(1.5), completes);
+    });
+
+    test('does not throw on PlatformException', () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(control, (call) async {
+            if (call.method == 'setSpeed') {
+              throw PlatformException(code: 'ERROR');
+            }
+            return null;
+          });
+      await expectLater(output.setSpeed(0.75), completes);
     });
   });
 

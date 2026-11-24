@@ -143,6 +143,9 @@ final class _ClockedSink implements PcmAudioSink {
   Future<void> resume() async {}
 
   @override
+  Future<void> setSpeed(double multiplier) async {}
+
+  @override
   Future<Duration> stop() async => _played;
 
   @override

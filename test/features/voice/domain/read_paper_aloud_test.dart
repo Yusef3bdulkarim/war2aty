@@ -802,6 +802,9 @@ final class _FakeSink implements PcmAudioSink {
   Future<void> resume() async => resumes++;
 
   @override
+  Future<void> setSpeed(double multiplier) async {}
+
+  @override
   Future<Duration> stop() async {
     stops++;
     if (throwOnStop) throw const _NoAudioHost();

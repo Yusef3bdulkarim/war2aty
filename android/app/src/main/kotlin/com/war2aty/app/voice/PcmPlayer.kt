@@ -4,6 +4,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import android.media.PlaybackParams
 import android.os.Build
 
 /**
@@ -177,6 +178,15 @@ class PcmPlayer(
         val track = audioTrack ?: return
         if (hasFocus && track.playState == AudioTrack.PLAYSTATE_PAUSED) {
             track.play()
+        }
+    }
+
+    fun setSpeed(multiplier: Float) {
+        val track = audioTrack ?: return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        try {
+            track.playbackParams = PlaybackParams().setSpeed(multiplier).setPitch(1.0f)
+        } catch (_: Exception) {
         }
     }
 

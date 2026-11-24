@@ -11,7 +11,7 @@ import '../../domain/services/pcm_audio_sink.dart';
 /// Bridges both [PcmAudioSink] and [AudioEncoder] to the Android host over
 /// `com.war2aty.app/voice_audio` (F37-T13).
 ///
-/// A control [MethodChannel] handles open / pause / resume / stop /
+/// A control [MethodChannel] handles open / pause / resume / setSpeed / stop /
 /// beginEncode / finishEncode / abortEncode. A [BasicMessageChannel] with
 /// [BinaryCodec] carries the PCM chunks at ~96 KB/s. Dart does **not** fan
 /// the stream: the Kotlin handler feeds every chunk to both [PcmPlayer] and
@@ -80,6 +80,17 @@ final class MethodChannelLiveAudioOutput implements PcmAudioSink, AudioEncoder {
   Future<void> resume() async {
     try {
       await _control.invokeMethod<void>('resume');
+    } on MissingPluginException {
+      // No host.
+    } on PlatformException {
+      // Best-effort.
+    }
+  }
+
+  @override
+  Future<void> setSpeed(double multiplier) async {
+    try {
+      await _control.invokeMethod<void>('setSpeed', {'speed': multiplier});
     } on MissingPluginException {
       // No host.
     } on PlatformException {
