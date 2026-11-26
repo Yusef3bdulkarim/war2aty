@@ -9,7 +9,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text
 import 'package:war2aty/features/audio_reader/domain/usecases/start_reading.dart';
 
 import '../../../../support/fakes.dart';
-import '../../../analysis/analysis_fixtures.dart';
+import '../../../../support/analysis_fixtures.dart';
 
 const _buildResult = BuildAnalysisResult();
 const _buildReadingText = BuildReadingText();

@@ -61,7 +61,6 @@ import 'package:war2aty/core/storage/analysis_session_storage.dart';
 import 'package:war2aty/core/storage/secure_storage_service.dart';
 import 'package:war2aty/core/time/cairo_day.dart';
 import 'package:war2aty/core/usage/usage_remote_data_source.dart';
-import 'package:war2aty/features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
 import 'package:war2aty/features/audio_reader/domain/services/text_to_speech_service.dart';
 import 'package:war2aty/features/bootstrap/data/repositories/stub_auth_repository.dart';
 import 'package:war2aty/features/bootstrap/domain/repositories/auth_repository.dart';
@@ -104,6 +103,9 @@ const String kJourneyDeadlineTime = '10:00';
 /// alerts still in the future and the fixture's own 2024 deadline is long
 /// past. A week is wide enough that no run can land on the wrong side of it.
 const Duration kJourneyDeadlineLeadTime = Duration(days: 7);
+
+const String kAnalyzeDocumentPath = '/analyze-document';
+const String kOcrDocumentPath = '/ocr-document';
 
 /// One call the app made to an Edge Function.
 final class EdgeCall {
@@ -159,7 +161,6 @@ final class FakeEdgeFunctions implements HttpClientAdapter {
   FakeEdgeFunctions({
     this.dailyLimit = 3,
     this.usedToday = 0,
-    this.onlineOcrEnabled = false,
     this.analysisEnabled = true,
     Map<String, Object?>? analyzeBody,
   }) : analyzeBody = analyzeBody ?? journeyInvoiceBody();
@@ -169,7 +170,6 @@ final class FakeEdgeFunctions implements HttpClientAdapter {
   /// so the count Home shows afterwards is the one the journey earned.
   int dailyLimit;
   int usedToday;
-  bool onlineOcrEnabled;
   bool analysisEnabled;
 
   /// The analyze-document success body. Defaults to the bundled invoice
@@ -269,7 +269,6 @@ final class FakeEdgeFunctions implements HttpClientAdapter {
       'remaining_today': remainingToday,
       'resets_at': nextCairoResetAfter(DateTime.now()).toIso8601String(),
       'analysis_enabled': analysisEnabled,
-      'online_ocr_enabled': onlineOcrEnabled,
     };
   }
 
@@ -513,8 +512,7 @@ final class AppHarness {
 
 /// A journey over a freshly booted app, torn down the way one has to be.
 ///
-/// [boot] defaults to [bootApp]'s own defaults; pass a closure to change them
-/// (`boot: (tester) => bootApp(tester, onlineOcrEnabled: true)`).
+/// [boot] defaults to [bootApp]'s own defaults; pass a closure to change them.
 void journeyTest(
   String description,
   Future<void> Function(AppHarness harness) body, {
@@ -530,13 +528,8 @@ void journeyTest(
 /// Boots the real app over the real dependency graph, with the boundaries
 /// above faked, and settles on whatever screen it opens on.
 ///
-/// [onlineOcrEnabled] is the server's own flag, so it decides the route the
-/// same way production does: with it off (the default), a capture takes the
-/// on-device pipeline; with it on and [connected] true, it takes the online
-/// one.
 Future<AppHarness> bootApp(
   WidgetTester tester, {
-  bool onlineOcrEnabled = false,
   bool connected = true,
   PermissionOutcome permissions = PermissionOutcome.granted,
   int dailyLimit = 3,
@@ -589,7 +582,6 @@ Future<AppHarness> bootApp(
   final backend = FakeEdgeFunctions(
     dailyLimit: dailyLimit,
     usedToday: usedToday,
-    onlineOcrEnabled: onlineOcrEnabled,
     analysisEnabled: analysisEnabled,
     analyzeBody: journeyInvoiceBody(deadline: paperDeadline),
   );

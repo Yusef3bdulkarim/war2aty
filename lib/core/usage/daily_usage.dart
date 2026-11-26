@@ -10,7 +10,6 @@ final class DailyUsage {
     required this.remainingCount,
     required this.resetsAt,
     this.lastSyncedAt,
-    this.onlineOcrEnabled = false,
     this.explainEnabled,
   });
 
@@ -27,21 +26,6 @@ final class DailyUsage {
   /// Last successful sync with the backend; `null` before the first one.
   final DateTime? lastSyncedAt;
 
-  /// Whether the backend's online reading (`ocr-document`) is live right now:
-  /// `get-usage`'s `online_ocr_enabled` (F20-T17; was `azure_ocr_enabled`).
-  /// Read by [DecideAnalysisRoute] before routing a capture online —
-  /// connectivity alone is not enough, since the server switches the online
-  /// reading on and off with this same flag (`RuntimeConfig.onlineOcrEnabled`).
-  ///
-  /// Only a *fresh* sync (`UsageRepository.syncUsage`) carries the real
-  /// value — a reading reconstructed from the local cache always defaults
-  /// this to `false`, since the flag is not persisted there. That is a
-  /// deliberate fail-closed default (matches the server's own `optInFlag`
-  /// philosophy for this flag), not an oversight: a stale "yes" is the
-  /// dangerous direction to be wrong in, a stale "no" only costs one
-  /// avoidable offline-route capture.
-  final bool onlineOcrEnabled;
-
   final bool? explainEnabled;
 
   /// Whether the user can still run an analysis today.
@@ -56,7 +40,6 @@ final class DailyUsage {
       other.remainingCount == remainingCount &&
       other.resetsAt == resetsAt &&
       other.lastSyncedAt == lastSyncedAt &&
-      other.onlineOcrEnabled == onlineOcrEnabled &&
       other.explainEnabled == explainEnabled;
 
   @override
@@ -67,7 +50,6 @@ final class DailyUsage {
     remainingCount,
     resetsAt,
     lastSyncedAt,
-    onlineOcrEnabled,
     explainEnabled,
   );
 }

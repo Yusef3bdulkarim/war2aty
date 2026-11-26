@@ -124,7 +124,6 @@ import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
-import '../../core/storage/usecases/discard_analysis_session.dart';
 import '../../core/usage/remote_usage_repository.dart';
 import '../../core/usage/stub_usage_repository.dart';
 import '../../core/usage/usage_remote_data_source.dart';
@@ -138,14 +137,6 @@ import '../../core/voice/fixed_line_player.dart';
 import '../../core/voice/just_audio_fixed_line_player.dart';
 import '../../core/voice/usecases/speak_fixed_line.dart';
 import '../../core/voice/voice_playback_cubit.dart';
-import '../../features/analysis/data/datasources/analysis_remote_data_source.dart';
-import '../../features/analysis/data/datasources/disabled_analysis_remote_data_source.dart';
-import '../../features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
-import '../../features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
-import '../../features/analysis/data/repositories/default_analysis_repository.dart';
-import '../../features/analysis/domain/repositories/analysis_repository.dart';
-import '../../features/analysis/domain/usecases/analyze_document.dart';
-import '../../features/analysis/domain/usecases/ocr_image.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/reading_queue.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
@@ -190,9 +181,7 @@ import '../../features/capture/domain/services/image_rotator.dart';
 import '../../features/capture/domain/usecases/capture_photo.dart';
 import '../../features/capture/domain/usecases/check_capture_readiness.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
-import '../../features/capture/domain/usecases/create_analysis_session.dart';
 import '../../features/capture/domain/usecases/crop_image.dart';
-import '../../features/capture/domain/usecases/decide_analysis_route.dart';
 import '../../features/capture/domain/usecases/dispose_camera.dart';
 import '../../features/capture/domain/usecases/downscale_photo.dart';
 import '../../features/capture/domain/usecases/focus_camera.dart';
@@ -294,7 +283,6 @@ Future<void> configureDependencies(
   _registerHome();
   _registerCapture();
   _registerOcr();
-  _registerAnalysis(env);
   _registerSavedPapers();
   _registerReminders();
   _registerAudioReader();
@@ -667,18 +655,9 @@ void _registerCapture() {
     // The preview screen's manual drag-crop (F15).
     ..registerLazySingleton<ImageCropper>(ImagePackageCropper.new)
     ..registerFactory<CropImage>(() => CropImage(getIt()))
-    ..registerFactory<CreateAnalysisSession>(
-      () => CreateAnalysisSession(getIt()),
-    )
-    ..registerFactory<DiscardAnalysisSession>(
-      () => DiscardAnalysisSession(getIt()),
-    )
     ..registerLazySingleton<CaptureFileCleanup>(IOCaptureFileCleanup.new)
     ..registerFactory<CleanupCaptureFiles>(() => CleanupCaptureFiles(getIt()))
     ..registerLazySingleton<ConnectivityService>(ConnectivityPlusService.new)
-    ..registerFactory<DecideAnalysisRoute>(
-      () => DecideAnalysisRoute(getIt(), getIt()),
-    )
     // Parameterised by the acquired image's path — the cubit rotates, crops
     // and exports that specific file.
     ..registerFactoryParam<ImagePreviewCubit, String, void>(
@@ -733,43 +712,6 @@ void _registerOcr() {
     );
 }
 
-/// Forces the bundled fixtures even in a configured build.
-///
-/// Kept so UI work (F07) does not require Docker and a Groq key on the desk:
-/// `flutter run --flavor dev -t lib/main_dev.dart --dart-define=USE_MOCK_ANALYSIS=true`.
-/// It cannot affect a release build — the mock is only reachable in dev.
-const bool _useMockAnalysis = bool.fromEnvironment('USE_MOCK_ANALYSIS');
-
-void _registerAnalysis(AppEnvironment env) {
-  final useMock = env.isDev && _useMockAnalysis;
-
-  getIt
-    // The real Edge Function client (F06-T14). An unconfigured build refuses
-    // outright rather than falling back to fixtures: showing invented amounts
-    // and deadlines to a real user would be worse than showing nothing, which
-    // is the one thing this app must never do (§7).
-    ..registerLazySingleton<AnalysisRemoteDataSource>(
-      () => switch ((useMock, env.isConfigured)) {
-        (true, _) => MockAnalysisRemoteDataSource(),
-        (false, true) => EdgeFunctionAnalysisRemoteDataSource(getIt()),
-        (false, false) => const DisabledAnalysisRemoteDataSource(),
-      },
-    )
-    ..registerLazySingleton<AnalysisRepository>(
-      () => DefaultAnalysisRepository(
-        dataSource: getIt(),
-        installationId: getIt(),
-        logger: getIt(),
-        appVersion: env.appVersion,
-      ),
-    )
-    ..registerFactory<AnalyzeDocument>(() => AnalyzeDocument(getIt()))
-    // OCR-only half of the online route's two-call split (F14) — stops
-    // before Groq so the user can review the text first.
-    ..registerFactory<OcrImage>(() => OcrImage(getIt()))
-    ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new);
-}
-
 void _registerSavedPapers() {
   getIt
     ..registerLazySingleton<DocumentsDao>(
@@ -811,6 +753,7 @@ void _registerSavedPapers() {
     ..registerFactory<LoadDocumentImage>(() => LoadDocumentImage(getIt()))
     // F11-T11.
     ..registerFactory<DeleteAllDocuments>(() => DeleteAllDocuments(getIt()))
+    ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
     // Parameterised by the document id — one cubit instance per opened
     // details screen, the same shape [ImagePreviewCubit]'s registration uses.
     ..registerFactoryParam<DocumentDetailsCubit, String, void>(

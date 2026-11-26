@@ -14,7 +14,6 @@ final class DailyUsageDto {
     required this.remainingToday,
     required this.resetsAt,
     required this.analysisEnabled,
-    this.onlineOcrEnabled = false,
     this.explainEnabled,
   });
 
@@ -27,12 +26,6 @@ final class DailyUsageDto {
       remainingToday: json['remaining_today'] as int,
       resetsAt: json['resets_at'] as String,
       analysisEnabled: json['analysis_enabled'] as bool,
-      // Defaulted, not required: unlike the quota numbers, a missing/absent
-      // value here is a safe "not live" reading, not a quota we can no
-      // longer trust — see DailyUsage.onlineOcrEnabled. The retired
-      // `azure_ocr_enabled` is deliberately not read as a fallback: it
-      // switched on a different provider (F20-T14).
-      onlineOcrEnabled: json['online_ocr_enabled'] as bool? ?? false,
       explainEnabled: switch (json['explain_enabled']) {
         final bool flag => flag,
         _ => null,
@@ -51,7 +44,6 @@ final class DailyUsageDto {
   /// ISO-8601 with Cairo's real offset (`+02:00` or `+03:00` under DST).
   final String resetsAt;
   final bool analysisEnabled;
-  final bool onlineOcrEnabled;
   final bool? explainEnabled;
 
   Map<String, dynamic> toJson() => {
@@ -62,7 +54,6 @@ final class DailyUsageDto {
     'remaining_today': remainingToday,
     'resets_at': resetsAt,
     'analysis_enabled': analysisEnabled,
-    'online_ocr_enabled': onlineOcrEnabled,
     if (explainEnabled != null) 'explain_enabled': explainEnabled,
   };
 
@@ -76,7 +67,6 @@ final class DailyUsageDto {
       remainingCount: remainingToday,
       resetsAt: DateTime.parse(resetsAt).toUtc(),
       lastSyncedAt: syncedAt.toUtc(),
-      onlineOcrEnabled: onlineOcrEnabled,
       explainEnabled: explainEnabled,
     );
   }

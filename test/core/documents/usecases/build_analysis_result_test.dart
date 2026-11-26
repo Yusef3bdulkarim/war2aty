@@ -5,7 +5,7 @@ import 'package:war2aty/core/documents/analysis_summary.dart';
 import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 
-import '../../../features/analysis/analysis_fixtures.dart';
+import '../../../support/analysis_fixtures.dart';
 
 const _ocrText = 'فاتورة كهرباء';
 

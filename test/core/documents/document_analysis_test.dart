@@ -9,8 +9,8 @@ import 'package:war2aty/core/documents/document_analysis.dart';
 import 'package:war2aty/core/documents/document_category.dart';
 import 'package:war2aty/core/documents/document_kind.dart';
 import 'package:war2aty/core/documents/key_information.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_phone.dart';
-import 'package:war2aty/features/analysis/domain/entities/analysis_reference.dart';
+import 'package:war2aty/core/documents/analysis_phone.dart';
+import 'package:war2aty/core/documents/analysis_reference.dart';
 
 const _summary = AnalysisSummary(short: 'فاتورة كهرباء.', detailed: 'تفاصيل.');
 

@@ -1,7 +1,7 @@
 import '../utils/list_equality.dart';
-import '../../features/analysis/domain/entities/analysis_phone.dart';
-import '../../features/analysis/domain/entities/analysis_reference.dart';
 import 'analysis_amount.dart';
+import 'analysis_phone.dart';
+import 'analysis_reference.dart';
 import 'analysis_date.dart';
 import 'analysis_status.dart';
 import 'analysis_summary.dart';

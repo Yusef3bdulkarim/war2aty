@@ -24,7 +24,7 @@ import 'package:war2aty/features/audio_reader/domain/usecases/stop_reading.dart'
 import 'package:war2aty/features/audio_reader/domain/usecases/warm_up_reader.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/watch_reading_events.dart';
 
-import '../../features/analysis/analysis_fixtures.dart';
+import '../../support/analysis_fixtures.dart';
 import '../../support/fakes.dart';
 
 const _buildResult = BuildAnalysisResult();

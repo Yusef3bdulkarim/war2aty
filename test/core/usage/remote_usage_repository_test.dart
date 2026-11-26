@@ -159,33 +159,6 @@ void main() {
       );
     });
 
-    test('online_ocr_enabled is read from the wire (F20-T17)', () async {
-      final repo = repository(
-        _FakeRemote.ok({..._body, 'online_ocr_enabled': true}),
-      );
-
-      expect((await repo.syncUsage()).valueOrNull!.onlineOcrEnabled, isTrue);
-    });
-
-    test('an absent online_ocr_enabled reads as off', () async {
-      final repo = repository(_FakeRemote.ok());
-
-      expect((await repo.syncUsage()).valueOrNull!.onlineOcrEnabled, isFalse);
-    });
-
-    test(
-      'the retired azure_ocr_enabled never turns the online route on',
-      () async {
-        // It switched on a different provider (F20-T14). A server still sending
-        // it must not route anyone online.
-        final repo = repository(
-          _FakeRemote.ok({..._body, 'azure_ocr_enabled': true}),
-        );
-
-        expect((await repo.syncUsage()).valueOrNull!.onlineOcrEnabled, isFalse);
-      },
-    );
-
     test('explain_enabled true is read from the wire', () async {
       final repo = repository(
         _FakeRemote.ok({..._body, 'explain_enabled': true}),

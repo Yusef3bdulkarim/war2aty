@@ -8,7 +8,7 @@ import 'package:war2aty/core/documents/usecases/build_analysis_result.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/build_reading_text.dart';
 
-import '../../../../features/analysis/analysis_fixtures.dart';
+import '../../../../support/analysis_fixtures.dart';
 
 const _buildResult = BuildAnalysisResult();
 const _ocrText = '  فاتورة كهرباء عن شهر مارس  ';

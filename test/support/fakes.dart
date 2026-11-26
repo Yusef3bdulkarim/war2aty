@@ -667,10 +667,6 @@ final class FakeImageCropper implements ImageCropper {
   }
 }
 
-/// Scriptable [ConnectivityService] — no platform channel.
-///
-/// Defaults to online. Set [fails] to model a plugin-channel error, which
-/// [DecideAnalysisRoute] treats as offline rather than letting it escape.
 final class FakeConnectivityService implements ConnectivityService {
   FakeConnectivityService({this.connected = true, this.fails = false});
 
@@ -768,7 +764,6 @@ final class FakeUsageRepository implements UsageRepository {
 DailyUsage usageWith({
   required int limit,
   required int remaining,
-  bool onlineOcrEnabled = false,
   bool? explainEnabled,
 }) {
   final today = DateTime.utc(2026, 7, 22);
@@ -778,7 +773,6 @@ DailyUsage usageWith({
     usedCount: limit - remaining,
     remainingCount: remaining,
     resetsAt: today.add(const Duration(days: 1)),
-    onlineOcrEnabled: onlineOcrEnabled,
     explainEnabled: explainEnabled,
   );
 }
