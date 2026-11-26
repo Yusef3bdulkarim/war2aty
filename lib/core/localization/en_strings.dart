@@ -731,15 +731,6 @@ final class EnStrings implements AppStrings {
   @override
   String get ocrReferencesSection => 'Reference numbers';
 
-  // OCR field review
-  @override
-  String get ocrReviewTitle => 'Review information';
-  @override
-  String get ocrReviewSubtitle =>
-      'These fields need verification — make sure they are correct.';
-  @override
-  String get ocrReviewDone => 'Done';
-
   @override
   String get ocrOnlineReviewTitle => 'Text read from the document';
   @override
@@ -820,9 +811,6 @@ final class EnStrings implements AppStrings {
   @override
   String get analysisFailedTipConnection =>
       'Make sure your internet is working well';
-  @override
-  String get analysisFailedTipReadText =>
-      'Meanwhile, you can read the text on the paper';
   @override
   String get analysisNoInternetTitle => 'You are offline right now';
   @override
@@ -1058,12 +1046,6 @@ final class EnStrings implements AppStrings {
   String get analysisPickFromGallery => 'Pick from photos';
   @override
   String get analysisCaptureAnother => 'Photograph another';
-  @override
-  String get extractedTextOnlyTitle => 'The text we read';
-  @override
-  String get extractedTextOnlyNote =>
-      'The text we read may contain mistakes, and no explanation is available '
-      'in this mode.';
 
   // Document kinds
   @override

@@ -554,11 +554,6 @@ abstract interface class AppStrings {
   String get ocrPhonesSection;
   String get ocrReferencesSection;
 
-  // OCR field review
-  String get ocrReviewTitle;
-  String get ocrReviewSubtitle;
-  String get ocrReviewDone;
-
   // OCR online review screen (F14) — the online route's stop between the
   // online reading and the analysis.
   String get ocrOnlineReviewTitle;
@@ -638,7 +633,6 @@ abstract interface class AppStrings {
   String get analysisFailedTipsTitle;
   String get analysisFailedTipWait;
   String get analysisFailedTipConnection;
-  String get analysisFailedTipReadText;
 
   /// The phone is offline. The analysis needs the network; the text does not.
   /// Never says where the text was read: the online reading may have
@@ -842,10 +836,6 @@ abstract interface class AppStrings {
 
   /// Leaves a dead end by photographing a different paper.
   String get analysisCaptureAnother;
-
-  /// The text-only fallback page: what was read, with no explanation.
-  String get extractedTextOnlyTitle;
-  String get extractedTextOnlyNote;
 
   /// The label of the document-type row in «أهم المعلومات» (F21-T13).
   String get documentTypeLabel;

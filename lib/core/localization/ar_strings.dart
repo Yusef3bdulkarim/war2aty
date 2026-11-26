@@ -727,14 +727,6 @@ final class ArStrings implements AppStrings {
   @override
   String get ocrReferencesSection => 'أرقام مرجعية';
 
-  // OCR field review
-  @override
-  String get ocrReviewTitle => 'راجع المعلومات';
-  @override
-  String get ocrReviewSubtitle => 'المعلومات دي محتاجة مراجعة — تأكد إنها صح.';
-  @override
-  String get ocrReviewDone => 'تمام';
-
   @override
   String get ocrOnlineReviewTitle => 'النص المقروء من الورقة';
   @override
@@ -809,9 +801,6 @@ final class ArStrings implements AppStrings {
   String get analysisFailedTipWait => 'استنى دقيقة وحاول تاني';
   @override
   String get analysisFailedTipConnection => 'اتأكد إن النت شغال كويس';
-  @override
-  String get analysisFailedTipReadText =>
-      'وفي الوقت ده تقدر تقرا الكلام اللي في الورقة';
   @override
   String get analysisNoInternetTitle => 'النت فاصل دلوقتي';
   @override
@@ -1064,12 +1053,6 @@ final class ArStrings implements AppStrings {
   String get analysisPickFromGallery => 'اختار من الصور';
   @override
   String get analysisCaptureAnother => 'صوّر ورقة تانية';
-  @override
-  String get extractedTextOnlyTitle => 'النص المستخرج';
-  @override
-  String get extractedTextOnlyNote =>
-      'النص المستخرج ممكن يحتوي على أخطاء قراءة. الشرح الذكي مش متاح في '
-      'الوضع ده.';
 
   // Document kinds
   @override
