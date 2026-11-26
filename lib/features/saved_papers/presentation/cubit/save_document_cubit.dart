@@ -6,15 +6,6 @@ import '../../../../core/documents/usecases/save_document.dart';
 import '../../../../core/documents/usecases/save_document_with_image.dart';
 import 'save_document_state.dart';
 
-/// Drives the result screen's «حفظ الورقة» action.
-///
-/// Its own cubit rather than another job for `AnalysisResultCubit`: saving
-/// outlives the analysis it started from — the documents screens (F08-T05
-/// onwards) save nothing, and the analysis cubit should not grow a second
-/// reason to change.
-///
-/// Depends on its use cases only (architecture rule); it never sees the
-/// repository or the database.
 final class SaveDocumentCubit extends Cubit<SaveDocumentState> {
   SaveDocumentCubit(this._saveDocument, this._saveDocumentWithImage)
     : super(const SaveDocumentIdle());

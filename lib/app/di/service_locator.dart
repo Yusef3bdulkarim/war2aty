@@ -143,13 +143,9 @@ import '../../features/analysis/data/datasources/disabled_analysis_remote_data_s
 import '../../features/analysis/data/datasources/edge_function_analysis_remote_data_source.dart';
 import '../../features/analysis/data/datasources/mock_analysis_remote_data_source.dart';
 import '../../features/analysis/data/repositories/default_analysis_repository.dart';
-import '../../features/analysis/domain/entities/analysis_source.dart';
 import '../../features/analysis/domain/repositories/analysis_repository.dart';
 import '../../features/analysis/domain/usecases/analyze_document.dart';
 import '../../features/analysis/domain/usecases/ocr_image.dart';
-import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
-import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
-import '../../features/analysis/presentation/image_analysis_session_holder.dart';
 import '../../features/audio_reader/data/services/flutter_tts_text_to_speech_service.dart';
 import '../../features/audio_reader/domain/services/reading_queue.dart';
 import '../../features/audio_reader/domain/services/text_to_speech_service.dart';
@@ -227,7 +223,6 @@ import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/ocr/data/repositories/device_ocr_repository.dart';
 import '../../features/ocr/data/services/dart_image_preprocessor.dart';
 import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
-import '../../features/ocr/domain/entities/extraction_result.dart';
 import '../../features/ocr/domain/repositories/ocr_repository.dart';
 import '../../features/ocr/domain/services/amount_extractor.dart';
 import '../../features/ocr/domain/services/date_extractor.dart';
@@ -607,9 +602,6 @@ void _registerHome() {
     // Settings' «حدود الاستخدام» row (F11-T12) — a one-shot snapshot rather
     // than `WatchDailyUsage`'s live stream, registered next to it.
     ..registerFactory<GetDailyUsage>(() => GetDailyUsage(getIt()))
-    // Called by `AnalysisResultCubit` after a successful analysis so Home's
-    // live stream above reflects the freshly consumed slot (registered here,
-    // next to its read-only counterpart, though it's consumed by `_registerAnalysis`).
     ..registerFactory<SyncDailyUsage>(() => SyncDailyUsage(getIt()))
     // Likewise replaced when F09 builds the `reminders` table.
     ..registerLazySingleton<UpcomingReminderRepository>(
@@ -775,47 +767,7 @@ void _registerAnalysis(AppEnvironment env) {
     // OCR-only half of the online route's two-call split (F14) — stops
     // before Groq so the user can review the text first.
     ..registerFactory<OcrImage>(() => OcrImage(getIt()))
-    ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new)
-    // The online route's handoff (F13-T15) — the counterpart of
-    // `OcrSessionHolder`, registered with F04's OCR feature below.
-    ..registerLazySingleton<ImageAnalysisSessionHolder>(
-      ImageAnalysisSessionHolder.new,
-    )
-    ..registerFactoryParam<
-      AnalysisResultCubit,
-      AnalysisSession,
-      AnalysisSource
-    >(
-      (session, source) => AnalysisResultCubit(
-        session: session,
-        source: source,
-        analyzeDocument: getIt(),
-        buildResult: getIt(),
-        syncDailyUsage: getIt(),
-        getDailyUsage: getIt(),
-        discardSession: getIt(),
-      ),
-    )
-    // The OCR review screen (F14) — reuses `ExtractCandidates`, already
-    // registered by `_registerOcr`, to re-extract candidates from the user's
-    // approved text before it reaches Groq, and `ExtractDocumentText` for the
-    // explicit on-device fallback (F20-T22).
-    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, CapturedPhoto>(
-      (session, photo) => OcrReviewCubit(
-        session: session,
-        photo: photo,
-        ocrImage: getIt(),
-        extractCandidates: getIt(),
-        imageHolder: getIt<ImageAnalysisSessionHolder>(),
-        extractDocumentText: getIt(),
-      ),
-    )
-    // Offline variant: Tesseract already ran on `/ocr`, result handed off.
-    ..registerFactoryParam<OcrReviewCubit, AnalysisSession, ExtractionResult>(
-      (session, _) =>
-          OcrReviewCubit.offline(session: session, extractCandidates: getIt()),
-      instanceName: 'offline',
-    );
+    ..registerFactory<BuildAnalysisResult>(BuildAnalysisResult.new);
 }
 
 void _registerSavedPapers() {

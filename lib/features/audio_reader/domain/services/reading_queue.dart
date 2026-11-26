@@ -171,8 +171,7 @@ final class ReadingQueue {
   /// An asynchronous step that was already in flight when that happened
   /// compares against the value it captured and stands down, so a reading the
   /// user has moved on from cannot speak its next run over the one they asked
-  /// for instead (the same rule `OcrReviewCubit` follows for answers to
-  /// requests the user left behind, F20 §4).
+  /// for instead.
   int _generation = 0;
 
   /// The reading's lifecycle, rather than the engine's (F30-T11).
