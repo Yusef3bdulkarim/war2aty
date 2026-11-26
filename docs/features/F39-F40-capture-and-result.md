@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 43 / 52
+- **Progress:** 44 / 52
 
 ## Why this feature exists
 
@@ -904,7 +904,7 @@ dangling doc links, and a grep for the removed flow's own words ("ocr",
       `AnalysisReference` → `core/documents/`, `analysis_fixtures` →
       `test/support/`. Gate: 0 errors/warnings, 3403 pass / 24 fail (all
       pre-existing), deno untouched.
-- [ ] **T45** Delete `features/ocr`, `flutter_tesseract_ocr`,
+- [x] **T45** Delete `features/ocr`, `flutter_tesseract_ocr`,
       `assets/tessdata*`, the traineddata, any Gradle/ProGuard bits for it, and
       update the play-compliance tool/test. Remove `AppFailure` leaves only the
       deleted code produced (`OcrInitializationFailure`, `OcrFailure`,
