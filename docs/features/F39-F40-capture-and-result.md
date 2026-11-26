@@ -894,12 +894,16 @@ dangling doc links, and a grep for the removed flow's own words ("ocr",
       `manual_reminder_seed_routing` 3, `reminders_scan_routing` 2,
       `paper_failure_screen` 1); the pass count drops 3790 → 3562 as the
       deleted presentation tests (228) go with their code. Nothing new.
-- [ ] **T44** Delete the client's old analysis domain/data: `OcrImage`,
+- [x] **T44** Delete the client's old analysis domain/data: `OcrImage`,
       `AnalyzeDocument`, `ShouldFallBackToOnDeviceOcr`, the repository, DTOs,
       mappers, validator, mock/fixture sources, `DecideAnalysisRoute`,
       `AnalysisRoute`, `CreateAnalysisSession` if now unused,
       `DailyUsage.onlineOcrEnabled`, and their DI. *Done when:* analyze clean,
       suite green, `deno test` untouched.
+      **Done** aa670da — 65 files, −4688 lines. Relocated `AnalysisPhone`/
+      `AnalysisReference` → `core/documents/`, `analysis_fixtures` →
+      `test/support/`. Gate: 0 errors/warnings, 3403 pass / 24 fail (all
+      pre-existing), deno untouched.
 - [ ] **T45** Delete `features/ocr`, `flutter_tesseract_ocr`,
       `assets/tessdata*`, the traineddata, any Gradle/ProGuard bits for it, and
       update the play-compliance tool/test. Remove `AppFailure` leaves only the
