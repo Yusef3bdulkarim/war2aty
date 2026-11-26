@@ -31,9 +31,6 @@ enum VoiceLine {
   /// Failure screen, `limitReached` — the daily papers are spent.
   failLimit('fail_limit'),
 
-  /// Failure screen, `unsupported` — the paper could not be read.
-  failUnsupported('fail_unsupported'),
-
   /// Failure screen, `serviceProblem` — the service could not answer.
   failService('fail_service'),
 

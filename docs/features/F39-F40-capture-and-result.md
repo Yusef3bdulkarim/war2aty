@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 40 / 52
+- **Progress:** 41 / 52
 
 ## Why this feature exists
 
@@ -782,9 +782,33 @@ finished and the next one does not start.
       `RecordPaperReading` suppresses the line (`result.isErr` returns early);
       flagged for the owner rather than changed, since D12 ties the line to
       the reading ending, not to the write landing.
-- [ ] **T41** Remove `fail_unsupported` (D10): enum value, asset, table row,
+- [x] **T41** Remove `fail_unsupported` (D10): enum value, asset, table row,
       and any reference. *Done when:* parity test passes and a grep for the id
       is empty outside history docs.
+      *Found:* nothing in `lib/` or `test/` referenced the line — the only
+      live reference was the enum value itself, since D10's screen never
+      existed in the new flow (`PaperFailureKind` has only `offline |
+      limitReached | serviceProblem`, T09). The three artifacts
+      `voice_line_test` holds to parity — table row, enum value, asset —
+      were removed together, so neither direction of the guard can pass
+      against a half-removal. The surviving mentions are all history, which
+      this task's "Done when" allows: F37's own «ثلاث حالات» section (the
+      line is the recorded example of a first-person "مقدرتش أقرا" phrasing
+      that took three generator attempts — worth keeping for whoever writes
+      the next line) and D10 + the Files list here. The table's `#` column
+      was renumbered 6–13 → 5–12; the `id` column is the real key, for the
+      generator and for the test, and was untouched. The totals line was
+      stale before this task and is now measured rather than estimated: the
+      twelve remaining files are 238,367 bytes (~233 KB), and the duration
+      is 60 − 6.2 + 7.4 ≈ 54 s. **Phase F ends here.** Gate: `dart format .`
+      1 of 943 changed (the router, from T40's fix); `flutter analyze`
+      0 errors / 0 warnings / 21 info (pre-existing); full `flutter test`
+      **+3800 −39** — the 39 are the known T21/T27 baseline, confirmed file
+      by file (`shell_test` 18, `usage_hint_routing` 6,
+      `analysis_failure_paths` 5, `invoice_journey` 4,
+      `manual_reminder_seed_routing` 3, `reminders_scan_routing` 2,
+      `paper_failure_screen` 1), and +3800 is T40's +3798 plus this pass's
+      two new cubit tests. Nothing new.
 
 ### Phase G — the old pipeline goes (after T21 switched the flow)
 
