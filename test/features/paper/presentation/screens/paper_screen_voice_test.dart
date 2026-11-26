@@ -21,6 +21,7 @@ import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
+import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
 import 'package:war2aty/core/voice/voice_playback_cubit.dart';
 import 'package:war2aty/core/voice/voice_playback_state.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
@@ -83,7 +84,9 @@ void main() {
       WatchPaper(papers),
       LoadPaperImage(FakePaperImageStore()),
       RecordPaperReading(papers),
+      SpeakFixedLine(FakeFixedLinePlayer()),
       paperId: 'p1',
+      fresh: true,
     );
     dialerCubit = PhoneDialerCubit(OpenPhoneDialer(FakeExternalLinkService()));
     final speedStore = FakeDefaultReadingSpeedStore();

@@ -4,11 +4,14 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/app_failure.dart';
+import '../../../../core/papers/paper_status.dart';
 import '../../../../core/papers/saved_paper.dart';
 import '../../../../core/papers/usecases/load_paper_image.dart';
 import '../../../../core/papers/usecases/record_paper_reading.dart';
 import '../../../../core/papers/usecases/watch_paper.dart';
 import '../../../../core/result/result.dart';
+import '../../../../core/voice/usecases/speak_fixed_line.dart';
+import '../../../../core/voice/voice_line.dart';
 import '../../../voice/domain/entities/voice_read_outcome.dart';
 import 'paper_screen_state.dart';
 
@@ -16,20 +19,26 @@ final class PaperScreenCubit extends Cubit<PaperScreenState> {
   PaperScreenCubit(
     this._watchPaper,
     this._loadPaperImage,
-    this._recordPaperReading, {
+    this._recordPaperReading,
+    this._speakFixedLine, {
     required String paperId,
+    required bool fresh,
   }) : _paperId = paperId,
+       _fresh = fresh,
        super(const PaperScreenLoading());
 
   final WatchPaper _watchPaper;
   final LoadPaperImage _loadPaperImage;
   final RecordPaperReading _recordPaperReading;
+  final SpeakFixedLine _speakFixedLine;
   final String _paperId;
+  final bool _fresh;
 
   StreamSubscription<void>? _subscription;
   SavedPaper? _latestPaper;
   Uint8List? _cachedImageBytes;
   bool _loadingImage = false;
+  bool _partialLineSpoken = false;
 
   void start() {
     if (_subscription != null) return;
@@ -37,7 +46,12 @@ final class PaperScreenCubit extends Cubit<PaperScreenState> {
   }
 
   Future<void> recordReading(VoiceReadOutcome outcome) async {
-    await _recordPaperReading(id: _paperId, outcome: outcome);
+    final result = await _recordPaperReading(id: _paperId, outcome: outcome);
+    if (isClosed || result.isErr) return;
+    if (!_fresh || _partialLineSpoken) return;
+    if (_latestPaper?.explanation.status != PaperStatus.partial) return;
+    _partialLineSpoken = true;
+    unawaited(_speakFixedLine(VoiceLine.explainPartial));
   }
 
   void _onResult(Result<SavedPaper?, AppFailure> result) {

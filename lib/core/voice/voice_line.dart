@@ -59,7 +59,9 @@ enum VoiceLine {
   docsDeleteDone('docs_delete_done'),
 
   /// Camera permission denied: a dead end, and unreadable without this line.
-  cameraPermission('camera_permission');
+  cameraPermission('camera_permission'),
+
+  explainPartial('explain_partial');
 
   const VoiceLine(this.id);
 

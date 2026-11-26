@@ -305,7 +305,8 @@ GoRouter createAppRouter({
           return MultiBlocProvider(
             providers: [
               BlocProvider<PaperScreenCubit>(
-                create: (_) => getIt<PaperScreenCubit>(param1: id)..start(),
+                create: (_) =>
+                    getIt<PaperScreenCubit>(param1: id, param2: fresh)..start(),
               ),
               BlocProvider<PhoneDialerCubit>(
                 create: (_) => getIt<PhoneDialerCubit>(),

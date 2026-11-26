@@ -3,10 +3,15 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:war2aty/core/error/app_failure.dart';
+import 'package:war2aty/core/papers/paper_explanation.dart';
+import 'package:war2aty/core/papers/paper_status.dart';
+import 'package:war2aty/core/papers/paper_todo.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
 import 'package:war2aty/core/result/result.dart';
+import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
+import 'package:war2aty/core/voice/voice_line.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_cubit.dart';
 import 'package:war2aty/features/paper/presentation/cubit/paper_screen_state.dart';
 import 'package:war2aty/features/voice/domain/entities/voice_engine.dart';
@@ -17,24 +22,45 @@ import '../../../../support/fakes.dart';
 void main() {
   late FakePapersRepository papers;
   late FakePaperImageStore images;
+  late FakeFixedLinePlayer fixedLinePlayer;
   late List<PaperScreenState> states;
 
   setUp(() {
     papers = FakePapersRepository();
     images = FakePaperImageStore();
+    fixedLinePlayer = FakeFixedLinePlayer();
     states = [];
   });
 
-  PaperScreenCubit buildCubit({String paperId = 'p1'}) {
+  PaperScreenCubit buildCubit({String paperId = 'p1', bool fresh = true}) {
     final cubit = PaperScreenCubit(
       WatchPaper(papers),
       LoadPaperImage(images),
       RecordPaperReading(papers),
+      SpeakFixedLine(fixedLinePlayer),
       paperId: paperId,
+      fresh: fresh,
     );
     cubit.stream.listen(states.add);
     return cubit;
   }
+
+  final partialPaper = savedPaperWith(
+    explanation: PaperExplanation(
+      title: 'فاتورة كهرباء',
+      status: PaperStatus.partial,
+      paragraphs: const ['الفقرة الأولى.'],
+      todo: const PaperTodo(required: true, text: 'روح لأقرب فرع'),
+    ),
+  );
+
+  final readOutcome = VoiceReadOutcome(
+    engine: VoiceEngine.geminiLive,
+    duration: const Duration(seconds: 10),
+    verified: true,
+    audioSaved: true,
+    spans: const [],
+  );
 
   test('starts loading before the watcher emits', () {
     final cubit = buildCubit();
@@ -105,11 +131,106 @@ void main() {
     await cubit.close();
   });
 
+  test(
+    'recording a reading against a partial paper speaks explain_partial',
+    () async {
+      final cubit = buildCubit();
+      cubit.start();
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: PaperExplanation(
+            title: 'فاتورة كهرباء',
+            status: PaperStatus.partial,
+            paragraphs: const ['الفقرة الأولى.'],
+            todo: const PaperTodo(required: true, text: 'روح لأقرب فرع'),
+          ),
+        ),
+      );
+      await pumpEventQueue();
+
+      await cubit.recordReading(
+        VoiceReadOutcome(
+          engine: VoiceEngine.geminiLive,
+          duration: const Duration(seconds: 10),
+          verified: true,
+          audioSaved: true,
+          spans: const [],
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(fixedLinePlayer.played, [VoiceLine.explainPartial.assetPath]);
+
+      await cubit.close();
+    },
+  );
+
+  test('a device-TTS re-speak does not repeat explain_partial', () async {
+    final cubit = buildCubit();
+    cubit.start();
+    papers.emitPaper(partialPaper);
+    await pumpEventQueue();
+
+    await cubit.recordReading(readOutcome);
+    await pumpEventQueue();
+    await cubit.recordReading(readOutcome);
+    await pumpEventQueue();
+
+    expect(fixedLinePlayer.played, [VoiceLine.explainPartial.assetPath]);
+
+    await cubit.close();
+  });
+
+  test('an opened partial paper never speaks explain_partial', () async {
+    final cubit = buildCubit(fresh: false);
+    cubit.start();
+    papers.emitPaper(partialPaper);
+    await pumpEventQueue();
+
+    await cubit.recordReading(readOutcome);
+    await pumpEventQueue();
+
+    expect(fixedLinePlayer.played, isEmpty);
+
+    await cubit.close();
+  });
+
+  test('recording a reading against a success paper stays silent', () async {
+    final cubit = buildCubit();
+    cubit.start();
+    papers.emitPaper(savedPaperWith());
+    await pumpEventQueue();
+
+    await cubit.recordReading(
+      VoiceReadOutcome(
+        engine: VoiceEngine.geminiLive,
+        duration: const Duration(seconds: 10),
+        verified: true,
+        audioSaved: true,
+        spans: const [],
+      ),
+    );
+    await pumpEventQueue();
+
+    expect(fixedLinePlayer.played, isEmpty);
+
+    await cubit.close();
+  });
+
   test('a reading that fails to record leaves the screen as it was', () async {
     papers.recordReadingOutcome = const Err(LocalDatabaseFailure());
     final cubit = buildCubit();
     cubit.start();
-    papers.emitPaper(savedPaperWith());
+    papers.emitPaper(
+      savedPaperWith(
+        explanation: PaperExplanation(
+          title: 'فاتورة كهرباء',
+          status: PaperStatus.partial,
+          paragraphs: const ['الفقرة الأولى.'],
+          todo: const PaperTodo(required: true, text: 'روح لأقرب فرع'),
+        ),
+      ),
+    );
     await pumpEventQueue();
     states.clear();
 
@@ -126,6 +247,7 @@ void main() {
 
     expect(states, isEmpty);
     expect(cubit.state, isA<PaperScreenReady>());
+    expect(fixedLinePlayer.played, isEmpty);
 
     await cubit.close();
   });

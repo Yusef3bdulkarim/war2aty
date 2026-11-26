@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 39 / 52
+- **Progress:** 40 / 52
 
 ## Why this feature exists
 
@@ -726,7 +726,7 @@ finished and the next one does not start.
 
 ### Phase F — the fixed lines
 
-- [ ] **T40** **Owner-gated.** Add `explain_partial` to `F37-voice-lines.md`
+- [x] **T40** **Owner-gated.** Add `explain_partial` to `F37-voice-lines.md`
       with Claude's draft Arabic (starting with content, per that file's rule),
       **owner edits it and generates the asset**, then add
       `VoiceLine.explainPartial` and the asset, and wire it on the result
@@ -735,6 +735,53 @@ finished and the next one does not start.
       two-way parity passes with the real asset, and tests prove the line
       plays after a fresh partial read, never on a replay, never on a success
       paper.
+      *Found:* the owner ran the generator himself on his own machine (deno +
+      ffmpeg + `supabase/.env`'s key are all there, and it reaches Google —
+      the "dev sandboxes cannot reach Google" note is about a different
+      sandbox), so the draft/edit/generate steps collapsed into one pass:
+      `--only=explain_partial` produced a verbatim take on the first attempt
+      (7.4 s, 31 KB). "Never on a replay" needed no `fresh`-flag check at
+      all — `VoicePlaybackReadFinished` is only ever emitted by a genuine
+      read (`_onReadEvent`/`VoiceReadCompleted`); a replay ends through
+      `VoicePlaybackFile`/`VoiceReplayFinished` instead, so the state
+      `PaperVoiceStarter` already listens for is structurally read-only. The
+      line is spoken from `PaperScreenCubit.recordReading` (it already holds
+      `_latestPaper`, so it can check `explanation.status` right where the
+      outcome is persisted) rather than from the widget, keeping every use
+      case behind a cubit (CLAUDE.md §B2) instead of adding a raw use-case
+      call to `PaperVoiceStarter`. `PaperScreenCubit` gained a
+      `SpeakFixedLine` dependency, which touched 5 construction sites (DI +
+      4 test files). Gate: `dart format .` 0 of 943 changed; `flutter
+      analyze` 0 errors / 0 warnings / 21 info (pre-existing); full `flutter
+      test` +3798 −39, all 39 the known T21/T27 baseline (5 new tests, all
+      passing — same list as T37/T38/T39).
+      *Review:* Opus 5, 2026-11-26 — run late, during T41, because this task
+      was implemented and ticked but **never committed or reviewed**; its work
+      was still in the working tree when T41 started. One real defect, fixed
+      here: the guard was `status == partial` alone, so `explain_partial`
+      repeated on **every** device-TTS re-speak. The recorded reasoning ("a
+      replay ends through `VoiceReplayFinished`, so no `fresh` check is
+      needed") holds only for the saved-file tier; a paper that fell to device
+      TTS has no `audioSaved` file, so pressing play **re-reads** (F38 §C, row
+      3.11), and a re-speak is a genuine read that ends through
+      `VoicePlaybackReadFinished` all over again. The Derived section says as
+      much — `RecordPaperReading` runs on "every `VoicePlaybackReadFinished`,
+      fresh read or re-speak" — so `recordReading` is a per-read hook and the
+      wrong host for a once-per-paper line without its own latch. The three
+      widget tests missed it because "never on a replay" used
+      `audioSaved: true`, the one path the argument actually covered. Fixed
+      per D12's literal wording ("plays **once** after the **first** reading")
+      with both halves: `PaperScreenCubit` now takes `fresh` (the route
+      already had it for `PaperVoiceStarter`; the DI param widened from
+      `String, void` to `String, bool`) and holds a `_partialLineSpoken`
+      latch. Two cubit tests added and each confirmed failing with the guard
+      removed. Also restored the 23-line file-header comment on
+      `voice_line_test.dart` that this task had deleted — §11 leaves existing
+      comments in untouched code alone, and that block was the file's only
+      change. Left as it is, now pinned by this task's own test: a failed
+      `RecordPaperReading` suppresses the line (`result.isErr` returns early);
+      flagged for the owner rather than changed, since D12 ties the line to
+      the reading ending, not to the write landing.
 - [ ] **T41** Remove `fail_unsupported` (D10): enum value, asset, table row,
       and any reference. *Done when:* parity test passes and a grep for the id
       is empty outside history docs.

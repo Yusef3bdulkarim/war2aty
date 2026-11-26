@@ -1204,9 +1204,15 @@ void _registerPapers() {
     ..registerFactory<DeleteAllPapers>(() => DeleteAllPapers(getIt()))
     ..registerFactory<LoadPaperImage>(() => LoadPaperImage(getIt()))
     ..registerFactory<BuildPaperVoiceSegments>(BuildPaperVoiceSegments.new)
-    ..registerFactoryParam<PaperScreenCubit, String, void>(
-      (paperId, _) =>
-          PaperScreenCubit(getIt(), getIt(), getIt(), paperId: paperId),
+    ..registerFactoryParam<PaperScreenCubit, String, bool>(
+      (paperId, fresh) => PaperScreenCubit(
+        getIt(),
+        getIt(),
+        getIt(),
+        getIt(),
+        paperId: paperId,
+        fresh: fresh,
+      ),
     )
     ..registerFactory<OpenPhoneDialer>(() => OpenPhoneDialer(getIt()))
     ..registerFactory<PhoneDialerCubit>(() => PhoneDialerCubit(getIt()))

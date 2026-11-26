@@ -147,12 +147,14 @@ void main() {
           ),
         ),
       )
-      ..registerFactoryParam<PaperScreenCubit, String, void>(
-        (paperId, _) => PaperScreenCubit(
+      ..registerFactoryParam<PaperScreenCubit, String, bool>(
+        (paperId, fresh) => PaperScreenCubit(
           WatchPaper(FakePapersRepository()),
           LoadPaperImage(FakePaperImageStore()),
           RecordPaperReading(FakePapersRepository()),
+          SpeakFixedLine(FakeFixedLinePlayer()),
           paperId: paperId,
+          fresh: fresh,
         ),
       )
       ..registerFactory<PhoneDialerCubit>(

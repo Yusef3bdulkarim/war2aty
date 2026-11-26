@@ -7,6 +7,9 @@ import 'package:war2aty/core/audio/usecases/open_system_tts_settings.dart';
 import 'package:war2aty/core/error/app_failure.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/papers/build_paper_voice_segments.dart';
+import 'package:war2aty/core/papers/paper_explanation.dart';
+import 'package:war2aty/core/papers/paper_status.dart';
+import 'package:war2aty/core/papers/paper_todo.dart';
 import 'package:war2aty/core/papers/usecases/load_paper_image.dart';
 import 'package:war2aty/core/papers/usecases/record_paper_reading.dart';
 import 'package:war2aty/core/papers/usecases/watch_paper.dart';
@@ -38,17 +41,23 @@ void main() {
   ];
 
   late FakePapersRepository papers;
+  late FakeFixedLinePlayer screenLinePlayer;
   late PaperScreenCubit screenCubit;
   late VoicePlaybackRig rig;
 
+  PaperScreenCubit buildScreenCubit({required bool fresh}) => PaperScreenCubit(
+    WatchPaper(papers),
+    LoadPaperImage(FakePaperImageStore()),
+    RecordPaperReading(papers),
+    SpeakFixedLine(screenLinePlayer),
+    paperId: 'p1',
+    fresh: fresh,
+  );
+
   setUp(() {
     papers = FakePapersRepository();
-    screenCubit = PaperScreenCubit(
-      WatchPaper(papers),
-      LoadPaperImage(FakePaperImageStore()),
-      RecordPaperReading(papers),
-      paperId: 'p1',
-    );
+    screenLinePlayer = FakeFixedLinePlayer();
+    screenCubit = buildScreenCubit(fresh: true);
     rig = VoicePlaybackRig();
   });
 
@@ -219,6 +228,69 @@ void main() {
 
       expect(rig.cubit.state, isA<VoicePlaybackFile>());
       expect(papers.lastRecordedId, isNull);
+    });
+  });
+
+  group('explain_partial (D12)', () {
+    final partialPaper = savedPaperWith(
+      explanation: PaperExplanation(
+        title: 'فاتورة كهرباء',
+        status: PaperStatus.partial,
+        paragraphs: const ['الفقرة الأولى.'],
+        todo: const PaperTodo(required: true, text: 'روح لأقرب فرع'),
+      ),
+    );
+    final partialSegments = const BuildPaperVoiceSegments()(
+      partialPaper.explanation,
+    );
+    final successSegments = const BuildPaperVoiceSegments()(
+      savedPaperWith().explanation,
+    );
+
+    testWidgets('plays once after a fresh partial paper finishes reading', (
+      tester,
+    ) async {
+      await pumpStarter(tester, fresh: true);
+      screenCubit.start();
+      papers.emitPaper(partialPaper);
+      await settle(tester);
+
+      expect(screenLinePlayer.played, isEmpty);
+
+      await finishRead(tester, partialSegments);
+
+      expect(screenLinePlayer.played, [VoiceLine.explainPartial.assetPath]);
+    });
+
+    testWidgets('stays silent for a fresh success paper', (tester) async {
+      await pumpStarter(tester, fresh: true);
+      screenCubit.start();
+      papers.emitPaper(savedPaperWith());
+      await settle(tester);
+
+      await finishRead(tester, successSegments);
+
+      expect(screenLinePlayer.played, isEmpty);
+    });
+
+    testWidgets('never plays on a replay of a saved partial paper', (
+      tester,
+    ) async {
+      await screenCubit.close();
+      screenCubit = buildScreenCubit(fresh: false);
+      await pumpStarter(tester, fresh: false);
+      screenCubit.start();
+      papers.emitPaper(
+        savedPaperWith(
+          explanation: partialPaper.explanation,
+          audioSaved: true,
+          spans: spans,
+        ),
+      );
+      await settle(tester);
+
+      expect(rig.cubit.state, isA<VoicePlaybackFile>());
+      expect(screenLinePlayer.played, isEmpty);
     });
   });
 
