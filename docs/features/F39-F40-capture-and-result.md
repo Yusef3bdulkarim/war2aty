@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 42 / 52
+- **Progress:** 43 / 52
 
 ## Why this feature exists
 
@@ -872,9 +872,28 @@ dangling doc links, and a grep for the removed flow's own words ("ocr",
       `reminders_scan_routing` 2, `paper_failure_screen` 1. The pass count
       drops 3800 → 3790 as the deleted files' passing tests go with them.
       Nothing new.
-- [ ] **T43** Delete `features/analysis/presentation` (result screen, OCR
+- [x] **T43** Delete `features/analysis/presentation` (result screen, OCR
       review, cubits, holders, progress view, reading lens, the old failure
       widgets). *Done when:* analyze clean, suite green.
+      *Built:* 25 `lib/` files and 15 test files deleted (−9 213 lines). DI
+      cleaned: `AnalysisResultCubit`, `OcrReviewCubit`,
+      `ImageAnalysisSessionHolder` registrations and their imports removed;
+      `BuildAnalysisResult` kept (it lives in `analysis/domain`, deleted by
+      T44). Two retained files touched: `reading_queue.dart` removed a
+      parenthetical naming `OcrReviewCubit`; `save_document_cubit.dart`
+      removed its doc block that contrasted itself with the now-deleted cubit.
+      Remaining dangling references — `analysis_source.dart` and
+      `ocr_image.dart` doc comments mentioning the deleted cubits — are in
+      `analysis/domain/`, which T44 deletes; `service_locator.dart:1022`'s
+      comment mentioning `AnalysisResultCubit` belongs to T48's prose sweep.
+      *Review:* Opus 4.6, 2026-11-26 (committed in a prior session; tick +
+      findings added here). *Findings:* none.
+      Gate: `dart format .` 0 of 900 changed; `flutter analyze` 0 errors /
+      0 warnings / 19 info (pre-existing); full `flutter test` **+3562 −24**
+      — the 24 are T42's baseline (`shell_test` 18,
+      `manual_reminder_seed_routing` 3, `reminders_scan_routing` 2,
+      `paper_failure_screen` 1); the pass count drops 3790 → 3562 as the
+      deleted presentation tests (228) go with their code. Nothing new.
 - [ ] **T44** Delete the client's old analysis domain/data: `OcrImage`,
       `AnalyzeDocument`, `ShouldFallBackToOnDeviceOcr`, the repository, DTOs,
       mappers, validator, mock/fixture sources, `DecideAnalysisRoute`,
