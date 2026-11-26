@@ -1183,17 +1183,6 @@ void _registerRouting() {
     // and the notification opener read it (F28-T07).
     ..registerLazySingleton<LaunchStatus>(LaunchStatus.new)
     ..registerLazySingleton<GoRouter>(
-      () => createAppRouter(
-        onboardingGate: getIt(),
-        launchStatus: getIt(),
-        // F37-T21. Dev builds only — see `createAppRouter`'s doc and
-        // `voice_harness_guard_test`.
-        // Two conditions, both required: a dev build AND the run asking for
-        // it. The dart-define means a normal dev run is untouched, and
-        // `isDev` means no define can conjure it in a release build.
-        devVoiceHarness:
-            getIt<AppEnvironment>().isDev &&
-            const bool.fromEnvironment('VOICE_HARNESS'),
-      ),
+      () => createAppRouter(onboardingGate: getIt(), launchStatus: getIt()),
     );
 }

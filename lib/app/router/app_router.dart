@@ -55,7 +55,6 @@ import '../../features/saved_papers/presentation/screens/document_details_screen
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
 import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
-import '../dev/voice_harness_screen.dart';
 import '../di/service_locator.dart';
 import '../launch_status.dart';
 import '../shell/scaffold_with_nav_bar.dart';
@@ -76,13 +75,6 @@ abstract final class AppRoutes {
   static const String paper = '/paper';
   static const String reminderManual = '/reminders/manual';
   static const String reminderSuccess = '/reminders/success';
-
-  /// F37-T21's voice harness — **dev builds only**.
-  ///
-  /// The route is only added to the router when `AppEnvironment.isDev`, so in
-  /// a release build this path resolves to nothing. The constant itself is
-  /// unconditional because the guard test needs to name it.
-  static const String devVoiceHarness = '/dev/voice';
 
   /// The first-run flow, which sits outside the bottom-nav shell.
   static const Set<String> firstRun = {onboarding};
@@ -139,34 +131,15 @@ abstract final class AppRoutes {
 /// [launchStatus] hears from the first screen the app opens on once it has its
 /// content, so the launch screen lifts on a whole Home rather than a half-drawn
 /// one (F28-T07).
-/// [devVoiceHarness] adds F37-T21's voice harness route **and opens on it**.
-/// The one real caller passes `env.isDev && bool.fromEnvironment('VOICE_HARNESS')`,
-/// so it takes a dev build *and* a run that asked for it:
-///
-/// ```
-/// flutter run --flavor dev -t lib/main_dev.dart --dart-define=VOICE_HARNESS=true
-/// ```
-///
-/// It defaults to **false** so a test, or any future caller that forgets,
-/// cannot ship it — the route is absent from the router rather than merely
-/// unreachable, and no product screen carries a link to it.
 GoRouter createAppRouter({
   required OnboardingCubit onboardingGate,
   LaunchStatus? launchStatus,
-  bool devVoiceHarness = false,
 }) {
   return GoRouter(
-    // F37-T21: a run that asked for the harness opens on it. Nothing else
-    // changes, and on any normal run this is `home` as before.
-    initialLocation: devVoiceHarness
-        ? AppRoutes.devVoiceHarness
-        : AppRoutes.home,
+    initialLocation: AppRoutes.home,
     refreshListenable: _CubitListenable(onboardingGate.stream),
-    redirect: (context, state) => _firstRunRedirect(
-      onboardingGate.state,
-      state.matchedLocation,
-      devVoiceHarness: devVoiceHarness,
-    ),
+    redirect: (context, state) =>
+        _firstRunRedirect(onboardingGate.state, state.matchedLocation),
     // Lets a screen notice it has been popped back onto (see
     // `appRouteObserver`'s doc) — used by the camera and gallery capture
     // screens to re-arm themselves instead of showing a stale, already
@@ -425,13 +398,6 @@ GoRouter createAppRouter({
         path: AppRoutes.settingsPrivacyPolicy,
         builder: (context, state) => PrivacyPolicyScreen(onClose: context.pop),
       ),
-      // F37-T21. Outside the shell, like the privacy policy: it is a tool, not
-      // a destination. Present only in dev — see `createAppRouter`'s doc.
-      if (devVoiceHarness)
-        GoRoute(
-          path: AppRoutes.devVoiceHarness,
-          builder: (context, state) => const VoiceHarnessScreen(),
-        ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
             ScaffoldWithNavBar(navigationShell: navigationShell),
@@ -557,21 +523,7 @@ GoRouter createAppRouter({
 /// Returning `null` means "stay here". An unresolved gate is treated like a
 /// first run: the app only builds the router once the flag is known, so that
 /// branch is a safety net rather than a state the user can reach.
-String? _firstRunRedirect(
-  OnboardingState gate,
-  String location, {
-  required bool devVoiceHarness,
-}) {
-  // F37-T21. The harness is a tool, not part of the product flow: sending it
-  // through the first-run gate would mean completing onboarding before the
-  // device checklist could be run on a fresh install.
-  //
-  // Gated on the same flag that registers the route, so the exemption exists
-  // only where the route does. Unconditional, it would read as though a
-  // release build had a path out of onboarding — it does not, since no route
-  // matches — but a reader would have to check two functions to know that.
-  if (devVoiceHarness && location == AppRoutes.devVoiceHarness) return null;
-
+String? _firstRunRedirect(OnboardingState gate, String location) {
   final inFirstRun = AppRoutes.firstRun.contains(location);
   return switch (gate) {
     OnboardingUnknown() ||
