@@ -5,21 +5,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/audio/audio_reader_cubit.dart';
-import '../../core/documents/recent_document.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/navigation/app_route_observer.dart';
 import '../../core/reminders/reminder.dart';
-import '../../core/storage/analysis_session.dart';
-import '../../core/usage/usage_hint_holder.dart';
-import '../../core/usage/usecases/get_daily_usage.dart';
 import '../../core/voice/voice_playback_cubit.dart';
-import '../../features/analysis/domain/entities/analysis_source.dart';
-import '../../features/analysis/presentation/cubit/analysis_result_cubit.dart';
-import '../../features/analysis/presentation/cubit/analysis_result_state.dart';
-import '../../features/analysis/presentation/cubit/ocr_review_cubit.dart';
-import '../../features/analysis/presentation/image_analysis_session_holder.dart';
-import '../../features/analysis/presentation/screens/analysis_result_screen.dart';
-import '../../features/analysis/presentation/screens/ocr_review_screen.dart';
 import '../../features/capture/domain/entities/capture_source.dart';
 import '../../features/capture/domain/entities/captured_photo.dart';
 import '../../features/capture/domain/usecases/cleanup_capture_files.dart';
@@ -43,9 +32,6 @@ import '../../features/explain/presentation/screens/paper_failure_screen.dart';
 import '../../features/explain/presentation/screens/paper_waiting_screen.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
-import '../../features/ocr/presentation/cubit/ocr_processing_cubit.dart';
-import '../../features/ocr/presentation/ocr_session_holder.dart';
-import '../../features/ocr/presentation/screens/ocr_processing_screen.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
 import '../../features/onboarding/presentation/cubit/onboarding_state.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
@@ -65,11 +51,8 @@ import '../../features/reminders/presentation/screens/reminder_success_screen.da
 import '../../features/reminders/presentation/screens/reminders_list_screen.dart';
 import '../../features/saved_papers/presentation/cubit/document_details_cubit.dart';
 import '../../features/saved_papers/presentation/cubit/documents_list_cubit.dart';
-import '../../features/saved_papers/presentation/cubit/save_document_cubit.dart';
 import '../../features/saved_papers/presentation/screens/document_details_screen.dart';
 import '../../features/saved_papers/presentation/screens/documents_list_screen.dart';
-import '../../features/saved_papers/presentation/widgets/save_document_listener.dart';
-import '../../features/saved_papers/presentation/widgets/save_mode_sheet.dart';
 import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../dev/voice_harness_screen.dart';
@@ -87,9 +70,6 @@ abstract final class AppRoutes {
   static const String settingsPrivacyPolicy = '/settings/privacy-policy';
   static const String capture = '/capture';
   static const String preview = '/preview';
-  static const String ocr = '/ocr';
-  static const String ocrReview = '/ocr-review';
-  static const String result = '/result';
   static const String documentDetails = '/documents';
   static const String paperFailure = '/paper-failure';
   static const String paperWaiting = '/paper-waiting';
@@ -346,190 +326,8 @@ GoRouter createAppRouter({
           );
         },
       ),
-      GoRoute(
-        path: AppRoutes.ocr,
-        builder: (context, state) {
-          final session = state.extra as AnalysisSession?;
-          if (session == null) return const _BackToHome();
-          return BlocProvider<OcrProcessingCubit>(
-            create: (_) =>
-                getIt<OcrProcessingCubit>(param1: session)..process(),
-            // The builder's own `context` sits *above* this provider, so a
-            // `read` on it cannot find the cubit. This [Builder] puts the
-            // callbacks' context below it — without one, continuing threw
-            // `ProviderNotFoundException` and the button did nothing.
-            child: Builder(
-              builder: (context) => OcrProcessingScreen(
-                // Auto-navigates on OCR completion: stores the result in
-                // `OcrSessionHolder` and push-replaces to the unified
-                // review screen.
-                onCompleted: () {
-                  context.read<OcrProcessingCubit>().confirm();
-                  context.pushReplacement(AppRoutes.ocrReview);
-                },
-                // `go(home)` then `push(capture)` rather than
-                // `pushReplacement`: `pushReplacement` only swaps the current
-                // top route, leaving the original `/capture` entry `Home`
-                // pushed underneath still on the stack. Collapsing to Home
-                // first guarantees the stack is always `[Home, capture(new)]`,
-                // so Back from the fresh Camera can never resurface a stale,
-                // covered capture route.
-                onRetake: () {
-                  context.go(AppRoutes.home);
-                  context.push(AppRoutes.captureWith(CaptureSource.camera));
-                },
-                onPickAnother: () {
-                  context.go(AppRoutes.home);
-                  context.push(AppRoutes.captureWith(CaptureSource.gallery));
-                },
-              ),
-            ),
-          );
-        },
-      ),
-      // The unified OCR review screen — serves both the online route (the
-      // online reading runs here) and the offline route (Tesseract already finished on
-      // `/ocr`, result handed off via `OcrSessionHolder`). Also outside the
-      // shell, like the routes either side of it.
-      GoRoute(
-        path: AppRoutes.ocrReview,
-        builder: (context, state) {
-          // Detect whether we arrived from the offline or online path.
-          // Only one holder is ever populated at a time — `ImagePreviewCubit`
-          // clears both before populating the route it chose.
-          final ocrHandoff = getIt<OcrSessionHolder>();
-          final onlineHandoff = getIt<ImageAnalysisSessionHolder>();
-
-          final AnalysisSession? session;
-          final OcrReviewCubit cubit;
-
-          if (ocrHandoff.session != null && ocrHandoff.result != null) {
-            // Offline path: OCR already ran on `/ocr`.
-            session = ocrHandoff.session;
-            cubit = getIt<OcrReviewCubit>(
-              instanceName: 'offline',
-              param1: session,
-              param2: ocrHandoff.result,
-            )..loadOffline(ocrHandoff.result!);
-          } else if (onlineHandoff.session != null &&
-              onlineHandoff.photo != null) {
-            // Online path: the online reading runs inside the cubit.
-            session = onlineHandoff.session;
-            cubit = getIt<OcrReviewCubit>(
-              param1: session,
-              param2: onlineHandoff.photo,
-            )..runOcr();
-          } else {
-            return const _BackToHome();
-          }
-
-          return MultiBlocProvider(
-            providers: [
-              BlocProvider<OcrReviewCubit>(create: (_) => cubit),
-              BlocProvider<AudioReaderCubit>(
-                create: (_) => getIt<AudioReaderCubit>(),
-              ),
-            ],
-            // Same reasoning as the `/ocr` route's `Builder` above: the
-            // callbacks need a `context` below the provider to `read` it.
-            child: Builder(
-              builder: (context) => OcrReviewScreen(
-                // Replaces this route: once the approved text is on its way
-                // to Groq (online) or the result screen (offline) there is
-                // no going back to the OCR review of it.
-                onAnalyze: () {
-                  final reviewCubit = context.read<OcrReviewCubit>();
-                  final extraction = reviewCubit.buildReviewedResult();
-                  // The re-extracted result, not the server's original
-                  // candidates — see `buildReviewedResult`'s doc (locked
-                  // correction #1).
-                  getIt<OcrSessionHolder>().set(session!, extraction);
-                  reviewCubit.cleanupImage();
-                  context.pushReplacement(AppRoutes.result);
-                },
-                // See the `/ocr` route's `onRetake` above for why this is
-                // `go(home)` + `push(capture)` rather than `pushReplacement`.
-                onRetake: () {
-                  context.read<OcrReviewCubit>().cleanupImage();
-                  context.go(AppRoutes.home);
-                  context.push(AppRoutes.captureWith(CaptureSource.camera));
-                },
-                onPickAnother: () {
-                  context.read<OcrReviewCubit>().cleanupImage();
-                  context.go(AppRoutes.home);
-                  context.push(AppRoutes.captureWith(CaptureSource.gallery));
-                },
-              ),
-            ),
-          );
-        },
-      ),
-      // Also outside the shell: the result belongs to the scan the user just
-      // finished, and it is left through its own back control.
-      GoRoute(
-        path: AppRoutes.result,
-        builder: (context, state) {
-          // Picked up from a hand-off holder rather than from `extra`, which
-          // the OS drops when it kills and restores the app — and redoing OCR
-          // silently would be expensive. Both routes arrive here through the
-          // OCR review, which leaves the reviewed text in `OcrSessionHolder`:
-          // every analysis is text (F20-T19).
-          final ocrHandoff = getIt<OcrSessionHolder>();
-          final session = ocrHandoff.session;
-          final ocrExtraction = ocrHandoff.result;
-          if (session == null || ocrExtraction == null) {
-            return const _BackToHome();
-          }
-          final AnalysisSource source = OcrAnalysisSource(ocrExtraction);
-          return _UsageHintOnLeave(
-            child: MultiBlocProvider(
-              providers: [
-                BlocProvider<AnalysisResultCubit>(
-                  create: (_) => getIt<AnalysisResultCubit>(
-                    param1: session,
-                    param2: source,
-                  )..analyze(),
-                ),
-                BlocProvider<SaveDocumentCubit>(
-                  create: (_) => getIt<SaveDocumentCubit>(),
-                ),
-                BlocProvider<AudioReaderCubit>(
-                  create: (_) => getIt<AudioReaderCubit>(),
-                ),
-              ],
-              child: SaveDocumentListener(
-                // Under both providers: the save reads what the analysis
-                // produced, and this is the only place that knows about both.
-                child: Builder(
-                  builder: (context) => AnalysisResultScreen(
-                    // The remaining-analyses hint is stored by
-                    // `_UsageHintOnLeave` above, on this exit and every other.
-                    onClose: () => context.go(AppRoutes.home),
-                    // See the `/ocr` route's `onRetake` above for why this is
-                    // `go(home)` + `push(capture)` rather than `pushReplacement`.
-                    onCaptureAnother: () {
-                      context.go(AppRoutes.home);
-                      context.push(AppRoutes.captureWith(CaptureSource.camera));
-                    },
-                    // Same shape as `onCaptureAnother`, into the gallery
-                    // (F23 #5).
-                    onPickFromGallery: () {
-                      context.go(AppRoutes.home);
-                      context.push(
-                        AppRoutes.captureWith(CaptureSource.gallery),
-                      );
-                    },
-                    onSave: () => unawaited(_saveResult(context, session)),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-      // Also outside the shell, like the result route it shares a layout
-      // with: opened from a row in the list, and left through its own back
-      // control rather than the bottom nav.
+      // Also outside the shell: opened from a row in the list, and left
+      // through its own back control rather than the bottom nav.
       GoRoute(
         path: '${AppRoutes.documentDetails}/:id',
         builder: (context, state) {
@@ -541,17 +339,15 @@ GoRouter createAppRouter({
               BlocProvider<DocumentDetailsCubit>(
                 create: (_) => getIt<DocumentDetailsCubit>(param1: id)..start(),
               ),
-              // Mirrors the `/result` route: the details screen grew its own
-              // Listen action and mini-player (F08 follow-up), reusing the
-              // same reader.
+              // The details screen grew its own Listen action and mini-player
+              // (F08 follow-up), reusing the same reader.
               BlocProvider<AudioReaderCubit>(
                 create: (_) => getIt<AudioReaderCubit>(),
               ),
             ],
             // The outer `context` sits *above* this provider, so callbacks
-            // built from it can't `read` the cubit — the same
-            // `ProviderNotFoundException` trap the `/ocr` and `/ocr-review`
-            // routes above already work around. This [Builder] gives the
+            // built from it can't `read` the cubit — a
+            // `ProviderNotFoundException` trap. This [Builder] gives the
             // callbacks a context from below the provider instead.
             child: Builder(
               builder: (context) => DocumentDetailsScreen(onClose: context.pop),
@@ -868,10 +664,9 @@ Widget _galleryPicker(BuildContext context) {
 
 /// Sends the user back to Home, one frame after this builds.
 ///
-/// The scan routes carry their subject with them — a session, an OCR result —
-/// and reaching one without it means the flow was restored or deep-linked into
-/// halfway through. There is nothing to show, so the route bounces instead of
-/// rendering an empty screen.
+/// The scan routes carry their subject with them, and reaching one without it
+/// means the flow was restored or deep-linked into halfway through. There is
+/// nothing to show, so the route bounces instead of rendering an empty screen.
 class _BackToHome extends StatelessWidget {
   const _BackToHome();
 
@@ -882,82 +677,6 @@ class _BackToHome extends StatelessWidget {
     });
     return const SizedBox.shrink();
   }
-}
-
-/// Hands the analysis on screen to the save action.
-///
-/// The result screen exposes a plain callback, so the two cubits are joined
-/// here rather than inside either feature: analysis produces the paper, saved
-/// papers keeps it, and neither has to import the other.
-///
-/// Asks which mode to save in first (F08-T04) — the picture is only ever kept
-/// because the sheet's own confirm button was pressed, never as a default.
-Future<void> _saveResult(BuildContext context, AnalysisSession session) async {
-  final state = context.read<AnalysisResultCubit>().state;
-  // The save button only exists on a ready result; this guards the case where
-  // the state moved on between the tap and this frame.
-  if (state is! AnalysisResultReady) return;
-
-  final mode = await showSaveModeSheet(context);
-  if (mode == null || !context.mounted) return;
-
-  await context.read<SaveDocumentCubit>().save(
-    analysis: state.result.analysis,
-    extractedText: state.result.extractedText,
-    imagePath: mode == DocumentStorageMode.withImage ? session.imagePath : null,
-  );
-}
-
-/// Stores the remaining-analyses hint when the result route leaves the tree
-/// (F26-T04) — the back arrow, the system back, «صوّر ورقة تانية» / «اختار
-/// من المعرض», or the reminder flow ending on a tab. Hooking each exit
-/// instead is how all but the arrow came to be missed.
-///
-/// Entering drops a hint still held from an earlier analysis — say the shell
-/// was covered by the camera when it arrived — so a stale count never shows
-/// ahead of this one's.
-class _UsageHintOnLeave extends StatefulWidget {
-  const _UsageHintOnLeave({required this.child});
-
-  final Widget child;
-
-  @override
-  State<_UsageHintOnLeave> createState() => _UsageHintOnLeaveState();
-}
-
-class _UsageHintOnLeaveState extends State<_UsageHintOnLeave> {
-  @override
-  void initState() {
-    super.initState();
-    getIt<UsageHintHolder>().clear();
-  }
-
-  @override
-  void dispose() {
-    unawaited(_storeUsageHint());
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => widget.child;
-}
-
-/// Reads today's cached quota and, when part of it has been used but some
-/// remains, stores the remaining count in [UsageHintHolder] so the nav shell
-/// can show it as a SnackBar.
-///
-/// Called as the result route leaves the tree. The read is a local DB look-up
-/// (sub-millisecond), so the SnackBar follows the transition closely.
-Future<void> _storeUsageHint() async {
-  final result = await getIt<GetDailyUsage>()();
-  result.when(
-    ok: (usage) {
-      if (usage != null && usage.hasQuotaLeft && usage.usedCount > 0) {
-        getIt<UsageHintHolder>().set(usage.remainingCount);
-      }
-    },
-    err: (_) {},
-  );
 }
 
 /// Adapts a Cubit's [Stream] to the [Listenable] `GoRouter` expects, so gate

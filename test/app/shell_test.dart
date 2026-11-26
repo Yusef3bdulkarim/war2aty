@@ -46,7 +46,6 @@ import 'package:war2aty/core/reminders/usecases/set_hide_sensitive_notification_
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/result/result.dart';
 import 'package:war2aty/core/settings/usecases/delete_all_app_data.dart';
-import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/get_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/audio_reader/domain/usecases/select_voice_for_reading.dart';
@@ -225,7 +224,6 @@ void main() {
           ),
         ),
       )
-      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<ReminderNotificationTaps>(
         ReminderNotificationTaps.new,
       )

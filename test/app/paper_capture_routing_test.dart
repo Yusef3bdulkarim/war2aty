@@ -23,7 +23,6 @@ import 'package:war2aty/core/permissions/permission_service.dart';
 import 'package:war2aty/core/platform/usecases/open_phone_dialer.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
-import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/sync_daily_usage.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/core/voice/usecases/speak_fixed_line.dart';
@@ -105,7 +104,6 @@ void main() {
           watchUpcomingReminder: WatchUpcomingReminder(upcomingReminders),
         ),
       )
-      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       ..registerLazySingleton<PaperRetryHolder>(PaperRetryHolder.new)
       ..registerLazySingleton<PaperExplainRunner>(
         () => PaperExplainRunner(explainAndSave),

@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 41 / 52
+- **Progress:** 42 / 52
 
 ## Why this feature exists
 
@@ -820,10 +820,58 @@ dangling doc links, and a grep for the removed flow's own words ("ocr",
 `test/` finds the stale prose. `keptForOldBuilds` keeps any server error code
 1.0.x still sends.
 
-- [ ] **T42** Router: delete `/ocr`, `/ocr-review`, `/result`, `_saveResult`,
+- [x] **T42** Router: delete `/ocr`, `/ocr-review`, `/result`, `_saveResult`,
       `_UsageHintOnLeave`, and the shell's usage SnackBar listener +
       `UsageHintHolder` (D18). *Done when:* routing tests updated, no route
       references a deleted screen.
+      *Built:* the three route constants and their `GoRoute` blocks, plus
+      `_saveResult`, `_UsageHintOnLeave`/`_UsageHintOnLeaveState` and
+      `_storeUsageHint`, are gone from `app_router.dart` (−299); the shell lost
+      its holder field, `initState`, `didChangeDependencies`, `dispose` and
+      `_showUsageSnackBar` (−58). `UsageHintHolder` itself is deleted — D18
+      says it "goes with the old result route", and no later task owns it:
+      T43 is `features/analysis/presentation` and T44 the old analysis
+      domain/data, neither of which reaches `core/usage/`. Its three tests and
+      the four routing tests that registered it only to satisfy the shell
+      (`manual_reminder_seed`, `paper_capture`, `paper_failure`,
+      `reminders_scan`) were cleaned with it. Four test files that exist only
+      to drive the deleted routes were removed: `usage_hint_routing` (F26-T04),
+      `explicit_ocr_fallback` (F20 §1), and the two integration journeys T21's
+      owner decision left failing until T49.
+      *Review:* Opus 5, 2026-11-26 — three findings, all fixed here. **(1)**
+      The Sonnet pass stopped at the shell and left `UsageHintHolder`
+      registered in `service_locator.dart` and named in a `ScaffoldWithNavBar`
+      doc comment, so the class survived as orphaned production code that D18
+      names and no later task claims; the class, its registration, its import,
+      its test and the four test registrations above are now all gone.
+      **(2)** Deleting the routes falsified four comments in *retained* code
+      that cross-referenced them — `documentDetails` was introduced as sharing
+      a layout with "the result route", its `AudioReaderCubit` as "mirrors the
+      `/result` route", its `Builder` as the trap "the `/ocr` and `/ocr-review`
+      routes **above** already work around", and `_BackToHome`'s doc named "a
+      session, an OCR result" as the subjects the scan routes carry, none of
+      which is true of its five remaining callers. The dangling clause was
+      excised from each and the substantive reason kept; no new prose added
+      (§11). **(3)** The generic review skill wrote a `docs/learning/` handoff,
+      which is not this repo's convention — outcomes live in this file — and
+      its recorded assumption ("the class will be swept in T43") was the wrong
+      call in finding (1); removed, and the outcome recorded here instead.
+      *Left for T48:* `homeUsageRemaining` (the three string files +
+      `app_strings_test`) is now unused in `lib/`, and the T21 comment on
+      `ImagePreviewScreen.onConfirmed` still contrasts the new path with "OCR
+      or the old analysis result screen" — both belong to the strings/prose
+      sweep that runs after the last deletion, not here. `OcrSessionHolder`,
+      `ImageAnalysisSessionHolder` and `AnalysisResultCubit` stay registered
+      in DI: unreachable from the router now, but their classes live in the
+      trees T43/T44 delete.
+      Gate: `dart format .` 0 of 937 changed; `flutter analyze` 0 errors /
+      0 warnings / 21 info (pre-existing); full `flutter test` **+3790 −24** —
+      the 24 are exactly T41's 39 baseline minus the three deleted files
+      (`usage_hint_routing` 6, `analysis_failure_paths` 5, `invoice_journey`
+      4), leaving `shell_test` 18, `manual_reminder_seed_routing` 3,
+      `reminders_scan_routing` 2, `paper_failure_screen` 1. The pass count
+      drops 3800 → 3790 as the deleted files' passing tests go with them.
+      Nothing new.
 - [ ] **T43** Delete `features/analysis/presentation` (result screen, OCR
       review, cubits, holders, progress view, reading lens, the old failure
       widgets). *Done when:* analyze clean, suite green.

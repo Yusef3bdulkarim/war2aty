@@ -11,7 +11,6 @@ import 'package:war2aty/core/reminders/usecases/create_manual_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
 import 'package:war2aty/core/time/document_date_label.dart';
-import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/home/presentation/cubit/home_cubit.dart';
 import 'package:war2aty/features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -55,7 +54,6 @@ void main() {
           watchUpcomingReminder: WatchUpcomingReminder(upcomingReminders),
         ),
       )
-      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       // The registration under test, shaped exactly as `service_locator.dart`
       // shapes it: a factory parameterised on a **nullable** seed, under the
       // `instanceName` `app_router.dart`'s manual route resolves it by.

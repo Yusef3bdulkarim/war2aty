@@ -12,7 +12,6 @@ import 'package:war2aty/core/reminders/usecases/snooze_reminder.dart';
 import 'package:war2aty/core/reminders/usecases/watch_reminders.dart';
 import 'package:war2aty/core/reminders/usecases/watch_upcoming_reminder.dart';
 import 'package:war2aty/core/theme/app_theme.dart';
-import 'package:war2aty/core/usage/usage_hint_holder.dart';
 import 'package:war2aty/core/usage/usecases/watch_daily_usage.dart';
 import 'package:war2aty/features/capture/domain/entities/capture_source.dart';
 import 'package:war2aty/features/capture/domain/usecases/get_camera_permission.dart';
@@ -69,7 +68,6 @@ void main() {
           watchUpcomingReminder: WatchUpcomingReminder(upcomingReminders),
         ),
       )
-      ..registerLazySingleton<UsageHintHolder>(UsageHintHolder.new)
       // An empty repository, which is what puts `_EmptyLibrary` on screen.
       ..registerFactory<RemindersCubit>(() {
         final reminders = FakeRemindersRepository();
