@@ -625,9 +625,6 @@ abstract interface class AppStrings {
   String get analysisWaitReadyAnnouncement;
 
   // Analysis result
-  /// The result page's own name, in its top bar.
-  String get analysisResultTitle;
-
   /// Accessibility label for the back control on the result page.
   String get analysisResultBackLabel;
 

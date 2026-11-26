@@ -286,7 +286,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'analysisWaitHintReady': (s) => s.analysisWaitHintReady,
   'analysisWaitLongAnnouncement': (s) => s.analysisWaitLongAnnouncement,
   'analysisWaitReadyAnnouncement': (s) => s.analysisWaitReadyAnnouncement,
-  'analysisResultTitle': (s) => s.analysisResultTitle,
   'analysisResultBackLabel': (s) => s.analysisResultBackLabel,
   'analysisFailedTitle': (s) => s.analysisFailedTitle,
   'analysisFailedMessage': (s) => s.analysisFailedMessage,

@@ -806,8 +806,6 @@ final class EnStrings implements AppStrings {
 
   // Analysis result
   @override
-  String get analysisResultTitle => 'Analysis result';
-  @override
   String get analysisResultBackLabel => 'Back';
   @override
   String get analysisFailedTitle => 'Something went wrong while explaining';

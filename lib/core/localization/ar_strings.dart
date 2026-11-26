@@ -796,8 +796,6 @@ final class ArStrings implements AppStrings {
 
   // Analysis result
   @override
-  String get analysisResultTitle => 'نتيجة التحليل';
-  @override
   String get analysisResultBackLabel => 'رجوع';
   @override
   String get analysisFailedTitle => 'حصلت مشكلة أثناء الشرح';
