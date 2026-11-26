@@ -5,7 +5,7 @@
 - **Depends on:** F36 (`explain-document`, §33), F37 (voice spine, closed with one open defect), F38 (paper model, closed with its device pass partly run).
 - **Decisions source:** [F34-non-reader-pivot.md](F34-non-reader-pivot.md) and its "Amendments (2026-11-08)" section; [F38-paper-model.md](F38-paper-model.md)'s scope fence and "Open for the owner"; [F37-voice-lines.md](F37-voice-lines.md). The owner answered nineteen open questions on 2026-11-17; they are **D1–D19** below and are decisions, not suggestions.
 - **Design source:** canvas «ورقتي — الشاشات الجديدة» (https://claude.ai/artifact/X9rLoR8AHtmrKq3JTDgbVt), artboards `Crop`, `Waiting`, `Result`.
-- **Progress:** 44 / 52
+- **Progress:** 45 / 52
 
 ## Why this feature exists
 
@@ -912,10 +912,12 @@ dangling doc links, and a grep for the removed flow's own words ("ocr",
       compiler shows orphaned), with `keptForOldBuilds` entries for codes 1.0.x
       still reports. *Done when:* the APK builds, analyze clean, suite green,
       and the release APK size is recorded here.
-- [ ] **T46** Delete the dev harness (`voice_harness_screen.dart`, its route,
+- [x] **T46** Delete the dev harness (`voice_harness_screen.dart`, its route,
       the `VOICE_HARNESS` define) and adjust `voice_harness_guard_test`
       (delete it or turn it into "no dev route exists"). *Done when:* suite
       green.
+      - **Findings:** 0
+      - **Gate:** 0 errors · 0 warnings · 13 info (pre-existing) · 808 files formatted (0 changed)
 - [ ] **T47** Delete the `core/widgets/result_*` widgets, strings and assets
       used only by the deleted screens — keeping every one
       `DocumentDetailsScreen` still uses (F41). *Done when:* analyze clean.
