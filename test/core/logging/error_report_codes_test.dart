@@ -97,17 +97,29 @@ void main() {
   /// field still emits does not degrade reporting, it deletes it, silently,
   /// for the users most likely to be hitting the failure.
   ///
-  /// F35 removes product features from the app, which removes `AppFailure`
-  /// leaves with them, while 1.0.2 keeps running on real phones for as long as
-  /// people take to update. Each entry below is one of those, and comes out
-  /// only when the last build that can emit it is out of support.
+  /// F35 and F39 remove product features from the app, which removes
+  /// `AppFailure` leaves with them, while 1.0.2 keeps running on real phones
+  /// for as long as people take to update. Each entry below is one of those,
+  /// and comes out only when the last build that can emit it is out of support.
   ///
   /// - `ANALYSIS_CONSENT_DECLINED` — the consent setting, removed in F35-T06;
   ///   1.0.2 still has the setting and still reports it when it blocks a run.
   /// - `IMAGE_QUALITY` — the capture-time quality gate, removed in F35-T16;
   ///   1.0.2 still runs the gate and still reports it when the assessment
   ///   fails.
-  const keptForOldBuilds = {'ANALYSIS_CONSENT_DECLINED', 'IMAGE_QUALITY'};
+  /// - `OCR_INIT`, `OCR`, `NO_TEXT_DETECTED` — on-device Tesseract failures,
+  ///   removed in F39-T45; 1.0.x still runs Tesseract and still reports these.
+  /// - `ONLINE_OCR_UNAVAILABLE` — online OCR outage, removed in F39-T45;
+  ///   1.0.x still calls ocr-document and still reports this when it returns
+  ///   OCR_UNAVAILABLE.
+  const keptForOldBuilds = {
+    'ANALYSIS_CONSENT_DECLINED',
+    'IMAGE_QUALITY',
+    'OCR_INIT',
+    'OCR',
+    'NO_TEXT_DETECTED',
+    'ONLINE_OCR_UNAVAILABLE',
+  };
 
   test('every code the app can report is one the server accepts', () {
     final client = {...dartFailureCodes(), ...dartCrashCodes()};

@@ -24,7 +24,7 @@ void main() {
         'ANALYSIS_FAILED': AnalysisServiceFailure,
         'INTERNAL_ERROR': AnalysisServiceFailure,
         'ANALYSIS_DISABLED': AnalysisDisabledFailure,
-        'OCR_UNAVAILABLE': OnlineOcrUnavailableFailure,
+        'OCR_UNAVAILABLE': AnalysisServiceFailure,
       };
 
       for (final entry in expected.entries) {
@@ -111,10 +111,10 @@ void main() {
   });
 
   group('OCR_UNAVAILABLE', () {
-    test('our 502 envelope is OnlineOcrUnavailableFailure', () {
+    test('our 502 envelope is AnalysisServiceFailure', () {
       expect(
         failureFromErrorBody(_body('OCR_UNAVAILABLE'), statusCode: 502),
-        isA<OnlineOcrUnavailableFailure>(),
+        isA<AnalysisServiceFailure>(),
       );
     });
 

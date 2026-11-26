@@ -9,9 +9,6 @@ PaperFailureKind _expectedKind(AppFailure failure) => switch (failure) {
   CameraPermissionFailure() ||
   GalleryAccessFailure() ||
   ImageProcessingFailure() ||
-  OcrInitializationFailure() ||
-  OcrFailure() ||
-  NoTextDetectedFailure() ||
   LocalDatabaseFailure() ||
   LaunchFailure() ||
   FileEncryptionFailure() ||
@@ -33,7 +30,6 @@ PaperFailureKind _expectedKind(AppFailure failure) => switch (failure) {
   AnalysisServiceFailure() ||
   InvalidAnalysisResponseFailure() ||
   AiProviderRateLimitFailure() ||
-  OnlineOcrUnavailableFailure() ||
   VoiceServiceFailure() ||
   VoiceStreamInterruptedFailure() ||
   UnsupportedDocumentFailure() ||
@@ -48,9 +44,6 @@ void main() {
     const CameraPermissionFailure(),
     const GalleryAccessFailure(),
     const ImageProcessingFailure(),
-    const OcrInitializationFailure(),
-    const OcrFailure(),
-    const NoTextDetectedFailure(),
     const LocalDatabaseFailure(),
     const LaunchFailure(),
     const FileEncryptionFailure(),
@@ -74,7 +67,6 @@ void main() {
     const AnalysisServiceFailure(),
     const InvalidAnalysisResponseFailure(),
     const AiProviderRateLimitFailure(),
-    const OnlineOcrUnavailableFailure(),
     const VoiceServiceFailure(),
     const VoiceStreamInterruptedFailure(Duration(seconds: 1)),
     const UnsupportedDocumentFailure(),
@@ -85,8 +77,8 @@ void main() {
   ];
 
   test('the table walks every AppFailure leaf', () {
-    expect(everyLeaf, hasLength(37));
-    expect(everyLeaf.map((f) => f.runtimeType).toSet(), hasLength(37));
+    expect(everyLeaf, hasLength(33));
+    expect(everyLeaf.map((f) => f.runtimeType).toSet(), hasLength(33));
   });
 
   test('every leaf maps to its expected kind', () {
@@ -117,6 +109,6 @@ void main() {
     final rest = everyLeaf.where(
       (f) => PaperFailureKind.fromFailure(f) == PaperFailureKind.serviceProblem,
     );
-    expect(rest, hasLength(35));
+    expect(rest, hasLength(31));
   });
 }

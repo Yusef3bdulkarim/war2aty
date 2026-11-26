@@ -39,7 +39,7 @@ void main() {
           ocrCharacterCount: 900,
           ocrConfidenceBand: OcrConfidenceBand.high,
           resultStatus: LogResultStatus.success,
-          failure: OcrFailure(),
+          failure: ImageProcessingFailure(),
           appVersion: '1.0.0',
           schemaVersion: 'v1',
         ),
@@ -145,9 +145,6 @@ void main() {
       const CameraPermissionFailure(),
       const GalleryAccessFailure(),
       const ImageProcessingFailure(),
-      const OcrInitializationFailure(),
-      const OcrFailure(),
-      const NoTextDetectedFailure(),
       const LocalDatabaseFailure(),
       const FileEncryptionFailure(),
       const FileStorageFailure(),
@@ -165,17 +162,16 @@ void main() {
       const AnalysisServiceFailure(),
       const InvalidAnalysisResponseFailure(),
       const AiProviderRateLimitFailure(),
-      const OnlineOcrUnavailableFailure(),
       const UnsupportedDocumentFailure(),
       PartialAnalysisFailure(['x']),
       const AmbiguousDateFailure(),
       const MissingReminderTimeFailure(),
     ];
 
-    test('maps all 28 failures to distinct non-empty codes', () {
+    test('maps all 24 failures to distinct non-empty codes', () {
       final codes = all.map(errorCodeOf).toList();
-      expect(codes, hasLength(28));
-      expect(codes.toSet(), hasLength(28));
+      expect(codes, hasLength(24));
+      expect(codes.toSet(), hasLength(24));
       expect(codes.every((c) => c.isNotEmpty), isTrue);
     });
   });

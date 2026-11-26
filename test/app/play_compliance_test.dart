@@ -142,9 +142,9 @@ void main() {
 
   group('which ABI a library belongs to', () {
     test('is read from the entry path, in both artifact layouts', () {
-      expect(abiOf('lib/arm64-v8a/libtesseract.so'), 'arm64-v8a');
-      expect(abiOf('base/lib/x86_64/libtesseract.so'), 'x86_64');
-      expect(abiOf('base/lib/armeabi-v7a/libtesseract.so'), 'armeabi-v7a');
+      expect(abiOf('lib/arm64-v8a/libplugin.so'), 'arm64-v8a');
+      expect(abiOf('base/lib/x86_64/libplugin.so'), 'x86_64');
+      expect(abiOf('base/lib/armeabi-v7a/libplugin.so'), 'armeabi-v7a');
     });
 
     test('a library somewhere else is in neither ABI set', () {

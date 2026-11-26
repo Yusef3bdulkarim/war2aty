@@ -76,20 +76,9 @@ import 'package:war2aty/features/capture/domain/usecases/focus_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/initialize_camera.dart';
 import 'package:war2aty/features/capture/domain/usecases/set_camera_flash.dart';
 import 'package:war2aty/features/capture/presentation/cubit/camera_capture_cubit.dart';
-import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
-import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
 
 import 'fakes.dart';
-
-/// What the on-device reader (Tesseract) "sees" by default: the vertical
-/// slice's electricity bill, in the shape a real scan comes back in.
-const String kDeviceOcrText =
-    'شركة جنوب القاهرة لتوزيع الكهرباء\n'
-    'فاتورة استهلاك شهر مارس\n'
-    'رقم الحساب: 12345678\n'
-    'المبلغ المطلوب: 850.50 جنيه\n'
-    'آخر موعد للسداد: 15/04/2026';
 
 /// The hour the journey's deadline carries, so the reminder form opens with
 /// its default alert already in place (a date with no time has none, and the
@@ -105,7 +94,6 @@ const String kJourneyDeadlineTime = '10:00';
 const Duration kJourneyDeadlineLeadTime = Duration(days: 7);
 
 const String kAnalyzeDocumentPath = '/analyze-document';
-const String kOcrDocumentPath = '/ocr-document';
 
 /// One call the app made to an Edge Function.
 final class EdgeCall {
@@ -245,8 +233,6 @@ final class FakeEdgeFunctions implements HttpClientAdapter {
     switch (path) {
       case kGetUsagePath:
         return EdgeReply.json(200, usageBody());
-      case kOcrDocumentPath:
-        return const EdgeReply.json(200, kOcrDocumentBody);
       case kAnalyzeDocumentPath:
         return EdgeReply.json(200, analyzeBody);
       default:
@@ -315,47 +301,6 @@ DateTime journeyDeadline() {
   return DateTime(now.year, now.month, now.day);
 }
 
-/// A real `ocr-document` success body (API_CONTRACT §29b), the same shape the
-/// bundled mock datasource serves.
-const Map<String, Object?> kOcrDocumentBody = {
-  'schema_version': '2.0',
-  'session_id': 'journey-ocr-session',
-  'ocr_text':
-      'شركة جنوب القاهرة لتوزيع الكهرباء\n'
-      'فاتورة استهلاك شهر مارس\n'
-      'رقم الحساب: 12345678\n'
-      'المبلغ المطلوب: 850.50 جنيه\n'
-      'آخر موعد للسداد: 15/04/2026\n'
-      'للاستفسار: 19980',
-  'detected_languages': ['ar'],
-  'candidates': {
-    'dates': [
-      {
-        'raw_text': '15/04/2026',
-        'normalized_date': '2026-04-15',
-        'is_ambiguous': false,
-      },
-    ],
-    'times': <Map<String, Object?>>[],
-    'amounts': [
-      {
-        'raw_text': '850.50 جنيه',
-        'value': 850.5,
-        'currency': 'EGP',
-        'is_ambiguous': false,
-      },
-    ],
-    'phones': [
-      {
-        'raw_text': '19980',
-        'normalized_number': '19980',
-        'is_ambiguous': false,
-      },
-    ],
-    'references': <Map<String, Object?>>[],
-  },
-};
-
 /// An [AnalysisSessionStorage] that creates a session on real disk.
 ///
 /// The online route reads the confirmed photo's bytes, so the file has to
@@ -405,7 +350,6 @@ final class AppHarness {
     required this.picker,
     required this.permissions,
     required this.connectivity,
-    required this.ocrEngine,
     required this.notifications,
     required this.tts,
     required this.documentImages,
@@ -421,7 +365,6 @@ final class AppHarness {
   final FakeImagePickerService picker;
   final FakePermissionService permissions;
   final FakeConnectivityService connectivity;
-  final FakeOcrEngine ocrEngine;
   final FakeLocalNotificationsPort notifications;
   final FakeTextToSpeechService tts;
   final FakeDocumentImageStore documentImages;
@@ -536,7 +479,6 @@ Future<AppHarness> bootApp(
   int usedToday = 0,
   bool analysisEnabled = true,
   bool seenOnboarding = true,
-  String ocrText = kDeviceOcrText,
   DateTime? deadline,
 }) async {
   final temp = Directory.systemTemp.createTempSync('war2aty-journey');
@@ -589,7 +531,6 @@ Future<AppHarness> bootApp(
   final picker = FakeImagePickerService(photo: CapturedPhoto(photo.path));
   final permissionService = FakePermissionService(outcome: permissions);
   final connectivityService = FakeConnectivityService(connected: connected);
-  final ocrEngine = FakeOcrEngine(text: ocrText);
   final notifications = FakeLocalNotificationsPort();
   final tts = FakeTextToSpeechService();
   addTearDown(tts.dispose);
@@ -610,11 +551,8 @@ Future<AppHarness> bootApp(
     ..registerLazySingleton<LocalNotificationsPort>(() => notifications)
     ..registerLazySingleton<TextToSpeechService>(() => tts)
     ..registerLazySingleton<ImagePickerService>(() => picker)
-    // The `image` package's isolate-bound services, and Tesseract.
     ..registerLazySingleton<ImageRotator>(FakeImageRotator.new)
     ..registerLazySingleton<ImageCropper>(FakeImageCropper.new)
-    ..registerLazySingleton<ImagePreprocessor>(FakeImagePreprocessor.new)
-    ..registerLazySingleton<OcrEngine>(() => ocrEngine)
     // Files: the session directory is real (the online route reads from it),
     // the encrypted store and the temp-file sweep are not.
     ..registerLazySingleton<AnalysisSessionStorage>(() => sessions)
@@ -656,7 +594,6 @@ Future<AppHarness> bootApp(
     picker: picker,
     permissions: permissionService,
     connectivity: connectivityService,
-    ocrEngine: ocrEngine,
     notifications: notifications,
     tts: tts,
     documentImages: documentImages,

@@ -10,9 +10,6 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   CameraPermissionFailure() => 'CAMERA_PERMISSION',
   GalleryAccessFailure() => 'GALLERY_ACCESS',
   ImageProcessingFailure() => 'IMAGE_PROCESSING',
-  OcrInitializationFailure() => 'OCR_INIT',
-  OcrFailure() => 'OCR',
-  NoTextDetectedFailure() => 'NO_TEXT_DETECTED',
   LocalDatabaseFailure() => 'LOCAL_DATABASE',
   LaunchFailure() => 'LAUNCH',
   FileEncryptionFailure() => 'FILE_ENCRYPTION',
@@ -40,7 +37,6 @@ String errorCodeOf(AppFailure failure) => switch (failure) {
   AnalysisServiceFailure() => 'ANALYSIS_SERVICE',
   InvalidAnalysisResponseFailure() => 'INVALID_ANALYSIS_RESPONSE',
   AiProviderRateLimitFailure() => 'AI_PROVIDER_RATE_LIMIT',
-  OnlineOcrUnavailableFailure() => 'ONLINE_OCR_UNAVAILABLE',
   VoiceServiceFailure(:final closeCode, :final closeReasonLength) =>
     closeCode == null
         ? 'VOICE_SERVICE'

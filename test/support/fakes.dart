@@ -83,9 +83,6 @@ import 'package:war2aty/features/capture/domain/services/image_picker_service.da
 import 'package:war2aty/features/capture/domain/services/image_rotator.dart';
 import 'package:war2aty/features/capture/presentation/camera_preview_port.dart';
 import 'package:war2aty/features/explain/domain/repositories/explain_repository.dart';
-import 'package:war2aty/features/ocr/domain/entities/ocr_result.dart';
-import 'package:war2aty/features/ocr/domain/services/image_preprocessor.dart';
-import 'package:war2aty/features/ocr/domain/services/ocr_engine.dart';
 import 'package:war2aty/features/onboarding/domain/repositories/onboarding_repository.dart';
 import 'package:war2aty/features/voice/domain/entities/spoken_card_span.dart';
 import 'package:war2aty/features/voice/domain/entities/voice_read_outcome.dart';
@@ -1644,44 +1641,6 @@ final class FakeTextToSpeechService implements TextToSpeechService {
   Stream<TtsEvent> get events => _events.stream;
 
   Future<void> dispose() => _events.close();
-}
-
-/// Scriptable [OcrEngine] — the Tesseract plugin's boundary, with no plugin
-/// and no image behind it.
-///
-/// [text] is what a run recognizes; set [failure] to make every run fail.
-/// [runs] counts the recognitions, so a test can assert the phone read the
-/// page exactly once — or never (F20 §1).
-final class FakeOcrEngine implements OcrEngine {
-  FakeOcrEngine({this.text = 'فاتورة كهرباء', this.failure});
-
-  String text;
-  AppFailure? failure;
-
-  int runs = 0;
-  final List<String> imagePaths = [];
-
-  @override
-  Future<Result<OcrResult, AppFailure>> extractText(String imagePath) async {
-    runs++;
-    imagePaths.add(imagePath);
-    final failure = this.failure;
-    if (failure != null) return Err(failure);
-    return Ok(OcrResult(originalText: text, detectedLanguages: const ['ar']));
-  }
-}
-
-/// Scriptable [ImagePreprocessor] — hands the path straight back, the way the
-/// real one does for an image already within bounds, without the `image`
-/// package or an isolate.
-final class FakeImagePreprocessor implements ImagePreprocessor {
-  FakeImagePreprocessor({this.fails = false});
-
-  bool fails;
-
-  @override
-  Future<Result<String, AppFailure>> preprocess(String imagePath) async =>
-      fails ? const Err(ImageProcessingFailure()) : Ok(imagePath);
 }
 
 /// Scriptable [SavedAudioPlayer] — the second phase's player with no platform

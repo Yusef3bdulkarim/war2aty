@@ -68,7 +68,7 @@ void main() {
           durationMs: 1200,
           httpStatus: 502,
           resultStatus: LogResultStatus.failure,
-          failure: OcrFailure(),
+          failure: ImageProcessingFailure(),
           appVersion: '1.0.0',
           schemaVersion: '2.0',
         ).toLogMap(),
@@ -76,7 +76,7 @@ void main() {
 
       expect(report, isNotNull);
       expect(report!.toJson(), {
-        'error_code': 'OCR',
+        'error_code': 'IMAGE_PROCESSING',
         'stage': 'ocr',
         'result_status': 'failure',
         'request_id': '22222222-2222-4222-8222-222222222222',
@@ -123,9 +123,9 @@ void main() {
 
       StructuredAppLogger(
         sink,
-      ).failure(const OcrFailure(), stage: LogStage.ocr);
+      ).failure(const ImageProcessingFailure(), stage: LogStage.ocr);
 
-      expect(remote.sent.single.errorCode, 'OCR');
+      expect(remote.sent.single.errorCode, 'IMAGE_PROCESSING');
       expect(remote.sent.single.stage, 'ocr');
     });
 

@@ -120,7 +120,6 @@ import '../../core/result/result.dart';
 import '../../core/settings/app_settings_repository.dart';
 import '../../core/settings/drift_app_settings_repository.dart';
 import '../../core/settings/usecases/delete_all_app_data.dart';
-import '../../core/storage/analysis_session.dart';
 import '../../core/storage/analysis_session_storage.dart';
 import '../../core/storage/flutter_secure_storage_service.dart';
 import '../../core/storage/secure_storage_service.dart';
@@ -209,22 +208,6 @@ import '../../features/explain/presentation/cubit/paper_failure_cubit.dart';
 import '../../features/explain/presentation/cubit/paper_waiting_cubit.dart';
 import '../../features/explain/presentation/paper_retry_holder.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
-import '../../features/ocr/data/repositories/device_ocr_repository.dart';
-import '../../features/ocr/data/services/dart_image_preprocessor.dart';
-import '../../features/ocr/data/services/tesseract_ocr_engine.dart';
-import '../../features/ocr/domain/repositories/ocr_repository.dart';
-import '../../features/ocr/domain/services/amount_extractor.dart';
-import '../../features/ocr/domain/services/date_extractor.dart';
-import '../../features/ocr/domain/services/image_preprocessor.dart';
-import '../../features/ocr/domain/services/ocr_engine.dart';
-import '../../features/ocr/domain/services/phone_extractor.dart';
-import '../../features/ocr/domain/services/reference_extractor.dart';
-import '../../features/ocr/domain/services/text_normalizer.dart';
-import '../../features/ocr/domain/services/time_extractor.dart';
-import '../../features/ocr/domain/usecases/extract_candidates.dart';
-import '../../features/ocr/domain/usecases/extract_document_text.dart';
-import '../../features/ocr/presentation/cubit/ocr_processing_cubit.dart';
-import '../../features/ocr/presentation/ocr_session_holder.dart';
 import '../../features/onboarding/data/repositories/drift_onboarding_repository.dart';
 import '../../features/onboarding/domain/repositories/onboarding_repository.dart';
 import '../../features/onboarding/domain/usecases/complete_onboarding.dart';
@@ -282,7 +265,6 @@ Future<void> configureDependencies(
   _registerOnboarding();
   _registerHome();
   _registerCapture();
-  _registerOcr();
   _registerSavedPapers();
   _registerReminders();
   _registerAudioReader();
@@ -674,41 +656,6 @@ void _registerCapture() {
     )
     ..registerFactory<CaptureGateCubit>(
       () => CaptureGateCubit(checkCaptureReadiness: getIt()),
-    );
-}
-
-void _registerOcr() {
-  getIt
-    ..registerLazySingleton<ImagePreprocessor>(DartImagePreprocessor.new)
-    ..registerLazySingleton<OcrEngine>(TesseractOcrEngine.new)
-    ..registerLazySingleton<OcrRepository>(
-      () => DeviceOcrRepository(preprocessor: getIt(), engine: getIt()),
-    )
-    ..registerFactory<ExtractDocumentText>(() => ExtractDocumentText(getIt()))
-    ..registerLazySingleton<TextNormalizer>(TextNormalizer.new)
-    ..registerLazySingleton<DateExtractor>(DateExtractor.new)
-    ..registerLazySingleton<TimeExtractor>(TimeExtractor.new)
-    ..registerLazySingleton<AmountExtractor>(AmountExtractor.new)
-    ..registerLazySingleton<PhoneExtractor>(PhoneExtractor.new)
-    ..registerLazySingleton<ReferenceExtractor>(ReferenceExtractor.new)
-    ..registerFactory<ExtractCandidates>(
-      () => ExtractCandidates(
-        normalizer: getIt(),
-        dateExtractor: getIt(),
-        timeExtractor: getIt(),
-        amountExtractor: getIt(),
-        phoneExtractor: getIt(),
-        referenceExtractor: getIt(),
-      ),
-    )
-    ..registerLazySingleton<OcrSessionHolder>(OcrSessionHolder.new)
-    ..registerFactoryParam<OcrProcessingCubit, AnalysisSession, void>(
-      (session, _) => OcrProcessingCubit(
-        session: session,
-        extractText: getIt(),
-        extractCandidates: getIt(),
-        sessionHolder: getIt(),
-      ),
     );
 }
 

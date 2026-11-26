@@ -44,7 +44,6 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_secure_storage: ^10.3.1
-  flutter_tesseract_ocr: ^0.4.31
   flutter_tts: ^4.2.5
   get_it: ^9.2.1
   go_router: ^17.3.0
@@ -102,9 +101,6 @@ flutter:
     # Splash brand mark (F27-P01); the 2.0x/ and 3.0x/ variants are picked up
     # automatically.
     - assets/images/brand_mark.png
-    - assets/tessdata_config.json
-    - assets/tessdata/ara.traineddata
-    - assets/tessdata/eng.traineddata
     # Canned analyze-document responses for the mock datasource (F05-T08/T09).
     # Used to build the result screen before Groq is wired up.
     - assets/fixtures/analysis/

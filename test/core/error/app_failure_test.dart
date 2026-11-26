@@ -9,7 +9,7 @@ String _categoryOf(AppFailure failure) => switch (failure) {
   BusinessFailure() => 'business',
 };
 
-/// Leaf-level exhaustive switch over ALL 37 leaves with no `default`.
+/// Leaf-level exhaustive switch over ALL 33 leaves with no `default`.
 ///
 /// This is the exhaustiveness guard: adding a new [AppFailure] leaf without
 /// handling it here fails to compile, so the taxonomy can never silently grow.
@@ -18,9 +18,6 @@ String _describe(AppFailure failure) => switch (failure) {
   CameraPermissionFailure() => 'camera-permission',
   GalleryAccessFailure() => 'gallery-access',
   ImageProcessingFailure() => 'image-processing',
-  OcrInitializationFailure() => 'ocr-init',
-  OcrFailure() => 'ocr',
-  NoTextDetectedFailure() => 'no-text',
   LocalDatabaseFailure() => 'local-db',
   LaunchFailure() => 'launch',
   FileEncryptionFailure() => 'file-encryption',
@@ -45,7 +42,6 @@ String _describe(AppFailure failure) => switch (failure) {
   AnalysisServiceFailure() => 'analysis-service',
   InvalidAnalysisResponseFailure() => 'invalid-response',
   AiProviderRateLimitFailure() => 'ai-provider-rate-limit',
-  OnlineOcrUnavailableFailure() => 'online-ocr-unavailable',
   VoiceServiceFailure() => 'voice-service',
   VoiceStreamInterruptedFailure() => 'voice-stream-interrupted',
   // Business
@@ -61,9 +57,6 @@ void main() {
     const CameraPermissionFailure(),
     const GalleryAccessFailure(),
     const ImageProcessingFailure(),
-    const OcrInitializationFailure(),
-    const OcrFailure(),
-    const NoTextDetectedFailure(),
     const LocalDatabaseFailure(),
     const LaunchFailure(),
     const FileEncryptionFailure(),
@@ -89,7 +82,6 @@ void main() {
     const AnalysisServiceFailure(),
     const InvalidAnalysisResponseFailure(),
     const AiProviderRateLimitFailure(),
-    const OnlineOcrUnavailableFailure(),
     const VoiceServiceFailure(),
     const VoiceStreamInterruptedFailure(Duration(seconds: 1)),
   ];
@@ -104,7 +96,7 @@ void main() {
   group('taxonomy shape', () {
     test('has 18 local + 14 network + 5 business leaves', () {
       expect(localLeaves, hasLength(18));
-      expect(networkLeaves, hasLength(14));
+      expect(networkLeaves, hasLength(13));
       expect(businessLeaves, hasLength(5));
     });
   });
@@ -133,18 +125,24 @@ void main() {
     test('all 37 leaves describe to distinct labels', () {
       final all = [...localLeaves, ...networkLeaves, ...businessLeaves];
       final labels = all.map(_describe).toSet();
-      expect(labels, hasLength(37));
+      expect(labels, hasLength(33));
     });
   });
 
   group('equality', () {
     test('marker leaves are equal by type', () {
-      expect(const OcrFailure(), const OcrFailure());
-      expect(const OcrFailure().hashCode, const OcrFailure().hashCode);
+      expect(const ImageProcessingFailure(), const ImageProcessingFailure());
+      expect(
+        const ImageProcessingFailure().hashCode,
+        const ImageProcessingFailure().hashCode,
+      );
     });
 
     test('different marker leaves are not equal', () {
-      expect(const OcrFailure(), isNot(equals(const NoInternetFailure())));
+      expect(
+        const ImageProcessingFailure(),
+        isNot(equals(const NoInternetFailure())),
+      );
     });
 
     test('DailyLimitReachedFailure compares resetAtCairo', () {
