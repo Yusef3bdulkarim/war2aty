@@ -53,17 +53,17 @@ function legFor(
  * reserving a slot, so a missing or blank key is a loud deploy fault that costs
  * the user nothing (matrix row A8).
  *
- * Mistral first, Groq on a fallback-eligible failure (F20-T11). Both are
+ * Groq first, Mistral on a fallback-eligible failure. Both are
  * required: a deployment missing either fails every analysis here, loudly,
  * rather than quietly running on one provider. Groq alone keeps its
  * `reasoning_effort`; Mistral is not a reasoning model and gets none.
  */
 function createAnalysisChain(timeoutSeconds: number, requestId: string) {
   return createFallbackAnalysisProvider({
-    primary: legFor(mistralOptionsFromEnv()),
-    primaryName: "mistral",
-    fallback: legFor(groqOptionsFromEnv(), GROQ_REASONING_EFFORT),
-    fallbackName: "groq",
+    primary: legFor(groqOptionsFromEnv(), GROQ_REASONING_EFFORT),
+    primaryName: "groq",
+    fallback: legFor(mistralOptionsFromEnv()),
+    fallbackName: "mistral",
     totalSeconds: timeoutSeconds,
     ...chainTimingFromEnv(),
     requestId,
