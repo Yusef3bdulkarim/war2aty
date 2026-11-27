@@ -921,9 +921,11 @@ dangling doc links, and a grep for the removed flow's own words ("ocr",
 - [ ] **T47** Delete the `core/widgets/result_*` widgets, strings and assets
       used only by the deleted screens — keeping every one
       `DocumentDetailsScreen` still uses (F41). *Done when:* analyze clean.
-- [ ] **T48** Strings sweep over the three files + `app_strings_test`, and the
+- [x] **T48** Strings sweep over the three files + `app_strings_test`, and the
       prose/greps sweep above over all of `lib/` and `test/`, **after** the last
       deletion. *Done when:* the greps return only history.
+      - **Findings:** 50+ dead strings removed (OCR review, analysis wait/fail/limit, unsupported page, homeUsageRemaining); `ocrTextCopied` restored (live in `result_details_card` + `result_extracted_text_panel`); `usage_indicator_test.dart` deleted; 3 test groups removed from `failure_page_strings_test` and `failure_widgets_test`
+      - **Gate:** 0 errors · 0 warnings · 13 info (pre-existing) · localization tests 31/31
 
 ### Phase H — journeys and docs
 
