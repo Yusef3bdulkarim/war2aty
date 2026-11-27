@@ -153,18 +153,6 @@ final class ArStrings implements AppStrings {
       'صورتك مش هتتحفظ على موبايلك إلا بعد موافقتك.';
 
   @override
-  String homeUsageRemaining(int remaining) => switch (remaining) {
-    // Arabic counts in three numbers: one, two (المثنى), then many. Above ten
-    // the noun returns to the singular accusative («11 تحليلًا»), which the
-    // backend can reach by raising the daily limit.
-    <= 0 => 'استخدمت تحليلات النهارده.',
-    1 => 'متبقي لك تحليل واحد النهارده.',
-    2 => 'متبقي لك تحليلان النهارده.',
-    <= 10 => 'متبقي لك $remaining تحليلات النهارده.',
-    _ => 'متبقي لك $remaining تحليلًا النهارده.',
-  };
-
-  @override
   String get cameraPermissionTitle => 'اسمح باستخدام الكاميرا';
 
   @override
@@ -687,114 +675,11 @@ final class ArStrings implements AppStrings {
   @override
   String settingsVersionLabel(String version) => 'الإصدار $version';
 
-  // OCR processing
-  @override
-  String get ocrProcessing => 'بنقرأ الورقة...';
-  @override
-  String get ocrErrorTitle => 'حصل مشكلة';
-  @override
-  String get ocrErrorMessage =>
-      'مقدرناش نقرأ الورقة. جرّب تاني أو اختار صورة تانية.';
-  @override
-  String get ocrNoTextTitle => 'مالقيناش كلام واضح';
-  @override
-  String get ocrNoTextMessage =>
-      'الصورة مفيهاش كلام واضح. جرّب تصوّر الورقة تاني.';
-  @override
-  String get ocrRetake => 'صوّر تاني';
-  @override
-  String get ocrPickAnother => 'اختار صورة تانية';
-
-  // OCR extracted text
-  @override
-  String get ocrExtractedTextTitle => 'الكلام اللي لقيناه';
-  @override
-  String get ocrCopyText => 'نسخ الكلام';
-  @override
-  String get ocrTextCopied => 'تم النسخ';
-  @override
-  String get ocrContinue => 'متابعة';
-
-  // OCR candidate labels
-  @override
-  String get ocrDatesSection => 'تواريخ';
-  @override
-  String get ocrTimesSection => 'أوقات';
-  @override
-  String get ocrAmountsSection => 'مبالغ';
-  @override
-  String get ocrPhonesSection => 'أرقام تليفون';
-  @override
-  String get ocrReferencesSection => 'أرقام مرجعية';
-
-  @override
-  String get ocrOnlineReviewTitle => 'النص المقروء من الورقة';
-  @override
-  String get ocrOnlineReviewSubtitle =>
-      'راجع النص وعدّل لو فيه غلط قبل التحليل';
-  @override
-  String get ocrOnlineLoading => 'جاري قراءة الورقة...';
-  @override
-  String get ocrOnlineAnalyze => 'تحليل الورقة';
-  @override
-  String get ocrOnlinePoorQuality =>
-      'مقدرناش نقرا نص واضح من الورقة. حاول صوّرها تاني بإضاءة أحسن.';
-  @override
-  String get ocrOnlineShowImage => 'عرض الصورة الأصلية';
-  @override
-  String get ocrOnlineHideImage => 'إخفاء الصورة';
-  @override
-  String get ocrOnlineAmbiguityNotice => 'بعض المعلومات ممكن تحتاج مراجعة';
-
-  @override
-  String get ocrOfflineQualityWarning =>
-      'قرينا الورقة على موبايلك، فالنتيجة ممكن تكون أقل دقة — راجع النص كويس';
-  @override
-  String get ocrOnlineFallbackWarning =>
-      'القراءة الأونلاين مش متاحة دلوقتي، فقرينا الورقة على موبايلك. '
-      'النتيجة ممكن تكون أقل دقة — راجع النص كويس قبل ما تكمل.';
-  @override
-  String get ocrListenToText => 'الاستماع للنص';
-
-  // Analysis — while it runs
-  @override
-  String get analysisRunningStatus => 'بنجهّز لك شرح الورقة، استنى ثواني';
-  @override
-  String get analysisWaitStepType => 'بنشوف نوع الورقة';
-  @override
-  String get analysisWaitStepActions => 'بنشوف المطلوب منك';
-  @override
-  String get analysisWaitStepDates => 'بندوّر على أي مواعيد';
-  @override
-  String get analysisWaitStillSeconds => 'لسه ثواني، الورقة فيها تفاصيل كتير';
-  @override
-  String get analysisWaitReviewing => 'بنراجع كل حاجة كويس علشانك';
-  @override
-  String get analysisWaitTakingLonger =>
-      'بتاخد وقت أطول من العادي، لسه شغالين عليها';
-  @override
-  String get analysisWaitReady => 'جاهز!';
-  @override
-  String get analysisWaitHint => 'خليك معانا، ده بياخد ثواني';
-  @override
-  String get analysisWaitHintLong => 'مش محتاج تعمل حاجة، هنكمّل لوحدنا';
-  @override
-  String get analysisWaitHintReady => 'بنفتح لك الشرح دلوقتي';
-  @override
-  String get analysisWaitLongAnnouncement =>
-      'الورقة بتاخد وقت أطول من العادي، لسه شغالين عليها';
-  @override
-  String get analysisWaitReadyAnnouncement => 'الشرح جاهز';
-
   // Analysis result
   @override
   String get analysisResultBackLabel => 'رجوع';
   @override
   String get analysisFailedTitle => 'حصلت مشكلة أثناء الشرح';
-  @override
-  String get analysisFailedMessage =>
-      'مقدرناش نكمّل شرح الورقة دلوقتي. الكلام اللي قريناه لسه معانا، فتقدر '
-      'تحاول تاني من غير ما تصوّر من الأول.';
   @override
   String get analysisFailedTipsTitle => 'لو المشكلة اتكررت';
   @override
@@ -803,10 +688,6 @@ final class ArStrings implements AppStrings {
   String get analysisFailedTipConnection => 'اتأكد إن النت شغال كويس';
   @override
   String get analysisNoInternetTitle => 'النت فاصل دلوقتي';
-  @override
-  String get analysisNoInternetMessage =>
-      'علشان نشرح الورقة محتاجين إنترنت. الكلام اللي فيها اتقرا خلاص، فمش '
-      'هتحتاج تصوّرها تاني.';
   @override
   String get analysisNoInternetTipsTitle => 'جرّب الحاجات دي';
   @override
@@ -833,22 +714,6 @@ final class ArStrings implements AppStrings {
       'الصورة تمام، وقراية الكلام تمام، والشرح $explanation';
   @override
   String get analysisLimitReachedTitle => 'خلّصت تحليلات النهارده';
-  @override
-  String get analysisLimitReachedMessage =>
-      'استخدمت كل تحليلات النهارده. $_limitTextStillThere';
-  @override
-  String analysisLimitReachedMessageWithLimit(int limit) => switch (limit) {
-    // Arabic counts in three numbers: one, two (المثنى), then many; above
-    // ten the noun returns to the singular.
-    <= 1 => 'عندك تحليل ذكي واحد كل يوم، واستخدمته. $_limitTextStillThere',
-    2 => 'عندك تحليلين ذكيين كل يوم، واستخدمتهم الاتنين. $_limitTextStillThere',
-    <= 10 =>
-      'عندك $limit تحليلات ذكية كل يوم، واستخدمتهم كلهم. '
-          '$_limitTextStillThere',
-    _ => 'عندك $limit تحليل ذكي كل يوم، واستخدمتهم كلهم. $_limitTextStillThere',
-  };
-  static const _limitTextStillThere =
-      'الكلام اللي في الورقة لسه متاح تقراه دلوقتي.';
   @override
   String get analysisLimitResetsInLabel => 'تحليلاتك بتتجدد بعد';
   @override
@@ -880,9 +745,6 @@ final class ArStrings implements AppStrings {
   String analysisLimitUsedOf(int limit) => 'استخدمت $limit من $limit النهارده';
   @override
   String get analysisLimitTipsTitle => 'تقدر تعمل إيه دلوقتي؟';
-  @override
-  String get analysisLimitTipReadText =>
-      'اقرا الكلام اللي في الورقة وانسخه — ده مش بيستهلك تحليلات';
   @override
   String get analysisLimitTipTomorrow =>
       'خلّي الورقة معاك، وصوّرها تاني بكرة أول ما التحليلات تتجدد';
@@ -1008,51 +870,12 @@ final class ArStrings implements AppStrings {
   @override
   String get actionCopy => 'نسخ';
   @override
+  String get ocrTextCopied => 'تم النسخ';
+  @override
   String get resultListenToText => 'استماع';
   @override
   String get resultPartialBanner =>
       'قدرنا نفهم جزء من الورقة، لكن بعض المعلومات محتاجة مراجعتك.';
-  @override
-  String get analysisUnsupportedTitle => 'مقدرناش نشرح الورقة دي';
-  @override
-  String get analysisUnsupportedMessage =>
-      'ممكن يكون الكلام اللي فيها مش واضح كفاية، أو نوعها لسه مش من الأوراق '
-      'اللي بنشرحها. جرّب تصوّرها تاني في نور كويس، أو صوّر ورقة من الأنواع '
-      'اللي تحت.';
-  @override
-  String get analysisAttemptNotCounted =>
-      'المحاولة دي متحسبتش من تحليلاتك النهارده';
-  @override
-  String get analysisExtractedTextCardSubtitle =>
-      'الكلام اللي قريناه من الورقة، وتقدر تنسخه';
-  @override
-  String get analysisSupportedDocumentsTitle => 'الأوراق اللي بنشرحها';
-  @override
-  String get analysisSupportedInvoices => 'فواتير وإيصالات';
-  @override
-  String get analysisSupportedInvoicesExamples => 'كهربا، مية، غاز، تليفون';
-  @override
-  String get analysisSupportedAppointments => 'مواعيد';
-  @override
-  String get analysisSupportedAppointmentsExamples =>
-      'ميعاد دكتور، حجز، مقابلة';
-  @override
-  String get analysisSupportedGovernment => 'أوراق حكومية';
-  @override
-  String get analysisSupportedGovernmentExamples => 'إخطار، خطاب رسمي';
-  @override
-  String get analysisSupportedEducation => 'أوراق تعليمية';
-  @override
-  String get analysisSupportedEducationExamples => 'نتيجة امتحان، ورقة مدرسة';
-  @override
-  String get analysisSupportedOther => 'أوراق تانية';
-  @override
-  String get analysisSupportedOtherExamples =>
-      'تقرير طبي، ورقة قانونية، ورقة من البنك';
-  @override
-  String get analysisPickFromGallery => 'اختار من الصور';
-  @override
-  String get analysisCaptureAnother => 'صوّر ورقة تانية';
 
   // Document kinds
   @override

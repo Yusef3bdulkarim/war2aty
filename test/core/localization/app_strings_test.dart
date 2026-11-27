@@ -52,7 +52,6 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'homeScanSubtitle': (s) => s.homeScanSubtitle,
   'homePickImage': (s) => s.homePickImage,
   'homeImagePrivacyNote': (s) => s.homeImagePrivacyNote,
-  'homeUsageRemaining': (s) => s.homeUsageRemaining(2),
   'cameraPermissionTitle': (s) => s.cameraPermissionTitle,
   'cameraPermissionMessage': (s) => s.cameraPermissionMessage,
   'cameraPermissionBlockedMessage': (s) => s.cameraPermissionBlockedMessage,
@@ -243,54 +242,12 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'settingsUsageLimitValue': (s) => s.settingsUsageLimitValue(1, 3),
   'settingsUsageLimitUnavailable': (s) => s.settingsUsageLimitUnavailable,
   'settingsVersionLabel': (s) => s.settingsVersionLabel('1.0.0'),
-  'ocrProcessing': (s) => s.ocrProcessing,
-  'ocrErrorTitle': (s) => s.ocrErrorTitle,
-  'ocrErrorMessage': (s) => s.ocrErrorMessage,
-  'ocrNoTextTitle': (s) => s.ocrNoTextTitle,
-  'ocrNoTextMessage': (s) => s.ocrNoTextMessage,
-  'ocrRetake': (s) => s.ocrRetake,
-  'ocrPickAnother': (s) => s.ocrPickAnother,
-  'ocrExtractedTextTitle': (s) => s.ocrExtractedTextTitle,
-  'ocrCopyText': (s) => s.ocrCopyText,
-  'ocrTextCopied': (s) => s.ocrTextCopied,
-  'ocrContinue': (s) => s.ocrContinue,
-  'ocrDatesSection': (s) => s.ocrDatesSection,
-  'ocrTimesSection': (s) => s.ocrTimesSection,
-  'ocrAmountsSection': (s) => s.ocrAmountsSection,
-  'ocrPhonesSection': (s) => s.ocrPhonesSection,
-  'ocrReferencesSection': (s) => s.ocrReferencesSection,
-  'ocrOnlineReviewTitle': (s) => s.ocrOnlineReviewTitle,
-  'ocrOnlineReviewSubtitle': (s) => s.ocrOnlineReviewSubtitle,
-  'ocrOnlineLoading': (s) => s.ocrOnlineLoading,
-  'ocrOnlineAnalyze': (s) => s.ocrOnlineAnalyze,
-  'ocrOnlinePoorQuality': (s) => s.ocrOnlinePoorQuality,
-  'ocrOnlineShowImage': (s) => s.ocrOnlineShowImage,
-  'ocrOnlineHideImage': (s) => s.ocrOnlineHideImage,
-  'ocrOnlineAmbiguityNotice': (s) => s.ocrOnlineAmbiguityNotice,
-  'ocrOfflineQualityWarning': (s) => s.ocrOfflineQualityWarning,
-  'ocrOnlineFallbackWarning': (s) => s.ocrOnlineFallbackWarning,
-  'ocrListenToText': (s) => s.ocrListenToText,
-  'analysisRunningStatus': (s) => s.analysisRunningStatus,
-  'analysisWaitStepType': (s) => s.analysisWaitStepType,
-  'analysisWaitStepActions': (s) => s.analysisWaitStepActions,
-  'analysisWaitStepDates': (s) => s.analysisWaitStepDates,
-  'analysisWaitStillSeconds': (s) => s.analysisWaitStillSeconds,
-  'analysisWaitReviewing': (s) => s.analysisWaitReviewing,
-  'analysisWaitTakingLonger': (s) => s.analysisWaitTakingLonger,
-  'analysisWaitReady': (s) => s.analysisWaitReady,
-  'analysisWaitHint': (s) => s.analysisWaitHint,
-  'analysisWaitHintLong': (s) => s.analysisWaitHintLong,
-  'analysisWaitHintReady': (s) => s.analysisWaitHintReady,
-  'analysisWaitLongAnnouncement': (s) => s.analysisWaitLongAnnouncement,
-  'analysisWaitReadyAnnouncement': (s) => s.analysisWaitReadyAnnouncement,
   'analysisResultBackLabel': (s) => s.analysisResultBackLabel,
   'analysisFailedTitle': (s) => s.analysisFailedTitle,
-  'analysisFailedMessage': (s) => s.analysisFailedMessage,
   'analysisFailedTipsTitle': (s) => s.analysisFailedTipsTitle,
   'analysisFailedTipWait': (s) => s.analysisFailedTipWait,
   'analysisFailedTipConnection': (s) => s.analysisFailedTipConnection,
   'analysisNoInternetTitle': (s) => s.analysisNoInternetTitle,
-  'analysisNoInternetMessage': (s) => s.analysisNoInternetMessage,
   'analysisNoInternetTipsTitle': (s) => s.analysisNoInternetTipsTitle,
   'analysisNoInternetTipWifi': (s) => s.analysisNoInternetTipWifi,
   'analysisNoInternetTipAirplane': (s) => s.analysisNoInternetTipAirplane,
@@ -303,16 +260,12 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'analysisStepNotFinished': (s) => s.analysisStepNotFinished,
   'analysisStepsSemantics': (s) => s.analysisStepsSemantics('x'),
   'analysisLimitReachedTitle': (s) => s.analysisLimitReachedTitle,
-  'analysisLimitReachedMessage': (s) => s.analysisLimitReachedMessage,
-  'analysisLimitReachedMessageWithLimit': (s) =>
-      s.analysisLimitReachedMessageWithLimit(3),
   'analysisLimitResetsInLabel': (s) => s.analysisLimitResetsInLabel,
   'analysisLimitResetsIn': (s) => s.analysisLimitResetsIn(5, 12),
   'analysisLimitResetTime': (s) => s.analysisLimitResetTime,
   'analysisLimitRenewed': (s) => s.analysisLimitRenewed,
   'analysisLimitUsedOf': (s) => s.analysisLimitUsedOf(3),
   'analysisLimitTipsTitle': (s) => s.analysisLimitTipsTitle,
-  'analysisLimitTipReadText': (s) => s.analysisLimitTipReadText,
   'analysisLimitTipTomorrow': (s) => s.analysisLimitTipTomorrow,
   'analysisBackToHome': (s) => s.analysisBackToHome,
   'resultListen': (s) => s.resultListen,
@@ -337,30 +290,9 @@ final Map<String, String Function(AppStrings)> _accessors = {
   'resultShowExtractedText': (s) => s.resultShowExtractedText,
   'resultExtractedTextWarning': (s) => s.resultExtractedTextWarning,
   'actionCopy': (s) => s.actionCopy,
+  'ocrTextCopied': (s) => s.ocrTextCopied,
   'resultListenToText': (s) => s.resultListenToText,
   'resultPartialBanner': (s) => s.resultPartialBanner,
-  'analysisUnsupportedTitle': (s) => s.analysisUnsupportedTitle,
-  'analysisUnsupportedMessage': (s) => s.analysisUnsupportedMessage,
-  'analysisAttemptNotCounted': (s) => s.analysisAttemptNotCounted,
-  'analysisExtractedTextCardSubtitle': (s) =>
-      s.analysisExtractedTextCardSubtitle,
-  'analysisSupportedDocumentsTitle': (s) => s.analysisSupportedDocumentsTitle,
-  'analysisSupportedInvoices': (s) => s.analysisSupportedInvoices,
-  'analysisSupportedInvoicesExamples': (s) =>
-      s.analysisSupportedInvoicesExamples,
-  'analysisSupportedAppointments': (s) => s.analysisSupportedAppointments,
-  'analysisSupportedAppointmentsExamples': (s) =>
-      s.analysisSupportedAppointmentsExamples,
-  'analysisSupportedGovernment': (s) => s.analysisSupportedGovernment,
-  'analysisSupportedGovernmentExamples': (s) =>
-      s.analysisSupportedGovernmentExamples,
-  'analysisSupportedEducation': (s) => s.analysisSupportedEducation,
-  'analysisSupportedEducationExamples': (s) =>
-      s.analysisSupportedEducationExamples,
-  'analysisSupportedOther': (s) => s.analysisSupportedOther,
-  'analysisSupportedOtherExamples': (s) => s.analysisSupportedOtherExamples,
-  'analysisPickFromGallery': (s) => s.analysisPickFromGallery,
-  'analysisCaptureAnother': (s) => s.analysisCaptureAnother,
   'documentTypeLabel': (s) => s.documentTypeLabel,
   'documentKindInvoice': (s) => s.documentKindInvoice,
   'documentKindReceipt': (s) => s.documentKindReceipt,
@@ -750,86 +682,6 @@ void main() {
         }
       }
     });
-  });
-
-  group('the on-device reading warning does not blame the connection', () {
-    // F27-T18 finding D-1, found on the owner's phone: the banner said the
-    // reading was done «بدون إنترنت» while the phone was online and the
-    // analysis that followed reached production over the same connection.
-    // `DecideAnalysisRoute` routes on-device for three reasons, and the one in
-    // production today (Q12: `online_ocr_enabled = false`) has nothing to do
-    // with the user's internet — so the banner must say *where* the page was
-    // read, never *why*.
-    // Arabic needs patterns rather than substrings: «النتيجة» (the result)
-    // contains «النت» (the net), so a plain `contains` fails on perfectly
-    // honest copy. «النت» is therefore matched only as a whole word.
-    final arBlamesConnection = <RegExp>[
-      RegExp('إنترنت'),
-      RegExp('انترنت'),
-      // U+0621-U+064A are the letters, U+064B-U+0652 the tashkeel, so a
-      // vowelled «النتُ» cannot slip past the word boundary either.
-      RegExp(r'النت(?![ء-ْ])'),
-      RegExp('اتصال'),
-      RegExp('أوفلاين'),
-    ];
-    const enBlamesConnection = [
-      'internet',
-      'connection',
-      'offline',
-      'no network',
-    ];
-
-    test('Arabic says where the page was read, not what the network did', () {
-      for (final pattern in arBlamesConnection) {
-        expect(
-          ar.ocrOfflineQualityWarning,
-          isNot(matches(pattern)),
-          reason:
-              'the on-device route is the launch default while the user is '
-              'online, so «${pattern.pattern}» would be false for every user',
-        );
-      }
-      expect(ar.ocrOfflineQualityWarning, contains('على موبايلك'));
-    });
-
-    test('that guard really would catch the wording it replaced', () {
-      // The copy this finding removed, kept here as the negative case: without
-      // it, the test above could pass by accident on any rewrite.
-      const old = 'النتيجة ممكن تكون أقل دقة لأن القراءة تمت بدون إنترنت';
-      expect(
-        arBlamesConnection.any((p) => p.hasMatch(old)),
-        isTrue,
-        reason: 'the banned patterns must match the wording D-1 removed',
-      );
-      // And it must not fire on «النتيجة», which is why they are patterns.
-      expect(
-        arBlamesConnection.any((p) => p.hasMatch('النتيجة ممكن تكون أقل دقة')),
-        isFalse,
-      );
-    });
-
-    test('English says where the page was read, not what the network did', () {
-      final copy = en.ocrOfflineQualityWarning.toLowerCase();
-      for (final word in enBlamesConnection) {
-        expect(copy, isNot(contains(word)), reason: '"$word" would be false');
-      }
-      expect(copy, contains('on your phone'));
-    });
-
-    test(
-      'the explicit-fallback banner keeps naming the online reading, which is '
-      'true in its one case',
-      () {
-        // Its cause really is that the online reading was unavailable, so this
-        // one may say so — and it still must not name a provider, which the
-        // provider guard above already enforces over every string.
-        expect(ar.ocrOnlineFallbackWarning, contains('الأونلاين'));
-        expect(
-          en.ocrOnlineFallbackWarning.toLowerCase(),
-          contains('online reading'),
-        );
-      },
-    );
   });
 
   group('AppStringsDelegate', () {

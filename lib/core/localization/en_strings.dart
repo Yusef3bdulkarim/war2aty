@@ -160,13 +160,6 @@ final class EnStrings implements AppStrings {
       'Your photo is saved on your phone only if you agree.';
 
   @override
-  String homeUsageRemaining(int remaining) => switch (remaining) {
-    <= 0 => 'You have used up today\'s analyses.',
-    1 => 'You have 1 analysis left today.',
-    _ => 'You have $remaining analyses left today.',
-  };
-
-  @override
   String get cameraPermissionTitle => 'Allow camera access';
 
   @override
@@ -691,119 +684,11 @@ final class EnStrings implements AppStrings {
   @override
   String settingsVersionLabel(String version) => 'Version $version';
 
-  // OCR processing
-  @override
-  String get ocrProcessing => 'Reading the document...';
-  @override
-  String get ocrErrorTitle => 'Something went wrong';
-  @override
-  String get ocrErrorMessage =>
-      'Could not read the document. Try again or pick another image.';
-  @override
-  String get ocrNoTextTitle => 'No text found';
-  @override
-  String get ocrNoTextMessage =>
-      'The image does not contain readable text. Try taking a clearer photo.';
-  @override
-  String get ocrRetake => 'Retake';
-  @override
-  String get ocrPickAnother => 'Pick another';
-
-  // OCR extracted text
-  @override
-  String get ocrExtractedTextTitle => 'Extracted text';
-  @override
-  String get ocrCopyText => 'Copy text';
-  @override
-  String get ocrTextCopied => 'Copied';
-  @override
-  String get ocrContinue => 'Continue';
-
-  // OCR candidate labels
-  @override
-  String get ocrDatesSection => 'Dates';
-  @override
-  String get ocrTimesSection => 'Times';
-  @override
-  String get ocrAmountsSection => 'Amounts';
-  @override
-  String get ocrPhonesSection => 'Phone numbers';
-  @override
-  String get ocrReferencesSection => 'Reference numbers';
-
-  @override
-  String get ocrOnlineReviewTitle => 'Text read from the document';
-  @override
-  String get ocrOnlineReviewSubtitle =>
-      'Review the text and fix anything wrong before analysis';
-  @override
-  String get ocrOnlineLoading => 'Reading the document...';
-  @override
-  String get ocrOnlineAnalyze => 'Analyze document';
-  @override
-  String get ocrOnlinePoorQuality =>
-      "We couldn't read clear text from the document. Try photographing it "
-      'again with better lighting.';
-  @override
-  String get ocrOnlineShowImage => 'Show original image';
-  @override
-  String get ocrOnlineHideImage => 'Hide image';
-  @override
-  String get ocrOnlineAmbiguityNotice => 'Some information may need review';
-
-  @override
-  String get ocrOfflineQualityWarning =>
-      'We read the paper on your phone, so results may be less accurate — '
-      'check the text';
-  @override
-  String get ocrOnlineFallbackWarning =>
-      "Online reading isn't available right now, so we read the paper on "
-      'your phone. Results may be less accurate — check the text before '
-      'continuing.';
-  @override
-  String get ocrListenToText => 'Listen to text';
-
-  // Analysis — while it runs
-  @override
-  String get analysisRunningStatus =>
-      'Preparing your explanation, just a few seconds';
-  @override
-  String get analysisWaitStepType => 'Checking the type of paper';
-  @override
-  String get analysisWaitStepActions => 'Checking what you need to do';
-  @override
-  String get analysisWaitStepDates => 'Looking for any dates';
-  @override
-  String get analysisWaitStillSeconds =>
-      'A few more seconds, this paper has a lot of detail';
-  @override
-  String get analysisWaitReviewing => 'Checking everything carefully for you';
-  @override
-  String get analysisWaitTakingLonger =>
-      'Taking longer than usual, still working on it';
-  @override
-  String get analysisWaitReady => 'Ready!';
-  @override
-  String get analysisWaitHint => 'Stay with us, this takes a few seconds';
-  @override
-  String get analysisWaitHintLong => 'Nothing for you to do, we will carry on';
-  @override
-  String get analysisWaitHintReady => 'Opening your explanation now';
-  @override
-  String get analysisWaitLongAnnouncement =>
-      'This paper is taking longer than usual, still working on it';
-  @override
-  String get analysisWaitReadyAnnouncement => 'Your explanation is ready';
-
   // Analysis result
   @override
   String get analysisResultBackLabel => 'Back';
   @override
   String get analysisFailedTitle => 'Something went wrong while explaining';
-  @override
-  String get analysisFailedMessage =>
-      'We could not finish explaining this paper right now. We still have the '
-      'text we read, so you can try again without photographing it again.';
   @override
   String get analysisFailedTipsTitle => 'If it keeps happening';
   @override
@@ -813,10 +698,6 @@ final class EnStrings implements AppStrings {
       'Make sure your internet is working well';
   @override
   String get analysisNoInternetTitle => 'You are offline right now';
-  @override
-  String get analysisNoInternetMessage =>
-      'We need the internet to explain this paper. Its text has already been '
-      'read, so you will not need to photograph it again.';
   @override
   String get analysisNoInternetTipsTitle => 'Try these';
   @override
@@ -844,17 +725,6 @@ final class EnStrings implements AppStrings {
   @override
   String get analysisLimitReachedTitle => "You have used today's analyses";
   @override
-  String get analysisLimitReachedMessage =>
-      "You have used all of today's analyses. $_limitTextStillThere";
-  @override
-  String analysisLimitReachedMessageWithLimit(int limit) => limit == 1
-      ? 'You get 1 smart analysis a day, and you have used it. '
-            '$_limitTextStillThere'
-      : 'You get $limit smart analyses a day, and you have used them all. '
-            '$_limitTextStillThere';
-  static const _limitTextStillThere =
-      "The paper's text is still here for you to read now.";
-  @override
   String get analysisLimitResetsInLabel => 'Your analyses renew in';
   @override
   String analysisLimitResetsIn(int hours, int minutes) => [
@@ -869,9 +739,6 @@ final class EnStrings implements AppStrings {
   String analysisLimitUsedOf(int limit) => 'Used $limit of $limit today';
   @override
   String get analysisLimitTipsTitle => 'What you can do now';
-  @override
-  String get analysisLimitTipReadText =>
-      "Read and copy the paper's text. It does not use an analysis";
   @override
   String get analysisLimitTipTomorrow =>
       'Keep the paper and photograph it again tomorrow, once your analyses '
@@ -999,53 +866,12 @@ final class EnStrings implements AppStrings {
   @override
   String get actionCopy => 'Copy';
   @override
+  String get ocrTextCopied => 'Copied';
+  @override
   String get resultListenToText => 'Listen';
   @override
   String get resultPartialBanner =>
       'We understood part of this paper. Some details need your review.';
-  @override
-  String get analysisUnsupportedTitle => 'We could not explain this paper';
-  @override
-  String get analysisUnsupportedMessage =>
-      'Its text may not be clear enough, or it may be a kind of paper we do '
-      'not explain yet. Try photographing it again in good light, or '
-      'photograph one of the kinds below.';
-  @override
-  String get analysisAttemptNotCounted =>
-      "This attempt did not count toward today's analyses";
-  @override
-  String get analysisExtractedTextCardSubtitle =>
-      'The text we read from the paper, ready to copy';
-  @override
-  String get analysisSupportedDocumentsTitle => 'Papers we explain';
-  @override
-  String get analysisSupportedInvoices => 'Bills and receipts';
-  @override
-  String get analysisSupportedInvoicesExamples =>
-      'Electricity, water, gas, phone';
-  @override
-  String get analysisSupportedAppointments => 'Appointments';
-  @override
-  String get analysisSupportedAppointmentsExamples =>
-      'Doctor, booking, interview';
-  @override
-  String get analysisSupportedGovernment => 'Government papers';
-  @override
-  String get analysisSupportedGovernmentExamples => 'Notices, official letters';
-  @override
-  String get analysisSupportedEducation => 'School papers';
-  @override
-  String get analysisSupportedEducationExamples =>
-      'Exam results, school letters';
-  @override
-  String get analysisSupportedOther => 'Other papers';
-  @override
-  String get analysisSupportedOtherExamples =>
-      'Medical reports, legal papers, bank letters';
-  @override
-  String get analysisPickFromGallery => 'Pick from photos';
-  @override
-  String get analysisCaptureAnother => 'Photograph another';
 
   // Document kinds
   @override

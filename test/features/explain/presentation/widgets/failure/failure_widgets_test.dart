@@ -5,7 +5,6 @@ import 'package:war2aty/core/localization/app_localizations.dart';
 import 'package:war2aty/core/localization/ar_strings.dart';
 import 'package:war2aty/core/theme/app_colors.dart';
 import 'package:war2aty/features/explain/presentation/widgets/failure/analysis_steps_card.dart';
-import 'package:war2aty/features/explain/presentation/widgets/failure/failure_note_chip.dart';
 import 'package:war2aty/features/explain/presentation/widgets/failure/failure_tips_card.dart';
 import 'package:war2aty/features/explain/presentation/widgets/failure/limit_reset_card.dart';
 
@@ -38,22 +37,6 @@ Future<void> _pump(
 );
 
 void main() {
-  group('FailureNoteChip', () {
-    testWidgets('says it with a check and words, in the success ink', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        FailureNoteChip(text: _strings.analysisAttemptNotCounted),
-      );
-
-      expect(find.text(_strings.analysisAttemptNotCounted), findsOneWidget);
-      final icon = tester.widget<StrokeIcon>(find.byType(StrokeIcon));
-      expect(icon.glyph, StrokeGlyph.check);
-      expect(icon.color, AppColors.light.successInk);
-    });
-  });
-
   group('AnalysisStepsCard', () {
     List<StrokeGlyph> glyphs(WidgetTester tester) => tester
         .widgetList<StrokeIcon>(find.byType(StrokeIcon))
